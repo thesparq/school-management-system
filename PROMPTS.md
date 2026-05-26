@@ -18,6 +18,7 @@ ask me questions before writing the spec. Dont write the file until i have revie
 Read @docs/specs/01-frontend-foundation.md .
 Update @docs/progress-tracker.md to mark this as
 in progress.
+Create a new branch for this unit using the format `feat/NN-feature-name` e.g. `feat/01-frontend-foundation`.
 Implement it exactly as specified.
 Do not go beyond the scope of this unit.
 
@@ -33,5 +34,5 @@ Fix only this. Do not change anything else.
 
 Implementation is complete and verified.
 Mark unit 01 complete in @docs/progress-tracker.md .
-Create a new branch for this unit using the format `feat/01-frontend-foundation` and push to GitHub.
+Push branch to GitHub.
 Then create a PR to main.
