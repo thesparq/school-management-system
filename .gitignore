@@ -5,6 +5,6 @@ _build/
 .mooncaches/
 .env
 .jj/
-.agents/
-**/.agents/
+.agents
+**/.agents
 .claude
