@@ -24,7 +24,7 @@
 *Dependencies:* Unit 3 (layout shell), Unit 2 (auth).
 
 **7. Admin Agent – Activation Methods**  
-*What it builds:* Extends Admin Agent with `activateUser(userId, role, class?)` (writes to SQLite, status `active`) and `isUserActive(userId)`. Gateway Agent extended: every incoming request now calls `AdminAgent.isUserActive`; if false, returns `403 { code: "NOT_ACTIVATED" }`. Testable via ping proxy for inactive vs active users.  
+*What it builds:* Extends Admin Agent with `activateUser(userId, role, class?)` (stores in agent struct fields, status `active`) and `isUserActive(userId)`. Gateway Agent extended: every incoming request now calls `AdminAgent.isUserActive`; if false, returns `403 { code: "NOT_ACTIVATED" }`. Testable via ping proxy for inactive vs active users.  
 *Dependencies:* Unit 4 (agents), Unit 5 (proxy pattern).
 
 **8. Admin Portal – Activation Actions**  
@@ -40,7 +40,7 @@
 *Dependencies:* SurrealDB instance running with existing lesson data. No code dependencies.
 
 **10. Student Agent – Initialization and Subject List**  
-*What it builds:* Student Agent with `initialize(classLevel)` – it queries SurrealDB for subjects assigned to that class (from `class_subjects`) and stores them in its SQLite. Exposes `getSubjects()`. Admin Agent: during `activateUser` for a student, calls `StudentAgent.initialize`. A proxy route `/api/student/subjects` added.  
+*What it builds:* Student Agent with `initialize(classLevel)` – it queries SurrealDB for subjects assigned to that class (from `class_subjects`) and stores them in its durable state. Exposes `getSubjects()`. Admin Agent: during `activateUser` for a student, calls `StudentAgent.initialize`. A proxy route `/api/student/subjects` added.  
 *Dependencies:* Unit 8 (activation flow), Unit 9 (normalised SurrealDB).
 
 **11. Student Dashboard – Subject Cards**  
@@ -48,7 +48,7 @@
 *Dependencies:* Unit 10 (Student Agent subjects), Unit 3 (layout).
 
 **12. Student Agent – Term & Lesson Lists**  
-*What it builds:* Student Agent methods `getTerms(subjectId)` and `getLessons(subjectId, termId)`. Both query SurrealDB’s normalised `terms` and `lessons` tables, filtering by `active = true`. Terms that have no active lessons are excluded (or greyed out) based on the `active` flag on the term record itself (set during normalisation). Results cached in SQLite. Proxy routes added.  
+*What it builds:* Student Agent methods `getTerms(subjectId)` and `getLessons(subjectId, termId)`. Both query SurrealDB’s normalised `terms` and `lessons` tables, filtering by `active = true`. Terms that have no active lessons are excluded (or greyed out) based on the `active` flag on the term record itself (set during normalisation). Results cached in memory (agent struct fields). Proxy routes added.  
 *Dependencies:* Unit 10 (Student Agent exists), Unit 9 (normalised schema with term active flags).
 
 **13. Student LMS – Term & Lesson Browsing**  
@@ -64,7 +64,7 @@
 *Dependencies:* Unit 14 (lesson data available), Unit 13 (browsing flow).
 
 **16. Teacher Agent – Initialization & Dashboard**  
-*What it builds:* Teacher Agent with `initialize(teacherId)` – queries Admin Agent for assigned classes/subjects (stored during teacher activation) and stores in SQLite. Exposes `getMyClasses()`. Teacher dashboard: after login, teacher sees their classes, clicks into a class → subjects → terms → lessons. Reuses existing lesson list components; lesson detail view (next unit) will show all fields.  
+*What it builds:* Teacher Agent with `initialize(teacherId)` – queries Admin Agent for assigned classes/subjects (stored during teacher activation) and stores in its durable state. Exposes `getMyClasses()`. Teacher dashboard: after login, teacher sees their classes, clicks into a class → subjects → terms → lessons. Reuses existing lesson list components; lesson detail view (next unit) will show all fields.  
 *Dependencies:* Unit 8 (activation sets teacher assignments), Unit 13 (lesson list components), Unit 14 (need full lesson view – see Unit 18).
 
 **17. Teacher Agent – Term & Lesson Toggle (with Normalised Term Table)**  
@@ -72,7 +72,7 @@
 *Dependencies:* Unit 16 (Teacher Agent, roster), Unit 9 (normalised terms with active flag).
 
 **18. Teacher Assignment Creation**  
-*What it builds:* Teacher Agent method `configureAssignment(lessonId, selectedQuestionIds, deadline)`. Stores assignment definition in SQLite, then pushes to all students via `StudentAgent.addOrUpdateAssignment`. Teacher’s lesson detail page (built here) shows **all** lesson fields (full record) plus checkboxes for questions, deadline picker, and “Create Assignment” button.  
+*What it builds:* Teacher Agent method `configureAssignment(lessonId, selectedQuestionIds, deadline)`. Stores assignment definition in its durable state, then pushes to all students via `StudentAgent.addOrUpdateAssignment`. Teacher’s lesson detail page (built here) shows **all** lesson fields (full record) plus checkboxes for questions, deadline picker, and “Create Assignment” button.  
 *Dependencies:* Unit 16 (Teacher Agent, roster), Unit 14 (Student Agent can receive assignment config).
 
 **19. Student Assignment Display**  

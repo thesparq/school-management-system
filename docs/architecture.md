@@ -11,7 +11,7 @@
 | Shared Logic Language | MoonBit | v0.9.x | All business logic, data transformations, validation, and type definitions; compiled to JavaScript (frontend) and WASM (backend) from a single codebase |
 | Frontend Integration | vite-plugin-moonbit | v0.2.1 | Enables `import { … } from "mbt:…"` in SvelteKit; auto-starts `moon build --watch` in development; supports JS and WASM-GC backends, monorepo workspaces, HMR, and source maps |
 | Backend Compute | Golem Cloud | v1.5.3 | Durable agent runtime; agents compiled from MoonBit to WASM components with WIT interfaces; provides transactional durable execution, exactly-once worker-to-worker RPC, idle-to-zero suspend/resume, and built-in HTTP API gateway |
-| Agent-local Storage | SQLite (embedded) | via Golem filesystem | Structured, queryable durable state inside every durable agent; schema versioned and migrated idempotently; no network overhead |
+| Agent-local Storage | Agent Struct Fields (Durable Memory) | Golem op‑log | State stored in agent struct fields, persisted by Golem's durable execution op‑log; survives restarts and replays without external databases |
 | Content Database | SurrealDB | 3.0 | Multi-model document/graph/vector database storing AI-generated lesson content; agents access it via HTTP using `golemcloud/golem_sdk/http` |
 
 ## Monorepo Structure & Tooling Setup
@@ -192,42 +192,44 @@ One document per lesson. The schema is the AI-generated lesson record with field
 
 Agents read these documents, cache them, and present them. Teachers do not modify the documents directly in the MVP; they select questions from the existing banks.
 
-### Agent-local SQLite — User State
+### Agent Durable State
 
-Every durable agent (Admin, Student, Teacher) embeds an SQLite database via Golem's filesystem access. The database is opened on agent startup and migrations run idempotently before any request is processed.
+Every durable agent stores its state in MoonBit struct fields. Golem's durable
+execution op‑log persists these fields across restarts and replays — no external
+database, no migration scripts. New fields are added with safe defaults.
 
-**Admin Agent tables:**
+**Admin Agent struct fields:**
 
-| Table | Key columns | Purpose |
+| Field | MoonBit Type | Purpose |
 | :--- | :--- | :--- |
-| `activated_users` | `user_id TEXT PRIMARY KEY, role TEXT, status TEXT, class_level TEXT, activated_at TEXT` | Master list of all activated users and their status |
-| `teacher_assignments` | `teacher_id TEXT, subject TEXT, class_level TEXT, PRIMARY KEY (teacher_id, subject, class_level)` | Which teacher teaches which subject to which class |
-| `class_rosters` | `student_id TEXT PRIMARY KEY, class_level TEXT` | Which class each student belongs to |
+| `activated_users` | `Map[String, UserActivation]` | Master list of all activated users and their status |
+| `teacher_assignments` | `Map[String, TeacherAssignment]` | Which teacher teaches which subject to which class |
+| `class_rosters` | `Map[String, String]` | Which class each student belongs to |
 
-**Student Agent tables:**
+**Student Agent struct fields:**
 
-| Table | Key columns | Purpose |
+| Field | MoonBit Type | Purpose |
 | :--- | :--- | :--- |
-| `profile` | `class_level TEXT` | Student's current class |
-| `subjects` | `subject_name TEXT PRIMARY KEY` | Subjects for student's class |
-| `assignments` | `assignment_id TEXT PRIMARY KEY, lesson_id TEXT, subject TEXT, term TEXT, selected_question_ids TEXT, deadline TEXT, status TEXT, teacher_id TEXT` | Active and past assignment configs; `selected_question_ids` is a JSON array |
-| `submissions` | `assignment_id TEXT PRIMARY KEY, answers TEXT, submitted_at TEXT, version INTEGER` | Student's submitted answers; `answers` is a JSON blob |
-| `grades` | `assignment_id TEXT PRIMARY KEY, score REAL, feedback TEXT, graded_at TEXT, teacher_id TEXT` | Grades and feedback received |
-| `lesson_cache` | `lesson_id TEXT PRIMARY KEY, content TEXT, cached_at TEXT` | Cached lesson content with TTL |
+| `profile` | `StudentProfile?` | Student's current class |
+| `subjects` | `Map[String, SubjectInfo]` | Subjects for student's class |
+| `assignments` | `Map[String, AssignmentConfig]` | Active and past assignment configs |
+| `submissions` | `Map[String, Submission]` | Student's submitted answers |
+| `grades` | `Map[String, GradeRecord]` | Grades and feedback received |
+| `lesson_cache` | `Map[String, CachedLesson]` | Cached lesson content with TTL |
 
-**Teacher Agent tables:**
+**Teacher Agent struct fields:**
 
-| Table | Key columns | Purpose |
+| Field | MoonBit Type | Purpose |
 | :--- | :--- | :--- |
-| `my_classes` | `class_level TEXT, subject TEXT, PRIMARY KEY (class_level, subject)` | Classes and subjects the teacher is assigned to |
-| `rosters` | `student_id TEXT, class_level TEXT, PRIMARY KEY (student_id, class_level)` | Students in each of the teacher's classes |
-| `assignments` | `assignment_id TEXT PRIMARY KEY, lesson_id TEXT, class_level TEXT, subject TEXT, selected_question_ids TEXT, deadline TEXT, status TEXT` | Assignment definitions created by the teacher |
-| `submission_inbox` | `assignment_id TEXT, student_id TEXT, answers TEXT, submitted_at TEXT, version INTEGER, PRIMARY KEY (assignment_id, student_id)` | Projection of student submissions for grading |
-| `grading` | `assignment_id TEXT, student_id TEXT, score REAL, feedback TEXT, graded_at TEXT, PRIMARY KEY (assignment_id, student_id)` | Grading records pushed back to students |
+| `my_classes` | `Map[String, ClassInfo]` | Classes and subjects the teacher is assigned to |
+| `rosters` | `Map[String, String]` | Students in each of the teacher's classes |
+| `assignments` | `Map[String, TeacherAssignment]` | Assignment definitions created by the teacher |
+| `submission_inbox` | `Map[String, InboxEntry]` | Projection of student submissions for grading |
+| `grading` | `Map[String, GradeRecord]` | Grading records pushed back to students |
 
 ### Agent Memory Cache
 
-In addition to SQLite, each durable agent maintains an in-memory cache (backed by Golem's durable memory) for frequently accessed data: subject lists, term lists, active lesson metadata, and lesson content. Cache entries have a configurable TTL (default: 5 minutes for lesson content; 10 minutes for lesson lists). On TTL expiry, the agent schedules a background refresh from SurrealDB. Subsequent user requests read from memory or SQLite, both of which are instant.
+Each durable agent maintains an in-memory cache (backed by Golem's durable memory) for frequently accessed data: subject lists, term lists, active lesson metadata, and lesson content. Cache entries have a configurable TTL (default: 5 minutes for lesson content; 10 minutes for lesson lists). On TTL expiry, the agent schedules a background refresh from SurrealDB. Subsequent user requests read from the cache or agent struct fields, both of which are instant.
 
 ## Auth & Access Model
 
@@ -281,7 +283,7 @@ This gatekeeper pattern ensures that a user agent can **never** be implicitly cr
 When a teacher creates or updates an assignment, the Teacher Agent pushes the configuration to all students in the class:
 
 1. Teacher Agent receives `configureAssignment` from the UI (via SvelteKit → Gateway → Teacher Agent).
-2. Teacher Agent stores the assignment in its SQLite.
+2. Teacher Agent stores the assignment in its struct fields.
 3. Teacher Agent iterates over its roster (obtained from Admin Agent during initialisation) and issues `StudentAgent.addOrUpdateAssignment(config)` as fire-and-forget RPCs.
 4. The teacher UI receives a success response immediately.
 5. Golem guarantees exactly-once delivery of each RPC. If a student agent is temporarily unreachable, delivery is retried with backoff.
@@ -306,7 +308,7 @@ Agent forking is efficient because Golem forks from the latest snapshot — it d
 
 ### Content Caching
 
-Lesson content fetched from SurrealDB is cached in each agent's SQLite `lesson_cache` table and in-memory with a TTL (5 minutes default). On cache miss, the agent fetches from SurrealDB via HTTP using the `@http` package. On TTL expiry, the agent schedules a background refresh — the next user request reads the stale-but-fast cached data while the refresh completes asynchronously (stale-while-revalidate).
+Lesson content fetched from SurrealDB is cached in each agent's `lesson_cache` map and in-memory with a TTL (5 minutes default). On cache miss, the agent fetches from SurrealDB via HTTP using the `@http` package. On TTL expiry, the agent schedules a background refresh — the next user request reads the stale-but-fast cached data while the refresh completes asynchronously (stale-while-revalidate).
 
 ## Invariants
 
@@ -318,7 +320,7 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 3. **The Admin Agent is the single source of truth for user activation status and class-subject-teacher relationships.** No other agent may independently decide that a user is active or that a teacher owns a subject. All such state flows from the Admin Agent via RPC pushes.
 
-4. **Every durable agent runs idempotent schema migrations on startup.** Before processing any invocation, the agent opens its SQLite database, reads `PRAGMA user_version`, compares it to the expected version constant, and applies only the necessary `ALTER TABLE` / `CREATE TABLE IF NOT EXISTS` statements within a transaction, updating the version after each step.
+4. **Every durable agent initialises its state fields on first invocation.** State is stored in agent struct fields and persists via Golem's durable execution op‑log. New fields are added with safe defaults; no schema migration script is needed.
 
 5. **Assignment deadlines are enforced authoritatively by the Teacher Agent.** The Student Agent performs a local check for immediate user feedback, but the Teacher Agent's timestamp comparison on receipt is the final word. The Teacher Agent's clock is the authority.
 
@@ -383,5 +385,5 @@ These rules must never be violated by any code change, refactor, or new feature.
 | **Direct Actor Communication** | After discovery via the Admin Agent, Student Agents communicate directly with Teacher Agents for submissions and grading. |
 | **Projection (CQRS-lite)** | The Teacher Agent maintains a local inbox of student submissions, populated by direct RPC pushes from Student Agents. The Student Agent remains the owner of the submission; the Teacher Agent holds a read-only projection for grading. |
 | **Fire-and-Forget with Promises** | Long-running admin tasks (future) use fire-and-forget RPCs to ephemeral forked agents with a Promise handle for polling results. |
-| **Stale-While-Revalidate Caching** | Agents cache lesson content in SQLite and in-memory with a TTL. On expiry, stale data is returned immediately while a background refresh fetches fresh data from SurrealDB. |
-| **Manual Snapshot-Based Updates** | Golem agent updates for breaking state changes use `save-snapshot`/`load-snapshot` with idempotent SQLite migrations run on first load of the new version. |
+| **Stale-While-Revalidate Caching** | Agents cache lesson content in-memory with a TTL. On expiry, stale data is returned immediately while a background refresh fetches fresh data from SurrealDB. |
+| **Manual Snapshot-Based Updates** | Golem agent updates for breaking state changes use `save-snapshot`/`load-snapshot` with state rebuilt from snapshot data on first load of the new version. |

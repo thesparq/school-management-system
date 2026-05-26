@@ -66,6 +66,16 @@ export async function proxyToGateway(
 			};
 		}
 
+		if (text === 'NOT_ACTIVATED') {
+			return {
+				error: {
+					code: 'NOT_ACTIVATED',
+					message:
+						'Account not activated. Please contact your school administrator.'
+				}
+			};
+		}
+
 		return { data: text };
 	} catch (err) {
 		return {
