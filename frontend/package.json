@@ -11,15 +11,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write .",
-		"db:push": "drizzle-kit push",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio",
-		"auth:schema": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes"
+		"format": "prettier --write ."
 	},
 	"devDependencies": {
-		"@better-auth/cli": "~1.4.21",
 		"@eslint/compat": "^2.1.0",
 		"@eslint/js": "^10.0.1",
 		"@fontsource-variable/inter": "^5.2.8",
@@ -30,12 +24,8 @@
 		"@tailwindcss/forms": "^0.5.11",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.2.2",
-		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^24",
-		"better-auth": "~1.4.21",
 		"clsx": "^2.1.1",
-		"drizzle-kit": "^0.31.10",
-		"drizzle-orm": "^0.45.2",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
@@ -57,6 +47,6 @@
 		"vite-plugin-moonbit": "^0.2.1"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.8.0"
+		"jose": "^6.2.3"
 	}
 }
