@@ -270,6 +270,8 @@ This gatekeeper pattern ensures that a user agent can **never** be implicitly cr
 
 - Only the SvelteKit server's static IP is whitelisted to reach the Golem API Gateway.
 - Golem's built-in OIDC support is **not** used; all auth is handled by the SvelteKit proxy.
+- **Authentik Admin API** is accessed server-to-server using a service account Bearer token (`AUTHENTIK_SERVICE_ACCOUNT_TOKEN`). The token is sent as `Authorization: Bearer <token>` to `https://{AUTHENTIK_HOST}/api/v3/core/users/`. No OAuth2 flow, no token caching — the token is self-contained.
+- The admin user list filters users to only those belonging to `admin`, `students`, or `teachers` groups (by group name). Group PKs are fetched from `GET /api/v3/core/groups/` and cross-referenced against each user's `groups` array.
 - Agent-to-agent RPCs happen entirely within Golem's secure infrastructure; they are not exposed to the public internet.
 
 ## AI & Background Task Models

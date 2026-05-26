@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
 	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage } from '$lib/components/ui/breadcrumb';
@@ -66,6 +66,21 @@
 			<SidebarGroup>
 				<SidebarGroupLabel>Navigation</SidebarGroupLabel>
 			</SidebarGroup>
+
+			{#if data.user.roles.includes('admin')}
+				<SidebarGroup>
+					<SidebarGroupLabel>Admin</SidebarGroupLabel>
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton>
+								{#snippet child({ props })}
+									<a href="/admin/users" {...props}>Users</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
+				</SidebarGroup>
+			{/if}
 		</SidebarContent>
 
 		<SidebarFooter>
