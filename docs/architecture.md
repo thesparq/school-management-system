@@ -24,28 +24,14 @@ school-management/
 ├── agents/                      # Golem backend
 │   ├── moon.mod.json
 │   ├── golem.yaml               # Root app manifest
-│   ├── common-wit/              # Shared WIT dependencies
-│   │   └── deps/                # wit-deps output
-│   ├── admin-agent/
-│   │   ├── golem.yaml
-│   │   ├── wit/                 # WIT interface definitions
-│   │   ├── moon.pkg.json
-│   │   └── src/
-│   ├── gateway-agent/           # Ephemeral (stateless)
-│   │   ├── golem.yaml
-│   │   ├── wit/
-│   │   ├── moon.pkg.json
-│   │   └── src/
-│   ├── student-agent/
-│   │   ├── golem.yaml
-│   │   ├── wit/
-│   │   ├── moon.pkg.json
-│   │   └── src/
-│   └── teacher-agent/
-│       ├── golem.yaml
-│       ├── wit/
-│       ├── moon.pkg.json
-│       └── src/
+│   ├── app-agents/              # Single component — all agent types
+│   │   ├── moon.pkg             # Package config (merged imports, is-main)
+│   │   ├── admin_agent.mbt      # Durable Admin Agent (singleton)
+│   │   ├── gateway_agent.mbt    # Ephemeral Gateway Agent
+│   │   ├── student_agent.mbt    # Durable Student Agent (per-student)
+│   │   └── teacher_agent.mbt    # Durable Teacher Agent (per-teacher)
+│   └── common-wit/              # Shared WIT dependencies
+│       └── deps/                # wit-deps output
 ├── shared/                      # MoonBit shared library
 │   ├── moon.mod.json
 │   ├── moon.pkg.json
@@ -113,11 +99,10 @@ Each agent component is a Golem application component within the `agents` worksp
 
 ```bash
 cd agents
-golem new --template moonbit --component-name app:admin-agent .
-golem new --template moonbit --component-name app:gateway-agent .
-golem new --template moonbit --component-name app:student-agent .
-golem new --template moonbit --component-name app:teacher-agent .
+golem new --template moonbit --component-name app:agents .
 ```
+
+The scaffold produces a `app-agents/` directory. All four agent types (Admin, Gateway, Student, Teacher) live in this single component, sharing one WASM binary and one set of generated typed RPC clients. This enables type-safe agent-to-agent calls using `<AgentName>Client::scoped(...)` without cross-component bridging.
 
 The `golem new --template moonbit` command scaffolds a MoonBit Golem component with:
 - `golem.yaml` – per-component manifest with build profiles and WIT directories
@@ -184,14 +169,14 @@ Every line of code lives in one of three security domains. A request never skips
 
 ### Golem Cloud Backend (agents — `agents/`)
 
-Four agent types, defined as WASM components with WIT interfaces. Each agent's API is defined by its WIT file and exposed via the Golem API Gateway. Communication between agents uses Golem's **typed worker-to-worker RPC**, which provides exactly-once, type-safe invocation without going over HTTP.
+All agents are defined in the single `app:agents` component (`app-agents/`). They share one WASM binary, and the `golem-sdk-tools agents` step generates typed RPC clients for every agent type so intra-component calls use `<AgentName>Client::scoped(...)` with full type safety.
 
 | Agent Type | Mode | Instances | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Ephemeral Gateway Agent** (`gateway-agent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. Defined with `@phantom` routing so each request creates a new instance. |
-| **Admin Agent** (`admin-agent`) | Durable | One (singleton) | Central registry (receptionist), user activation orchestrator, relationship manager, and long-running task dispatcher. |
-| **Student Agent** (`student-agent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. |
-| **Teacher Agent** (`teacher-agent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox (projection), and grading records. |
+| **Ephemeral Gateway Agent** (`GatewayAgent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. The sole HTTP-facing agent. |
+| **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry (receptionist), user activation orchestrator, relationship manager, and long-running task dispatcher. Accessed via RPC only (no HTTP mount). |
+| **Student Agent** (`StudentAgent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. |
+| **Teacher Agent** (`TeacherAgent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox (projection), and grading records. |
 
 ### SurrealDB
 

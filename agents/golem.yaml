@@ -52,17 +52,8 @@ componentTemplates:
         componentWasm: "{{ appRootDir }}/_build/wasm/release/{{ componentName | to_snake_case }}.agent.wasm"
 
 components:
-  app:admin-agent:
-    dir: "app-admin-agent"
-    templates: my-moonbit
-  app:gateway-agent:
-    dir: "app-gateway-agent"
-    templates: my-moonbit
-  app:student-agent:
-    dir: "app-student-agent"
-    templates: my-moonbit
-  app:teacher-agent:
-    dir: "app-teacher-agent"
+  app:agents:
+    dir: "app-agents"
     templates: my-moonbit
 
 httpApi:
@@ -70,8 +61,4 @@ httpApi:
     local:
       - domain: agents.localhost:9006
         agents:
-          CounterAgent: {}
-          WorkflowAgent: {}
-          HumanAgent: {}
-          TaskAgent: {}
-          CounterWithSnapshotAgent: {}
+          GatewayAgent: {}
