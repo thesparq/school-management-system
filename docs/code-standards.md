@@ -126,13 +126,15 @@ You're right — my previous response was broken into multiple partial messages.
 ```
 school-management/
 ├── moon.work                  # MoonBit workspace manifest
-├── agents/                    # Golem backend — all agent components
+├── agents/                    # Golem backend — single component
 │   ├── golem.yaml             # Root app manifest
-│   ├── common-wit/            # Shared WIT dependencies (wit-deps)
-│   ├── admin-agent/           # Durable Admin Agent (singleton)
-│   ├── gateway-agent/         # Ephemeral Gateway Agent
-│   ├── student-agent/         # Durable Student Agent (per-student)
-│   └── teacher-agent/         # Durable Teacher Agent (per-teacher)
+│   ├── app-agents/            # All agent types in one WASM component
+│   │   ├── moon.pkg           # Package config (is-main, merged imports)
+│   │   ├── admin_agent.mbt    # Durable Admin Agent (singleton)
+│   │   ├── gateway_agent.mbt  # Ephemeral Gateway Agent
+│   │   ├── student_agent.mbt  # Durable Student Agent (per-student)
+│   │   └── teacher_agent.mbt  # Durable Teacher Agent (per-teacher)
+│   └── common-wit/            # Shared WIT dependencies (wit-deps)
 ├── shared/                    # MoonBit library — shared types and pure logic
 │   ├── moon.mod.json
 │   └── src/
@@ -156,7 +158,7 @@ school-management/
 
 **Rules for each directory:**
 
-- `agents/`: Each subdirectory is a standalone Golem component with its own `golem.yaml`, `wit/`, and `src/`. They must not import sibling components directly; communication is exclusively via WIT-defined RPC.
+- `agents/`: A single `app-agents/` component holds all agent types sharing one WASM binary. All agent files live in the same MoonBit package so typed RPC clients (`<AgentName>Client`) are generated for every agent and usable by every other agent. Agent-to-agent RPC uses the idiomatic `<AgentName>Client::scoped(...)` pattern.
 - `shared/`: Contains only MoonBit modules that compile for both `wasm-gc` (Golem) and `js` (SvelteKit). No I/O, no filesystem, no network. Pure types and functions only.
 - `frontend/src/routes/`: Follow SvelteKit conventions. Group routes by role inside `(auth)/`. Server endpoints go in `+page.server.ts` or `+server.ts` files. Client-side components belong in the `lib/` folder.
 - `frontend/src/lib/components/`: Each shadcn-svelte component lives in its own file. Custom composition components go here as well. No business logic.
