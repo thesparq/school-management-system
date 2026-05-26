@@ -114,11 +114,10 @@ You're right — my previous response was broken into multiple partial messages.
 
 ## Data and Storage
 
-- **Agent-local state uses SQLite exclusively.** Every durable agent stores its structured data in its embedded SQLite database. The database file is the single source of truth for that agent’s state.
-- **Schema migrations are mandatory on agent startup.** The agent’s initialisation code must read `PRAGMA user_version`, compare against the expected version, and run only the necessary migration steps within a transaction. Migrations must be idempotent.
-- **Metadata belongs in the agent’s SQLite; lesson content belongs in SurrealDB.** User profiles, rosters, assignments, submissions, and grades are agent-local SQLite data. AI-generated lesson text, question banks, and media references are SurrealDB documents, cached by agents.
-- **Do not store large content directly in the agent’s database.** Lesson content cached in SQLite is acceptable for performance, but the authoritative copy is in SurrealDB. The cache must have a TTL and a maximum size limit.
-- **HTTP calls to SurrealDB must be deterministic.** Use Golem’s HTTP client so that responses are recorded in the operation log. On replay, the logged response is replayed instead of a new network call.
+- **Agent-local state uses Golem's durable memory.** State is stored in agent struct fields and persisted by the op‑log. No external database is needed for user state. New fields are added with safe defaults; no migration scripts required.
+- **User profiles, rosters, assignments, submissions, and grades live in agent struct fields.** AI-generated lesson text and question banks live in SurrealDB, cached by agents in memory.
+- **Do not store large content directly in agent struct fields.** Lesson content cached in memory is acceptable for performance, but the authoritative copy is in SurrealDB. The cache must have a TTL and a maximum size limit.
+- **HTTP calls to SurrealDB must be deterministic.** Use Golem's HTTP client so that responses are recorded in the operation log. On replay, the logged response is replayed instead of a new network call.
 - **Cache invalidation follows a stale-while-revalidate pattern.** When cached lesson data exceeds its TTL, the agent returns the stale data immediately and triggers an asynchronous refresh. The next request benefits from the fresh data.
 
 ## File Organization

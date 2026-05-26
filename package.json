@@ -8,7 +8,7 @@
     "build:agents": "cd agents && golem build",
     "build:frontend": "pnpm --filter frontend run build",
     "serve": "pnpm run build && pnpm run deploy:agents && pnpm --filter frontend run preview",
-    "deploy:agents": "cd agents && golem deploy -Y",
+    "deploy:agents": "cd agents && golem deploy -Y --reset",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
     "fmt": "pnpm run fmt:moon && pnpm run fmt:frontend",

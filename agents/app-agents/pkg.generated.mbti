@@ -1,0 +1,102 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "agents/app-agents"
+
+import {
+  "golemcloud/golem_sdk/config",
+  "golemcloud/golem_sdk/interface/golem/agent/common",
+  "golemcloud/golem_sdk/interface/golem/agent/host",
+  "golemcloud/golem_sdk/interface/golem/core/types",
+  "golemcloud/golem_sdk/interface/wasi/clocks/wallClock",
+  "golemcloud/golem_sdk/rpc",
+}
+
+// Values
+pub fn cabi_realloc(Int, Int, Int, Int) -> Int
+
+pub fn wasmExportDiscoverAgentTypes() -> Int
+
+pub fn wasmExportDiscoverAgentTypesPostReturn(Int) -> Unit
+
+pub fn wasmExportGetDefinition() -> Int
+
+pub fn wasmExportGetDefinitionPostReturn(Int) -> Unit
+
+pub fn wasmExportInitialize(Int) -> Int
+
+pub fn wasmExportInitializePostReturn(Int) -> Unit
+
+pub fn wasmExportInvoke(Int) -> Int
+
+pub fn wasmExportInvokePostReturn(Int) -> Unit
+
+pub fn wasmExportLoad(Int, Int, Int, Int) -> Int
+
+pub fn wasmExportLoadPostReturn(Int) -> Unit
+
+pub fn wasmExportSave() -> Int
+
+pub fn wasmExportSavePostReturn(Int) -> Unit
+
+// Errors
+
+// Types and methods
+type ActivationStatus derive(Eq)
+
+type AdminAgent
+pub fn AdminAgent::activate_user(Self, String, String, String?) -> Result[String, String]
+pub fn AdminAgent::is_user_active(Self, String) -> ActivationStatus
+pub fn AdminAgent::ping(Self) -> String
+
+pub(all) struct AdminAgentClient {
+  client : @rpc.AgentClient
+}
+pub fn AdminAgentClient::activate_user(Self, String, String, String?) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::drop(Self) -> Unit
+pub fn AdminAgentClient::get() -> Self raise @common.AgentError
+pub fn AdminAgentClient::get_agent_id(Self) -> String raise @common.AgentError
+pub fn AdminAgentClient::get_phantom(@types.Uuid) -> Self raise @common.AgentError
+pub fn AdminAgentClient::is_user_active(Self, String) -> ActivationStatus raise @common.AgentError
+pub fn AdminAgentClient::new_phantom() -> Self raise @common.AgentError
+pub fn AdminAgentClient::phantom_id(Self) -> @types.Uuid?
+pub fn AdminAgentClient::ping(Self) -> String raise @common.AgentError
+pub fn AdminAgentClient::schedule_activate_user(Self, @wallClock.Datetime, String, String, String?) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::schedule_cancelable_activate_user(Self, @wallClock.Datetime, String, String, String?) -> @host.CancellationToken raise @common.AgentError
+pub fn AdminAgentClient::schedule_cancelable_is_user_active(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn AdminAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime) -> @host.CancellationToken
+pub fn AdminAgentClient::schedule_is_user_active(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::schedule_ping(Self, @wallClock.Datetime) -> Unit
+pub fn[T] AdminAgentClient::scoped((Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn[T] AdminAgentClient::scoped_get_phantom(@types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn[T] AdminAgentClient::scoped_new_phantom((Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn AdminAgentClient::trigger_activate_user(Self, String, String, String?) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::trigger_is_user_active(Self, String) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::trigger_ping(Self) -> Unit
+
+type GatewayAgent
+pub fn GatewayAgent::ping(Self, String, String) -> String
+
+pub(all) struct GatewayAgentClient {
+  client : @rpc.AgentClient
+}
+pub fn GatewayAgentClient::drop(Self) -> Unit
+pub fn GatewayAgentClient::get_agent_id(Self) -> String raise @common.AgentError
+pub fn GatewayAgentClient::get_phantom(@types.Uuid) -> Self raise @common.AgentError
+pub fn GatewayAgentClient::new_phantom() -> Self raise @common.AgentError
+pub fn GatewayAgentClient::phantom_id(Self) -> @types.Uuid?
+pub fn GatewayAgentClient::ping(Self, String, String) -> String raise @common.AgentError
+pub fn GatewayAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn GatewayAgentClient::schedule_ping(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn[T] GatewayAgentClient::scoped_get_phantom(@types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn[T] GatewayAgentClient::scoped_new_phantom((Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn GatewayAgentClient::trigger_ping(Self, String, String) -> Unit raise @common.AgentError
+
+pub(all) struct GatewayConfig {
+  auth_key : @config.Secret[String]
+}
+
+type UserActivation
+
+// Type aliases
+
+// Traits
+

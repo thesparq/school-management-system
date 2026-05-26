@@ -12,7 +12,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 6. Keep the system simple and idiomatic to Golem’s durable execution model (actor‑based, event‑sourced state, explicit RPCs).
 7. Use a calm, accessible UI with light mode (and optional dark mode) built with Tailwind CSS v4 and shadcn‑svelte.
 8. Support multiple assignments per lesson, each with its own deadline and question selection.
-9. Ensure data integrity and durability using agent‑local SQLite and SurrealDB for lesson content.
+9. Ensure data integrity and durability using Golem's durable execution (agent struct fields) and SurrealDB for lesson content.
 
 ## Core User Flow (step‑by‑step)
 
@@ -79,7 +79,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Responsive layout: collapsible sidebar, breadcrumb navigation.
 - All data access via agents; SvelteKit never touches databases directly.
 - JWT‑based authentication, no server‑side sessions.
-- Agent‑local SQLite for structured user data; SurrealDB for lesson content.
+- Agent struct fields (durable memory) for structured user data; SurrealDB for lesson content.
 
 ## In Scope (MVP)
 
@@ -88,7 +88,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Golem Cloud backend with:
   - Ephemeral Gateway Agent (stateless gatekeeper).
   - Durable Admin Agent (central registry, user activation, relationships).
-  - Durable User Agents (student, teacher, admin) with SQLite state.
+  - Durable User Agents (student, teacher, admin) with in‑memory durable state.
 - Display AI‑generated lesson content from SurrealDB.
 - Teacher selection of assessment questions and creation of assignments with deadlines.
 - Student submission of answers (text‑only).
@@ -116,7 +116,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 2. A student sees only lessons and assignments for their own class, with disabled items correctly hidden or greyed out.
 3. An admin can activate a new student, assign them to a class, and the student’s agent immediately shows the correct subjects.
 4. A suspended user cannot reach their agent; any request returns a clear “account not activated” error.
-5. All state survives agent restarts and platform faults (durability), with automatic schema migrations on agent startup.
+5. All state survives agent restarts and platform faults (durability), with automatic state recovery on agent restart.
 6. The UI is usable on a standard school desktop/tablet, with clear navigation, loading skeletons, and error messages.
 7. Lesson content is fetched from SurrealDB and cached in agents, with a stale‑while‑revalidate strategy.
 8. The system handles at least 1,000 concurrent student agents without performance degradation.
