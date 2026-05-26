@@ -36,3 +36,12 @@ Implementation is complete and verified.
 Mark unit 01 complete in @docs/progress-tracker.md .
 Push branch to GitHub.
 Then create a PR to main.
+
+## git commands
+
+git fetch origin
+git checkout main
+git merge --ff-only origin/main
+git branch -d feat/01-frontend-foundation
+git push origin --delete feat/01-frontend-foundation
+git checkout -b feat/02-authentik-authentication main
