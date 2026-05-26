@@ -12,6 +12,7 @@ import {
   "golemcloud/golem_sdk/interface/golem/core/types" @rpcTypes,
   "golemcloud/golem_sdk/interface/wasi/clocks/wallClock" @wallClock,
   "golemcloud/golem_sdk/interface/golem/agent/host" @agentHost,
+  "golemcloud/golem_sdk/config" @config,
 }
 
 options(

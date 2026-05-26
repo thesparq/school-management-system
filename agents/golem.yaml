@@ -62,3 +62,7 @@ httpApi:
       - domain: agents.localhost:9006
         agents:
           GatewayAgent: {}
+
+secretDefaults:
+  local:
+    authKey: "dev-auth-key-change-in-production"

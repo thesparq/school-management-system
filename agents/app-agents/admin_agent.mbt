@@ -22,9 +22,4 @@ pub fn AdminAgent::ping(self : Self) -> String {
   "admin online"
 }
 
-//|
 
-///|
-fn main {
-
-}
