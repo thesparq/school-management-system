@@ -4,32 +4,32 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- [phase name]
+- Frontend Foundation (Unit 1)
 
 ## Current Goal
 
-- [what you are building right now]
+- Configure SvelteKit frontend with Tailwind v4, shadcn-svelte, and design tokens from ui-context.md. Verify with a static branded landing page.
 
 ## Completed
 
-- None yet.
+- Unit 1: Frontend Foundation — SvelteKit configured with Tailwind v4, shadcn-svelte Button, design tokens from ui-context.md applied in `src/app.css`, Inter font loaded. Static landing page at `/` with branded heading and primary-blue button.
 
 ## In Progress
 
-- None yet.
+- None.
 
 ## Next Up
 
-- [first unit to build]
+- Unit 2: Authentik Authentication
 
 ## Open Questions
 
-- [any unresolved decisions]
+- None.
 
 ## Architecture Decisions
 
-- [decisions made that affect the system design]
+- `src/app.css` is the canonical CSS entry point. shadcn-svelte's generated `layout.css` was deleted and its contents merged into `app.css`.
 
 ## Session Notes
 
-- [context needed to resume in the next session]
+- Starting implementation of Unit 1.

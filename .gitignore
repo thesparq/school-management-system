@@ -1,6 +1,10 @@
 node_modules/
 _build/
 .svelte-kit/
+.mooncakes/
 .mooncaches/
 .env
 .jj/
+.agents/
+**/.agents/
+.claude
