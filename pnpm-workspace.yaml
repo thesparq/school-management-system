@@ -1,0 +1,6 @@
+packages:
+  - 'frontend'
+allowBuilds:
+  '@prisma/client': true
+  better-sqlite3: true
+  esbuild: true

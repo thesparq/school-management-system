@@ -1,0 +1,18 @@
+{
+  "name": "school-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run deploy:agents && pnpm --filter frontend run dev",
+    "build": "pnpm run build:agents && pnpm run build:frontend",
+    "build:agents": "cd agents && golem build",
+    "build:frontend": "pnpm --filter frontend run build",
+    "serve": "pnpm run build && pnpm run deploy:agents && pnpm --filter frontend run preview",
+    "deploy:agents": "cd agents && golem deploy -Y",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "fmt": "pnpm run fmt:moon && pnpm run fmt:frontend",
+    "fmt:moon": "moon fmt --workspace",
+    "fmt:frontend": "pnpm --filter frontend run format"
+  }
+}

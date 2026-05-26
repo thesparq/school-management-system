@@ -1,0 +1,12 @@
+{
+	"name": "frontend",
+	"version": "0.1.0",
+	"source": "src",
+	"preferred-target": "js",
+	"deps": {
+		"thesparq/shared": {
+			"path": "../shared"
+		}
+	},
+	"bin-deps": {}
+}

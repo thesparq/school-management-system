@@ -1,0 +1,7 @@
+// import {
+//   "thesparq/shared" @lib,
+// }
+
+options(
+  "is-main": true,
+)
