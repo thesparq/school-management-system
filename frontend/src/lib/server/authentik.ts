@@ -220,6 +220,90 @@ export async function getEndSessionUrl(idToken: string): Promise<string> {
 	return `${config.end_session_endpoint}?${params.toString()}`;
 }
 
+// ─── Admin API ───────────────────────────────────────────────
+
+export interface AuthentikUser {
+	pk: number;
+	username: string;
+	name: string;
+	email: string;
+	type: 'internal' | 'service_account' | 'external';
+	groups: number[];
+}
+
+interface AuthentikGroup {
+	pk: number;
+	name: string;
+}
+
+interface AuthentikPaginatedResponse {
+	results: AuthentikUser[];
+	next: string | null;
+	previous: string | null;
+	count: number;
+}
+
+async function getTargetGroupPks(): Promise<Set<number>> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) return new Set();
+
+	const targetNames = ['admin', 'students', 'teachers'];
+	const targetPks = new Set<number>();
+
+	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;
+
+	while (nextUrl) {
+		const res = await fetch(nextUrl, {
+			headers: { authorization: `Bearer ${token}` }
+		});
+		if (!res.ok) break;
+
+		const page: { results: AuthentikGroup[]; next: string | null } = await res.json();
+		for (const group of page.results) {
+			if (targetNames.includes(group.name.toLowerCase())) {
+				targetPks.add(group.pk);
+			}
+		}
+		nextUrl = page.next;
+	}
+
+	return targetPks;
+}
+
+export async function fetchAllUsers(): Promise<AuthentikUser[]> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) {
+		throw new Error('Missing AUTHENTIK_HOST or AUTHENTIK_SERVICE_ACCOUNT_TOKEN');
+	}
+
+	const allUsers: AuthentikUser[] = [];
+	let nextUrl: string | null = `https://${host}/api/v3/core/users/?page_size=100`;
+
+	while (nextUrl) {
+		const res = await fetch(nextUrl, {
+			headers: { authorization: `Bearer ${token}` }
+		});
+
+		if (!res.ok) {
+			const text = await res.text();
+			throw new Error(
+				`Authentik API returned ${res.status} — check service account permissions. ${text}`
+			);
+		}
+
+		const page: AuthentikPaginatedResponse = await res.json();
+		allUsers.push(...page.results.filter((u) => u.type === 'internal'));
+		nextUrl = page.next;
+	}
+
+	const targetPks = await getTargetGroupPks();
+	if (targetPks.size === 0) return [];
+
+	return allUsers.filter((u) => (u.groups ?? []).some((g) => targetPks.has(g)));
+}
+
 function generateCodeVerifier(): string {
 	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
 	let result = '';
