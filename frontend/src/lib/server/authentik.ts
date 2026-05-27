@@ -224,6 +224,7 @@ export async function getEndSessionUrl(idToken: string): Promise<string> {
 
 export interface AuthentikUser {
 	pk: number;
+	uuid: string;
 	username: string;
 	name: string;
 	email: string;

@@ -35,9 +35,16 @@ type ProxyResult = ProxySuccess | ProxyError;
 
 export async function proxyToGateway(
 	path: string,
-	userId: string
+	userId: string,
+	extraParams?: Record<string, string>
 ): Promise<ProxyResult> {
-	const url = `${getGatewayUrl()}${path}?user_id=${encodeURIComponent(userId)}`;
+	let url = `${getGatewayUrl()}${path}?user_id=${encodeURIComponent(userId)}`;
+
+	if (extraParams) {
+		for (const [key, value] of Object.entries(extraParams)) {
+			url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+		}
+	}
 
 	try {
 		const res = await fetch(url, {
@@ -46,7 +53,14 @@ export async function proxyToGateway(
 			}
 		});
 
-		const text = await res.text();
+		const raw = await res.text();
+		let text: string;
+		try {
+			const parsed = JSON.parse(raw);
+			text = typeof parsed === 'string' ? parsed : raw;
+		} catch {
+			text = raw;
+		}
 
 		if (text === 'unauthorized') {
 			return {
@@ -85,4 +99,20 @@ export async function proxyToGateway(
 			}
 		};
 	}
+}
+
+export function parseActivations(text: string): Map<string, string> {
+	const map = new Map<string, string>();
+	const lines = text.trim().split('\n');
+	for (const line of lines) {
+		if (!line.trim()) continue;
+		const sep = line.indexOf('|');
+		if (sep === -1) continue;
+		const userId = line.slice(0, sep);
+		const status = line.slice(sep + 1).toLowerCase();
+		if (userId && status) {
+			map.set(userId, status);
+		}
+	}
+	return map;
 }

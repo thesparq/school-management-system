@@ -32,7 +32,7 @@ fn init{
           },
           {
             name: "activate_user",
-            description: "Activates a user by storing their activation record in durable state.  Returns Ok(()) on success, Err(String) for invalid role.",
+            description: "Activates a user by storing their activation record in durable state.  Returns Ok on success, Err for invalid role.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -85,6 +85,49 @@ fn init{
                 "result",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[ActivationStatus]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "deactivate_user",
+            description: "Deactivates a previously activated user.  Returns Err if the user is not in the registry.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_all_activations",
+            description: "Returns all activation records as an array of (user_id, status) tuples.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Array[(String, ActivationStatus)]]
+                  ),
                 ),
               ),
             ]),
@@ -159,6 +202,227 @@ fn init{
               ),
               (
                 "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "check_activation",
+            description: "Checks whether a user is activated.  Returns OK if active, NOT_ACTIVATED if not.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("check-activation")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "activate_admin",
+            description: "Admin-only: activates a target user.  Requires valid X-Golem-Auth-Key header.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("admin"),
+                  @common.PathSegment::Literal("activate"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "user_id",
+                    variable_name: "admin_user_id",
+                  },
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                  { query_param_name: "role", variable_name: "role" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "admin_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "role",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "deactivate_admin",
+            description: "Admin-only: deactivates a target user.  Requires valid X-Golem-Auth-Key header.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("admin"),
+                  @common.PathSegment::Literal("deactivate"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "user_id",
+                    variable_name: "admin_user_id",
+                  },
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "admin_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "list_activations",
+            description: "Admin-only: returns all activation records as newline-separated  user_id|status lines. Requires valid X-Golem-Auth-Key header.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("admin"),
+                  @common.PathSegment::Literal("activations"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "user_id",
+                    variable_name: "admin_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "admin_user_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -260,6 +524,27 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let result = self.is_user_active(user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
+      "deactivate_user" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let user_id :String = @schema.from_element_value_as(elements[0])
+        let result = self.deactivate_user(user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_all_activations" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.get_all_activations()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
       other => Err(@common.AgentError::InvalidMethod(other))
     }
   } catch{
@@ -286,6 +571,59 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let user_id :String = @schema.from_element_value_as(elements[1])
         let result = self.ping(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "check_activation" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.check_activation(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "activate_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 4 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 4 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let target_user_id :String = @schema.from_element_value_as(elements[2])
+        let role :String = @schema.from_element_value_as(elements[3])
+        let result = 
+          self.activate_admin(incoming_key, admin_user_id, target_user_id, role)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "deactivate_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let target_user_id :String = @schema.from_element_value_as(elements[2])
+        let result = 
+          self.deactivate_admin(incoming_key, admin_user_id, target_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "list_activations" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.list_activations(incoming_key, admin_user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

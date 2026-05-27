@@ -79,6 +79,125 @@ pub fn GatewayAgent::ping(
 //|
 
 ///|
+/// Checks whether a user is activated.
+/// Returns OK if active, NOT_ACTIVATED if not.
+#derive.endpoint(get="/check-activation?user_id={user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::check_activation(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  let status = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.is_user_active(user_id)
+  }) catch {
+    _ => return "admin unreachable"
+  }
+  if status != Active {
+    return "NOT_ACTIVATED"
+  }
+  "OK"
+}
+
+///|
+/// Admin-only: activates a target user.
+/// Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/activate?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::activate_admin(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+  target_user_id : String,
+  role : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  let act_result = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.activate_user(target_user_id, role, None)
+  }) catch {
+    _ => return "admin unreachable"
+  }
+  match act_result {
+    Ok(_) => "OK"
+    Err(msg) => msg
+  }
+}
+
+///|
+/// Admin-only: deactivates a target user.
+/// Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/deactivate?user_id={admin_user_id}&target_user_id={target_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::deactivate_admin(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+  target_user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  let deact_result = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.deactivate_user(target_user_id)
+  }) catch {
+    _ => return "admin unreachable"
+  }
+  match deact_result {
+    Ok(_) => "OK"
+    Err(msg) => msg
+  }
+}
+
+///|
+fn activation_status_to_string(status : ActivationStatus) -> String {
+  match status {
+    Active => "active"
+    Deactivated => "deactivated"
+    Suspended => "suspended"
+    NotFound => "not_found"
+  }
+}
+
+///|
+/// Admin-only: returns all activation records as newline-separated
+/// user_id|status lines. Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/activations?user_id={admin_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::list_activations(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  let activations = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.get_all_activations()
+  }) catch {
+    _ => return "admin unreachable"
+  }
+  let mut lines = ""
+  for item in activations {
+    let (user_id, status) = item
+    lines = lines + user_id + "|" + activation_status_to_string(status) + "\n"
+  }
+  lines
+}
+
+///|
 /// Extension method needed by generated golem_agents.mbt.
 fn @common.AgentError::to_string(self : @common.AgentError) -> String {
   match self {

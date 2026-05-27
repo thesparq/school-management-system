@@ -51,7 +51,7 @@ pub fn AdminAgent::ping(self : Self) -> String {
 
 ///|
 /// Activates a user by storing their activation record in durable state.
-/// Returns Ok("ok") on success, Err(String) for invalid role.
+/// Returns Ok on success, Err for invalid role.
 pub fn AdminAgent::activate_user(
   self : Self,
   user_id : String,
@@ -86,4 +86,32 @@ pub fn AdminAgent::is_user_active(
     None => NotFound
     Some(record) => record.status
   }
+}
+
+///|
+/// Deactivates a previously activated user.
+/// Returns Err if the user is not in the registry.
+pub fn AdminAgent::deactivate_user(
+  self : Self,
+  user_id : String,
+) -> Result[String, String] {
+  match self.activated_users.get(user_id) {
+    None => Err("user not found: \{user_id}")
+    Some(record) => {
+      let updated = UserActivation::{ ..record, status: Deactivated }
+      self.activated_users.set(user_id, updated)
+      Ok("ok")
+    }
+  }
+}
+
+///|
+/// Returns all activation records as an array of (user_id, status) tuples.
+pub fn AdminAgent::get_all_activations(
+  self : Self,
+) -> Array[(String, ActivationStatus)] {
+  self.activated_users
+  .iter()
+  .map(fn(pair) { (pair.0, pair.1.status) })
+  .collect()
 }
