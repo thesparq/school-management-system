@@ -104,6 +104,24 @@ pub fn GatewayAgent::check_activation(
 }
 
 ///|
+/// Tests SurrealDB end-to-end via Student Agent RPC.
+/// The Gateway does NOT hold DB credentials - only Student/Teacher agents do.
+/// Targets a well-known StudentAgent instance (singleton for now).
+#derive.endpoint(get="/db-test")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::db_test(self : Self, incoming_key : String) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  StudentAgentClient::scoped(fn(student) raise @common.AgentError {
+    student.test_db()
+  }) catch {
+    _ => "ERROR: student agent unreachable"
+  }
+}
+
+///|
 /// Admin-only: activates a target user.
 /// Requires valid X-Golem-Auth-Key header.
 #derive.endpoint(get="/admin/activate?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}")
