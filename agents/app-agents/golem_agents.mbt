@@ -3,128 +3,6 @@
 fn init{
   try {
     @agents.register_agent({
-      name: "StudentAgent",
-      agent_type: {
-        type_name: "StudentAgent",
-        description: "StudentAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new StudentAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([]),
-        },
-        methods: [
-          {
-            name: "test_db",
-            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: None,
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 0 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 0 elements, got " + elements.length().to_string(),
-            )
-          }
-          let config :@config.Config[SurrealConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          )
-          let agent = StudentAgent::new(config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
-      name: "TeacherAgent",
-      agent_type: {
-        type_name: "TeacherAgent",
-        description: "TeacherAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new TeacherAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([]),
-        },
-        methods: [
-          {
-            name: "test_db",
-            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: None,
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 0 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 0 elements, got " + elements.length().to_string(),
-            )
-          }
-          let config :@config.Config[SurrealConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          )
-          let agent = TeacherAgent::new(config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
       name: "AdminAgent",
       agent_type: {
         type_name: "AdminAgent",
@@ -154,7 +32,7 @@ fn init{
           },
           {
             name: "activate_user",
-            description: "Activates a user by storing their activation record in durable state.  Returns Ok on success, Err for invalid role.",
+            description: "Activates a user by storing their activation record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail activation).",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -254,12 +132,30 @@ fn init{
               ),
             ]),
           },
+          {
+            name: "get_class_levels",
+            description: "Returns all active class levels as a JSON array string.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
         ],
         dependencies: [],
         mode: @common.AgentMode::DURABLE,
         http_mount: None,
         snapshotting: @common.Snapshotting::Disabled,
-        config: [],
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
       },
       construct: fn(input, principal) {
         try {
@@ -269,7 +165,10 @@ fn init{
               "Expected 0 elements, got " + elements.length().to_string(),
             )
           }
-          let agent = AdminAgent::new()
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = AdminAgent::new(config)
           let constructed = @agents.ConstructedAgent::{
             raw: agent,
             snapshottable: None,
@@ -384,7 +283,7 @@ fn init{
           },
           {
             name: "db_test",
-            description: "Tests SurrealDB end-to-end via Student Agent RPC.  The Gateway does NOT hold DB credentials - only Student/Teacher agents do. Targets a well-known StudentAgent instance (singleton for now).",
+            description: "Tests SurrealDB end-to-end via Student Agent RPC.  The Gateway does NOT hold DB credentials - only Student/Teacher agents do.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -395,7 +294,9 @@ fn init{
                     variable_name: "incoming_key",
                   },
                 ],
-                query_vars: [],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                ],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
               },
@@ -404,6 +305,12 @@ fn init{
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
                 "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -420,7 +327,7 @@ fn init{
           },
           {
             name: "activate_admin",
-            description: "Admin-only: activates a target user.  Requires valid X-Golem-Auth-Key header.",
+            description: "Admin-only: activates a target user.  Accepts optional class_level for student activations. Requires valid X-Golem-Auth-Key header.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -444,6 +351,10 @@ fn init{
                     variable_name: "target_user_id",
                   },
                   { query_param_name: "role", variable_name: "role" },
+                  {
+                    query_param_name: "class_level",
+                    variable_name: "class_level",
+                  },
                 ],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -473,6 +384,12 @@ fn init{
                 "role",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "class_level",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String?]),
                 ),
               ),
             ]),
@@ -531,6 +448,103 @@ fn init{
               ),
               (
                 "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "student_subjects",
+            description: "Returns the authenticated student's subjects as a JSON array string.  Requires activation check.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("student"),
+                  @common.PathSegment::Literal("subjects"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "list_class_levels",
+            description: "Returns all active class levels as a JSON array string.  Requires valid X-Golem-Auth-Key header.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("admin"),
+                  @common.PathSegment::Literal("class-levels"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "user_id",
+                    variable_name: "admin_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "admin_user_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -634,60 +648,175 @@ fn init{
         }
       },
     })
+    @agents.register_agent({
+      name: "StudentAgent",
+      agent_type: {
+        type_name: "StudentAgent",
+        description: "Durable per-student agent.  Identified by student_id — one instance per student.",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new StudentAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([
+            (
+              "student_id",
+              @schema.schema_of_tag(
+                (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+              ),
+            ),
+          ]),
+        },
+        methods: [
+          {
+            name: "test_db",
+            description: "Tests SurrealDB connectivity.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "initialize",
+            description: "Initializes this student's profile and fetches subjects from SurrealDB.  Idempotent — calling again with the same class_level is a no-op update.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "class_level",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_subjects",
+            description: "Returns this student's subjects as a JSON array string.  Returns an empty array if the student has not been initialized.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: None,
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 1 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 1 elements, got " + elements.length().to_string(),
+            )
+          }
+          let student_id :String = @schema.from_element_value_as(elements[0])
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = StudentAgent::new(student_id, config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
+    @agents.register_agent({
+      name: "TeacherAgent",
+      agent_type: {
+        type_name: "TeacherAgent",
+        description: "TeacherAgent",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new TeacherAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([]),
+        },
+        methods: [
+          {
+            name: "test_db",
+            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: None,
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 0 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 0 elements, got " + elements.length().to_string(),
+            )
+          }
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = TeacherAgent::new(config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
   } catch{
     e => abort(e.to_string())
-  }
-}
-
-///|
-impl @agents.RawAgent for StudentAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "test_db" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 0 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 0 elements, got " + elements.length().to_string(),
-          )
-        }
-        let result = self.test_db()
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
-  }
-}
-
-///|
-impl @agents.RawAgent for TeacherAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "test_db" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 0 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 0 elements, got " + elements.length().to_string(),
-          )
-        }
-        let result = self.test_db()
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
   }
 }
 
@@ -755,6 +884,16 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let result = self.get_all_activations()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
+      "get_class_levels" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.get_class_levels()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
       other => Err(@common.AgentError::InvalidMethod(other))
     }
   } catch{
@@ -797,28 +936,35 @@ impl @agents.RawAgent for GatewayAgent with invoke(
       }
       "db_test" => {
         let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
+        guard elements.length() == 2 else {
           raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
+            "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.db_test(incoming_key)
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.db_test(incoming_key, user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "activate_admin" => {
         let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 4 else {
+        guard elements.length() == 5 else {
           raise  @common.AgentError::InvalidInput(
-            "Expected 4 elements, got " + elements.length().to_string(),
+            "Expected 5 elements, got " + elements.length().to_string(),
           )
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let admin_user_id :String = @schema.from_element_value_as(elements[1])
         let target_user_id :String = @schema.from_element_value_as(elements[2])
         let role :String = @schema.from_element_value_as(elements[3])
-        let result = 
-          self.activate_admin(incoming_key, admin_user_id, target_user_id, role)
+        let class_level :String? = @schema.from_element_value_as(elements[4])
+        let result = self.activate_admin(
+          incoming_key,
+          admin_user_id,
+          target_user_id,
+          role,
+          class_level,
+        )
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "deactivate_admin" => {
@@ -835,6 +981,30 @@ impl @agents.RawAgent for GatewayAgent with invoke(
           self.deactivate_admin(incoming_key, admin_user_id, target_user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
+      "student_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.student_subjects(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "list_class_levels" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.list_class_levels(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
       "list_activations" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 2 else {
@@ -845,6 +1015,79 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let admin_user_id :String = @schema.from_element_value_as(elements[1])
         let result = self.list_activations(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
+  }
+}
+
+///|
+impl @agents.RawAgent for StudentAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "test_db" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.test_db()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "initialize" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let class_level :String = @schema.from_element_value_as(elements[0])
+        let result = self.initialize(class_level)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.get_subjects()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
+  }
+}
+
+///|
+impl @agents.RawAgent for TeacherAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "test_db" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.test_db()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

@@ -18,6 +18,7 @@ import {
   "golemcloud/golem_sdk/interface/wasi/io/streams" @streams,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/encoding/base64" @base64,
+  "moonbitlang/core/json" @json,
 }
 
 options(
