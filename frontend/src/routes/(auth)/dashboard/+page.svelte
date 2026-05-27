@@ -30,43 +30,70 @@
 	}
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6">
-	<div>
-		<h1 class="text-2xl font-display font-bold text-primary-700">
-			Welcome, {data.user.name}
+{#if data.activated === false}
+	<div class="mx-auto max-w-lg py-16 text-center space-y-6">
+		<div class="rounded-full bg-warning-100 dark:bg-warning-900/20 mx-auto w-fit p-4">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-8 w-8 text-warning-600 dark:text-warning-400"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+				/>
+			</svg>
+		</div>
+		<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">
+			Account Not Activated
 		</h1>
-		<p class="mt-1 text-sm text-surface-700">
-			{data.user.roles[0] ?? 'User'} dashboard
+		<p class="text-surface-700 dark:text-surface-400">
+			Your account has not yet been activated. Please contact your school administrator.
 		</p>
 	</div>
+{:else}
+	<div class="mx-auto max-w-4xl space-y-6">
+		<div>
+			<h1 class="text-2xl font-display font-bold text-primary-700">
+				Welcome, {data.user.name}
+			</h1>
+			<p class="mt-1 text-sm text-surface-700">
+				{data.user.roles[0] ?? 'User'} dashboard
+			</p>
+		</div>
 
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-		<Card>
-			<CardHeader>
-				<CardTitle class="text-base">Quick Actions</CardTitle>
-			</CardHeader>
-			<CardContent>
-				<p class="text-sm text-surface-700">Dashboard widgets will appear here.</p>
-			</CardContent>
-		</Card>
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			<Card>
+				<CardHeader>
+					<CardTitle class="text-base">Quick Actions</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<p class="text-sm text-surface-700">Dashboard widgets will appear here.</p>
+				</CardContent>
+			</Card>
 
-		<Card>
-			<CardHeader>
-				<CardTitle class="text-base">Connection Status</CardTitle>
-			</CardHeader>
-			<CardContent class="space-y-3">
-				<Button onclick={testConnection} disabled={isPinging}>
-					{isPinging ? 'Testing...' : 'Test Connection'}
-				</Button>
+			<Card>
+				<CardHeader>
+					<CardTitle class="text-base">Connection Status</CardTitle>
+				</CardHeader>
+				<CardContent class="space-y-3">
+					<Button onclick={testConnection} disabled={isPinging}>
+						{isPinging ? 'Testing...' : 'Test Connection'}
+					</Button>
 
-				{#if pingResult}
-					<p class="text-sm text-success-500">Gateway: {pingResult}</p>
-				{/if}
+					{#if pingResult}
+						<p class="text-sm text-success-500">Gateway: {pingResult}</p>
+					{/if}
 
-				{#if pingError}
-					<p class="text-sm text-error-500">{pingError}</p>
-				{/if}
-			</CardContent>
-		</Card>
+					{#if pingError}
+						<p class="text-sm text-error-500">{pingError}</p>
+					{/if}
+				</CardContent>
+			</Card>
+		</div>
 	</div>
-</div>
+{/if}

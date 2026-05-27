@@ -14,14 +14,110 @@
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 
+	interface UserWithStatus {
+		pk: number;
+		uuid: string;
+		username: string;
+		name: string;
+		email: string;
+		type: string;
+		groups: number[];
+		activationStatus: string;
+	}
+
 	let { data }: { data: PageData } = $props();
 
-	let hasUsers = $derived(data.users && data.users.length > 0);
+	let users = $state<UserWithStatus[]>(data.users as UserWithStatus[] || []);
+	let hasUsers = $derived(users.length > 0);
 	let isLoading = $derived(!data.users && !data.error);
 	let hasError = $derived(!!data.error);
 
+	let actionStates = $state<Record<number, string>>({});
+	let actionErrors = $state<Record<number, string>>({});
+
 	function handleRetry() {
 		window.location.reload();
+	}
+
+	function statusVariant(status: string) {
+		switch (status) {
+			case 'active': return 'default';
+			case 'deactivated': return 'destructive';
+			case 'suspended': return 'secondary';
+			default: return 'secondary';
+		}
+	}
+
+	function statusLabel(status: string) {
+		switch (status) {
+			case 'active': return 'Active';
+			case 'deactivated': return 'Deactivated';
+			case 'suspended': return 'Suspended';
+			default: return 'Pending';
+		}
+	}
+
+	function getUser(pk: number): UserWithStatus | undefined {
+		return users.find(u => u.pk === pk);
+	}
+
+	async function handleActivate(pk: number) {
+		const user = getUser(pk);
+		if (!user) return;
+		const originalStatus = user.activationStatus;
+
+		actionStates = { ...actionStates, [pk]: 'loading' };
+		actionErrors = { ...actionErrors, [pk]: '' };
+
+		users = users.map(u => u.pk === pk ? { ...u, activationStatus: 'active' } : u);
+
+		try {
+			const res = await fetch(`/api/admin/users/${user.uuid}/activate`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ role: 'student' })
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) {
+				throw new Error(body.error?.message || 'Activation failed');
+			}
+		} catch (err) {
+			users = users.map(u =>
+				u.pk === pk ? { ...u, activationStatus: originalStatus } : u
+			);
+			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Activation failed' };
+		} finally {
+			actionStates = { ...actionStates, [pk]: 'idle' };
+		}
+	}
+
+	async function handleDeactivate(pk: number) {
+		const user = getUser(pk);
+		if (!user) return;
+		const originalStatus = user.activationStatus;
+
+		actionStates = { ...actionStates, [pk]: 'loading' };
+		actionErrors = { ...actionErrors, [pk]: '' };
+
+		users = users.map(u => u.pk === pk ? { ...u, activationStatus: 'deactivated' } : u);
+
+		try {
+			const res = await fetch(`/api/admin/users/${user.uuid}/deactivate`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' }
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) {
+				throw new Error(body.error?.message || 'Deactivation failed');
+			}
+		} catch (err) {
+			users = users.map(u =>
+				u.pk === pk ? { ...u, activationStatus: originalStatus } : u
+			);
+			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Deactivation failed' };
+		} finally {
+			actionStates = { ...actionStates, [pk]: 'idle' };
+		}
 	}
 </script>
 
@@ -80,11 +176,11 @@
 							<TableHead>Name</TableHead>
 							<TableHead>Email</TableHead>
 							<TableHead>Status</TableHead>
-							<TableHead class="w-20">Actions</TableHead>
+							<TableHead class="w-32">Actions</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{#each data.users as user (user.pk)}
+						{#each users as user (user.pk)}
 							<TableRow>
 								<TableCell class="font-medium">
 									{user.name || user.username}
@@ -93,10 +189,33 @@
 									{user.email || '—'}
 								</TableCell>
 								<TableCell>
-									<Badge variant="secondary">Pending</Badge>
+									<Badge variant={statusVariant(user.activationStatus)}>
+										{statusLabel(user.activationStatus)}
+									</Badge>
 								</TableCell>
-								<TableCell>
-									<!-- Actions wired in Unit 8 -->
+								<TableCell class="w-32">
+									{#if user.activationStatus === 'active'}
+										<Button
+											variant="destructive"
+											size="sm"
+											onclick={() => handleDeactivate(user.pk)}
+											disabled={actionStates[user.pk] === 'loading'}
+										>
+											{actionStates[user.pk] === 'loading' ? '...' : 'Deactivate'}
+										</Button>
+									{:else}
+										<Button
+											variant="default"
+											size="sm"
+											onclick={() => handleActivate(user.pk)}
+											disabled={actionStates[user.pk] === 'loading'}
+										>
+											{actionStates[user.pk] === 'loading' ? '...' : 'Activate'}
+										</Button>
+									{/if}
+									{#if actionErrors[user.pk]}
+										<p class="mt-1 text-xs text-error-500">{actionErrors[user.pk]}</p>
+									{/if}
 								</TableCell>
 							</TableRow>
 						{/each}
