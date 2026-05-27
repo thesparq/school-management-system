@@ -106,15 +106,18 @@ pub fn GatewayAgent::check_activation(
 ///|
 /// Tests SurrealDB end-to-end via Student Agent RPC.
 /// The Gateway does NOT hold DB credentials - only Student/Teacher agents do.
-/// Targets a well-known StudentAgent instance (singleton for now).
-#derive.endpoint(get="/db-test")
+#derive.endpoint(get="/db-test?user_id={user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn GatewayAgent::db_test(self : Self, incoming_key : String) -> String {
+pub fn GatewayAgent::db_test(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> String {
   match self.check_auth(incoming_key) {
     Some(msg) => return msg
     None => ()
   }
-  StudentAgentClient::scoped(fn(student) raise @common.AgentError {
+  StudentAgentClient::scoped(user_id, fn(student) raise @common.AgentError {
     student.test_db()
   }) catch {
     _ => "ERROR: student agent unreachable"
@@ -123,8 +126,9 @@ pub fn GatewayAgent::db_test(self : Self, incoming_key : String) -> String {
 
 ///|
 /// Admin-only: activates a target user.
+/// Accepts optional class_level for student activations.
 /// Requires valid X-Golem-Auth-Key header.
-#derive.endpoint(get="/admin/activate?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}")
+#derive.endpoint(get="/admin/activate?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}&class_level={class_level}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn GatewayAgent::activate_admin(
   self : Self,
@@ -132,13 +136,14 @@ pub fn GatewayAgent::activate_admin(
   admin_user_id : String,
   target_user_id : String,
   role : String,
+  class_level : String?,
 ) -> String {
   match self.check_auth(incoming_key) {
     Some(msg) => return msg
     None => ()
   }
   let act_result = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.activate_user(target_user_id, role, None)
+    admin.activate_user(target_user_id, role, class_level)
   }) catch {
     _ => return "admin unreachable"
   }
@@ -173,6 +178,57 @@ pub fn GatewayAgent::deactivate_admin(
   match deact_result {
     Ok(_) => "OK"
     Err(msg) => msg
+  }
+}
+
+///|
+/// Returns the authenticated student's subjects as a JSON array string.
+/// Requires activation check.
+#derive.endpoint(get="/student/subjects?user_id={user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::student_subjects(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  let status = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.is_user_active(user_id)
+  }) catch {
+    _ => return "admin unreachable"
+  }
+  if status != Active {
+    return "NOT_ACTIVATED"
+  }
+
+  StudentAgentClient::scoped(user_id, fn(student) raise @common.AgentError {
+    student.get_subjects()
+  }) catch {
+    _ => "ERROR: student agent unreachable"
+  }
+}
+
+///|
+/// Returns all active class levels as a JSON array string.
+/// Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/class-levels?user_id={admin_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::list_class_levels(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.get_class_levels()
+  }) catch {
+    _ => "admin unreachable"
   }
 }
 

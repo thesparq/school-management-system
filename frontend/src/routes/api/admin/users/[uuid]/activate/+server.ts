@@ -12,11 +12,17 @@ export const POST: RequestHandler = async (event) => {
 
 	const body = await event.request.json().catch(() => ({}));
 	const role: string = body.role || 'student';
+	const classLevel: string | undefined = body.class_level;
 
-	const result = await proxyToGateway('/gateway/admin/activate', user.id, {
+	const extraParams: Record<string, string> = {
 		target_user_id: targetUserId,
 		role
-	});
+	};
+	if (classLevel) {
+		extraParams.class_level = classLevel;
+	}
+
+	const result = await proxyToGateway('/gateway/admin/activate', user.id, extraParams);
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {

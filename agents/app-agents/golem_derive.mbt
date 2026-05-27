@@ -91,6 +91,72 @@ impl @schema.ToElementValue for UserActivation with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for SubjectInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "code",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SubjectInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let code :String? = @schema.extract_field(e, 2)
+  { id, name, code }
+}
+
+///|
+impl @schema.FromElementValue for SubjectInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SubjectInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.name),
+    @schema.to_element_value_as(self.code),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for StudentProfile with element_schema() {
+  @schema.make_record_schema([
+    (
+      "class_level",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
+  let class_level :String = @schema.extract_field(e, 0)
+  { class_level, }
+}
+
+///|
+impl @schema.FromElementValue for StudentProfile with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for StudentProfile with to_element_value(self) {
+  @schema.make_record_value([@schema.to_element_value_as(self.class_level)])
+}
+
+///|
 impl @config.ConfigField for GatewayConfig with collect_entries(path) {
   let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()

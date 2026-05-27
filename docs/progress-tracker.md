@@ -4,14 +4,15 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- Unit 9: SurrealDB Connection & Schema Normalization (completed)
+- Unit 10: Student Agent — Initialization and Subject List (completed)
 
 ## Current Goal
 
-- Unit 10: Student Agent — Initialization and Subject List
+- Unit 11: Student Agent — Lesson Content Retrieval (pending)
 
 ## Completed
 
+- Unit 10: Student Agent — Initialization and Subject List — Per-student durable `StudentAgent` with `student_id` constructor param, `initialize(class_level)` and `get_subjects()` methods querying SurrealDB. `SubjectInfo` and `StudentProfile` types with `#derive.golem_schema`. Admin Agent updated: gains `@config.Config[SurrealConfig]`, `get_class_levels()`, and fire-and-forgets `StudentAgentClient::scoped(user_id, fn(c) { c.trigger_initialize(cl) })` in `activate_user`. Gateway Agent: `/gateway/student/subjects`, `/gateway/admin/class-levels`, updated `/gateway/db-test?user_id=`, updated `/gateway/admin/activate` with `class_level` param. SvelteKit: `/api/student/subjects`, `/api/admin/class-levels` proxy routes; updated `POST /api/admin/users/[uuid]/activate` accepts `class_level` body; admin users page adds class-level dropdown fetched from `/api/admin/class-levels`. Uses `moonbitlang/core/json` with `@json.parse` + pattern matching for SurrealDB response parsing. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
 - Unit 9: SurrealDB Connection & Schema Normalization — `db/normalize-schema.surql` migration (7 steps). Shared `SurrealConfig` (5 `@config.Secret[String]` fields: `host`, `ns`, `database`, `username`, `password`) used by StudentAgent/TeacherAgent via `@config.Config[SurrealConfig]`. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth (`@base64.encode`), `surreal-ns`/`surreal-db` headers, `/sql` path, `Accept: application/json` header, `match`-based error handling. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via typed RPC. SvelteKit `/api/db-test` proxy route. Env var templates in `golem.yaml` secretDefaults. Verified live: `"OK: [{\"result\":[1],\"status\":\"OK\",\"time\":\"92.053µs\"}]"` via `curl /gateway/db-test`. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
 - Unit 1: Frontend Foundation — SvelteKit configured with Tailwind v4, shadcn-svelte Button, design tokens from ui-context.md applied in `src/app.css`, Inter font loaded. Static landing page at `/` with branded heading and primary-blue button.
 - Unit 6: Admin User List Page — `/admin/users` route with role-based guard (`locals.user.roles.includes('admin')`). `authentik.ts` extended with `fetchAllUsers()` (Bearer token auth, paginated, filters to internal users in admin/students/teachers groups). shadcn-svelte Table with Name, Email, "Pending" Status, empty Actions columns. Four states: loading skeletons, error Alert + Retry, empty guidance, data table. Sidebar conditional "Admin > Users" nav item using `child` snippet pattern. (`pnpm build` and `svelte-check` pass with zero errors.)
@@ -28,6 +29,7 @@ Update this file after every meaningful implementation change.
 
 ## Recent Specs
 
+- `docs/specs/10-student-agent-initialization.md` — Per-student durable Student Agent with `initialize` and `get_subjects`, SurrealDB subject querying, class-level dropdown in admin activation UI.
 - `docs/specs/03-dashboard-layout-shell.md` — Protected auth layout with collapsible shadcn-svelte Sidebar, navbar with breadcrumb + avatar dropdown, migrated dashboard page.
 - `docs/specs/05-sveltekit-golem-proxy.md` — SvelteKit → Golem proxy with shared auth secret via Golem secrets.
 - `docs/specs/06-admin-user-list-page.md` — Admin user list page with Authentik API via Bearer token, shadcn-svelte Table, role-based sidebar nav, group-based filtering.
@@ -67,6 +69,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- Unit 10 implemented. Branch: `feat/10-student-agent-initialization`. Per-student `StudentAgent` with `student_id` identity. `SubjectInfo`/`StudentProfile` types with `#derive.golem_schema`. `initialize(class_level)` resolves class_level to SurrealDB record ID, queries `class_subjects`, parses JSON with `@json.parse` and pattern matching. `get_subjects()` returns JSON array string. Admin Agent gains `@config.Config[SurrealConfig]`, `get_class_levels()`, and fires `StudentAgentClient::scoped(user_id, ...)` in `activate_user`. Gateway Agent: 2 new endpoints + 2 updated (`db_test` and `activate_admin`). SvelteKit: 2 new proxy routes, activate endpoint extended, admin users page gets class-level `<select>` fetched from `/api/admin/class-levels`. MoonBit `String.replace` uses labeled args (`old=`, `new=`). Mutable struct fields use `mut` keyword. Generated clients correctly updated with `StudentAgentClient::scoped(student_id, ...)`. (`golem build`, `pnpm build`, `pnpm check` all pass.)
 - Unit 9 refactored: Switched from Bearer token to HTTP Basic Auth via `@base64.encode()`. Shared `SurrealConfig` (5 secrets: `host`, `ns`, `database`, `username`, `password`) replaces duplicate `StudentConfig`/`TeacherConfig`. `surreal_query(config, sql)` takes injected config directly — caller never resolves secrets. `surreal-ns`/`surreal-db` headers, `/sql` path. All WASI HTTP operations use `match` error handling, no `.unwrap()` on network calls. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via RPC. `GatewayConfig` has only `auth_key`. (`golem build`, `pnpm build`, `pnpm check` all pass.)
 - Unit 9 implemented. Branch: `feat/09-surreal-connection-normalization`. `db/normalize-schema.surql` creates subjects, class_levels, terms, class_subjects tables; adds FK fields to lesson_content; populates from existing data. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth. Shared `SurrealConfig` (5 secrets) eliminates per-agent configs. Gateway `/gateway/db-test` via StudentAgent RPC. SvelteKit `/api/db-test` proxy route. `.env` with env var templates. (`golem build`, `pnpm build`, `pnpm check` all pass.)
 - Unit 3 implemented. Branch: `feat/03-dashboard-layout-shell`. All shadcn-svelte components (sidebar, avatar, dropdown-menu, breadcrumb, separator, sheet, tooltip, input, skeleton, card) installed. Old `src/routes/dashboard/` deleted.
