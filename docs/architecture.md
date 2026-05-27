@@ -174,7 +174,7 @@ All agents are defined in the single `app:agents` component (`app-agents/`). The
 | Agent Type | Mode | Instances | Responsibility |
 | :--- | :--- | :--- | :--- |
 | **Ephemeral Gateway Agent** (`GatewayAgent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. The sole HTTP-facing agent. **Does not hold SurrealDB credentials** — only Admin, Student, and Teacher agents query the database via the internal `surreal_client` helper. |
-| **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry (receptionist), user activation orchestrator, relationship manager, and long-running task dispatcher. Accessed via RPC only (no HTTP mount). |
+| **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry (receptionist), user initialization orchestrator, gatekeeper for user agent creation, relationship manager, and long-running task dispatcher. Tracks initialization state only — activation/deactivation is handled by SvelteKit via Authentik API. Accessed via RPC only (no HTTP mount). |
 | **Student Agent** (`StudentAgent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. |
 | **Teacher Agent** (`TeacherAgent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox (projection), and grading records. |
 
@@ -249,7 +249,7 @@ database, no migration scripts. New fields are added with safe defaults.
 
 | Field | MoonBit Type | Purpose |
 | :--- | :--- | :--- |
-| `activated_users` | `Map[String, UserActivation]` | Master list of all activated users and their status |
+| `initialized_users` | `Map[String, UserInitialization]` | Master list of all initialized users and their role |
 | `teacher_assignments` | `Map[String, TeacherAssignment]` | Which teacher teaches which subject to which class |
 | `class_rosters` | `Map[String, String]` | Which class each student belongs to |
 
@@ -308,12 +308,12 @@ Roles are embedded in the Authentik JWT claims. SvelteKit checks roles in `hooks
 
 After SvelteKit validates the JWT, it proxies the request to the Golem API Gateway, targeting the Ephemeral Gateway Agent and passing `user_id` as a path parameter:
 
-1. **Ephemeral Gateway Agent** calls `AdminAgent.isUserActive(user_id)` via RPC.
-2. If `active`, the gateway forwards the request to the target User Agent.
-3. If `suspended` or `deactivated`, the gateway returns `403 Forbidden` with the message "Account not activated. Please contact your school administrator."
-4. If not found in the Admin Agent's registry, the gateway returns `403 Forbidden`.
+1. **Ephemeral Gateway Agent** calls `AdminAgent.is_user_initialized(user_id)` via RPC.
+2. If initialized, the gateway forwards the request to the target User Agent.
+3. If not initialized, the gateway returns `"NOT_INITIALIZED"` which SvelteKit translates to `403 Forbidden` with the message "Account not initialized. Please contact your school administrator."
+4. Authentik activation/deactivation is handled entirely by SvelteKit API routes (`/api/admin/users/[uuid]/activate-authentik` and `deactivate-authentik`), not by Golem agents.
 
-This gatekeeper pattern ensures that a user agent can **never** be implicitly created by an unauthorized request. An agent exists only after an admin explicitly activates the user.
+This gatekeeper pattern ensures that a user agent can **never** be implicitly created by an unauthorized request. An agent exists only after an admin explicitly initializes the user.
 
 ### Network-Level Security
 
@@ -363,9 +363,9 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 1. **SvelteKit never accesses SurrealDB or any agent-local storage.** All data flows through Golem agents. The SvelteKit backend is a pure proxy and has no database credentials.
 
-2. **No durable User Agent is created without an explicit admin activation.** The Ephemeral Gateway Agent must always check `AdminAgent.isUserActive(user_id)` before forwarding a request to a User Agent. Implicit agent creation via Golem's default behaviour is blocked by the gatekeeper.
+2. **No durable User Agent is created without an explicit admin initialization.** The Ephemeral Gateway Agent must always check `AdminAgent.is_user_initialized(user_id)` before forwarding a request to a User Agent. Implicit agent creation via Golem's default behaviour is blocked by the gatekeeper.
 
-3. **The Admin Agent is the single source of truth for user activation status and class-subject-teacher relationships.** No other agent may independently decide that a user is active or that a teacher owns a subject. All such state flows from the Admin Agent via RPC pushes.
+3. **The Admin Agent is the single source of truth for user initialization status and class-subject-teacher relationships.** No other agent may independently decide that a user is initialized or that a teacher owns a subject. All such state flows from the Admin Agent via RPC pushes. Authentik activation/deactivation is handled separately by SvelteKit API routes and does not affect Golem state.
 
 4. **Every durable agent initialises its state fields on first invocation.** State is stored in agent struct fields and persists via Golem's durable execution op‑log. New fields are added with safe defaults; no schema migration script is needed.
 
@@ -396,9 +396,9 @@ These rules must never be violated by any code change, refactor, or new feature.
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │               Ephemeral Gateway Agent (stateless)                  │
-│  1. AdminAgent.isUserActive(user_id)? ──▶ Admin Agent (RPC)       │
-│  2. If active: forward to User Agent (RPC)                        │
-│  3. If not: 403                                                    │
+               │  1. AdminAgent.is_user_initialized(user_id)? ──▶ Admin Agent (RPC)  │
+│  2. If initialized: forward to User Agent (RPC)                    │
+│  3. If not: "NOT_INITIALIZED" → SvelteKit returns 403              │
 └──────────────────────┬───────────────────────────────────────────┘
                        │ (RPC, internal)
          ┌─────────────┼─────────────┐
@@ -427,7 +427,7 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 | Pattern | Implementation |
 | :--- | :--- |
-| **Receptionist (Registry)** | Admin Agent holds all user activation records, teacher-class-subject assignments, and class rosters. Agents discover each other by querying the Admin Agent via RPC. |
+| **Receptionist (Registry)** | Admin Agent holds all user initialization records, teacher-class-subject assignments, and class rosters. Agents discover each other by querying the Admin Agent via RPC. |
 | **Gatekeeper** | Ephemeral Gateway Agent prevents implicit user agent creation and blocks deactivated/suspended users before any request reaches a User Agent. |
 | **Direct Actor Communication** | After discovery via the Admin Agent, Student Agents communicate directly with Teacher Agents for submissions and grading. |
 | **Projection (CQRS-lite)** | The Teacher Agent maintains a local inbox of student submissions, populated by direct RPC pushes from Student Agents. The Student Agent remains the owner of the submission; the Teacher Agent holds a read-only projection for grading. |

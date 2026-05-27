@@ -229,11 +229,12 @@ export interface AuthentikUser {
 	name: string;
 	email: string;
 	type: 'internal' | 'service_account' | 'external';
-	groups: number[];
+	groups: string[];
+	is_active: boolean;
 }
 
 interface AuthentikGroup {
-	pk: number;
+	pk: string;
 	name: string;
 }
 
@@ -244,13 +245,13 @@ interface AuthentikPaginatedResponse {
 	count: number;
 }
 
-async function getTargetGroupPks(): Promise<Set<number>> {
+async function getTargetGroupPks(): Promise<Set<string>> {
 	const host = env.AUTHENTIK_HOST;
 	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
 	if (!host || !token) return new Set();
 
 	const targetNames = ['admin', 'students', 'teachers'];
-	const targetPks = new Set<number>();
+	const targetPks = new Set<string>();
 
 	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;
 
@@ -303,6 +304,100 @@ export async function fetchAllUsers(): Promise<AuthentikUser[]> {
 	if (targetPks.size === 0) return [];
 
 	return allUsers.filter((u) => (u.groups ?? []).some((g) => targetPks.has(g)));
+}
+
+export async function fetchAllGroups(): Promise<AuthentikGroup[]> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) return [];
+	const allGroups: AuthentikGroup[] = [];
+	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;
+	while (nextUrl) {
+		const res = await fetch(nextUrl, {
+			headers: { authorization: `Bearer ${token}` }
+		});
+		if (!res.ok) break;
+		const page: { results: AuthentikGroup[]; next: string | null } = await res.json();
+		allGroups.push(...page.results);
+		nextUrl = page.next;
+	}
+	return allGroups;
+}
+
+export async function getGroupPkByName(name: string): Promise<string | null> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) return null;
+	const res = await fetch(`https://${host}/api/v3/core/groups/?page_size=100&search=${encodeURIComponent(name)}`, {
+		headers: { authorization: `Bearer ${token}` }
+	});
+	if (!res.ok) return null;
+	const page: { results: AuthentikGroup[] } = await res.json();
+	const match = page.results.find((g) => g.name.toLowerCase() === name.toLowerCase());
+	return match ? match.pk : null;
+}
+
+async function setUserActive(uuid: string, isActive: boolean): Promise<void> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) throw new Error('Missing Authentik config');
+	const response = await fetch(`https://${host}/api/v3/core/users/${uuid}/`, {
+		method: 'PATCH',
+		headers: {
+			Authorization: `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ is_active: isActive })
+	});
+	if (!response.ok) throw new Error(`Authentik PATCH failed: ${response.status}`);
+}
+
+export const activateUser = (uuid: string) => setUserActive(uuid, true);
+export const deactivateUser = (uuid: string) => setUserActive(uuid, false);
+
+export async function resetPassword(uuid: string, password: string): Promise<void> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) throw new Error('Missing Authentik config');
+	const response = await fetch(`https://${host}/api/v3/core/users/${uuid}/set_password/`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ password })
+	});
+	if (!response.ok) throw new Error(`Authentik set_password failed: ${response.status}`);
+}
+
+export async function addUserToGroup(userPk: number, groupUuid: string): Promise<void> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) throw new Error('Missing Authentik config');
+	const resp = await fetch(`https://${host}/api/v3/core/groups/${groupUuid}/add_user/`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ pk: userPk })
+	});
+	if (!resp.ok) throw new Error(`Authentik add user to group failed: ${resp.status}`);
+}
+
+export async function removeUserFromGroup(userPk: number, groupUuid: string): Promise<void> {
+	const host = env.AUTHENTIK_HOST;
+	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
+	if (!host || !token) throw new Error('Missing Authentik config');
+	const resp = await fetch(`https://${host}/api/v3/core/groups/${groupUuid}/remove_user/`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ pk: userPk })
+	});
+	if (!resp.ok) throw new Error(`Authentik remove user from group failed: ${resp.status}`);
 }
 
 function generateCodeVerifier(): string {

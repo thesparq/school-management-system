@@ -41,20 +41,6 @@
 ## API Routes (SvelteKit → Golem)
 
 - **JWT validation is mandatory.** Every request to an API route must be checked by the server hook. If the token is missing, expired, or tampered with, the route must return `401 Unauthorized` before any proxy call.
-- **Enforce auth and ownership before any mutation.** For any state-changing request (submission, grading, user activation), the route must verify the authenticated user’s role and, if relevant, that they own the resource or have explicit admin permission.
-- **Return consistent, predictable response shapes.** Every API response must follow a standard envelope:
-  ```json
-  {
-    "data": { ... }     // present on success
-    "error": {           // present on failure
-      "code": "ACTIVATION_REQUIRED",
-      "message": "Account not activated. Please contact your school administrator."
-    }
-  }
-  ```
-You're right — my previous response was broken into multiple partial messages. Here is the complete `code-standards.md` file in one block.
-
-```markdown
 # Code Standards
 
 ## General
@@ -104,13 +90,14 @@ You're right — my previous response was broken into multiple partial messages.
   {
     "data": { ... }     // present on success
     "error": {           // present on failure
-      "code": "ACTIVATION_REQUIRED",
-      "message": "Account not activated. Please contact your school administrator."
+      "code": "NOT_INITIALIZED",
+      "message": "Account not initialized. Please contact your school administrator."
     }
   }
   ```
   No other top-level keys. Status codes must be semantically correct.
-- **Never bypass the Ephemeral Gateway.** All SvelteKit-to-Golem calls must target the gateway agent endpoint. Direct calls to a User Agent’s URL are forbidden, as they circumvent the activation check.
+- **Never bypass the Ephemeral Gateway.** All SvelteKit-to-Golem calls must target the gateway agent endpoint. Direct calls to a User Agent's URL are forbidden, as they circumvent the initialization check.
+- **Authentik activation/deactivation is handled by dedicated SvelteKit API routes, not by Golem agents.** The Admin Agent handles initialization only (durable agent creation). Login permission (is_active) is managed by server-side calls to the Authentik Admin API (`/api/admin/users/[uuid]/activate-authentik`, `/api/admin/users/[uuid]/deactivate-authentik`).
 
 ## Data and Storage
 

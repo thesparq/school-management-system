@@ -5,6 +5,7 @@
 	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage } from '$lib/components/ui/breadcrumb';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import { page, navigating } from '$app/stores';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 
@@ -54,6 +55,10 @@
 	}
 </script>
 
+{#if $navigating}
+	<div class="fixed top-0 left-0 right-0 z-50 h-2 bg-secondary-500 animate-pulse"></div>
+{/if}
+
 <SidebarProvider open={sidebarOpen} onOpenChange={(v) => sidebarOpen = v}>
 	<Sidebar>
 		<SidebarHeader>
@@ -69,12 +74,26 @@
 
 			{#if data.user.roles.includes('admin')}
 				<SidebarGroup>
-					<SidebarGroupLabel>Admin</SidebarGroupLabel>
+					<SidebarGroupLabel>Users</SidebarGroupLabel>
 					<SidebarMenu>
 						<SidebarMenuItem>
-							<SidebarMenuButton>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/students')}>
 								{#snippet child({ props })}
-									<a href="/admin/users" {...props}>Users</a>
+									<a href="/admin/users/students" {...props}>Students</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/teachers')}>
+								{#snippet child({ props })}
+									<a href="/admin/users/teachers" {...props}>Teachers</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/admin-role')}>
+								{#snippet child({ props })}
+									<a href="/admin/users/admin-role" {...props}>Admin</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>

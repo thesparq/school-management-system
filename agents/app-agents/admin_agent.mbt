@@ -2,34 +2,22 @@
 
 ///|
 #derive.golem_schema
-enum ActivationStatus {
-  NotFound
-  Active
-  Suspended
-  Deactivated
+struct UserInitialization {
+  user_id : String
+  role : String
+  class_level : String?
+  initialized_at : UInt64
 } derive(Eq)
 
 //|
 
 ///|
-#derive.golem_schema
-struct UserActivation {
-  user_id : String
-  role : String
-  status : ActivationStatus
-  class_level : String?
-  activated_at : UInt64
-}
-
-//|
-
-///|
 /// Central registry agent - durable singleton.
-/// Authority for user activation, class-subject-teacher assignments,
+/// Authority for user initialization, class-subject-teacher assignments,
 /// and class rosters.
 #derive.agent
 struct AdminAgent {
-  activated_users : Map[String, UserActivation]
+  initialized_users : Map[String, UserInitialization]
   config : @config.Config[SurrealConfig]
 }
 
@@ -37,7 +25,7 @@ struct AdminAgent {
 
 ///|
 fn AdminAgent::new(config : @config.Config[SurrealConfig]) -> AdminAgent {
-  { activated_users: Map::new(), config }
+  { initialized_users: Map::new(), config }
 }
 
 //|
@@ -51,10 +39,10 @@ pub fn AdminAgent::ping(self : Self) -> String {
 //|
 
 ///|
-/// Activates a user by storing their activation record in durable state.
+/// Initializes a user by storing their initialization record in durable state.
 /// For students with a class_level, fire-and-forget initializes the
-/// Student Agent (best-effort; does not fail activation).
-pub fn AdminAgent::activate_user(
+/// Student Agent (best-effort; does not fail initialization).
+pub fn AdminAgent::initialize_user(
   self : Self,
   user_id : String,
   role : String,
@@ -64,14 +52,13 @@ pub fn AdminAgent::activate_user(
     return Err("invalid role: \{role}")
   }
   let now = @wallClock.now()
-  let record = UserActivation::{
+  let record = UserInitialization::{
     user_id,
     role,
-    status: Active,
     class_level,
-    activated_at: now.seconds,
+    initialized_at: now.seconds,
   }
-  self.activated_users.set(user_id, record)
+  self.initialized_users.set(user_id, record)
 
   if role == "student" {
     match class_level {
@@ -94,54 +81,42 @@ pub fn AdminAgent::activate_user(
 //|
 
 ///|
-/// Checks whether a user is active.
-/// Returns NotFound if not in registry, otherwise the stored status.
-pub fn AdminAgent::is_user_active(
-  self : Self,
-  user_id : String,
-) -> ActivationStatus {
-  match self.activated_users.get(user_id) {
-    None => NotFound
-    Some(record) => record.status
-  }
+/// Checks whether a user has been initialized.
+/// Returns false if not in registry, true otherwise.
+/// Admin users are always considered initialized — the Admin Agent
+/// singleton is ready from the moment it is created.
+pub fn AdminAgent::is_user_initialized(self : Self, user_id : String) -> Bool {
+  self.initialized_users.contains(user_id)
 }
 
 ///|
-/// Deactivates a previously activated user.
-/// Returns Err if the user is not in the registry.
-pub fn AdminAgent::deactivate_user(
-  self : Self,
-  user_id : String,
-) -> Result[String, String] {
-  match self.activated_users.get(user_id) {
-    None => Err("user not found: \{user_id}")
-    Some(record) => {
-      let updated = UserActivation::{ ..record, status: Deactivated }
-      self.activated_users.set(user_id, updated)
-      Ok("ok")
-    }
-  }
+/// Returns true for all admin users. The Admin Agent singleton
+/// is always running — no per-user initialization needed.
+pub fn AdminAgent::is_admin_initialized(self : Self) -> Bool {
+  true
 }
 
+//|
+
 ///|
-/// Returns all activation records as an array of (user_id, status) tuples.
-pub fn AdminAgent::get_all_activations(
-  self : Self,
-) -> Array[(String, ActivationStatus)] {
-  self.activated_users
+/// Returns all initialized users as an array of (user_id, role) tuples.
+pub fn AdminAgent::get_all_initialized(self : Self) -> Array[(String, String)] {
+  self.initialized_users
   .iter()
-  .map(fn(pair) { (pair.0, pair.1.status) })
+  .map(fn(pair) { (pair.0, pair.1.role) })
   .collect()
 }
+
+//|
 
 ///|
 fn escape_json_string(s : String) -> String {
   s
-    .replace(old="\\", new="\\\\")
-    .replace(old="\"", new="\\\"")
-    .replace(old="\n", new="\\n")
-    .replace(old="\r", new="\\r")
-    .replace(old="\t", new="\\t")
+  .replace(old="\\", new="\\\\")
+  .replace(old="\"", new="\\\"")
+  .replace(old="\n", new="\\n")
+  .replace(old="\r", new="\\r")
+  .replace(old="\t", new="\\t")
 }
 
 ///|

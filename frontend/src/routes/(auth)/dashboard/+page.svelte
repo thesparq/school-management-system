@@ -30,7 +30,7 @@
 	}
 </script>
 
-{#if data.activated === false}
+{#if data.initialized === false}
 	<div class="mx-auto max-w-lg py-16 text-center space-y-6">
 		<div class="rounded-full bg-warning-100 dark:bg-warning-900/20 mx-auto w-fit p-4">
 			<svg
@@ -49,10 +49,10 @@
 			</svg>
 		</div>
 		<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">
-			Account Not Activated
+			Account Not Initialized
 		</h1>
 		<p class="text-surface-700 dark:text-surface-400">
-			Your account has not yet been activated. Please contact your school administrator.
+			Your account has not yet been initialized. Please contact your school administrator.
 		</p>
 	</div>
 {:else}

@@ -3,10 +3,71 @@
 fn init{
   try {
     @agents.register_agent({
+      name: "TeacherAgent",
+      agent_type: {
+        type_name: "TeacherAgent",
+        description: "TeacherAgent",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new TeacherAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([]),
+        },
+        methods: [
+          {
+            name: "test_db",
+            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: None,
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 0 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 0 elements, got " + elements.length().to_string(),
+            )
+          }
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = TeacherAgent::new(config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
+    @agents.register_agent({
       name: "AdminAgent",
       agent_type: {
         type_name: "AdminAgent",
-        description: "Central registry agent - durable singleton.  Authority for user activation, class-subject-teacher assignments, and class rosters.",
+        description: "Central registry agent - durable singleton.  Authority for user initialization, class-subject-teacher assignments, and class rosters.",
         source_language: "moonbit",
         constructor_: {
           name: Some("new"),
@@ -31,8 +92,8 @@ fn init{
             ]),
           },
           {
-            name: "activate_user",
-            description: "Activates a user by storing their activation record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail activation).",
+            name: "initialize_user",
+            description: "Initializes a user by storing their initialization record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail initialization).",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -68,8 +129,8 @@ fn init{
             ]),
           },
           {
-            name: "is_user_active",
-            description: "Checks whether a user is active.  Returns NotFound if not in registry, otherwise the stored status.",
+            name: "is_user_initialized",
+            description: "Checks whether a user has been initialized.  Returns false if not in registry, true otherwise. Admin users are always considered initialized — the Admin Agent singleton is ready from the moment it is created.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -84,39 +145,29 @@ fn init{
               (
                 "result",
                 @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[ActivationStatus]),
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
                 ),
               ),
             ]),
           },
           {
-            name: "deactivate_user",
-            description: "Deactivates a previously activated user.  Returns Err if the user is not in the registry.",
+            name: "is_admin_initialized",
+            description: "Returns true for all admin users. The Admin Agent singleton  is always running — no per-user initialization needed.",
             http_endpoint: [],
             prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
             output_schema: @rpcTypes.DataSchema::Tuple([
               (
                 "result",
                 @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
                 ),
               ),
             ]),
           },
           {
-            name: "get_all_activations",
-            description: "Returns all activation records as an array of (user_id, status) tuples.",
+            name: "get_all_initialized",
+            description: "Returns all initialized users as an array of (user_id, role) tuples.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([]),
@@ -126,7 +177,7 @@ fn init{
                 @schema.schema_of_tag(
                   (
                     @schema.TypeTag::{  }
-                    : @schema.TypeTag[Array[(String, ActivationStatus)]]
+                    : @schema.TypeTag[Array[(String, String)]]
                   ),
                 ),
               ),
@@ -184,7 +235,7 @@ fn init{
       name: "GatewayAgent",
       agent_type: {
         type_name: "GatewayAgent",
-        description: "Stateless gatekeeper - ephemeral, fresh instance per HTTP request.  Checks the incoming X-Golem-Auth-Key header against the configured secret before forwarding requests to internal agents. Also checks user activation via Admin Agent RPC.",
+        description: "Stateless gatekeeper - ephemeral, fresh instance per HTTP request.  Checks the incoming X-Golem-Auth-Key header against the configured secret before forwarding requests to internal agents. Also checks user initialization via Admin Agent RPC.",
         source_language: "moonbit",
         constructor_: {
           name: Some("new"),
@@ -195,7 +246,7 @@ fn init{
         methods: [
           {
             name: "ping",
-            description: "Proxies a ping to the Admin Agent via typed RPC.  Requires correct X-Golem-Auth-Key header and an active user. Returns admin online on success, NOT_ACTIVATED if user is inactive, admin unreachable on RPC failure.",
+            description: "Proxies a ping to the Admin Agent via typed RPC.  Requires correct X-Golem-Auth-Key header and an initialized user. Returns admin online on success, NOT_INITIALIZED if user is not initialized, admin unreachable on RPC failure.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -238,12 +289,64 @@ fn init{
             ]),
           },
           {
-            name: "check_activation",
-            description: "Checks whether a user is activated.  Returns OK if active, NOT_ACTIVATED if not.",
+            name: "admin_ping",
+            description: "Admin ping — skips the per-user initialization check.  The Admin Agent singleton is always ready; admin users don't need init.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("check-activation")],
+                path_suffix: [
+                  @common.PathSegment::Literal("admin"),
+                  @common.PathSegment::Literal("ping"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "user_id",
+                    variable_name: "admin_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "admin_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "check_initialization",
+            description: "Checks whether a user is initialized.  Returns OK if initialized, NOT_INITIALIZED if not.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("check-initialization"),
+                ],
                 header_vars: [
                   {
                     header_name: "X-Golem-Auth-Key",
@@ -326,14 +429,14 @@ fn init{
             ]),
           },
           {
-            name: "activate_admin",
-            description: "Admin-only: activates a target user.  Accepts optional class_level for student activations. Requires valid X-Golem-Auth-Key header.",
+            name: "initialize_admin",
+            description: "Admin-only: initializes a target user.  Accepts optional class_level for student initializations. Requires valid X-Golem-Auth-Key header.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [
                   @common.PathSegment::Literal("admin"),
-                  @common.PathSegment::Literal("activate"),
+                  @common.PathSegment::Literal("initialize"),
                 ],
                 header_vars: [
                   {
@@ -403,68 +506,8 @@ fn init{
             ]),
           },
           {
-            name: "deactivate_admin",
-            description: "Admin-only: deactivates a target user.  Requires valid X-Golem-Auth-Key header.",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("admin"),
-                  @common.PathSegment::Literal("deactivate"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "user_id",
-                    variable_name: "admin_user_id",
-                  },
-                  {
-                    query_param_name: "target_user_id",
-                    variable_name: "target_user_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "admin_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-          {
             name: "student_subjects",
-            description: "Returns the authenticated student's subjects as a JSON array string.  Requires activation check.",
+            description: "Returns the authenticated student's subjects as a JSON array string.  Requires initialization check.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -560,14 +603,14 @@ fn init{
             ]),
           },
           {
-            name: "list_activations",
-            description: "Admin-only: returns all activation records as newline-separated  user_id|status lines. Requires valid X-Golem-Auth-Key header.",
+            name: "list_initializations",
+            description: "Admin-only: returns all initialized users as a JSON array of [user_id, role]  pairs. Requires valid X-Golem-Auth-Key header.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [
                   @common.PathSegment::Literal("admin"),
-                  @common.PathSegment::Literal("activations"),
+                  @common.PathSegment::Literal("initializations"),
                 ],
                 header_vars: [
                   {
@@ -754,69 +797,34 @@ fn init{
         }
       },
     })
-    @agents.register_agent({
-      name: "TeacherAgent",
-      agent_type: {
-        type_name: "TeacherAgent",
-        description: "TeacherAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new TeacherAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([]),
-        },
-        methods: [
-          {
-            name: "test_db",
-            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: None,
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 0 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 0 elements, got " + elements.length().to_string(),
-            )
-          }
-          let config :@config.Config[SurrealConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          )
-          let agent = TeacherAgent::new(config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
   } catch{
     e => abort(e.to_string())
+  }
+}
+
+///|
+impl @agents.RawAgent for TeacherAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "test_db" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.test_db()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
   }
 }
 
@@ -839,7 +847,7 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let result = self.ping()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "activate_user" => {
+      "initialize_user" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 3 else {
           raise  @common.AgentError::InvalidInput(
@@ -849,10 +857,10 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let user_id :String = @schema.from_element_value_as(elements[0])
         let role :String = @schema.from_element_value_as(elements[1])
         let class_level :String? = @schema.from_element_value_as(elements[2])
-        let result = self.activate_user(user_id, role, class_level)
+        let result = self.initialize_user(user_id, role, class_level)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "is_user_active" => {
+      "is_user_initialized" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 1 else {
           raise  @common.AgentError::InvalidInput(
@@ -860,28 +868,27 @@ impl @agents.RawAgent for AdminAgent with invoke(
           )
         }
         let user_id :String = @schema.from_element_value_as(elements[0])
-        let result = self.is_user_active(user_id)
+        let result = self.is_user_initialized(user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "deactivate_user" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let user_id :String = @schema.from_element_value_as(elements[0])
-        let result = self.deactivate_user(user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_all_activations" => {
+      "is_admin_initialized" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 0 else {
           raise  @common.AgentError::InvalidInput(
             "Expected 0 elements, got " + elements.length().to_string(),
           )
         }
-        let result = self.get_all_activations()
+        let result = self.is_admin_initialized()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_all_initialized" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.get_all_initialized()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "get_class_levels" => {
@@ -922,7 +929,19 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let result = self.ping(incoming_key, user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "check_activation" => {
+      "admin_ping" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.admin_ping(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "check_initialization" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 2 else {
           raise  @common.AgentError::InvalidInput(
@@ -931,7 +950,7 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.check_activation(incoming_key, user_id)
+        let result = self.check_initialization(incoming_key, user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "db_test" => {
@@ -946,7 +965,7 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let result = self.db_test(incoming_key, user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "activate_admin" => {
+      "initialize_admin" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 5 else {
           raise  @common.AgentError::InvalidInput(
@@ -958,27 +977,13 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let target_user_id :String = @schema.from_element_value_as(elements[2])
         let role :String = @schema.from_element_value_as(elements[3])
         let class_level :String? = @schema.from_element_value_as(elements[4])
-        let result = self.activate_admin(
+        let result = self.initialize_admin(
           incoming_key,
           admin_user_id,
           target_user_id,
           role,
           class_level,
         )
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "deactivate_admin" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 3 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 3 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let target_user_id :String = @schema.from_element_value_as(elements[2])
-        let result = 
-          self.deactivate_admin(incoming_key, admin_user_id, target_user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "student_subjects" => {
@@ -1005,7 +1010,7 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let result = self.list_class_levels(incoming_key, admin_user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
-      "list_activations" => {
+      "list_initializations" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 2 else {
           raise  @common.AgentError::InvalidInput(
@@ -1014,7 +1019,7 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.list_activations(incoming_key, admin_user_id)
+        let result = self.list_initializations(incoming_key, admin_user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))
@@ -1062,32 +1067,6 @@ impl @agents.RawAgent for StudentAgent with invoke(
           )
         }
         let result = self.get_subjects()
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
-  }
-}
-
-///|
-impl @agents.RawAgent for TeacherAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "test_db" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 0 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 0 elements, got " + elements.length().to_string(),
-          )
-        }
-        let result = self.test_db()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))
