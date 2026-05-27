@@ -13,6 +13,11 @@ import {
   "golemcloud/golem_sdk/interface/wasi/clocks/wallClock" @wallClock,
   "golemcloud/golem_sdk/interface/golem/agent/host" @agentHost,
   "golemcloud/golem_sdk/config" @config,
+  "golemcloud/golem_sdk/http" @http,
+  "golemcloud/golem_sdk/interface/wasi/http/types" @http_types,
+  "golemcloud/golem_sdk/interface/wasi/io/streams" @streams,
+  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/encoding/base64" @base64,
 }
 
 options(

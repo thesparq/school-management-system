@@ -173,24 +173,71 @@ All agents are defined in the single `app:agents` component (`app-agents/`). The
 
 | Agent Type | Mode | Instances | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Ephemeral Gateway Agent** (`GatewayAgent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. The sole HTTP-facing agent. |
+| **Ephemeral Gateway Agent** (`GatewayAgent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. The sole HTTP-facing agent. **Does not hold SurrealDB credentials** — only Admin, Student, and Teacher agents query the database via the internal `surreal_client` helper. |
 | **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry (receptionist), user activation orchestrator, relationship manager, and long-running task dispatcher. Accessed via RPC only (no HTTP mount). |
 | **Student Agent** (`StudentAgent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. |
 | **Teacher Agent** (`TeacherAgent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox (projection), and grading records. |
 
 ### SurrealDB
 
-- **Accessed only by Golem agents** via HTTP using the `golemcloud/golem_sdk/http` package.
+- **Accessed only by Golem agents** via HTTP using the `golemcloud/golem_sdk/http` package with HTTP Basic Auth.
 - Stores lesson content documents. No user state, no submissions, no grades.
 - Golem automatically persists all outgoing HTTP requests and responses in the agent's operation log. On replay, the response is read from the log rather than re-executing the network call, ensuring deterministic behaviour.
 
 ## Storage Model
 
-### SurrealDB — Lesson Content
+### SurrealDB — Normalized Schema
 
-One document per lesson. The schema is the AI-generated lesson record with fields: `id`, `source_id`, `active`, `age_range`, `class_level`, `subject`, `term`, `week`, `topic_title`, `duration_mins`, `objectives[]`, `prior_knowledge[]`, `materials[]`, `key_points[]`, `success_criteria[]`, `content_sections[]` (each with `section_number`, `header`, `body`, `sub_points[]`), `mcq_questions[]` (each with `question`, `option_a`–`option_c`, `correct_answer`, `explanation`), `theoretical_questions[]` (each with `question`, `parts[]`, `model_answer`, `marking_scheme`), `lesson_steps[]`, `introduction`, `conclusion`, `teacher_tips`, `remediation`, etc.
+The database uses a normalized relational schema. The `lesson_content` table remains schemaless (original structure preserved) with four new FK fields added. Lookup tables use `SCHEMAFULL` for type safety.
 
-Agents read these documents, cache them, and present them. Teachers do not modify the documents directly in the MVP; they select questions from the existing banks.
+**Lookup tables (all `SCHEMAFULL`):**
+
+| Table | Key Fields | Purpose |
+|---|---|---|
+| `subjects` | `name` (unique), `code?`, `active` | All curriculum subjects (e.g., "Basic Science", "Mathematics") |
+| `class_levels` | `name` (unique), `code?`, `active` | All class/year levels (e.g., "Primary 1", "JSS 1") |
+| `terms` | `name` (unique), `sort_order`, `active` | Academic terms: "First Term" (1), "Second Term" (2), "Third Term" (3) |
+| `class_subjects` | `class_level_id` → class_levels, `subject_id` → subjects, `active` | Many-to-many mapping: which subjects belong to which class |
+
+**`lesson_content` (existing — stays schemaless):**
+
+The original AI-generated lesson record is untouched. Old string fields (`class_level`, `subject`, `term`, `week`) are kept in place. Four new optional fields are added via `DEFINE FIELD`:
+
+| New Field | Type | Source |
+|---|---|---|
+| `class_level_id` | `record<class_levels>` | Extracted from existing `class_level` string |
+| `subject_id` | `record<subjects>` | Extracted from existing `subject` string |
+| `term_id` | `record<terms>` | Extracted from existing `term` string |
+| `week_number` | `int` | Extracted from existing `week` string |
+
+New indexes for FK-based queries:
+
+| Index | Fields |
+|---|---|
+| `idx_lesson_cl` | `class_level_id` |
+| `idx_lesson_subj` | `subject_id` |
+| `idx_lesson_nav` | `class_level_id, subject_id, term_id, week_number` |
+
+Existing indexes `idx_class_level`, `idx_class_subject`, `idx_nav` remain unchanged.
+
+Agents query via HTTP using the `surreal_client` module (`agents/app-agents/surreal_client.mbt`), which wraps WASI HTTP POST requests to `https://{host}/sql` with HTTP Basic Auth (`username:password` base64-encoded). Namespace and database are sent as `surreal-ns` / `surreal-db` headers.
+
+A shared `SurrealConfig` struct defines all 5 connection parameters as Golem secrets:
+
+```moonbit
+#derive.config
+pub(all) struct SurrealConfig {
+  host      : @config.Secret[String]
+  ns        : @config.Secret[String]
+  database  : @config.Secret[String]
+  username  : @config.Secret[String]
+  password  : @config.Secret[String]
+}
+```
+
+`SurrealConfig` is used by all agents that need SurrealDB access (`StudentAgent`, `TeacherAgent`, future `AdminAgent` SurrealDB methods). Each agent gets one `@config.Config[SurrealConfig]` field injected via its constructor. The `surreal_query(config, sql)` function resolves all 5 secrets internally with proper `match`-based error handling — no `.unwrap()` panics on network operations.
+
+Only **Admin Agent**, **Student Agent**, and **Teacher Agent** hold SurrealDB credentials. The **Gateway Agent** never stores DB credentials — its `/gateway/db-test` endpoint calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via typed RPC.
 
 ### Agent Durable State
 

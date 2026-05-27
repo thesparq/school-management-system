@@ -4,14 +4,15 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- Unit 8: Admin Portal — Activation Actions (completed)
+- Unit 9: SurrealDB Connection & Schema Normalization (completed)
 
 ## Current Goal
 
-- Unit 8 complete — Activate/Deactivate buttons on admin user list with optimistic updates. Dynamic status badges fetched from Admin Agent. Dashboard not-activated error page. `golem build`, `pnpm build`, `pnpm check` all pass with zero errors.
+- Unit 10: Student Agent — Initialization and Subject List
 
 ## Completed
 
+- Unit 9: SurrealDB Connection & Schema Normalization — `db/normalize-schema.surql` migration (7 steps). Shared `SurrealConfig` (5 `@config.Secret[String]` fields: `host`, `ns`, `database`, `username`, `password`) used by StudentAgent/TeacherAgent via `@config.Config[SurrealConfig]`. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth (`@base64.encode`), `surreal-ns`/`surreal-db` headers, `/sql` path, `Accept: application/json` header, `match`-based error handling. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via typed RPC. SvelteKit `/api/db-test` proxy route. Env var templates in `golem.yaml` secretDefaults. Verified live: `"OK: [{\"result\":[1],\"status\":\"OK\",\"time\":\"92.053µs\"}]"` via `curl /gateway/db-test`. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
 - Unit 1: Frontend Foundation — SvelteKit configured with Tailwind v4, shadcn-svelte Button, design tokens from ui-context.md applied in `src/app.css`, Inter font loaded. Static landing page at `/` with branded heading and primary-blue button.
 - Unit 6: Admin User List Page — `/admin/users` route with role-based guard (`locals.user.roles.includes('admin')`). `authentik.ts` extended with `fetchAllUsers()` (Bearer token auth, paginated, filters to internal users in admin/students/teachers groups). shadcn-svelte Table with Name, Email, "Pending" Status, empty Actions columns. Four states: loading skeletons, error Alert + Retry, empty guidance, data table. Sidebar conditional "Admin > Users" nav item using `child` snippet pattern. (`pnpm build` and `svelte-check` pass with zero errors.)
 - Unit 8: Admin Portal — Activation Actions — Admin Agent adds `deactivate_user(user_id)` and `get_all_activations()`. Gateway Agent adds 4 new endpoints: `check-activation`, `admin/activate`, `admin/deactivate`, `admin/activations`. SvelteKit gains 4 new API routes: `/api/auth/status`, `/api/admin/activations`, `/api/admin/users/[pk]/activate`, `/api/admin/users/[pk]/deactivate`. Dashboard shows "Account Not Activated" error for inactive users (server load check via `/api/auth/status`). Admin users page fetches real activation statuses, shows dynamic Badge (Active/Deactivated/Pending), and Activate/Deactivate buttons with optimistic updates and rollback on error. `proxyToGateway` extended with optional `extraParams`. `parseActivations` helper added. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
@@ -23,7 +24,7 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- Unit 9: SurrealDB Connection & Normalization
+- Unit 10: Student Agent — Initialization and Subject List
 
 ## Recent Specs
 
@@ -53,6 +54,7 @@ Update this file after every meaningful implementation change.
 - **Authentik admin API uses Bearer token (not OAuth2 Client Credentials):** The service account token is generated in Authentik and sent as `Authorization: Bearer <token>`. No username needed, no token caching/refresh logic — the token is self-contained.
 - **Admin user list filters by group membership:** Users must belong to at least one of `admin`, `students`, or `teachers` groups (by name) to appear in the admin table. Group PKs are fetched from `GET /api/v3/core/groups/` and cross-referenced against each user's `groups` array.
 - **`SidebarMenuButton` uses `child` snippet pattern instead of `asChild`:** The shadcn-svelte component accepts `{#snippet child({ props })}` for wrapping custom elements like `<a>`, mirroring the `DropdownMenuTrigger` pattern.
+- **SurrealDB uses HTTP Basic Auth with shared `SurrealConfig` (5 secrets):** Auth uses `username:password` base64-encoded via `@base64.encode()` from `moonbitlang/core/encoding/base64`. Namespace and database are sent as `surreal-ns` / `surreal-db` headers (SurrealDB SDK convention), not `NS` / `DB`. A single `SurrealConfig` struct (all 5 fields as `@config.Secret[String]`) is shared by all agents via `@config.Config[SurrealConfig]`, eliminating per-agent config duplication (`StudentConfig`, `TeacherConfig` removed). The `surreal_query(config, sql)` function takes the injected config directly — caller never resolves secrets manually. All WASI HTTP operations use `match`-based error handling, never `.unwrap()` on network calls. Gateway Agent never holds SurrealDB credentials — it routes via typed RPC to `StudentAgent.test_db()`. Env vars are substituted via `{{ VAR }}` template syntax in `secretDefaults`.
 - **Activation status text protocol:** Admin Agent's `get_all_activations` returns `Array[(String, ActivationStatus)]`. The Gateway serializes it as newline-separated `user_id|status` lines (plain text, no JSON dependency). The SvelteKit `parseActivations` helper parses this format. This avoids adding a `@json` MoonBit dependency while keeping the interface simple.
 - **Admin gateway endpoints skip activation check:** The `activate_admin`, `deactivate_admin`, and `list_activations` gateway endpoints only check `X-Golem-Auth-Key` (not admin activation). This avoids a bootstrapping problem — no activated admin exists yet to activate the first user. SvelteKit role authorization is the sole admin gate.
 - **Use `golem deploy --reset` for development updates:** When the Golem server reports "UP-TO-DATE" despite code changes, `golem deploy --reset` forces the new WASM binary through. This is needed because the deploy's hash comparison may consider staging vs. deployed as identical during rapid iteration cycles.
@@ -65,6 +67,8 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- Unit 9 refactored: Switched from Bearer token to HTTP Basic Auth via `@base64.encode()`. Shared `SurrealConfig` (5 secrets: `host`, `ns`, `database`, `username`, `password`) replaces duplicate `StudentConfig`/`TeacherConfig`. `surreal_query(config, sql)` takes injected config directly — caller never resolves secrets. `surreal-ns`/`surreal-db` headers, `/sql` path. All WASI HTTP operations use `match` error handling, no `.unwrap()` on network calls. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via RPC. `GatewayConfig` has only `auth_key`. (`golem build`, `pnpm build`, `pnpm check` all pass.)
+- Unit 9 implemented. Branch: `feat/09-surreal-connection-normalization`. `db/normalize-schema.surql` creates subjects, class_levels, terms, class_subjects tables; adds FK fields to lesson_content; populates from existing data. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth. Shared `SurrealConfig` (5 secrets) eliminates per-agent configs. Gateway `/gateway/db-test` via StudentAgent RPC. SvelteKit `/api/db-test` proxy route. `.env` with env var templates. (`golem build`, `pnpm build`, `pnpm check` all pass.)
 - Unit 3 implemented. Branch: `feat/03-dashboard-layout-shell`. All shadcn-svelte components (sidebar, avatar, dropdown-menu, breadcrumb, separator, sheet, tooltip, input, skeleton, card) installed. Old `src/routes/dashboard/` deleted.
 - Unit 6 implemented. Branch: `feat/06-admin-user-list-page`. shadcn-svelte table, badge, alert installed. Authentik auth refactored from OAuth2 Client Credentials → Bearer token, then Basic auth → Bearer token. Group membership filter added (admin/students/teachers). Spec updated to reflect all changes.
 - Unit 8 implemented. Branch: `feat/08-admin-activation-actions`. Admin Agent gains `deactivate_user` and `get_all_activations`. Gateway Agent gains 4 endpoints (admin activation check removed to avoid bootstrapping). 4 new SvelteKit API routes built. Dashboard not-activated state added. Admin page shows dynamic status badges and Activate/Deactivate buttons with optimistic updates. `proxyToGateway` extended with `extraParams` and `JSON.parse` for Golem's quoted-string responses. `parseActivations` helper added. Activation keyed by Authentik UUID (requires JWT `sub` = `user.uuid` in OIDC provider). (`golem build`, `pnpm build`, `pnpm check` all pass.)

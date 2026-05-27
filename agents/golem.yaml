@@ -66,3 +66,8 @@ httpApi:
 secretDefaults:
   local:
     authKey: "dev-auth-key-change-in-production"
+    host: "{{ SURREAL_DB_HOST }}"
+    ns: "{{ SURREAL_DB_NS }}"
+    database: "{{ SURREAL_DB }}"
+    username: "{{ SURREAL_DB_USERNAME }}"
+    password: "{{ SURREAL_DB_PASSWORD }}"

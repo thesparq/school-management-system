@@ -115,3 +115,84 @@ impl @config.ConfigField for GatewayConfig with load(path) {
   { auth_key, }
 }
 
+///|
+impl @config.ConfigField for SurrealConfig with collect_entries(path) {
+  let entries :Array[@common.AgentConfigDeclaration] = []
+  let fp0 = path.copy()
+  fp0.push("host")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp0,
+    ),
+  )
+  let fp1 = path.copy()
+  fp1.push("ns")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp1,
+    ),
+  )
+  let fp2 = path.copy()
+  fp2.push("database")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp2,
+    ),
+  )
+  let fp3 = path.copy()
+  fp3.push("username")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp3,
+    ),
+  )
+  let fp4 = path.copy()
+  fp4.push("password")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp4,
+    ),
+  )
+  entries
+}
+
+///|
+impl @config.ConfigField for SurrealConfig with load(path) {
+  let fp0 = path.copy()
+  fp0.push("host")
+  let host :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp0,
+  )
+  let fp1 = path.copy()
+  fp1.push("ns")
+  let ns :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp1,
+  )
+  let fp2 = path.copy()
+  fp2.push("database")
+  let database :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp2,
+  )
+  let fp3 = path.copy()
+  fp3.push("username")
+  let username :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp3,
+  )
+  let fp4 = path.copy()
+  fp4.push("password")
+  let password :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp4,
+  )
+  { host, ns, database, username, password }
+}
+
