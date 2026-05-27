@@ -20,8 +20,13 @@ fn url_encode(s : String) -> String {
   let result = StringBuilder::new()
   for b in arr {
     let v = b.to_int()
-    if (v >= 0x30 && v <= 0x39) || (v >= 0x41 && v <= 0x5A) || (v >= 0x61 && v <= 0x7A) ||
-       v == 0x2D || v == 0x5F || v == 0x2E || v == 0x7E {
+    if (v >= 0x30 && v <= 0x39) ||
+      (v >= 0x41 && v <= 0x5A) ||
+      (v >= 0x61 && v <= 0x7A) ||
+      v == 0x2D ||
+      v == 0x5F ||
+      v == 0x2E ||
+      v == 0x7E {
       result.write_char(v.unsafe_to_char())
     } else if v == 0x20 {
       result.write_string("%20")

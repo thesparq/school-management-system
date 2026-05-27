@@ -6,8 +6,8 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 
 1. Provide a secure, role‑based portal where students can view AI‑generated lessons and complete assignments.
 2. Allow teachers to curate assessment questions from a question bank, set deadlines, and grade student submissions.
-3. Let administrators activate users, manage class‑subject‑teacher assignments, and oversee content through a central admin portal.
-4. Guarantee that only pre‑activated users can interact with their durable agent, preventing implicit resource creation.
+3. Let administrators initialize users, manage class‑subject‑teacher assignments, and oversee content through a central admin portal.
+4. Guarantee that only pre‑initialized users can interact with their durable agent, preventing implicit resource creation.
 5. Maintain a clean separation of concerns: SvelteKit handles auth and UI; Golem agents own all business logic and state.
 6. Keep the system simple and idiomatic to Golem’s durable execution model (actor‑based, event‑sourced state, explicit RPCs).
 7. Use a calm, accessible UI with light mode (and optional dark mode) built with Tailwind CSS v4 and shadcn‑svelte.
@@ -22,9 +22,9 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 
 2. **Dashboard Access**  
    - On any subsequent request, SvelteKit extracts the internal user ID from the JWT and calls the Golem Ephemeral Gateway Agent.  
-   - Gateway checks with the durable Admin Agent whether the user is active.  
-   - If inactive → error “Account not activated; please contact admin.”  
-   - If active → forwards the request to the user’s durable agent (Student, Teacher, or Admin User Agent).
+   - Gateway checks with the durable Admin Agent whether the user is initialized.  
+   - If not initialized → error “Account not initialized; please contact admin.”  
+   - If initialized → forwards the request to the user’s durable agent (Student, Teacher, or Admin User Agent).
 
 3. **Student LMS Flow**  
    - Student sees a sidebar with the LMS tab active by default.  
@@ -44,10 +44,11 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
    - Teacher grades a submission; grade and feedback are pushed to the Student Agent via RPC.
 
 5. **Admin Operations**  
-   - Admin accesses user management page (user list fetched from Authentik API).  
-   - Admin activates a user → Admin Agent records activation, initialises the user’s durable agent with class, subjects, etc.  
+   - Admin accesses user management page grouped by role (Students, Teachers, Admin tabs).  
+   - Admin initializes a user → Admin Agent records initialization, creates the user's durable agent with class, subjects, etc.  
+   - Admin can activate/deactivate users in Authentik (login permission) via dedicated API routes.  
+   - Admin can manage password resets and group membership directly via Authentik API.  
    - Admin can assign teachers to classes/subjects; Admin Agent updates relationships and pushes rosters to affected agents.  
-   - Admin can deactivate/suspend users; subsequent requests blocked by Ephemeral Gateway.  
    - Content management (AI generation/regeneration) available later.
 
 ## Features Breakdown
@@ -69,8 +70,9 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Grade submissions (score + feedback) pushed back to student.
 
 ### Admin Features
-- User management: list from Authentik, activate/deactivate/suspend users.
-- User activation triggers durable agent initialisation.
+- User management: role-based tabs (Students, Teachers, Admin), list from Authentik, initialize/activate/deactivate users.
+- Golem initialization creates durable agent; Authentik activation/deactivation controls login permission.
+- Reset passwords and manage group membership via Authentik API.
 - Manage teacher‑class‑subject assignments; updates rosters in real time.
 - (Future) AI content generation/regeneration.
 
@@ -93,7 +95,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Teacher selection of assessment questions and creation of assignments with deadlines.
 - Student submission of answers (text‑only).
 - Teacher grading and feedback pushed to student.
-- Admin user activation, deactivation, suspension.
+- Admin user initialization, activation, deactivation, password reset, group management.
 - Class‑subject‑teacher assignment management.
 - Basic UI with dashboard, sidebar, breadcrumbs, loading/empty/error states.
 - Multiple assignments per lesson, active until deadline/closure.
@@ -115,7 +117,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 1. A teacher can create an assignment from a lesson’s question bank, students can submit answers before the deadline, and the teacher can grade those submissions.
 2. A student sees only lessons and assignments for their own class, with disabled items correctly hidden or greyed out.
 3. An admin can activate a new student, assign them to a class, and the student’s agent immediately shows the correct subjects.
-4. A suspended user cannot reach their agent; any request returns a clear “account not activated” error.
+4. A deactivated (Authentik) or uninitialized user cannot reach their agent; any request returns a clear error.
 5. All state survives agent restarts and platform faults (durability), with automatic state recovery on agent restart.
 6. The UI is usable on a standard school desktop/tablet, with clear navigation, loading skeletons, and error messages.
 7. Lesson content is fetched from SurrealDB and cached in agents, with a stale‑while‑revalidate strategy.

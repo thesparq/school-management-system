@@ -80,12 +80,12 @@ export async function proxyToGateway(
 			};
 		}
 
-		if (text === 'NOT_ACTIVATED') {
+		if (text === 'NOT_INITIALIZED') {
 			return {
 				error: {
-					code: 'NOT_ACTIVATED',
+					code: 'NOT_INITIALIZED',
 					message:
-						'Account not activated. Please contact your school administrator.'
+						'Account not initialized. Please contact your school administrator.'
 				}
 			};
 		}
@@ -99,20 +99,4 @@ export async function proxyToGateway(
 			}
 		};
 	}
-}
-
-export function parseActivations(text: string): Map<string, string> {
-	const map = new Map<string, string>();
-	const lines = text.trim().split('\n');
-	for (const line of lines) {
-		if (!line.trim()) continue;
-		const sep = line.indexOf('|');
-		if (sep === -1) continue;
-		const userId = line.slice(0, sep);
-		const status = line.slice(sep + 1).toLowerCase();
-		if (userId && status) {
-			map.set(userId, status);
-		}
-	}
-	return map;
 }

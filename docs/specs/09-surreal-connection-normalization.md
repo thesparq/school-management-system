@@ -58,7 +58,7 @@ The old `class_level`, `subject`, `term`, `week` string fields are **kept in pla
 ```surql
 SELECT subject_id.* FROM class_subjects WHERE class_level_id = $cl AND active = true;
 ```
-This is faster and becomes the authoritative source once admins maintain it directly (Unit 22). It's initially populated from distinct `(class_level, subject)` pairs found in existing lesson records.
+This is faster and becomes the authoritative source once admins maintain it directly (Unit 24). It's initially populated from distinct `(class_level, subject)` pairs found in existing lesson records.
 
 **New indexes on lesson_content (old indexes kept as-is):**
 

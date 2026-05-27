@@ -22,7 +22,7 @@ export const POST: RequestHandler = async (event) => {
 		extraParams.class_level = classLevel;
 	}
 
-	const result = await proxyToGateway('/gateway/admin/activate', user.id, extraParams);
+	const result = await proxyToGateway('/gateway/admin/initialize', user.id, extraParams);
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
@@ -32,7 +32,7 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	return new Response(
-		JSON.stringify({ data: { activated: true } }),
+		JSON.stringify({ data: { initialized: true } }),
 		{ status: 200, headers: { 'content-type': 'application/json' } }
 	);
 };

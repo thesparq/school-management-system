@@ -12,10 +12,19 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToGateway('/gateway/check-activation', userId);
+	// Admins use the singleton Admin Agent — no per-user initialization needed.
+	const roles = event.locals.user?.roles ?? [];
+	if (roles.includes('admin')) {
+		return new Response(
+			JSON.stringify({ data: { initialized: true } }),
+			{ status: 200, headers: { 'content-type': 'application/json' } }
+		);
+	}
+
+	const result = await proxyToGateway('/gateway/check-initialization', userId);
 
 	if (result.error) {
-		const status = result.error.code === 'NOT_ACTIVATED' ? 403 : 502;
+		const status = result.error.code === 'NOT_INITIALIZED' ? 403 : 502;
 		return new Response(JSON.stringify(result), {
 			status,
 			headers: { 'content-type': 'application/json' }
@@ -23,7 +32,7 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	return new Response(
-		JSON.stringify({ data: { activated: true } }),
+		JSON.stringify({ data: { initialized: true } }),
 		{ status: 200, headers: { 'content-type': 'application/json' } }
 	);
 };

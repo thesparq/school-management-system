@@ -49,7 +49,8 @@ pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
   self.profile = Some(StudentProfile::{ class_level, })
 
   let cl_sql = "SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1"
-  let cl_raw = match surreal_query(self.config, cl_sql, bindings={ "class_level": class_level }) {
+  let cl_raw = match
+    surreal_query(self.config, cl_sql, bindings={ "class_level": class_level }) {
     Ok(body) => body
     Err(e) => return "ERROR: lookup class_level failed: " + e
   }

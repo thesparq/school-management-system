@@ -4,7 +4,7 @@
 /// Stateless gatekeeper - ephemeral, fresh instance per HTTP request.
 /// Checks the incoming X-Golem-Auth-Key header against the configured
 /// secret before forwarding requests to internal agents.
-/// Also checks user activation via Admin Agent RPC.
+/// Also checks user initialization via Admin Agent RPC.
 #derive.agent("ephemeral")
 #derive.mount("/gateway")
 struct GatewayAgent {
@@ -43,8 +43,8 @@ fn GatewayAgent::check_auth(self : Self, incoming_key : String) -> String? {
 
 ///|
 /// Proxies a ping to the Admin Agent via typed RPC.
-/// Requires correct X-Golem-Auth-Key header and an active user.
-/// Returns admin online on success, NOT_ACTIVATED if user is inactive,
+/// Requires correct X-Golem-Auth-Key header and an initialized user.
+/// Returns admin online on success, NOT_INITIALIZED if user is not initialized,
 /// admin unreachable on RPC failure.
 #derive.endpoint(get="/ping?user_id={user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
@@ -59,15 +59,17 @@ pub fn GatewayAgent::ping(
     None => ()
   }
 
-  // 2. Check activation via Admin Agent RPC
-  let status = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.is_user_active(user_id)
+  // 2. Check initialization via Admin Agent RPC
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
   }) catch {
     _ => return "admin unreachable"
   }
 
-  if status != Active {
-    return "NOT_ACTIVATED"
+  if !initialized {
+    return "NOT_INITIALIZED"
   }
 
   // 3. Forward to Admin Agent ping
@@ -76,14 +78,31 @@ pub fn GatewayAgent::ping(
   }
 }
 
-//|
+///|
+/// Admin ping — skips the per-user initialization check.
+/// The Admin Agent singleton is always ready; admin users don't need init.
+#derive.endpoint(get="/admin/ping?user_id={admin_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::admin_ping(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+) -> String {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return msg
+    None => ()
+  }
+  AdminAgentClient::scoped(fn(admin) raise @common.AgentError { admin.ping() }) catch {
+    _ => "admin unreachable"
+  }
+}
 
 ///|
-/// Checks whether a user is activated.
-/// Returns OK if active, NOT_ACTIVATED if not.
-#derive.endpoint(get="/check-activation?user_id={user_id}")
+/// Checks whether a user is initialized.
+/// Returns OK if initialized, NOT_INITIALIZED if not.
+#derive.endpoint(get="/check-initialization?user_id={user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn GatewayAgent::check_activation(
+pub fn GatewayAgent::check_initialization(
   self : Self,
   incoming_key : String,
   user_id : String,
@@ -92,13 +111,15 @@ pub fn GatewayAgent::check_activation(
     Some(msg) => return msg
     None => ()
   }
-  let status = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.is_user_active(user_id)
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
   }) catch {
     _ => return "admin unreachable"
   }
-  if status != Active {
-    return "NOT_ACTIVATED"
+  if !initialized {
+    return "NOT_INITIALIZED"
   }
   "OK"
 }
@@ -125,12 +146,12 @@ pub fn GatewayAgent::db_test(
 }
 
 ///|
-/// Admin-only: activates a target user.
-/// Accepts optional class_level for student activations.
+/// Admin-only: initializes a target user.
+/// Accepts optional class_level for student initializations.
 /// Requires valid X-Golem-Auth-Key header.
-#derive.endpoint(get="/admin/activate?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}&class_level={class_level}")
+#derive.endpoint(get="/admin/initialize?user_id={admin_user_id}&target_user_id={target_user_id}&role={role}&class_level={class_level}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn GatewayAgent::activate_admin(
+pub fn GatewayAgent::initialize_admin(
   self : Self,
   incoming_key : String,
   admin_user_id : String,
@@ -142,40 +163,14 @@ pub fn GatewayAgent::activate_admin(
     Some(msg) => return msg
     None => ()
   }
-  let act_result = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.activate_user(target_user_id, role, class_level)
-  }) catch {
-    _ => return "admin unreachable"
-  }
-  match act_result {
-    Ok(_) => "OK"
-    Err(msg) => msg
-  }
-}
-
-///|
-/// Admin-only: deactivates a target user.
-/// Requires valid X-Golem-Auth-Key header.
-#derive.endpoint(get="/admin/deactivate?user_id={admin_user_id}&target_user_id={target_user_id}")
-#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn GatewayAgent::deactivate_admin(
-  self : Self,
-  incoming_key : String,
-  admin_user_id : String,
-  target_user_id : String,
-) -> String {
-  match self.check_auth(incoming_key) {
-    Some(msg) => return msg
-    None => ()
-  }
-  let deact_result = AdminAgentClient::scoped(fn(
+  let init_result = AdminAgentClient::scoped(fn(
     admin,
   ) raise @common.AgentError {
-    admin.deactivate_user(target_user_id)
+    admin.initialize_user(target_user_id, role, class_level)
   }) catch {
     _ => return "admin unreachable"
   }
-  match deact_result {
+  match init_result {
     Ok(_) => "OK"
     Err(msg) => msg
   }
@@ -183,7 +178,7 @@ pub fn GatewayAgent::deactivate_admin(
 
 ///|
 /// Returns the authenticated student's subjects as a JSON array string.
-/// Requires activation check.
+/// Requires initialization check.
 #derive.endpoint(get="/student/subjects?user_id={user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn GatewayAgent::student_subjects(
@@ -195,13 +190,15 @@ pub fn GatewayAgent::student_subjects(
     Some(msg) => return msg
     None => ()
   }
-  let status = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.is_user_active(user_id)
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
   }) catch {
     _ => return "admin unreachable"
   }
-  if status != Active {
-    return "NOT_ACTIVATED"
+  if !initialized {
+    return "NOT_INITIALIZED"
   }
 
   StudentAgentClient::scoped(user_id, fn(student) raise @common.AgentError {
@@ -233,21 +230,11 @@ pub fn GatewayAgent::list_class_levels(
 }
 
 ///|
-fn activation_status_to_string(status : ActivationStatus) -> String {
-  match status {
-    Active => "active"
-    Deactivated => "deactivated"
-    Suspended => "suspended"
-    NotFound => "not_found"
-  }
-}
-
-///|
-/// Admin-only: returns all activation records as newline-separated
-/// user_id|status lines. Requires valid X-Golem-Auth-Key header.
-#derive.endpoint(get="/admin/activations?user_id={admin_user_id}")
+/// Admin-only: returns all initialized users as a JSON array of [user_id, role]
+/// pairs. Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/initializations?user_id={admin_user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn GatewayAgent::list_activations(
+pub fn GatewayAgent::list_initializations(
   self : Self,
   incoming_key : String,
   admin_user_id : String,
@@ -256,19 +243,23 @@ pub fn GatewayAgent::list_activations(
     Some(msg) => return msg
     None => ()
   }
-  let activations = AdminAgentClient::scoped(fn(
-    admin,
-  ) raise @common.AgentError {
-    admin.get_all_activations()
+  let inits = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.get_all_initialized()
   }) catch {
     _ => return "admin unreachable"
   }
-  let mut lines = ""
-  for item in activations {
-    let (user_id, status) = item
-    lines = lines + user_id + "|" + activation_status_to_string(status) + "\n"
+  let items : Array[String] = []
+  for item in inits {
+    let (uid, role) = item
+    items.push(
+      "[\"" +
+      uid.replace(old="\"", new="\\\"") +
+      "\",\"" +
+      role.replace(old="\"", new="\\\"") +
+      "\"]",
+    )
   }
-  lines
+  "[" + items.join(",") + "]"
 }
 
 ///|
