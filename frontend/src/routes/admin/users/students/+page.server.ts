@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { fetchAllUsers, fetchAllGroups, getGroupPkByName } from '$lib/server/authentik';
+import { fetchAllUsers, fetchAllGroups } from '$lib/server/authentik';
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
@@ -16,7 +16,8 @@ export const load: PageServerLoad = async (event) => {
 		const initsBody = await initsResponse.json();
 		const initMap: Record<string, string> = initsBody.data || {};
 
-		const studentsGroupPk = await getGroupPkByName('students');
+		const studentsGroup = allGroups.find(g => g.name === 'students');
+		const studentsGroupPk = studentsGroup?.pk ?? null;
 		const filtered = studentsGroupPk
 			? authentikUsers.filter(u => (u.groups ?? []).includes(studentsGroupPk))
 			: authentikUsers;

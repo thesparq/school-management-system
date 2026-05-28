@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { fetchAllUsers, fetchAllGroups, getGroupPkByName } from '$lib/server/authentik';
+import { fetchAllUsers, fetchAllGroups } from '$lib/server/authentik';
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
@@ -16,18 +16,19 @@ export const load: PageServerLoad = async (event) => {
 		const initsBody = await initsResponse.json();
 		const initMap: Record<string, string> = initsBody.data || {};
 
-		const adminGroupPk = await getGroupPkByName('admin');
-		const filtered = adminGroupPk
-			? authentikUsers.filter(u => (u.groups ?? []).includes(adminGroupPk))
+		const teachersGroup = allGroups.find(g => g.name === 'teachers');
+		const teachersGroupPk = teachersGroup?.pk ?? null;
+		const filtered = teachersGroupPk
+			? authentikUsers.filter(u => (u.groups ?? []).includes(teachersGroupPk))
 			: authentikUsers;
 
-		return { users: filtered, initMap, allGroups, role: 'admin-role', groupPk: adminGroupPk ?? '' };
+		return { users: filtered, initMap, allGroups, role: 'teachers', groupPk: teachersGroupPk ?? '' };
 	} catch (err) {
 		return {
 			users: [],
 			initMap: {},
 			allGroups: [],
-			role: 'admin-role',
+			role: 'teachers',
 			groupPk: '',
 			error: err instanceof Error ? err.message : 'Failed to fetch users.'
 		};

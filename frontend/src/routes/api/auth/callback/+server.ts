@@ -11,13 +11,13 @@ export const GET: RequestHandler = async (event) => {
 	const codeVerifier = event.cookies.get('oauth_code_verifier');
 
 	if (!code || !state || !expectedState || !codeVerifier) {
-		redirect(302, '/login?error=invalid_callback');
+		redirect(302, '/?error=invalid_callback');
 	}
 
 	const result = await handleCallback(code, state, codeVerifier, expectedState);
 
 	if (!result) {
-		redirect(302, '/login?error=auth_failed');
+		redirect(302, '/?error=auth_failed');
 	}
 
 	event.cookies.set('session_jwt', result.idToken, {
@@ -39,5 +39,5 @@ export const GET: RequestHandler = async (event) => {
 	event.cookies.delete('oauth_state', { path: '/api/auth/callback' });
 	event.cookies.delete('oauth_code_verifier', { path: '/api/auth/callback' });
 
-	redirect(302, '/dashboard');
+	redirect(302, '/');
 };

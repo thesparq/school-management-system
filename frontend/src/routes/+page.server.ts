@@ -5,7 +5,6 @@ export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
 	if (!user) return { initialized: true };
 
-	// Admins use the singleton Admin Agent — no per-user initialization needed.
 	if (user.roles.includes('admin')) return { initialized: true };
 
 	const result = await proxyToGateway('/gateway/check-initialization', user.id);

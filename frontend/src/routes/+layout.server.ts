@@ -1,11 +1,12 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { redirect } from '@sveltejs/kit';
+import { dev } from '$app/environment';
+import type { LayoutServerLoad } from './$types';
 import { generateAuthUrl } from '$lib/server/authentik';
 
-const SECURE = process.env.NODE_ENV === 'production';
+const SECURE = !dev;
 
-export const GET: RequestHandler = async (event) => {
-	try {
+export const load: LayoutServerLoad = async (event) => {
+	if (!event.locals.user) {
 		const { url, state, codeVerifier } = await generateAuthUrl();
 
 		event.cookies.set('oauth_state', state, {
@@ -24,11 +25,8 @@ export const GET: RequestHandler = async (event) => {
 			secure: SECURE
 		});
 
-		return json({ url });
-	} catch (err) {
-		return json(
-			{ error: { code: 'AUTH_INIT_FAILED', message: 'Failed to initiate authentication' } },
-			{ status: 500 }
-		);
+		redirect(302, url);
 	}
+
+	return { user: event.locals.user };
 };
