@@ -13,6 +13,25 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Label } from '$lib/components/ui/label';
+	import {
+		Dialog,
+		DialogContent,
+		DialogHeader,
+		DialogTitle,
+		DialogDescription
+	} from '$lib/components/ui/dialog';
+	import {
+		AlertDialog,
+		AlertDialogTrigger,
+		AlertDialogContent,
+		AlertDialogHeader,
+		AlertDialogTitle,
+		AlertDialogDescription,
+		AlertDialogFooter,
+		AlertDialogCancel,
+		AlertDialogAction
+	} from '$lib/components/ui/alert-dialog';
 	import { onMount } from 'svelte';
 
 	interface ClassLevel {
@@ -29,9 +48,11 @@
 		initMap = $bindable({} as Record<string, string>),
 		allGroups = $bindable([] as UserGroup[]),
 		role = 'students',
+		groupPk = '',
 		isLoading = false,
 		hasError = false,
-		errorMessage = ''
+		errorMessage = '',
+		showCreateDialog = $bindable(false)
 	}: {
 		users: Array<{
 			pk: number;
@@ -45,22 +66,49 @@
 		initMap: Record<string, string>;
 		allGroups: UserGroup[];
 		role: string;
+		groupPk?: string;
 		isLoading?: boolean;
 		hasError?: boolean;
 		errorMessage?: string;
+		showCreateDialog?: boolean;
 	} = $props();
 
 	let hasUsers = $derived(users.length > 0);
 
 	let expandedPk = $state<number | null>(null);
-	let actionStates = $state<Record<number, string>>({});
+	let initStates = $state<Record<number, string>>({});
+	let authStates = $state<Record<number, string>>({});
+	let pwResetStates = $state<Record<number, string>>({});
 	let actionErrors = $state<Record<number, string>>({});
 	let classLevels = $state<ClassLevel[]>([]);
 	let classLevelsLoading = $state(true);
 	let selectedClassLevels = $state<Record<number, string>>({});
 	let passwordInputs = $state<Record<number, string>>({});
+	let passwordShowMap = $state<Record<number, boolean>>({});
 	let groupSearchInputs = $state<Record<number, string>>({});
 	let groupActionStates = $state<Record<number, string>>({});
+
+	let createForm = $state({ username: '', name: '', email: '', password: '', isActive: true, showPassword: false });
+	let createLoading = $state(false);
+	let createError = $state('');
+
+	let deleteTarget = $state<number | null>(null);
+	let deleteLoading = $state(false);
+	let deleteError = $state('');
+
+	function generatePassword(): string {
+		const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		const lower = 'abcdefghijklmnopqrstuvwxyz';
+		const digits = '0123456789';
+		const all = upper + lower + digits;
+		let pw = '';
+		const array = new Uint8Array(16);
+		crypto.getRandomValues(array);
+		for (let i = 0; i < 16; i++) {
+			pw += all[array[i] % all.length];
+		}
+		return pw;
+	}
 
 	let roleLabel = $derived(
 		role === 'students' ? 'student' : role === 'teachers' ? 'teacher' : 'admin'
@@ -117,6 +165,9 @@
 
 	function toggleExpand(pk: number) {
 		expandedPk = expandedPk === pk ? null : pk;
+		if (expandedPk === pk && !(pk in selectedClassLevels)) {
+			selectedClassLevels = { ...selectedClassLevels, [pk]: '' };
+		}
 	}
 
 	function authentikStatusBadge(isActive: boolean) {
@@ -139,7 +190,7 @@
 	async function handleInitialize(pk: number) {
 		const userObj = getUser(pk);
 		if (!userObj) return;
-		actionStates = { ...actionStates, [pk]: 'loading' };
+		initStates = { ...initStates, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		initMap = { ...initMap, [userObj.uuid]: roleLabel };
 		try {
@@ -160,7 +211,7 @@
 			initMap = rest;
 			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Initialization failed' };
 		} finally {
-			actionStates = { ...actionStates, [pk]: 'idle' };
+			initStates = { ...initStates, [pk]: 'idle' };
 		}
 	}
 
@@ -168,7 +219,7 @@
 		const userObj = getUser(pk);
 		if (!userObj) return;
 		const origActive = userObj.is_active;
-		actionStates = { ...actionStates, [pk]: 'loading' };
+		authStates = { ...authStates, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		userObj.is_active = true;
 		try {
@@ -184,7 +235,7 @@
 			userObj.is_active = origActive;
 			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Activation failed' };
 		} finally {
-			actionStates = { ...actionStates, [pk]: 'idle' };
+			authStates = { ...authStates, [pk]: 'idle' };
 		}
 	}
 
@@ -192,7 +243,7 @@
 		const userObj = getUser(pk);
 		if (!userObj) return;
 		const origActive = userObj.is_active;
-		actionStates = { ...actionStates, [pk]: 'loading' };
+		authStates = { ...authStates, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		userObj.is_active = false;
 		try {
@@ -208,7 +259,7 @@
 			userObj.is_active = origActive;
 			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Deactivation failed' };
 		} finally {
-			actionStates = { ...actionStates, [pk]: 'idle' };
+			authStates = { ...authStates, [pk]: 'idle' };
 		}
 	}
 
@@ -217,7 +268,7 @@
 		if (!userObj) return;
 		const password = passwordInputs[pk];
 		if (!password) return;
-		actionStates = { ...actionStates, [pk]: 'loading' };
+		pwResetStates = { ...pwResetStates, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		try {
 			const res = await fetch(`/api/admin/users/${pk}/reset-password`, {
@@ -233,7 +284,7 @@
 		} catch (err) {
 			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Password reset failed' };
 		} finally {
-			actionStates = { ...actionStates, [pk]: 'idle' };
+			pwResetStates = { ...pwResetStates, [pk]: 'idle' };
 		}
 	}
 
@@ -289,6 +340,61 @@
 	function selectSuggestion(userPk: number, groupPk: string) {
 		handleAddGroup(userPk, groupPk);
 		showSuggestions = { ...showSuggestions, [userPk]: false };
+	}
+
+	async function handleCreateUser() {
+		if (!createForm.username || !createForm.name || !createForm.email || !createForm.password) return;
+		createLoading = true;
+		createError = '';
+		try {
+			const res = await fetch('/api/admin/users', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					username: createForm.username,
+					name: createForm.name,
+					email: createForm.email,
+					password: createForm.password,
+					is_active: createForm.isActive,
+					group_pk: groupPk
+				})
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) {
+				throw new Error(body.error?.message || 'Create failed');
+			}
+			users = [...users, body.data];
+			showCreateDialog = false;
+			createForm = { username: '', name: '', email: '', password: '', isActive: true, showPassword: false };
+		} catch (err) {
+			createError = err instanceof Error ? err.message : 'Create failed';
+		} finally {
+			createLoading = false;
+		}
+	}
+
+	async function handleDeleteUser(pk: number) {
+		const userObj = getUser(pk);
+		if (!userObj) return;
+		deleteLoading = true;
+		deleteError = '';
+		try {
+			const res = await fetch(`/api/admin/users/${userObj.pk}`, {
+				method: 'DELETE'
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) {
+				throw new Error(body.error?.message || 'Delete failed');
+			}
+			users = users.filter(u => u.pk !== pk);
+			const { [userObj.uuid]: _, ...rest } = initMap;
+			initMap = rest;
+			deleteTarget = null;
+		} catch (err) {
+			deleteError = err instanceof Error ? err.message : 'Delete failed';
+		} finally {
+			deleteLoading = false;
+		}
 	}
 
 	function handleSuggestionClick(userPk: number, suggestion: UserGroup) {
@@ -366,7 +472,10 @@
 						{@const authStatus = authentikStatusBadge(userObj.is_active)}
 						{@const initStatus = initStatusBadge(userObj.uuid)}
 						{@const isCurrentExpanded = expandedPk === userObj.pk}
-						{@const isLoadingAction = actionStates[userObj.pk] === 'loading'}
+						{@const isInitLoading = initStates[userObj.pk] === 'loading'}
+						{@const isAuthLoading = authStates[userObj.pk] === 'loading'}
+						{@const isPwResetLoading = pwResetStates[userObj.pk] === 'loading'}
+						{@const anyActionLoading = isInitLoading || isAuthLoading || isPwResetLoading}
 						{@const isGroupLoading = groupActionStates[userObj.pk] === 'loading'}
 						{@const isPending = !(userObj.uuid in initMap)}
 						{@const userGroups = getUserGroups(userObj.pk)}
@@ -393,7 +502,7 @@
 									size="sm"
 									class="cursor-pointer"
 									onclick={() => userObj.is_active ? handleDeactivateAuthentik(userObj.pk) : handleActivateAuthentik(userObj.pk)}
-									disabled={isLoadingAction}
+									disabled={anyActionLoading}
 								>
 									{userObj.is_active ? 'Deactivate' : 'Activate'}
 								</Button>
@@ -430,7 +539,7 @@
 															{:else if classLevels.length === 0}
 																<option value="" disabled>No classes available</option>
 															{:else}
-																<option value="">Select class…</option>
+																<option value="" disabled>Select class…</option>
 																{#each classLevels as cl}
 																	<option value={cl.name}>{cl.name}</option>
 																{/each}
@@ -442,9 +551,9 @@
 														size="sm"
 														class="cursor-pointer"
 														onclick={() => handleInitialize(userObj.pk)}
-														disabled={isLoadingAction}
+														disabled={anyActionLoading}
 													>
-														{isLoadingAction ? '...' : 'Initialize'}
+														{isInitLoading ? '...' : 'Initialize'}
 													</Button>
 												</div>
 											</div>
@@ -453,22 +562,38 @@
 										<div class="flex flex-col gap-1.5 min-w-48">
 											<span class="text-sm font-medium text-surface-700">Reset Password</span>
 											<div class="flex items-center gap-2">
-												<Input
-													type="password"
-													placeholder="New password"
-													class="h-8 w-44 text-sm cursor-text"
-													bind:value={passwordInputs[userObj.pk]}
-												/>
+												<div class="relative flex-1">
+													<Input
+														type={passwordShowMap[userObj.pk] ? 'text' : 'password'}
+														placeholder="New password"
+														class="h-8 w-44 text-sm cursor-text pr-10"
+														bind:value={passwordInputs[userObj.pk]}
+													/>
+													<button
+														type="button"
+														class="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-surface-500 hover:text-surface-700 cursor-pointer px-1"
+														onclick={() => passwordShowMap = { ...passwordShowMap, [userObj.pk]: !passwordShowMap[userObj.pk] }}
+													>
+														{passwordShowMap[userObj.pk] ? 'Hide' : 'Show'}
+													</button>
+												</div>
 												<Button
 													variant="default"
 													size="sm"
 													class="cursor-pointer"
 													onclick={() => handleResetPassword(userObj.pk)}
-													disabled={isLoadingAction || !passwordInputs[userObj.pk]}
+													disabled={anyActionLoading || !passwordInputs[userObj.pk]}
 												>
-													{isLoadingAction ? '...' : 'Reset'}
+													{isPwResetLoading ? '...' : 'Reset'}
 												</Button>
 											</div>
+											<button
+												type="button"
+												class="text-xs text-primary-600 hover:text-primary-800 cursor-pointer self-start"
+												onclick={() => passwordInputs = { ...passwordInputs, [userObj.pk]: generatePassword() }}
+											>
+												Generate random password
+											</button>
 										</div>
 
 											<div class="flex flex-col gap-2 min-w-56">
@@ -538,6 +663,47 @@
 											</div>
 										</div>
 
+										<div class="border-t border-surface-200 pt-3 flex justify-end">
+											<AlertDialog>
+												<AlertDialogTrigger>
+												{#snippet child({ props })}
+														<Button
+															variant="destructive"
+															size="sm"
+															class="cursor-pointer"
+															{...props}
+														>
+															Delete User
+														</Button>
+													{/snippet}
+												</AlertDialogTrigger>
+												<AlertDialogContent>
+													<AlertDialogHeader>
+														<AlertDialogTitle>Delete {userObj.name || userObj.username}?</AlertDialogTitle>
+														<AlertDialogDescription>
+															This permanently removes {userObj.name || userObj.username} from Authentik.
+															The user will lose all access. This cannot be undone.
+														</AlertDialogDescription>
+													</AlertDialogHeader>
+													{#if deleteError}
+														<p class="text-sm text-error-500">{deleteError}</p>
+													{/if}
+													<AlertDialogFooter>
+														<AlertDialogCancel onclick={() => { deleteTarget = null; deleteError = ''; }}>
+															Cancel
+														</AlertDialogCancel>
+														<AlertDialogAction
+															disabled={deleteLoading}
+															onclick={() => handleDeleteUser(userObj.pk)}
+															class="bg-error-500 hover:bg-error-600 text-white"
+														>
+															{deleteLoading ? 'Deleting...' : 'Delete'}
+														</AlertDialogAction>
+													</AlertDialogFooter>
+												</AlertDialogContent>
+											</AlertDialog>
+										</div>
+
 										{#if actionErrors[userObj.pk]}
 											<p class="text-sm text-error-500">{actionErrors[userObj.pk]}</p>
 										{/if}
@@ -550,4 +716,86 @@
 			</Table>
 		</CardContent>
 	</Card>
+
+	<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
+		<DialogContent>
+			<DialogHeader>
+				<DialogTitle>Create {role === 'admin-role' ? 'Admin' : roleLabel}</DialogTitle>
+				<DialogDescription>
+					Add a new user to Authentik and assign them to the {role} group.
+				</DialogDescription>
+			</DialogHeader>
+			<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleCreateUser(); }}>
+				<div class="space-y-2">
+					<Label for="create-username">Username</Label>
+					<Input id="create-username" bind:value={createForm.username} required minlength={3} />
+				</div>
+				<div class="space-y-2">
+					<Label for="create-name">Full Name</Label>
+					<Input id="create-name" bind:value={createForm.name} required />
+				</div>
+				<div class="space-y-2">
+					<Label for="create-email">Email</Label>
+					<Input id="create-email" type="email" bind:value={createForm.email} required />
+				</div>
+				<div class="space-y-2">
+					<Label for="create-password">Password</Label>
+					<div class="relative">
+						<Input
+							id="create-password"
+							type={createForm.showPassword ? 'text' : 'password'}
+							bind:value={createForm.password}
+							required
+							minlength={8}
+						/>
+						<button
+							type="button"
+							class="absolute right-2 top-1/2 -translate-y-1/2 text-surface-500 hover:text-surface-700 cursor-pointer"
+							onclick={() => createForm.showPassword = !createForm.showPassword}
+						>
+							{createForm.showPassword ? 'Hide' : 'Show'}
+						</button>
+					</div>
+					<button
+						type="button"
+						class="text-xs text-primary-600 hover:text-primary-800 cursor-pointer"
+						onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}
+					>
+						Generate random password
+					</button>
+				</div>
+				<div class="flex items-center gap-2">
+					<input
+						id="create-active"
+						type="checkbox"
+						checked={createForm.isActive}
+						onchange={(e) => createForm.isActive = e.currentTarget.checked}
+						class="h-4 w-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+					/>
+					<Label for="create-active">Activate user on creation</Label>
+				</div>
+				{#if createError}
+					<p class="text-sm text-error-500">{createError}</p>
+				{/if}
+				<div class="flex justify-end gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						onclick={() => { showCreateDialog = false; createError = ''; }}
+						class="cursor-pointer"
+					>
+						Cancel
+					</Button>
+					<Button
+						type="submit"
+						variant="default"
+						disabled={createLoading || !createForm.username || !createForm.name || !createForm.email || !createForm.password}
+						class="cursor-pointer"
+					>
+						{createLoading ? 'Creating...' : 'Create'}
+					</Button>
+				</div>
+			</form>
+		</DialogContent>
+	</Dialog>
 {/if}

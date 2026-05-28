@@ -21,13 +21,14 @@ export const load: PageServerLoad = async (event) => {
 			? authentikUsers.filter(u => (u.groups ?? []).includes(studentsGroupPk))
 			: authentikUsers;
 
-		return { users: filtered, initMap, allGroups, role: 'students' };
+		return { users: filtered, initMap, allGroups, role: 'students', groupPk: studentsGroupPk ?? '' };
 	} catch (err) {
 		return {
 			users: [],
 			initMap: {},
 			allGroups: [],
 			role: 'students',
+			groupPk: '',
 			error: err instanceof Error ? err.message : 'Failed to fetch users.'
 		};
 	}

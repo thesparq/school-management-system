@@ -1,14 +1,28 @@
 import { proxyToGateway } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
-import { error } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async (event) => {
 	const user = event.locals.user;
-	if (!user) error(401, 'Not authenticated');
-	if (!user.roles.includes('admin')) error(403, 'Forbidden');
+	if (!user) {
+		return new Response(
+			JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }),
+			{ status: 401, headers: { 'content-type': 'application/json' } }
+		);
+	}
+	if (!user.roles.includes('admin')) {
+		return new Response(
+			JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Forbidden' } }),
+			{ status: 403, headers: { 'content-type': 'application/json' } }
+		);
+	}
 
-	const targetUserId = event.params.uuid;
-	if (!targetUserId) error(400, 'Missing uuid in request path');
+	const targetUserId = event.params.pk;
+	if (!targetUserId) {
+		return new Response(
+			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing user id in request path' } }),
+			{ status: 400, headers: { 'content-type': 'application/json' } }
+		);
+	}
 
 	const body = await event.request.json().catch(() => ({}));
 	const role: string = body.role || 'student';

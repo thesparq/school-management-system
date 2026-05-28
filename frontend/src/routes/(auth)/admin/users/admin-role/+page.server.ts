@@ -21,13 +21,14 @@ export const load: PageServerLoad = async (event) => {
 			? authentikUsers.filter(u => (u.groups ?? []).includes(adminGroupPk))
 			: authentikUsers;
 
-		return { users: filtered, initMap, allGroups, role: 'admin-role' };
+		return { users: filtered, initMap, allGroups, role: 'admin-role', groupPk: adminGroupPk ?? '' };
 	} catch (err) {
 		return {
 			users: [],
 			initMap: {},
 			allGroups: [],
 			role: 'admin-role',
+			groupPk: '',
 			error: err instanceof Error ? err.message : 'Failed to fetch users.'
 		};
 	}
