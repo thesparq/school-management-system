@@ -4,13 +4,15 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- Complete.
+- Unit 15: Student Dashboard — Subject Cards (next)
 
 ## Current Goal
 
-- Unit 14: Student Dashboard — Subject Cards (next)
+- Unit 15: Student Dashboard — Subject Cards
 
 ## Completed
+
+- Unit 14: Auth Refresh Fixes — Race Condition, Client-Side 401, Cookie Cleanup — Fixed five issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel requests, preventing OIDC token rotation races from logging users out. (2) New `apiFetch` wrapper at `frontend/src/lib/client/api.ts` catches client-side 401s, calls `POST /api/auth/refresh` silently, retries on success, redirects to `/?error=session_expired` on failure. (3) Cookie `maxAge` aligned to real JWT `exp` in hooks.server.ts, callback, and refresh route — removed the `Math.max(..., 60)` floor; if `maxAge` is 0, no cookie is written. (4) Removed unused `accessToken` from `TokenResponse` interface and destructured out in both `handleCallback` and `refreshTokens`. (5) Standardised `SECURE` constant from `process.env.NODE_ENV === 'production'` to `!dev` (SvelteKit compile-time constant) in callback and refresh routes. Exported `TokenResponse` and `JwtClaims` types from `authentik.ts` for use in hooks. (`pnpm build` zero errors, `pnpm check` 0 errors 3 benign warnings — same baseline as Unit 13.)
 
 - Unit 13: Routing Refactor — Direct Authentik Redirect — Deleted `/login` route, `/api/auth/login` endpoint, and static landing page. Created root `+layout.server.ts` with direct Authentik OIDC redirect (server-side 302 with PKCE). Elevated sidebar layout from `(auth)/+layout.svelte` to root `+layout.svelte`. Moved dashboard from `/dashboard` to `/` (root `+page.server.ts` + `+page.svelte`). Moved admin routes from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback redirects from `/dashboard` to `/` and from `/login?...` to `/?error=...`. Updated `getEndSessionUrl` post_logout_redirect_uri from `/login` to `/`. (`pnpm build` zero errors.)
 
@@ -30,10 +32,11 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- Unit 14: Student Dashboard — Subject Cards
+- Unit 15: Student Dashboard — Subject Cards (next work unit)
 
 ## Recent Specs
 
+- `docs/specs/14-auth-refresh-fixes.md` — Fix race condition, client-side 401, cookie maxAge, accessToken removal, SECURE standardisation.
 - `docs/specs/13-routing-refactor-direct-authentik-redirect.md` — Eliminate `/login` page, redirect unauthenticated users directly to Authentik, move dashboard to `/`, remove `(auth)` route group.
 - `docs/specs/12-user-crud-create-delete.md` — Admin create/delete user UI and API routes via Authentik Admin API. Create dialog with form fields, delete AlertDialog in Manage panel, auto-group-assignment by page role.
 - `docs/specs/11-architecture-refactor-activation-split.md` — Architecture refactor: split activation into Golem-side initialization and Authentik-side activation. Admin Agent renamed methods, gateway returns NOT_INITIALIZED, sidebar Users section with role-based sub-pages.

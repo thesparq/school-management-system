@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
+	import { apiFetch } from '$lib/client/api';
 
 	let { data }: { data: PageData } = $props();
 
@@ -15,7 +16,7 @@
 		pingError = null;
 
 		try {
-			const res = await fetch('/api/ping');
+			const res = await apiFetch('/api/ping');
 			const body = await res.json();
 			if (body.data) {
 				pingResult = body.data;

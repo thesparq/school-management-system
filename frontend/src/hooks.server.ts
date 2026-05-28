@@ -1,8 +1,23 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { verifyJwt, refreshTokens } from '$lib/server/authentik';
+import type { TokenResponse, JwtClaims } from '$lib/server/authentik';
 
 const SECURE = !dev;
+
+let inflightRefresh: Promise<TokenResponse | null> | null = null;
+
+function setUser(
+	event: import('@sveltejs/kit').RequestEvent,
+	payload: JwtClaims
+) {
+	event.locals.user = {
+		id: payload.sub ?? '',
+		name: payload.name ?? payload.preferred_username ?? '',
+		email: payload.email ?? '',
+		roles: payload.groups ?? payload.roles ?? []
+	};
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = null;
@@ -12,34 +27,36 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (jwt) {
 		try {
 			const payload = await verifyJwt(jwt);
-			event.locals.user = {
-				id: payload.sub ?? '',
-				name: payload.name ?? payload.preferred_username ?? '',
-				email: payload.email ?? '',
-				roles: payload.groups ?? payload.roles ?? []
-			};
+			setUser(event, payload);
 		} catch (err) {
 			const isExpired = (err as { code?: string })?.code === 'ERR_JWT_EXPIRED';
 
 			if (isExpired) {
 				const refreshToken = event.cookies.get('refresh_token');
 				if (refreshToken) {
-					const result = await refreshTokens(refreshToken);
-					if (result) {
-						event.locals.user = {
-							id: result.payload.sub ?? '',
-							name: result.payload.name ?? result.payload.preferred_username ?? '',
-							email: result.payload.email ?? '',
-							roles: result.payload.groups ?? result.payload.roles ?? []
-						};
-
-						event.cookies.set('session_jwt', result.idToken, {
-							httpOnly: true,
-							sameSite: 'lax',
-							path: '/',
-							maxAge: Math.max(result.payload.exp ? result.payload.exp - Math.floor(Date.now() / 1000) : 3600, 60),
-							secure: SECURE
+					if (!inflightRefresh) {
+						inflightRefresh = refreshTokens(refreshToken).finally(() => {
+							inflightRefresh = null;
 						});
+					}
+					const result = await inflightRefresh;
+
+					if (result) {
+						setUser(event, result.payload);
+
+						const maxAge = result.payload.exp
+							? Math.max(result.payload.exp - Math.floor(Date.now() / 1000), 0)
+							: 3600;
+
+						if (maxAge > 0) {
+							event.cookies.set('session_jwt', result.idToken, {
+								httpOnly: true,
+								sameSite: 'lax',
+								path: '/',
+								maxAge,
+								secure: SECURE
+							});
+						}
 
 						event.cookies.set('refresh_token', result.refreshToken, {
 							httpOnly: true,

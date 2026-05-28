@@ -1,8 +1,9 @@
 import { redirect } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import type { RequestHandler } from './$types';
 import { handleCallback } from '$lib/server/authentik';
 
-const SECURE = process.env.NODE_ENV === 'production';
+const SECURE = !dev;
 
 export const GET: RequestHandler = async (event) => {
 	const code = event.url.searchParams.get('code');
@@ -20,13 +21,19 @@ export const GET: RequestHandler = async (event) => {
 		redirect(302, '/?error=auth_failed');
 	}
 
-	event.cookies.set('session_jwt', result.idToken, {
-		httpOnly: true,
-		sameSite: 'lax',
-		path: '/',
-		maxAge: Math.max(result.payload.exp ? result.payload.exp - Math.floor(Date.now() / 1000) : 3600, 60),
-		secure: SECURE
-	});
+	const maxAge = result.payload.exp
+		? Math.max(result.payload.exp - Math.floor(Date.now() / 1000), 0)
+		: 3600;
+
+	if (maxAge > 0) {
+		event.cookies.set('session_jwt', result.idToken, {
+			httpOnly: true,
+			sameSite: 'lax',
+			path: '/',
+			maxAge,
+			secure: SECURE
+		});
+	}
 
 	event.cookies.set('refresh_token', result.refreshToken, {
 		httpOnly: true,
