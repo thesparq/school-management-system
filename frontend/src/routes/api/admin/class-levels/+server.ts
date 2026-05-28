@@ -1,11 +1,20 @@
 import { proxyToGateway } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
-import { error } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async (event) => {
 	const user = event.locals.user;
-	if (!user) error(401, 'Not authenticated');
-	if (!user.roles.includes('admin')) error(403, 'Forbidden');
+	if (!user) {
+		return new Response(
+			JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }),
+			{ status: 401, headers: { 'content-type': 'application/json' } }
+		);
+	}
+	if (!user.roles.includes('admin')) {
+		return new Response(
+			JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Forbidden' } }),
+			{ status: 403, headers: { 'content-type': 'application/json' } }
+		);
+	}
 
 	const result = await proxyToGateway('/gateway/admin/class-levels', user.id);
 

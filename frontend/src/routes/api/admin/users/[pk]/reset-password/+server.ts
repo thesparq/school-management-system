@@ -1,13 +1,27 @@
 import { resetPassword } from '$lib/server/authentik';
 import type { RequestHandler } from './$types';
-import { error } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async (event) => {
 	const user = event.locals.user;
-	if (!user) error(401, 'Not authenticated');
-	if (!user.roles.includes('admin')) error(403, 'Forbidden');
-	const targetUuid = event.params.uuid;
-	if (!targetUuid) error(400, 'Missing uuid');
+	if (!user) {
+		return new Response(
+			JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }),
+			{ status: 401, headers: { 'content-type': 'application/json' } }
+		);
+	}
+	if (!user.roles.includes('admin')) {
+		return new Response(
+			JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Forbidden' } }),
+			{ status: 403, headers: { 'content-type': 'application/json' } }
+		);
+	}
+	const targetPk = Number(event.params.pk);
+	if (isNaN(targetPk) || targetPk < 1) {
+		return new Response(
+			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing user pk' } }),
+			{ status: 400, headers: { 'content-type': 'application/json' } }
+		);
+	}
 	const body = await event.request.json().catch(() => ({}));
 	const password: string = body.password;
 	if (!password) {
@@ -17,7 +31,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 	try {
-		await resetPassword(targetUuid, password);
+		await resetPassword(targetPk, password);
 		return new Response(
 			JSON.stringify({ data: { success: true } }),
 			{ status: 200, headers: { 'content-type': 'application/json' } }
