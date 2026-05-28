@@ -24,9 +24,8 @@ interface OpenIdConfig {
 	issuer: string;
 }
 
-interface TokenResponse {
+export interface TokenResponse {
 	idToken: string;
-	accessToken: string;
 	refreshToken: string;
 	payload: JwtClaims;
 }
@@ -137,8 +136,8 @@ export async function handleCallback(
 		return null;
 	}
 
-	const data = await res.json();
-	const idToken: string = data.id_token;
+	const { id_token, refresh_token, access_token: _unused } = await res.json();
+	const idToken: string = id_token;
 	if (!idToken) {
 		return null;
 	}
@@ -147,8 +146,7 @@ export async function handleCallback(
 		const payload = await verifyJwt(idToken);
 		return {
 			idToken,
-			accessToken: data.access_token,
-			refreshToken: data.refresh_token,
+			refreshToken: refresh_token,
 			payload
 		};
 	} catch {
@@ -192,8 +190,8 @@ export async function refreshTokens(
 		return null;
 	}
 
-	const data = await res.json();
-	const idToken: string = data.id_token;
+	const { id_token, refresh_token, access_token: _unused } = await res.json();
+	const idToken: string = id_token;
 	if (!idToken) {
 		return null;
 	}
@@ -202,8 +200,7 @@ export async function refreshTokens(
 		const payload = await verifyJwt(idToken);
 		return {
 			idToken,
-			accessToken: data.access_token,
-			refreshToken: data.refresh_token ?? refreshToken,
+			refreshToken: refresh_token ?? refreshToken,
 			payload
 		};
 	} catch {

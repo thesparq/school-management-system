@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import type { RequestHandler } from './$types';
 import { refreshTokens } from '$lib/server/authentik';
 
-const SECURE = process.env.NODE_ENV === 'production';
+const SECURE = !dev;
 
 export const POST: RequestHandler = async (event) => {
 	const refreshToken = event.cookies.get('refresh_token');
@@ -17,13 +18,19 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: { code: 'REFRESH_FAILED' } }, { status: 401 });
 	}
 
-	event.cookies.set('session_jwt', result.idToken, {
-		httpOnly: true,
-		sameSite: 'lax',
-		path: '/',
-		maxAge: Math.max(result.payload.exp ? result.payload.exp - Math.floor(Date.now() / 1000) : 3600, 60),
-		secure: SECURE
-	});
+	const maxAge = result.payload.exp
+		? Math.max(result.payload.exp - Math.floor(Date.now() / 1000), 0)
+		: 3600;
+
+	if (maxAge > 0) {
+		event.cookies.set('session_jwt', result.idToken, {
+			httpOnly: true,
+			sameSite: 'lax',
+			path: '/',
+			maxAge,
+			secure: SECURE
+		});
+	}
 
 	event.cookies.set('refresh_token', result.refreshToken, {
 		httpOnly: true,
