@@ -215,7 +215,7 @@ export async function getEndSessionUrl(idToken: string): Promise<string> {
 	const config = await getOpenIdConfig();
 	const params = new URLSearchParams({
 		id_token_hint: idToken,
-		post_logout_redirect_uri: `${getConfig().ORIGIN}/login`
+		post_logout_redirect_uri: `${getConfig().ORIGIN}/`
 	});
 	return `${config.end_session_endpoint}?${params.toString()}`;
 }

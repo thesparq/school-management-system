@@ -92,7 +92,6 @@
 	let createLoading = $state(false);
 	let createError = $state('');
 
-	let deleteTarget = $state<number | null>(null);
 	let deleteLoading = $state(false);
 	let deleteError = $state('');
 
@@ -142,6 +141,7 @@
 		classLevelsLoading = true;
 		try {
 			const res = await fetch('/api/admin/class-levels');
+			if (!res.ok) throw new Error('Failed to load class levels');
 			const body = await res.json();
 			if (body.data) {
 				classLevels = body.data;
@@ -292,6 +292,7 @@
 		if (!groupPk) return;
 		const userObj = getUser(pk);
 		if (!userObj) return;
+		const origGroups = [...userObj.groups];
 		groupActionStates = { ...groupActionStates, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		try {
@@ -307,6 +308,7 @@
 			userObj.groups = [...userObj.groups, groupPk];
 			groupSearchInputs = { ...groupSearchInputs, [pk]: '' };
 		} catch (err) {
+			userObj.groups = origGroups;
 			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Add group failed' };
 		} finally {
 			groupActionStates = { ...groupActionStates, [pk]: 'idle' };
@@ -335,11 +337,6 @@
 		} finally {
 			groupActionStates = { ...groupActionStates, [pk]: 'idle' };
 		}
-	}
-
-	function selectSuggestion(userPk: number, groupPk: string) {
-		handleAddGroup(userPk, groupPk);
-		showSuggestions = { ...showSuggestions, [userPk]: false };
 	}
 
 	async function handleCreateUser() {
@@ -389,7 +386,6 @@
 			users = users.filter(u => u.pk !== pk);
 			const { [userObj.uuid]: _, ...rest } = initMap;
 			initMap = rest;
-			deleteTarget = null;
 		} catch (err) {
 			deleteError = err instanceof Error ? err.message : 'Delete failed';
 		} finally {
@@ -605,6 +601,7 @@
 															{group.name}
 															<button
 																type="button"
+																aria-label="Remove {group.name} group"
 																class="inline-flex items-center justify-center rounded-full p-0.5 text-primary-500 hover:bg-primary-200 hover:text-primary-800 transition-colors cursor-pointer"
 																onclick={() => handleRemoveGroup(userObj.pk, group.pk)}
 																disabled={isGroupLoading}
@@ -689,7 +686,7 @@
 														<p class="text-sm text-error-500">{deleteError}</p>
 													{/if}
 													<AlertDialogFooter>
-														<AlertDialogCancel onclick={() => { deleteTarget = null; deleteError = ''; }}>
+														<AlertDialogCancel onclick={() => { deleteError = ''; }}>
 															Cancel
 														</AlertDialogCancel>
 														<AlertDialogAction

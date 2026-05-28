@@ -8,9 +8,11 @@ Update this file after every meaningful implementation change.
 
 ## Current Goal
 
-- Unit 13: Routing Refactor — Direct Authentik Redirect (next)
+- Unit 14: Student Dashboard — Subject Cards (next)
 
 ## Completed
+
+- Unit 13: Routing Refactor — Direct Authentik Redirect — Deleted `/login` route, `/api/auth/login` endpoint, and static landing page. Created root `+layout.server.ts` with direct Authentik OIDC redirect (server-side 302 with PKCE). Elevated sidebar layout from `(auth)/+layout.svelte` to root `+layout.svelte`. Moved dashboard from `/dashboard` to `/` (root `+page.server.ts` + `+page.svelte`). Moved admin routes from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback redirects from `/dashboard` to `/` and from `/login?...` to `/?error=...`. Updated `getEndSessionUrl` post_logout_redirect_uri from `/login` to `/`. (`pnpm build` zero errors.)
 
 - Unit 12: User CRUD — Create and Delete Users — Added `createUser` and `deleteUser` functions to `authentik.ts`. Created `POST /api/admin/users/+server.ts` (create user in Authentik with auto-assign to role group) and `DELETE /api/admin/users/[pk]/+server.ts` (delete user from Authentik). Updated `UserTable.svelte`: "Create {Role}" button above table with `Dialog` form (username, name, email, password, activate toggle), `handleCreateUser` pushes result to users array; "Delete User" button in expanded Manage panel with `AlertDialog` confirmation, `handleDeleteUser` removes from users and initMap. Added `groupPk` bindable prop, passed from all three role pages (`students`, `teachers`, `admin-role`). Installed shadcn-svelte dialog, alert-dialog, label components. Fixed password not set on create (added `resetPassword` call after `createUser`). Replaced all `error()` calls in API routes with consistent JSON `{ error: { code, message } }` responses so SvelteKit HttpError format doesn't mask real error messages. Fixed `!targetPk` validation to use `isNaN(targetPk) || targetPk < 1` throughout. Split shared `actionStates` into `initStates`, `authStates`, `pwResetStates` so loading indicators are per-action-type (Initialize/Activate/ResetPassword no longer show each other's spinner). Fixed class-level `<select>` placeholder: initialized `selectedClassLevels[pk] = ''` on expand, added `disabled` to placeholder `<option>` so it can't be re-selected. (`pnpm build` zero errors, `pnpm check` zero errors.)
 
@@ -28,10 +30,11 @@ Update this file after every meaningful implementation change.
 
 ## Next Up
 
-- Unit 13: Routing Refactor — Direct Authentik Redirect
+- Unit 14: Student Dashboard — Subject Cards
 
 ## Recent Specs
 
+- `docs/specs/13-routing-refactor-direct-authentik-redirect.md` — Eliminate `/login` page, redirect unauthenticated users directly to Authentik, move dashboard to `/`, remove `(auth)` route group.
 - `docs/specs/12-user-crud-create-delete.md` — Admin create/delete user UI and API routes via Authentik Admin API. Create dialog with form fields, delete AlertDialog in Manage panel, auto-group-assignment by page role.
 - `docs/specs/11-architecture-refactor-activation-split.md` — Architecture refactor: split activation into Golem-side initialization and Authentik-side activation. Admin Agent renamed methods, gateway returns NOT_INITIALIZED, sidebar Users section with role-based sub-pages.
 - `docs/specs/10-student-agent-initialization.md` — Per-student durable Student Agent with `initialize` and `get_subjects`, SurrealDB subject querying, class-level dropdown in admin activation UI.
@@ -79,6 +82,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- Unit 13 completed. Branch: `feat/13-routing-refactor-direct-authentik-redirect`. Deleted static landing page, `/login` route, and `/api/auth/login` endpoint. Created root `+layout.server.ts` with direct Authentik OIDC redirect using `import { dev }` pattern. Elevated sidebar layout to root `+layout.svelte`. Dashboard moved to root `+page.svelte`. Admin routes moved from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback/logout redirect targets. Logout fallback URL changed to `/`. Cleaned up: removed unused `deleteTarget`, added rollback to `handleAddGroup`, fixed a11y on remove-group button, added `res.ok` check to `loadClassLevels`, optimized group lookups (local `find` instead of API call), fixed `state_referenced_locally` warnings in role pages via prop destructuring. (`pnpm build` zero errors, `svelte-check` 0 errors 3 benign warnings.)
 - Unit 12 completed. Branch: `feat/12-user-crud-create-delete`. Added `createUser` and `deleteUser` to `authentik.ts`. Created `POST /api/admin/users` and `DELETE /api/admin/users/[pk]` API routes. Updated `UserTable.svelte` with Create dialog (username, name, email, password, activate) and Delete AlertDialog in Manage panel. Passed `groupPk` from all three role pages. Installed shadcn-svelte dialog, alert-dialog, label. Fixed password not set on create (added `resetPassword` after `createUser`). Fixed password auto-generation and show/hide toggle. Renamed route dir `[uuid]` → `[pk]`. Replaced all `error()` calls in API routes with consistent JSON error responses. Fixed `!targetPk` validation to use `isNaN(targetPk) || targetPk < 1`. Split shared `actionStates` into per-action-type maps (`initStates`, `authStates`, `pwResetStates`) so loading indicators don't leak between buttons. Fixed class-level `<select>` placeholder (initialize on expand, `disabled` option). (`pnpm build` zero errors, `pnpm check` zero errors.)
 
 - Unit 11 implemented. Branch: `feat/11-architecture-refactor-activation-split`. Refactored Admin/Gateway agents, removed ActivationStatus enum/deactivate_user, renamed activate→initialize. Regenerated golem stubs via `golem-sdk-tools`. Updated `golem.ts` (NOT_INITIALIZED, removed parseActivations). Extended `authentik.ts` (is_active, 5 functions). Created 5 new Authentik API routes. Renamed activate→initialize, deleted deactivate, renamed activations→initializations. Updated `/api/auth/status` and dashboard. Restructured sidebar with Users section (Students/Teachers/Admin sub-items). Created `UserTable.svelte` component with two status columns and full action set. Three role-based sub-pages. Updated all context files. (`moon check --target wasm` zero errors, `pnpm check` zero errors.) Fixed MoonBit syntax: tuple destructuring in closures uses `for` loop, `String::replace` uses labeled args `old=`, `new=`. Golem build has pre-existing `moon.mod` vs `moon.mod.json` issue with local deps — not a regression.

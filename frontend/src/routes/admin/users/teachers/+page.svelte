@@ -5,12 +5,13 @@
 	import type { UserRow } from '$lib/types/user';
 
 	let { data }: { data: PageData } = $props();
+	let { users: initialUsers, initMap: initialInitMap, allGroups: initialAllGroups, error, groupPk } = data;
 
-	let users = $state<UserRow[]>(data.users as UserRow[] || []);
-	let initMap = $state<Record<string, string>>(data.initMap || {});
-	let allGroups = $state<{pk: string; name: string}[]>(data.allGroups || []);
-	let isLoading = $derived(!data.users && !data.error);
-	let hasError = $derived(!!data.error);
+	let users = $state<UserRow[]>(initialUsers as UserRow[] || []);
+	let initMap = $state<Record<string, string>>(initialInitMap || {});
+	let allGroups = $state<{pk: string; name: string}[]>(initialAllGroups || []);
+	let isLoading = $derived(!initialUsers && !error);
+	let hasError = $derived(!!error);
 	let showCreateDialog = $state(false);
 </script>
 
@@ -30,10 +31,10 @@
 		bind:initMap
 		bind:allGroups
 		role="teachers"
-		groupPk={data.groupPk ?? ''}
+		groupPk={groupPk ?? ''}
 		{isLoading}
 		{hasError}
 		bind:showCreateDialog
-		errorMessage={data.error || ''}
+		errorMessage={error || ''}
 	/>
 </div>

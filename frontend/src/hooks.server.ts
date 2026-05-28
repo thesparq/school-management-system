@@ -1,7 +1,8 @@
 import type { Handle } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import { verifyJwt, refreshTokens } from '$lib/server/authentik';
 
-const SECURE = process.env.NODE_ENV === 'production';
+const SECURE = !dev;
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = null;
