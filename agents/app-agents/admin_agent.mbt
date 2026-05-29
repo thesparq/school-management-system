@@ -122,7 +122,7 @@ fn escape_json_string(s : String) -> String {
 ///|
 /// Returns all active class levels as a JSON array string.
 pub fn AdminAgent::get_class_levels(self : Self) -> String {
-  let sql = "SELECT id, name FROM class_levels WHERE active = true ORDER BY name ASC"
+  let sql = "SELECT id, name FROM class_levels ORDER BY name ASC"
   let raw = match surreal_query(self.config, sql) {
     Ok(body) => body
     Err(e) => return "ERROR: " + e

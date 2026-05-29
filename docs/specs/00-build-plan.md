@@ -1,3 +1,9 @@
+## Hotfix
+
+**HF-01. SurrealDB Schema v2 — Idiomatic Refactor**
+*What it builds:* Replaces the relational-style normalization (FK columns, `class_subjects` junction table) with an idiomatic SurrealDB schema using `TYPE RELATION` graph edges (`has_subject`) and a properly `SCHEMAFULL`-typed `lessons` table. All `lesson_content` records migrate to `lessons`; the old table is preserved for legacy systems. Agent SQL queries, MoonBit types, frontend types, and docs update in lockstep.
+*Dependencies:* SurrealDB staging instance with existing `lesson_content` data.
+
 ## Build Units
 **1. Frontend Foundation**  
 *What it builds:* SvelteKit project with Tailwind v4 and shadcn‑svelte fully configured. Design tokens from `ui-context.md` applied in `app.css`. A single static page showing “School Management” with a primary‑blue button.  
