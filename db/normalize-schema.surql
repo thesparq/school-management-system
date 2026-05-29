@@ -157,6 +157,22 @@ RETURN {
     class_subjects_pairs: array::len($cs_pairs)
 };
 
+-- 7b. Add class_subject_id FK, update nav index, drop deprecated indexes
+DEFINE FIELD class_subject_id ON lesson_content TYPE option<record<class_subjects>>;
+DEFINE INDEX idx_lesson_cs ON lesson_content COLUMNS class_subject_id;
+UPDATE lesson_content SET
+  class_subject_id = (
+    SELECT VALUE id FROM class_subjects
+    WHERE class_level_id = $parent.class_level_id
+      AND subject_id = $parent.subject_id
+    LIMIT 1
+  )[0];
+-- Update nav index to use class_subject_id
+DEFINE INDEX idx_lesson_nav ON lesson_content COLUMNS class_subject_id, term_id, week_number;
+-- Drop deprecated indexes
+REMOVE INDEX idx_lesson_cl ON lesson_content;
+REMOVE INDEX idx_lesson_subj ON lesson_content;
+
 -- 7. Check foreign keys actually resolve (no orphaned references)
 SELECT id, subject_id, subject_id.name AS resolved_subject
 FROM lesson_content

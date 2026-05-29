@@ -69,5 +69,5 @@ Before marking a unit as complete, verify every item on this list. If any item f
 5. **Code standards met:** The change follows all rules in `code-standards.md`. Check types, validation, error handling, naming, and file placement.
 6. **Clean boundary:** The change does not leave partially implemented methods, commented-out code, TODO markers (unless explicitly approved), or debug logging.
 7. **Auth and access verified:** If the change touches an API route or agent method, confirm that auth checks (JWT validation, role check, ownership check) are present and cannot be bypassed.
-8. **State migration verified:** If the change modifies an agent's SQLite schema, confirm that the idempotent migration function is updated and the `user_version` is incremented.
+8. **State migration verified:** If the change modifies an agent's durable state (struct fields), confirm that new fields have safe defaults and existing agents are compatible with the new struct shape.
 9. **Explicit sign-off:** State: "Unit complete. Built successfully. Verified items: [list]. Ready for next unit."

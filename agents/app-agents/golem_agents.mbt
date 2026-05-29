@@ -507,7 +507,7 @@ fn init{
           },
           {
             name: "student_subjects",
-            description: "Returns the authenticated student's subjects as a JSON array string.  Requires initialization check.",
+            description: "Returns the authenticated student's subjects as a typed array.  Requires initialization check.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -547,7 +547,120 @@ fn init{
               (
                 "result",
                 @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[SubjectInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "student_terms",
+            description: "Returns terms for the authenticated student's class level.  Requires initialization check.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("student"),
+                  @common.PathSegment::Literal("terms"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TermInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "student_lessons",
+            description: "Returns lessons for a given class_subject_id.  Requires initialization check.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("student"),
+                  @common.PathSegment::Literal("lessons"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                  {
+                    query_param_name: "class_subject_id",
+                    variable_name: "class_subject_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "class_subject_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[LessonInfo], String]]
+                  ),
                 ),
               ),
             ]),
@@ -750,7 +863,7 @@ fn init{
           },
           {
             name: "get_subjects",
-            description: "Returns this student's subjects as a JSON array string.  Returns an empty array if the student has not been initialized.",
+            description: "get_subjects",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([]),
@@ -758,7 +871,44 @@ fn init{
               (
                 "result",
                 @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Array[SubjectInfo]]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_terms",
+            description: "get_terms",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Array[TermInfo]]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_lessons",
+            description: "get_lessons",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "class_subject_id",
+                @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Array[LessonInfo]]),
                 ),
               ),
             ]),
@@ -998,6 +1148,33 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let result = self.student_subjects(incoming_key, user_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
+      "student_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.student_terms(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "student_lessons" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let class_subject_id :String = 
+          @schema.from_element_value_as(elements[2])
+        let result = 
+          self.student_lessons(incoming_key, user_id, class_subject_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
       "list_class_levels" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 2 else {
@@ -1067,6 +1244,28 @@ impl @agents.RawAgent for StudentAgent with invoke(
           )
         }
         let result = self.get_subjects()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.get_terms()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_lessons" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let class_subject_id :String = 
+          @schema.from_element_value_as(elements[0])
+        let result = self.get_lessons(class_subject_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

@@ -2,15 +2,17 @@
 
 Update this file after every meaningful implementation change.
 
-## Current Phase
+## In Progress
 
-- Unit 16: Student Agent — Term & Lesson Lists (next)
+- Hotfix 01: **SurrealDB Schema v2 — Idiomatic Refactor** — Replaced `class_subjects` junction table with `has_subject TYPE RELATION` graph edge. Created proper `SCHEMAFULL` `lessons` table (renamed from `lesson_content`). Migrated all `lesson_content` records to `lessons`. Updated `student_agent.mbt` (6 changes: `LessonInfo.week_number`→`week`, 2 subject queries, terms query, lessons query, JSON parse key), `admin_agent.mbt` (removed `active` filter on class_levels), and frontend `types.ts` (`week_number`→`week`). Kept `lesson_content` intact for legacy systems. Updated `architecture.md` Storage Model, `ai-workflow-rules.md` (removed SQLite reference), and `00-build-plan.md` (added Hotfix section).
 
-## Current Goal
+## Next Up
 
-- Unit 16: Student Agent — Term & Lesson Lists
+- Unit 17: **LMS Subject Page** — Build the `/lms/{class_subject_id}` page with term selector tabs and lesson list, wired to the new `student/terms` and `student/lessons` API routes.
 
 ## Completed
+
+- Unit 16: Student Agent — Term & Lesson Lists — Added `TermInfo`, `LessonInfo`, `SubjectCache`, `TermCacheEntry`, `LessonCacheEntry` types with `#derive.golem_schema`. Replaced `subjects: Map[String, SubjectInfo]` with `mut subject_cache: SubjectCache?` and added `terms_cache`/`lessons_cache` maps with TTL (600s). `initialize()` now stores subjects in cache struct. `get_subjects()` returns `Array[SubjectInfo]` with lazy cache refresh. `get_terms()` queries SurrealDB by class_level, returns `Array[TermInfo]`. `get_lessons(class_subject_id)` queries `lesson_content`, returns `Array[LessonInfo]`. Gateway Agent: `student_subjects` returns `Result[Array[SubjectInfo], String]`, added `student_terms`/`student_lessons` endpoints. `proxyToGateway` unwraps `Ok`/`Err` envelope. Added `Term`/`Lesson` frontend types and `/api/student/terms`/`lessons` proxy routes. Added Step 7b to `normalize-schema.surql` (class_subject_id FK, updated index). Breaking state change — existing student agents must be recreated. (`golem build` 0 errors, `pnpm build` 0 errors, `pnpm check` 0 errors 3 warnings.)
 
 - Unit 15: Student Dashboard — Subject Cards — Replaced generic dashboard for students with a responsive subject card grid. Added 12-skeleton loading state during navigation, "No Subjects Assigned" empty state with info icon, and destructive Alert error state with Retry button. Cards are clickable (linking to `/lms/{id}`, 404 until Unit 17) with hover effects. Admin and teacher users continue to see the existing generic dashboard. Fixed role group check: changed `user.roles.includes('student')` → `'students'` to match Authentik's plural group naming. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
 - Unit 14: Auth Refresh Fixes — Race Condition, Client-Side 401, Cookie Cleanup — Fixed five issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel requests, preventing OIDC token rotation races from logging users out. (2) New `apiFetch` wrapper at `frontend/src/lib/client/api.ts` catches client-side 401s, calls `POST /api/auth/refresh` silently, retries on success, redirects to `/?error=session_expired` on failure. (3) Cookie `maxAge` aligned to real JWT `exp` in hooks.server.ts, callback, and refresh route — removed the `Math.max(..., 60)` floor; if `maxAge` is 0, no cookie is written. (4) Removed unused `accessToken` from `TokenResponse` interface and destructured out in both `handleCallback` and `refreshTokens`. (5) Standardised `SECURE` constant from `process.env.NODE_ENV === 'production'` to `!dev` (SvelteKit compile-time constant) in callback and refresh routes. Exported `TokenResponse` and `JwtClaims` types from `authentik.ts` for use in hooks. (`pnpm build` zero errors, `pnpm check` 0 errors 3 benign warnings — same baseline as Unit 13.)
@@ -31,9 +33,7 @@ Update this file after every meaningful implementation change.
 - Unit 4: Golem Agent Scaffolding — Consolidated from 4 separate WASM components into a single `app:agents` component (`app-agents/`). All four agent types defined: AdminAgent (durable singleton, RPC-only, `ping` → `"admin online"`), GatewayAgent (ephemeral, mount `/gateway`, `ping` → calls `AdminAgent.ping` via typed `AdminAgentClient::scoped(...)`), StudentAgent (durable, placeholder), TeacherAgent (durable, placeholder). Demo agents deleted. `curl /gateway/ping` returns `"admin online"`; `/admin/ping` returns 404.
 - Unit 5: SvelteKit → Golem Proxy — Created `/api/ping` proxy route in SvelteKit (`src/routes/api/ping/+server.ts`). Shared proxy helper `src/lib/server/golem.ts` with `proxyToGateway(path, userId)` and `X-Golem-Auth-Key` auth. Gateway Agent updated with `#derive.config` + `@config.Secret[String]` for auth key verification (rejects unauthorized requests before AdminAgent RPC). `secretDefaults` in `golem.yaml` for local dev. Dashboard "Connection Status" card with "Test Connection" button. Extension method `AgentError::to_string` added for generated code compatibility.
 
-## Next Up
 
-- Unit 16: Student Agent — Term & Lesson Lists
 
 ## Recent Specs
 

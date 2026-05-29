@@ -177,7 +177,7 @@ pub fn GatewayAgent::initialize_admin(
 }
 
 ///|
-/// Returns the authenticated student's subjects as a JSON array string.
+/// Returns the authenticated student's subjects as a typed array.
 /// Requires initialization check.
 #derive.endpoint(get="/student/subjects?user_id={user_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
@@ -185,9 +185,9 @@ pub fn GatewayAgent::student_subjects(
   self : Self,
   incoming_key : String,
   user_id : String,
-) -> String {
+) -> Result[Array[SubjectInfo], String] {
   match self.check_auth(incoming_key) {
-    Some(msg) => return msg
+    Some(msg) => return Err(msg)
     None => ()
   }
   let initialized = AdminAgentClient::scoped(fn(
@@ -195,17 +195,90 @@ pub fn GatewayAgent::student_subjects(
   ) raise @common.AgentError {
     admin.is_user_initialized(user_id)
   }) catch {
-    _ => return "admin unreachable"
+    _ => return Err("admin unreachable")
   }
   if !initialized {
-    return "NOT_INITIALIZED"
+    return Err("NOT_INITIALIZED")
   }
 
-  StudentAgentClient::scoped(user_id, fn(student) raise @common.AgentError {
-    student.get_subjects()
-  }) catch {
-    _ => "ERROR: student agent unreachable"
+  let result = StudentAgentClient::scoped(
+    user_id,
+    fn(student) raise @common.AgentError { student.get_subjects() },
+  ) catch {
+    _ => return Err("student agent unreachable")
   }
+  Ok(result)
+}
+
+///|
+/// Returns terms for the authenticated student's class level.
+/// Requires initialization check.
+#derive.endpoint(get="/student/terms?user_id={user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::student_terms(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> Result[Array[TermInfo], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+
+  let result = StudentAgentClient::scoped(
+    user_id,
+    fn(student) raise @common.AgentError { student.get_terms() },
+  ) catch {
+    _ => return Err("student agent unreachable")
+  }
+  Ok(result)
+}
+
+///|
+/// Returns lessons for a given class_subject_id.
+/// Requires initialization check.
+#derive.endpoint(get="/student/lessons?user_id={user_id}&class_subject_id={class_subject_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::student_lessons(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+  class_subject_id : String,
+) -> Result[Array[LessonInfo], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+
+  let result = StudentAgentClient::scoped(
+    user_id,
+    fn(student) raise @common.AgentError {
+      student.get_lessons(class_subject_id)
+    },
+  ) catch {
+    _ => return Err("student agent unreachable")
+  }
+  Ok(result)
 }
 
 ///|

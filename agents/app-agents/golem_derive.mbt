@@ -113,6 +113,200 @@ impl @schema.ToElementValue for StudentProfile with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for TermInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "sort_order",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "active",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for TermInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let sort_order :Int = @schema.extract_field(e, 2)
+  let active :Bool = @schema.extract_field(e, 3)
+  { id, name, sort_order, active }
+}
+
+///|
+impl @schema.FromElementValue for TermInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for TermInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.name),
+    @schema.to_element_value_as(self.sort_order),
+    @schema.to_element_value_as(self.active),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for LessonInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "topic_title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "week_number",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for LessonInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week_number :Int? = @schema.extract_field(e, 2)
+  { id, topic_title, week_number }
+}
+
+///|
+impl @schema.FromElementValue for LessonInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for LessonInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.topic_title),
+    @schema.to_element_value_as(self.week_number),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for SubjectCache with element_schema() {
+  @schema.make_record_schema([
+    (
+      "subjects",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[SubjectInfo]]),
+      ),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SubjectCache with from_extractor(e) {
+  let subjects :Array[SubjectInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { subjects, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for SubjectCache with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SubjectCache with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.subjects),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for TermCacheEntry with element_schema() {
+  @schema.make_record_schema([
+    (
+      "data",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[TermInfo]]),
+      ),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for TermCacheEntry with from_extractor(e) {
+  let data :Array[TermInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { data, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for TermCacheEntry with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for TermCacheEntry with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.data),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for LessonCacheEntry with element_schema() {
+  @schema.make_record_schema([
+    (
+      "data",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[LessonInfo]]),
+      ),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for LessonCacheEntry with from_extractor(e) {
+  let data :Array[LessonInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { data, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for LessonCacheEntry with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for LessonCacheEntry with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.data),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
 impl @config.ConfigField for GatewayConfig with collect_entries(path) {
   let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()

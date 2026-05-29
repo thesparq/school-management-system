@@ -939,7 +939,7 @@ pub fn GatewayAgentClient::student_subjects(
   self : GatewayAgentClient,
   incoming_key : String,
   user_id : String,
-) -> String raise @common.AgentError {
+) -> Result[Array[SubjectInfo], String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -1004,6 +1004,162 @@ pub fn GatewayAgentClient::schedule_cancelable_student_subjects(
       @rpcTypes.DataValue::Tuple([
         @schema.to_element_value_as(incoming_key),
         @schema.to_element_value_as(user_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::student_terms(
+  self : GatewayAgentClient,
+  incoming_key : String,
+  user_id : String,
+) -> Result[Array[TermInfo], String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "student_terms",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn GatewayAgentClient::trigger_student_terms(
+  self : GatewayAgentClient,
+  incoming_key : String,
+  user_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "student_terms",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::schedule_student_terms(
+  self : GatewayAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  user_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "student_terms",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::schedule_cancelable_student_terms(
+  self : GatewayAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  user_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "student_terms",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::student_lessons(
+  self : GatewayAgentClient,
+  incoming_key : String,
+  user_id : String,
+  class_subject_id : String,
+) -> Result[Array[LessonInfo], String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "student_lessons",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+        @schema.to_element_value_as(class_subject_id),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn GatewayAgentClient::trigger_student_lessons(
+  self : GatewayAgentClient,
+  incoming_key : String,
+  user_id : String,
+  class_subject_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "student_lessons",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+        @schema.to_element_value_as(class_subject_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::schedule_student_lessons(
+  self : GatewayAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  user_id : String,
+  class_subject_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "student_lessons",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+        @schema.to_element_value_as(class_subject_id),
+      ]),
+    )
+}
+
+///|
+pub fn GatewayAgentClient::schedule_cancelable_student_lessons(
+  self : GatewayAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  user_id : String,
+  class_subject_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "student_lessons",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(user_id),
+        @schema.to_element_value_as(class_subject_id),
       ]),
     )
 }
@@ -1335,7 +1491,9 @@ pub fn StudentAgentClient::schedule_cancelable_initialize(
 }
 
 ///|
-pub fn StudentAgentClient::get_subjects(self : StudentAgentClient) -> String raise @common.AgentError {
+pub fn StudentAgentClient::get_subjects(self : StudentAgentClient) -> Array[
+  SubjectInfo,
+] raise @common.AgentError {
   let result = 
     self.client.invoke_and_await("get_subjects", @rpcTypes.DataValue::Tuple([]))
   let elements = @extractor.extract_tuple(result)
@@ -1372,6 +1530,107 @@ pub fn StudentAgentClient::schedule_cancelable_get_subjects(
       scheduled_at,
       "get_subjects",
       @rpcTypes.DataValue::Tuple([]),
+    )
+}
+
+///|
+pub fn StudentAgentClient::get_terms(self : StudentAgentClient) -> Array[
+  TermInfo,
+] raise @common.AgentError {
+  let result = 
+    self.client.invoke_and_await("get_terms", @rpcTypes.DataValue::Tuple([]))
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn StudentAgentClient::trigger_get_terms(self : StudentAgentClient) -> Unit {
+  self.client.invoke("get_terms", @rpcTypes.DataValue::Tuple([]))
+}
+
+///|
+pub fn StudentAgentClient::schedule_get_terms(
+  self : StudentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+) -> Unit {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([]),
+    )
+}
+
+///|
+pub fn StudentAgentClient::schedule_cancelable_get_terms(
+  self : StudentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+) -> @agentHost.CancellationToken {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([]),
+    )
+}
+
+///|
+pub fn StudentAgentClient::get_lessons(
+  self : StudentAgentClient,
+  class_subject_id : String,
+) -> Array[LessonInfo] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "get_lessons",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(class_subject_id)]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn StudentAgentClient::trigger_get_lessons(
+  self : StudentAgentClient,
+  class_subject_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "get_lessons",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(class_subject_id)]),
+    )
+}
+
+///|
+pub fn StudentAgentClient::schedule_get_lessons(
+  self : StudentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  class_subject_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_lessons",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(class_subject_id)]),
+    )
+}
+
+///|
+pub fn StudentAgentClient::schedule_cancelable_get_lessons(
+  self : StudentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  class_subject_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_lessons",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(class_subject_id)]),
     )
 }
 
