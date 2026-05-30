@@ -28,7 +28,9 @@ struct TermInfo {
 struct LessonInfo {
   id : String
   topic_title : String?
-  week_number : Int?
+  week : Int?
+  subject_name : String?
+  term_name : String?
 }
 
 ///|
@@ -52,6 +54,14 @@ struct LessonCacheEntry {
   fetched_at : UInt64
 }
 
+///|
+#derive.golem_schema
+struct EdgeCacheEntry {
+  edge_id : String
+  fetched_at : UInt64
+}
+
+///|
 const CACHE_TTL : UInt64 = 600
 
 ///|
@@ -65,6 +75,7 @@ struct StudentAgent {
   mut subject_cache : SubjectCache?
   terms_cache : Map[String, TermCacheEntry]
   lessons_cache : Map[String, LessonCacheEntry]
+  edge_cache : Map[String, EdgeCacheEntry]
 }
 
 ///|
@@ -79,14 +90,13 @@ fn StudentAgent::new(
     subject_cache: None,
     terms_cache: Map::new(),
     lessons_cache: Map::new(),
+    edge_cache: Map::new(),
   }
 }
 
 ///|
 fn parse_result_array(raw : String) -> Result[Array[Json], String] {
-  let val = @json.parse(raw) catch {
-    _ => return Err("parse response failed")
-  }
+  let val = @json.parse(raw) catch { _ => return Err("parse response failed") }
   match val {
     Array(a) => {
       if a.length() == 0 {
@@ -124,52 +134,12 @@ pub fn StudentAgent::test_db(self : Self) -> String {
 pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
   self.profile = Some(StudentProfile::{ class_level, })
 
-  let cl_sql =
-    "SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1"
-  let cl_raw = match
-    surreal_query(self.config, cl_sql, bindings={ "class_level": class_level }) {
-    Ok(body) => body
-    Err(e) => return "ERROR: lookup class_level failed: " + e
-  }
-
-  let cl_val = @json.parse(cl_raw) catch {
-    _ => return "ERROR: parse class_level response failed"
-  }
-  let cl_id = match cl_val {
-    Array(arr) => {
-      if arr.length() == 0 {
-        return "ERROR: class_level response empty"
-      }
-      match arr[0] {
-        Object(obj) =>
-          match obj.get("result") {
-            Some(r) =>
-              match r {
-                Array(res) => {
-                  if res.length() == 0 {
-                    return "ERROR: class_level not found: " + class_level
-                  }
-                  match res[0] {
-                    String(id) => id
-                    _ => return "ERROR: class_level id not a string"
-                  }
-                }
-                _ => return "ERROR: class_level result not an array"
-              }
-            None => return "ERROR: class_level result missing"
-          }
-        _ => return "ERROR: class_level element not an object"
-      }
-    }
-    _ => return "ERROR: class_level response not an array"
-  }
-
-  let subj_sql =
-    "SELECT out.id AS id, out.name AS name, out.code AS code " +
-    "FROM has_subject WHERE in = " +
-    cl_id +
-    " AND active = true ORDER BY out.name ASC"
-  let subj_raw = match surreal_query(self.config, subj_sql) {
+  let subj_sql = "SELECT id AS edge_id, out.id AS id, out.name AS name, out.code AS code " +
+    "FROM has_subject " +
+    "WHERE in.name = $class_level AND active = true " +
+    "ORDER BY out.name ASC"
+  let subj_raw = match
+    surreal_query(self.config, subj_sql, bindings={ "class_level": class_level }) {
     Ok(body) => body
     Err(e) => return "ERROR: query subjects failed: " + e
   }
@@ -180,6 +150,7 @@ pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
   }
 
   let subjects : Array[SubjectInfo] = []
+  let now = @wallClock.now().seconds
   for item in result_arr {
     match item {
       Object(obj) => {
@@ -207,15 +178,19 @@ pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
             }
           None => None
         }
+        match obj.get("edge_id") {
+          Some(String(eid)) => {
+            self.edge_cache.set(id, { edge_id: eid, fetched_at: now })
+          }
+          _ => ()
+        }
         subjects.push(SubjectInfo::{ id, name, code })
       }
       _ => ()
     }
   }
 
-  self.subject_cache = Some(
-    SubjectCache::{ subjects, fetched_at: @wallClock.now().seconds, },
-  )
+  self.subject_cache = Some(SubjectCache::{ subjects, fetched_at: now })
 
   "OK"
 }
@@ -229,20 +204,17 @@ pub fn StudentAgent::get_subjects(self : Self) -> Array[SubjectInfo] {
     _ => ()
   }
 
-  let cl_id = match self.profile {
+  let cl = match self.profile {
     Some(p) => p.class_level
     None => return []
   }
 
-  let subj_sql =
-    "SELECT out.id AS id, out.name AS name, out.code AS code " +
-    "FROM has_subject WHERE in = $class_level_id AND active = true " +
+  let subj_sql = "SELECT out.id AS id, out.name AS name, out.code AS code " +
+    "FROM has_subject " +
+    "WHERE in.name = $class_level AND active = true " +
     "ORDER BY out.name ASC"
-  let subj_raw = match surreal_query(
-    self.config,
-    subj_sql,
-    bindings={ "class_level_id": cl_id },
-  ) {
+  let subj_raw = match
+    surreal_query(self.config, subj_sql, bindings={ "class_level": cl }) {
     Ok(body) => body
     Err(_) => {
       let old = self.subject_cache
@@ -319,13 +291,9 @@ pub fn StudentAgent::get_terms(self : Self) -> Array[TermInfo] {
     _ => ()
   }
 
-  let sql =
-    "SELECT * FROM terms WHERE active = true ORDER BY sort_order ASC"
-  let raw = match surreal_query(
-    self.config,
-    sql,
-    bindings={ "class_level_id": cl },
-  ) {
+  let sql = "SELECT * FROM terms WHERE active = true ORDER BY sort_order ASC"
+  let raw = match
+    surreal_query(self.config, sql) {
     Ok(body) => body
     Err(_) => {
       let old = self.terms_cache.get(cl)
@@ -389,23 +357,20 @@ pub fn StudentAgent::get_terms(self : Self) -> Array[TermInfo] {
     }
   }
 
-  self.terms_cache.set(
-    cl,
-    TermCacheEntry::{ data: terms, fetched_at: now },
-  )
-  self.terms_cache
-    .get(cl)
-    .map(fn(e) { e.data })
-    .unwrap_or([])
+  self.terms_cache.set(cl, TermCacheEntry::{ data: terms, fetched_at: now })
+  self.terms_cache.get(cl).map(fn(e) { e.data }).unwrap_or([])
 }
 
 ///|
+/// Returns lessons for a given subject + term in the student's class level.
+/// Uses edge cache to avoid graph traversal on repeated queries.
 pub fn StudentAgent::get_lessons(
   self : Self,
-  class_subject_id : String,
+  subject_id : String,
+  term_id : String,
 ) -> Array[LessonInfo] {
   let now = @wallClock.now().seconds
-  let cache_key = class_subject_id
+  let cache_key = subject_id + "|" + term_id
 
   let cached_entry = self.lessons_cache.get(cache_key)
   match cached_entry {
@@ -413,13 +378,48 @@ pub fn StudentAgent::get_lessons(
     _ => ()
   }
 
-  let sql =
-    "SELECT id, topic_title, week FROM lessons WHERE class_subject = $class_subject_id AND active = true ORDER BY week ASC"
-  let raw = match surreal_query(
-    self.config,
-    sql,
-    bindings={ "class_subject_id": class_subject_id },
-  ) {
+  let cl = match self.profile {
+    Some(p) => p.class_level
+    None => return []
+  }
+
+  // Check edge cache for cached has_subject edge record ID
+  let cached_edge = self.edge_cache.get(subject_id)
+  let edge_id = match cached_edge {
+    Some(entry) if now - entry.fetched_at < CACHE_TTL => Some(entry.edge_id)
+    _ => None
+  }
+
+  // Build SQL based on whether edge is cached
+  let sql = match edge_id {
+    Some(_) =>
+      "SELECT id, topic_title, week, " +
+      "  class_subject.out.name AS subject_name, term.name AS term_name " +
+      "FROM lessons " +
+      "WHERE class_subject = $hs_id AND term = $term_id AND active = true " +
+      "ORDER BY week ASC"
+    None =>
+      "SELECT id, topic_title, week, class_subject, " +
+      "  class_subject.out.name AS subject_name, term.name AS term_name " +
+      "FROM lessons " +
+      "WHERE class_subject.in.name = $class_level " +
+      "  AND class_subject.out = $subject_id " +
+      "  AND class_subject.active = true " +
+      "  AND term = $term_id AND active = true " +
+      "ORDER BY week ASC"
+  }
+
+  let hs_binding = match edge_id {
+    Some(eid) => eid
+    None => ""
+  }
+  let raw = match
+    surreal_query(self.config, sql, bindings={
+      "class_level": cl,
+      "subject_id": subject_id,
+      "term_id": term_id,
+      "hs_id": hs_binding,
+    }) {
     Ok(body) => body
     Err(_) => {
       let old = self.lessons_cache.get(cache_key)
@@ -461,7 +461,7 @@ pub fn StudentAgent::get_lessons(
             }
           None => None
         }
-        let week_number = match obj.get("week") {
+        let week = match obj.get("week") {
           Some(v) =>
             match v {
               Number(d, ..) => Some(d.to_int())
@@ -469,18 +469,53 @@ pub fn StudentAgent::get_lessons(
             }
           None => None
         }
-        lessons.push(LessonInfo::{ id, topic_title, week_number })
+        let subject_name = match obj.get("subject_name") {
+          Some(v) =>
+            match v {
+              String(s) => Some(s)
+              _ => None
+            }
+          None => None
+        }
+        let term_name = match obj.get("term_name") {
+          Some(v) =>
+            match v {
+              String(s) => Some(s)
+              _ => None
+            }
+          None => None
+        }
+        lessons.push(LessonInfo::{
+          id,
+          topic_title,
+          week,
+          subject_name,
+          term_name,
+        })
       }
       _ => ()
     }
   }
 
-  self.lessons_cache.set(
-    cache_key,
-    LessonCacheEntry::{ data: lessons, fetched_at: now },
-  )
-  self.lessons_cache
-    .get(cache_key)
-    .map(fn(e) { e.data })
-    .unwrap_or([])
+  // Cache the has_subject edge ID from dot-traversal results
+  if edge_id == None && result_arr.length() > 0 {
+    match result_arr[0] {
+      Object(obj) =>
+        match obj.get("class_subject") {
+          Some(String(full_id)) =>
+            self.edge_cache.set(subject_id, {
+              edge_id: full_id,
+              fetched_at: now,
+            })
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+
+  self.lessons_cache.set(cache_key, LessonCacheEntry::{
+    data: lessons,
+    fetched_at: now,
+  })
+  self.lessons_cache.get(cache_key).map(fn(e) { e.data }).unwrap_or([])
 }

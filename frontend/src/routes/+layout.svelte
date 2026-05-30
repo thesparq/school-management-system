@@ -4,7 +4,7 @@
 	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
-	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage } from '$lib/components/ui/breadcrumb';
+	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage, BreadcrumbLink, BreadcrumbSeparator } from '$lib/components/ui/breadcrumb';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { page, navigating } from '$app/stores';
@@ -74,6 +74,15 @@
 		<SidebarContent>
 			<SidebarGroup>
 				<SidebarGroupLabel>Navigation</SidebarGroupLabel>
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton isActive={$page.url.pathname === '/'}>
+							{#snippet child({ props })}
+								<a href="/" {...props}>LMS</a>
+							{/snippet}
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
 			</SidebarGroup>
 
 			{#if data.user.roles.includes('admin')}
@@ -121,9 +130,18 @@
 			<Separator orientation="vertical" class="h-6" />
 			<Breadcrumb>
 				<BreadcrumbList>
-					<BreadcrumbItem>
-						<BreadcrumbPage>Dashboard</BreadcrumbPage>
-					</BreadcrumbItem>
+					{#each ($page.data.breadcrumbs ?? [{ label: 'Dashboard' }]) as crumb, i (i)}
+						<BreadcrumbItem>
+							{#if (crumb.href ?? false) && i < ($page.data.breadcrumbs?.length ?? 1) - 1}
+								<BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
+							{:else}
+								<BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+							{/if}
+						</BreadcrumbItem>
+						{#if i < ($page.data.breadcrumbs?.length ?? 1) - 1}
+							<BreadcrumbSeparator />
+						{/if}
+					{/each}
 				</BreadcrumbList>
 			</Breadcrumb>
 
