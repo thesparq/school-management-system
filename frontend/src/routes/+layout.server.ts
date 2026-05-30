@@ -8,6 +8,7 @@ const SECURE = !dev;
 export const load: LayoutServerLoad = async (event) => {
 	if (!event.locals.user) {
 		const { url, state, codeVerifier } = await generateAuthUrl();
+		const redirectTo = event.url.searchParams.get('redirect') || '';
 
 		event.cookies.set('oauth_state', state, {
 			httpOnly: true,
@@ -24,6 +25,16 @@ export const load: LayoutServerLoad = async (event) => {
 			maxAge: 300,
 			secure: SECURE
 		});
+
+		if (redirectTo) {
+			event.cookies.set('oauth_redirect', redirectTo, {
+				httpOnly: true,
+				sameSite: 'lax',
+				path: '/',
+				maxAge: 300,
+				secure: SECURE
+			});
+		}
 
 		redirect(302, url);
 	}

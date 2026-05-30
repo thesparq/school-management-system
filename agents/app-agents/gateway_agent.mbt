@@ -284,6 +284,42 @@ pub fn GatewayAgent::student_lessons(
 }
 
 ///|
+/// Returns student-visible lesson content for a given lesson_id.
+/// Requires initialization check.
+#derive.endpoint(get="/student/lesson?user_id={user_id}&lesson_id={lesson_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::student_lesson(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+  lesson_id : String,
+) -> Result[LessonContent?, String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+
+  let result = StudentAgentClient::scoped(user_id, fn(
+    student,
+  ) raise @common.AgentError {
+    student.get_lesson(lesson_id)
+  }) catch {
+    _ => return Err("student agent unreachable")
+  }
+  Ok(result)
+}
+
+///|
 /// Returns all active class levels as a JSON array string.
 /// Requires valid X-Golem-Auth-Key header.
 #derive.endpoint(get="/admin/class-levels?user_id={admin_user_id}")

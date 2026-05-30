@@ -20,6 +20,34 @@ export interface Lesson {
   term_name: string | null;
 }
 
+export interface LessonContent {
+  id: string;
+  topic_title: string | null;
+  week: number | null;
+  subject_name: string | null;
+  term_name: string | null;
+  objectives: string | null;
+  content_sections: string | null;
+  key_points: string | null;
+}
+
+export interface LessonObjective {
+  objective: string;
+  taxonomy_level: string;
+}
+
+export interface SubPoint {
+  sub_number: string;
+  text: string;
+}
+
+export interface LessonContentSection {
+  header: string;
+  body: string;
+  section_number: number;
+  sub_points: SubPoint[];
+}
+
 export interface BreadcrumbItem {
   label: string;
   href?: string;

@@ -25,9 +25,22 @@ Update this file after every meaningful implementation change.
   - `student_terms` → 3 terms (`terms:first`, `terms:second`, `terms:third`)
   - `student_lessons("subjects:computer_studies", "terms:first")` → 10 lessons with topic titles and week numbers (e.g. "Computer Career Opportunities", week 1; through "Using Search Engines for Research", week 10). All through the Gateway agent, wrapped in `Ok(...)`.
 
+- Unit 18: **Student Agent – Lesson Content (Student View)** — Added `get_lesson(lesson_id)` to Student Agent: fetches lesson from SurrealDB with TTL caching (600s), returns only student-visible fields (`topic_title`, `week`, `subject_name`, `term_name`, `objectives`, `content_sections`, `key_points`). Content arrays serialized as JSON strings via `Json::stringify()`. Added `LessonContent`, `LessonContentCache` structs, `lesson_cache` field. Gateway endpoint at `/gateway/student/lesson` with init check. SvelteKit proxy route at `/api/student/lesson`. Frontend `LessonContent` type. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors. Deployed revision 9.)
+
+  **Post-deploy fix (part 1):** Lesson list page (Unit 17) linked to `/lms/[subjectId]/[termId]/[lessonId]` but no frontend route existed — caused 404 on click. Created `[lessonId]/+page.server.ts` (fetches via `/api/student/lesson`, returns `LessonContent` + breadcrumbs) and `[lessonId]/+page.svelte` (renders objectives bullet list, content sections as cards, key points bullet list; skeleton loading, error with retry, and empty states).
+
+  **Post-deploy fix (part 2):** The lesson detail page hung (amber loader forever) due to the Gateway endpoint at `/gateway/student/lesson` returning 404. Root cause: the generated `.mbti` interface file was stale — `student_lesson` function was added to `gateway_agent.mbt` but `moon info` was never run to regenerate the `.mbti`. Fixed by running `moon info` before `golem build` to ensure generated stubs match the actual source. The build pipeline (`golem build` → `golem-sdk-tools agents` → `moon build`) regenerates `golem_agents.mbt` etc. but does NOT regenerate `.mbti` files, so `moon info` must be run manually after adding new endpoint functions. Also: Gateway HTTP API is on port **9006** (not 9881 which is the Golem management API), and `golem deploy --reset` deletes all agent state requiring re-initialization.
+
 ## In Progress
 
 - None.
+
+## Important Notes for Next Session
+
+- Gateway HTTP API port: **9006** (agents.localhost:9006), NOT 9881 (Golem management API)
+- After adding new endpoint functions to any agent: run `moon info && moon fmt` before `golem build` to keep `.mbti` files in sync
+- `golem deploy --reset` destroys all agent state — re-init is always required
+- `LessonContent` content fields are JSON strings (`String?`) — frontend `JSON.parse()`s them
 
 ## Next Steps (Session Bootstrap)
 
@@ -37,6 +50,8 @@ After context reset or new session:
 3. Re-init admin: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"admin"' 'None'`
 4. Re-init student: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"student"' 'Some("JSS_3")'`
 5. Verify: `golem agent invoke 'StudentAgent("725d7fe9-2999-410d-8281-bd3016931a1f")' get_subjects`
+6. Verify lesson detail API: `curl "http://agents.localhost:9006/gateway/student/lesson?user_id=725d7fe9-2999-410d-8281-bd3016931a1f&lesson_id=lessons:s48v5um2fyzq6ad5lplu" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
+7. Verify lesson detail navigation: click a lesson card on `/lms/[subjectId]/[termId]/` → loads lesson detail page with objectives, content sections, key points
 
 ## Session 2026-05-30 — Optimizations
 
