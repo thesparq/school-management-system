@@ -201,10 +201,11 @@ pub fn GatewayAgent::student_subjects(
     return Err("NOT_INITIALIZED")
   }
 
-  let result = StudentAgentClient::scoped(
-    user_id,
-    fn(student) raise @common.AgentError { student.get_subjects() },
-  ) catch {
+  let result = StudentAgentClient::scoped(user_id, fn(
+    student,
+  ) raise @common.AgentError {
+    student.get_subjects()
+  }) catch {
     _ => return Err("student agent unreachable")
   }
   Ok(result)
@@ -235,25 +236,27 @@ pub fn GatewayAgent::student_terms(
     return Err("NOT_INITIALIZED")
   }
 
-  let result = StudentAgentClient::scoped(
-    user_id,
-    fn(student) raise @common.AgentError { student.get_terms() },
-  ) catch {
+  let result = StudentAgentClient::scoped(user_id, fn(
+    student,
+  ) raise @common.AgentError {
+    student.get_terms()
+  }) catch {
     _ => return Err("student agent unreachable")
   }
   Ok(result)
 }
 
 ///|
-/// Returns lessons for a given class_subject_id.
+/// Returns lessons for a given subject + term in the student's class level.
 /// Requires initialization check.
-#derive.endpoint(get="/student/lessons?user_id={user_id}&class_subject_id={class_subject_id}")
+#derive.endpoint(get="/student/lessons?user_id={user_id}&subject_id={subject_id}&term_id={term_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn GatewayAgent::student_lessons(
   self : Self,
   incoming_key : String,
   user_id : String,
-  class_subject_id : String,
+  subject_id : String,
+  term_id : String,
 ) -> Result[Array[LessonInfo], String] {
   match self.check_auth(incoming_key) {
     Some(msg) => return Err(msg)
@@ -270,12 +273,11 @@ pub fn GatewayAgent::student_lessons(
     return Err("NOT_INITIALIZED")
   }
 
-  let result = StudentAgentClient::scoped(
-    user_id,
-    fn(student) raise @common.AgentError {
-      student.get_lessons(class_subject_id)
-    },
-  ) catch {
+  let result = StudentAgentClient::scoped(user_id, fn(
+    student,
+  ) raise @common.AgentError {
+    student.get_lessons(subject_id, term_id)
+  }) catch {
     _ => return Err("student agent unreachable")
   }
   Ok(result)

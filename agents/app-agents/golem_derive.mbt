@@ -170,8 +170,16 @@ impl @schema.HasElementSchema for LessonInfo with element_schema() {
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
     ),
     (
-      "week_number",
+      "week",
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+    (
+      "subject_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "term_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
     ),
   ])
 }
@@ -180,8 +188,10 @@ impl @schema.HasElementSchema for LessonInfo with element_schema() {
 impl @schema.FromExtractor for LessonInfo with from_extractor(e) {
   let id :String = @schema.extract_field(e, 0)
   let topic_title :String? = @schema.extract_field(e, 1)
-  let week_number :Int? = @schema.extract_field(e, 2)
-  { id, topic_title, week_number }
+  let week :Int? = @schema.extract_field(e, 2)
+  let subject_name :String? = @schema.extract_field(e, 3)
+  let term_name :String? = @schema.extract_field(e, 4)
+  { id, topic_title, week, subject_name, term_name }
 }
 
 ///|
@@ -194,7 +204,9 @@ impl @schema.ToElementValue for LessonInfo with to_element_value(self) {
   @schema.make_record_value([
     @schema.to_element_value_as(self.id),
     @schema.to_element_value_as(self.topic_title),
-    @schema.to_element_value_as(self.week_number),
+    @schema.to_element_value_as(self.week),
+    @schema.to_element_value_as(self.subject_name),
+    @schema.to_element_value_as(self.term_name),
   ])
 }
 
@@ -302,6 +314,40 @@ impl @schema.FromElementValue for LessonCacheEntry with from_element_value(v) {
 impl @schema.ToElementValue for LessonCacheEntry with to_element_value(self) {
   @schema.make_record_value([
     @schema.to_element_value_as(self.data),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for EdgeCacheEntry with element_schema() {
+  @schema.make_record_schema([
+    (
+      "edge_id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for EdgeCacheEntry with from_extractor(e) {
+  let edge_id :String = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { edge_id, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for EdgeCacheEntry with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for EdgeCacheEntry with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.edge_id),
     @schema.to_element_value_as(self.fetched_at),
   ])
 }

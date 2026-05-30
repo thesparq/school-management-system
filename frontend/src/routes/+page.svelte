@@ -107,14 +107,14 @@
 				{#each data.subjects as subject (subject.id)}
 					<a href="/lms/{subject.id}">
 						<Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
-							<CardHeader class="pb-0">
-								<CardTitle class="truncate font-display text-base text-primary-700 dark:text-primary-300">{subject.name}</CardTitle>
+							<CardHeader class="pb-0 min-h-[4.5rem]">
+								<CardTitle class="flex flex-wrap items-center gap-x-2 gap-y-1 font-display text-base text-primary-700 dark:text-primary-300">
+								<span class="truncate">{subject.name}</span>
+								{#if subject.code}
+									<span class="rounded bg-primary-100 dark:bg-primary-900/40 px-1.5 py-0.5 text-xs font-mono text-primary-600 dark:text-primary-400 shrink-0">{subject.code}</span>
+								{/if}
+							</CardTitle>
 							</CardHeader>
-							{#if subject.code}
-								<CardContent class="pt-2">
-									<p class="text-sm text-surface-700 dark:text-surface-400">{subject.code}</p>
-								</CardContent>
-							{/if}
 						</Card>
 					</a>
 				{/each}

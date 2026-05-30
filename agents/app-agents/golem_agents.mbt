@@ -3,235 +3,6 @@
 fn init{
   try {
     @agents.register_agent({
-      name: "TeacherAgent",
-      agent_type: {
-        type_name: "TeacherAgent",
-        description: "TeacherAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new TeacherAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([]),
-        },
-        methods: [
-          {
-            name: "test_db",
-            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: None,
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 0 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 0 elements, got " + elements.length().to_string(),
-            )
-          }
-          let config :@config.Config[SurrealConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          )
-          let agent = TeacherAgent::new(config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
-      name: "AdminAgent",
-      agent_type: {
-        type_name: "AdminAgent",
-        description: "Central registry agent - durable singleton.  Authority for user initialization, class-subject-teacher assignments, and class rosters.",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new AdminAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([]),
-        },
-        methods: [
-          {
-            name: "ping",
-            description: "Health-check method. Returns admin online.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "initialize_user",
-            description: "Initializes a user by storing their initialization record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail initialization).",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "role",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "class_level",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String?]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "is_user_initialized",
-            description: "Checks whether a user has been initialized.  Returns false if not in registry, true otherwise. Admin users are always considered initialized — the Admin Agent singleton is ready from the moment it is created.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "is_admin_initialized",
-            description: "Returns true for all admin users. The Admin Agent singleton  is always running — no per-user initialization needed.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_all_initialized",
-            description: "Returns all initialized users as an array of (user_id, role) tuples.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Array[(String, String)]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_class_levels",
-            description: "Returns all active class levels as a JSON array string.",
-            http_endpoint: [],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: None,
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 0 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 0 elements, got " + elements.length().to_string(),
-            )
-          }
-          let config :@config.Config[SurrealConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
-          )
-          let agent = AdminAgent::new(config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
       name: "GatewayAgent",
       agent_type: {
         type_name: "GatewayAgent",
@@ -607,7 +378,7 @@ fn init{
           },
           {
             name: "student_lessons",
-            description: "Returns lessons for a given class_subject_id.  Requires initialization check.",
+            description: "Returns lessons for a given subject + term in the student's class level.  Requires initialization check.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -624,9 +395,10 @@ fn init{
                 query_vars: [
                   { query_param_name: "user_id", variable_name: "user_id" },
                   {
-                    query_param_name: "class_subject_id",
-                    variable_name: "class_subject_id",
+                    query_param_name: "subject_id",
+                    variable_name: "subject_id",
                   },
+                  { query_param_name: "term_id", variable_name: "term_id" },
                 ],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -647,7 +419,13 @@ fn init{
                 ),
               ),
               (
-                "class_subject_id",
+                "subject_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -805,6 +583,235 @@ fn init{
       },
     })
     @agents.register_agent({
+      name: "TeacherAgent",
+      agent_type: {
+        type_name: "TeacherAgent",
+        description: "TeacherAgent",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new TeacherAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([]),
+        },
+        methods: [
+          {
+            name: "test_db",
+            description: "Tests SurrealDB connectivity via internal query helper.  Called by Gateway Agent via typed RPC for end-to-end verification.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: None,
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 0 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 0 elements, got " + elements.length().to_string(),
+            )
+          }
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = TeacherAgent::new(config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
+    @agents.register_agent({
+      name: "AdminAgent",
+      agent_type: {
+        type_name: "AdminAgent",
+        description: "Central registry agent - durable singleton.  Authority for user initialization, class-subject-teacher assignments, and class rosters.",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new AdminAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([]),
+        },
+        methods: [
+          {
+            name: "ping",
+            description: "Health-check method. Returns admin online.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "initialize_user",
+            description: "Initializes a user by storing their initialization record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail initialization).",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "role",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "class_level",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String?]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "is_user_initialized",
+            description: "Checks whether a user has been initialized.  Returns false if not in registry, true otherwise. Admin users are always considered initialized — the Admin Agent singleton is ready from the moment it is created.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "is_admin_initialized",
+            description: "Returns true for all admin users. The Admin Agent singleton  is always running — no per-user initialization needed.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_all_initialized",
+            description: "Returns all initialized users as an array of (user_id, role) tuples.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Array[(String, String)]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_class_levels",
+            description: "Returns all active class levels as a JSON array string.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: None,
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 0 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 0 elements, got " + elements.length().to_string(),
+            )
+          }
+          let config :@config.Config[SurrealConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SurrealConfig]),
+          )
+          let agent = AdminAgent::new(config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
+    @agents.register_agent({
       name: "StudentAgent",
       agent_type: {
         type_name: "StudentAgent",
@@ -893,12 +900,18 @@ fn init{
           },
           {
             name: "get_lessons",
-            description: "get_lessons",
+            description: "Returns lessons for a given subject + term in the student's class level.  Uses edge cache to avoid graph traversal on repeated queries.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
-                "class_subject_id",
+                "subject_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -949,6 +962,154 @@ fn init{
     })
   } catch{
     e => abort(e.to_string())
+  }
+}
+
+///|
+impl @agents.RawAgent for GatewayAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "ping" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.ping(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "admin_ping" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.admin_ping(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "check_initialization" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.check_initialization(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "db_test" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.db_test(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "initialize_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 5 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 5 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let target_user_id :String = @schema.from_element_value_as(elements[2])
+        let role :String = @schema.from_element_value_as(elements[3])
+        let class_level :String? = @schema.from_element_value_as(elements[4])
+        let result = self.initialize_admin(
+          incoming_key,
+          admin_user_id,
+          target_user_id,
+          role,
+          class_level,
+        )
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "student_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.student_subjects(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "student_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.student_terms(incoming_key, user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "student_lessons" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 4 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 4 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let subject_id :String = @schema.from_element_value_as(elements[2])
+        let term_id :String = @schema.from_element_value_as(elements[3])
+        let result = 
+          self.student_lessons(incoming_key, user_id, subject_id, term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "list_class_levels" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.list_class_levels(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "list_initializations" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let admin_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.list_initializations(incoming_key, admin_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
   }
 }
 
@@ -1059,154 +1220,6 @@ impl @agents.RawAgent for AdminAgent with invoke(
 }
 
 ///|
-impl @agents.RawAgent for GatewayAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "ping" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.ping(incoming_key, user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "admin_ping" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.admin_ping(incoming_key, admin_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "check_initialization" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.check_initialization(incoming_key, user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "db_test" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.db_test(incoming_key, user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "initialize_admin" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 5 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 5 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let target_user_id :String = @schema.from_element_value_as(elements[2])
-        let role :String = @schema.from_element_value_as(elements[3])
-        let class_level :String? = @schema.from_element_value_as(elements[4])
-        let result = self.initialize_admin(
-          incoming_key,
-          admin_user_id,
-          target_user_id,
-          role,
-          class_level,
-        )
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "student_subjects" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.student_subjects(incoming_key, user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "student_terms" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.student_terms(incoming_key, user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "student_lessons" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 3 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 3 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let user_id :String = @schema.from_element_value_as(elements[1])
-        let class_subject_id :String = 
-          @schema.from_element_value_as(elements[2])
-        let result = 
-          self.student_lessons(incoming_key, user_id, class_subject_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "list_class_levels" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.list_class_levels(incoming_key, admin_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "list_initializations" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let admin_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.list_initializations(incoming_key, admin_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
-  }
-}
-
-///|
 impl @agents.RawAgent for StudentAgent with invoke(
   self,
   method_name,
@@ -1258,14 +1271,14 @@ impl @agents.RawAgent for StudentAgent with invoke(
       }
       "get_lessons" => {
         let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
+        guard elements.length() == 2 else {
           raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
+            "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
-        let class_subject_id :String = 
-          @schema.from_element_value_as(elements[0])
-        let result = self.get_lessons(class_subject_id)
+        let subject_id :String = @schema.from_element_value_as(elements[0])
+        let term_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.get_lessons(subject_id, term_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

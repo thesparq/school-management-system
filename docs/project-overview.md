@@ -20,15 +20,16 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
    - User navigates to the SvelteKit portal → redirected to Authentik for authentication.  
    - Authentik returns a JWT; SvelteKit validates it server‑side and stores it in an HTTP‑only cookie.
 
-2. **Dashboard Access**  
+2. **LMS Access**  
    - On any subsequent request, SvelteKit extracts the internal user ID from the JWT and calls the Golem Ephemeral Gateway Agent.  
    - Gateway checks with the durable Admin Agent whether the user is initialized.  
    - If not initialized → error “Account not initialized; please contact admin.”  
-   - If initialized → forwards the request to the user’s durable agent (Student, Teacher, or Admin User Agent).
+   - If initialized → forwards the request to the user’s durable agent (Student, Teacher, or Admin User Agent).  
+   - The root page `/` is the default landing — students see the LMS subject list; admins see a dashboard.
 
 3. **Student LMS Flow**  
-   - Student sees a sidebar with the LMS tab active by default.  
-   - Dashboard displays subjects for the student’s class (cached in Student Agent; fetched from SurrealDB on cache miss).  
+   - Student logs in and lands on the LMS page (root `/`) with the “LMS” sidebar tab active.  
+   - Root page displays subject cards for the student’s class (cached in Student Agent; fetched from SurrealDB on cache miss).  
    - Clicking a subject → list of terms (First, Second, Third); disabled terms appear greyed out.  
    - Clicking a term → list of lessons; disabled lessons greyed out.  
    - Clicking a lesson → full lesson content rendered (sections, sub‑points) plus the active assignment’s questions (previously pushed by the Teacher Agent).  

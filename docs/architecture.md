@@ -47,12 +47,11 @@ school-management/
     │   ├── app.css              # Tailwind v4 @theme + @import
     │   ├── hooks.server.ts      # Authentik JWT validation
     │   ├── routes/
-    │   │   ├── (auth)/          # Protected routes
-    │   │   │   ├── +layout.svelte
-    │   │   │   ├── dashboard/
-    │   │   │   ├── lms/
-    │   │   │   └── admin/
-    │   │   └── login/
+    │   │   ├── +layout.svelte   # Root layout (sidebar, nav, breadcrumbs)
+    │   │   ├── +page.svelte     # Root page (LMS subjects for students, dashboard for admins)
+    │   │   ├── lms/             # LMS routes (subjects → terms → lessons)
+    │   │   ├── admin/           # Admin routes (user management)
+    │   │   └── api/             # Proxy routes to Golem gateway
     │   └── lib/
     │       ├── components/      # shadcn-svelte components
     │       └── utils.ts
@@ -221,14 +220,15 @@ Unique index on `COLUMNS in, out` prevents duplicate edges. Index on `in` accele
 | `active` | `bool` | Default `true`. Toggle to hide a lesson. |
 | `duration_mins` | `int` | Lesson duration in minutes |
 
-Content fields (`objectives`, `content_sections`, `key_points`, `lesson_steps`, `mcq_questions`, `theoretical_questions`, `materials`, `prior_knowledge`, `success_criteria`, `extension_activities`, `textbook_references`) and string fields (`introduction`, `conclusion`, `formative_assessment`, `summative_assessment`, `remediation`, `teacher_tips`) are typed as loose `array` / `string` — the MoonBit agent code is the real validation layer.
+Content fields (`objectives`, `content_sections`, `key_points`, `lesson_steps`, `mcq_questions`, `theoretical_questions`, `materials`, `prior_knowledge`, `success_criteria`, `extension_activities`, `textbook_references`) and string fields (`introduction`, `conclusion`, `formative_assessment`, `summative_assessment`, `remediation`, `teacher_tips`) are typed as `FLEXIBLE TYPE array<object>` / `string` — the MoonBit agent code is the real validation layer. `FLEXIBLE` prevents SCHEMAFULL from silently stripping nested object properties when no explicit `field.*.property` definitions exist.
 
 **Indexes:**
 
 | Index | Fields | Purpose |
 |---|---|---|
+| `idx_cl_name` | `name` (unique) | Class-level lookup by name (drives dot-traversal queries) |
 | `idx_hs_unique` | `in, out` (unique) | Prevent duplicate class-subject edges |
-| `idx_hs_in` | `in` | Dashboard: find all subjects for a class |
+| `idx_hs_in` | `in` | Lookup: find all has_subject edges for a class |
 | `idx_lessons_nav` | `class_subject, term, week` | Lesson navigation: lessons for a given subject+term |
 | `idx_lessons_term` | `class_subject, term` | Which terms have lessons for a subject |
 
@@ -271,12 +271,14 @@ database, no migration scripts. New fields are added with safe defaults.
 
 | Field | MoonBit Type | Purpose |
 | :--- | :--- | :--- |
-| `profile` | `StudentProfile?` | Student's current class |
-| `subjects` | `Map[String, SubjectInfo]` | Subjects for student's class |
+| `profile` | `StudentProfile?` | Student's current class (`{ class_level: String }`) |
+| `subject_cache` | `SubjectCache?` | Cached subject list for the student's class (TTL 600s) |
+| `terms_cache` | `Map[String, TermCacheEntry]` | Cached terms per class level (TTL 600s) |
+| `lessons_cache` | `Map[String, LessonCacheEntry]` | Cached lessons per `subject_id\|term_id` key (TTL 600s) |
+| `edge_cache` | `Map[String, EdgeCacheEntry]` | Cached `has_subject` edge record IDs — pre-populated during init, enables trivial indexed lesson queries |
 | `assignments` | `Map[String, AssignmentConfig]` | Active and past assignment configs |
 | `submissions` | `Map[String, Submission]` | Student's submitted answers |
 | `grades` | `Map[String, GradeRecord]` | Grades and feedback received |
-| `lesson_cache` | `Map[String, CachedLesson]` | Cached lesson content with TTL |
 
 **Teacher Agent struct fields:**
 
@@ -290,7 +292,7 @@ database, no migration scripts. New fields are added with safe defaults.
 
 ### Agent Memory Cache
 
-Each durable agent maintains an in-memory cache (backed by Golem's durable memory) for frequently accessed data: subject lists, term lists, active lesson metadata, and lesson content. Cache entries have a configurable TTL (default: 5 minutes for lesson content; 10 minutes for lesson lists). On TTL expiry, the agent schedules a background refresh from SurrealDB. Subsequent user requests read from the cache or agent struct fields, both of which are instant.
+Each durable agent maintains an in-memory cache (backed by Golem's durable memory) for frequently accessed data: subject lists, term lists, lesson metadata, and `has_subject` edge record IDs. Cache entries have a single configurable TTL (default: 600 seconds). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB. Subsequent requests within the TTL window read from cache — instant.
 
 ## Auth & Access Model
 
@@ -369,7 +371,7 @@ Agent forking is efficient because Golem forks from the latest snapshot — it d
 
 ### Content Caching
 
-Lesson content fetched from SurrealDB is cached in each agent's `lesson_cache` map and in-memory with a TTL (5 minutes default). On cache miss, the agent fetches from SurrealDB via HTTP using the `@http` package. On TTL expiry, the agent schedules a background refresh — the next user request reads the stale-but-fast cached data while the refresh completes asynchronously (stale-while-revalidate).
+Subject lists, term lists, lesson content, and edge record IDs are cached in each agent's in-memory maps with a configurable TTL (default: 600 seconds). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB. No background refresh — the edge cache is pre-populated during initialization, so lesson queries never need graph traversal after init.
 
 ## Invariants
 
@@ -446,5 +448,7 @@ These rules must never be violated by any code change, refactor, or new feature.
 | **Direct Actor Communication** | After discovery via the Admin Agent, Student Agents communicate directly with Teacher Agents for submissions and grading. |
 | **Projection (CQRS-lite)** | The Teacher Agent maintains a local inbox of student submissions, populated by direct RPC pushes from Student Agents. The Student Agent remains the owner of the submission; the Teacher Agent holds a read-only projection for grading. |
 | **Fire-and-Forget with Promises** | Long-running admin tasks (future) use fire-and-forget RPCs to ephemeral forked agents with a Promise handle for polling results. |
-| **Stale-While-Revalidate Caching** | Agents cache lesson content in-memory with a TTL. On expiry, stale data is returned immediately while a background refresh fetches fresh data from SurrealDB. |
+| **Simple TTL Caching** | Agents cache subject lists, term lists, lesson metadata, and edge record IDs in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
+| **Dot-Traversal Queries** | SurrealQL uses dot-traversal (`class_subject.in.name = $class_level`) instead of nested `IN (SELECT ...)` subqueries. This lets the query planner leverage the `idx_cl_name` index on `class_levels(name)` for O(1) lookup. Applied in all subject and lesson queries. |
+| **Edge ID Pre-Population** | During student initialization, a single query returns both subject metadata and the `has_subject` edge record ID. The edge ID is cached per student (`edge_cache: Map[String, EdgeCacheEntry]`), enabling lesson queries to use the trivial indexed path `WHERE class_subject = $hs_id AND term = $term_id` — never the dot-traversal path after init. |
 | **Manual Snapshot-Based Updates** | Golem agent updates for breaking state changes use `save-snapshot`/`load-snapshot` with state rebuilt from snapshot data on first load of the new version. |

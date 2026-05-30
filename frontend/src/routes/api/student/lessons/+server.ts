@@ -10,15 +10,16 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const classSubjectId = event.url.searchParams.get('class_subject_id');
-	if (!classSubjectId) {
+	const subjectId = event.url.searchParams.get('subject_id');
+	const termId = event.url.searchParams.get('term_id');
+	if (!subjectId || !termId) {
 		return new Response(
-			JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing class_subject_id query parameter.' } }),
+			JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing subject_id or term_id query parameter.' } }),
 			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
 
-	const result = await proxyToGateway('/gateway/student/lessons', userId, { class_subject_id: classSubjectId });
+	const result = await proxyToGateway('/gateway/student/lessons', userId, { subject_id: subjectId, term_id: termId });
 
 	if (result.error) {
 		const status = result.error.code === 'NOT_ACTIVATED' ? 403 : 502;

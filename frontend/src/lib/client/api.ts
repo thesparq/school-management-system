@@ -20,7 +20,7 @@ export async function apiFetch(
 			return fetch(input, init);
 		}
 
-		window.location.href = '/?error=session_expired';
+		window.location.href = '/';
 		throw new Error('Session expired');
 	}
 

@@ -2,17 +2,96 @@
 
 Update this file after every meaningful implementation change.
 
+## Completed
+
+- Unit 17: **Student LMS – Term & Lesson Browsing** — Build `/lms/[subjectId]` (term selection page with compact Card grid, active/inactive distinction, lock icon) and `/lms/[subjectId]/[termId]` (lesson list page with numbered cards, back link). Dynamic breadcrumb in root layout reads from `$page.data.breadcrumbs`. Skeleton loading, empty, and error states on both pages.
+
+  **Fixes applied (retroactive):**
+  - **(A)** `db/schema-v2.surql`: replaced `CREATE has_subject CONTENT` with `RELATE` pattern.
+  - **(B)** Both page servers use `event.fetch()` to SvelteKit proxy routes instead of `proxyToGateway()`.
+  - **(C)** Golem agents rebuilt and redeployed.
+  - **(D)** Breadcrumbs include `{ label: 'Subjects', href: '/' }`.
+  - **(E)** `get_lessons(subject_id, term_id)` resolves `has_subject` edge via single SQL with nested `IN` subqueries.
+
+  **Session additions:**
+  - **(F)** **Root-caused `get_subjects` disappearing bug:** `get_subjects()` passed `self.profile.class_level` (name string, e.g. `"JSS_1"`) as `$class_level_id`, but SQL said `WHERE in = $class_level_id` against `record<class_levels>`. Result: `WHERE in = "JSS_1"` matched nothing. Fixed: nested subquery `WHERE in IN (SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1)`. Cached subjects only worked until cache expiry (TTL=600s), then vanished.
+  - **(G)** **Custom IDs migration (`db/fix-ids.surql`):** Converted `class_levels`, `subjects`, `terms` from UUID-based IDs to human-readable record IDs (`class_levels:jss_1`, `subjects:basic_science`, `terms:first`). Rebuilt `class_subjects` and `has_subject` edges (98 each) with new IDs.
+  - **(H)** **Lessons migration (1919 records):** Root cause of "0 lessons created" — `LET $hs = NONE; IF $cl_id != NONE { LET $hs = ...; }` fails because `LET` inside `IF` scopes locally and doesn't persist. Fixed by removing `LET $hs = NONE` and `IF` guard, doing the lookup unconditionally. Migrated in 3 batches of ~600 records each.
+  - **(I)** **Missing indexes confirmed to exist:** `INFORMATION_SCHEMA.INDEXES` returned `[]` initially (query format issue), but `DEFINE INDEX` commands confirmed indexes already exist. 60-second load was caused by empty table returning no results.
+  - **(J)** Agents rebuilt and deployed (`golem deploy --reset -Y`, component revision 5). Admin agent, student agent re-initialized via `golem agent invoke GatewayAgent() initialize_admin`.
+  
+  **End-to-end verification (via `golem agent invoke`):**
+  - `get_subjects` → 6 subjects with correct custom IDs: `subjects:computer_studies`, `subjects:basic_technology`, `subjects:cultural_and_creative_arts`, `subjects:basic_science`, `subjects:agriculture`, `subjects:civic_education`
+  - `student_terms` → 3 terms (`terms:first`, `terms:second`, `terms:third`)
+  - `student_lessons("subjects:computer_studies", "terms:first")` → 10 lessons with topic titles and week numbers (e.g. "Computer Career Opportunities", week 1; through "Using Search Engines for Research", week 10). All through the Gateway agent, wrapped in `Ok(...)`.
+
 ## In Progress
-
-- Unit 17: **LMS Subject Page** — Build the `/lms/{class_subject_id}` page with term selector tabs and lesson list, wired to the new `student/terms` and `student/lessons` API routes.
-
-## Next Up
 
 - None.
 
-## Completed
+## Next Steps (Session Bootstrap)
 
-- Hotfix 01 / Unit 16 (merged): **Schema v2 + Student Term/Lesson Lists** — Replaced `class_subjects` junction table with `has_subject TYPE RELATION` graph edge from `class_levels` to `subjects`. Created `lessons` SCHEMAFULL table (replaces `lesson_content`, kept for legacy). Migration script (`db/schema-v2.surql`) with idempotent existence checks on all CREATE steps. `student_agent.mbt`: `TermInfo`, `LessonInfo`, `SubjectCache` w/ TTL caching; SQL rewritten for graph traversal (`has_subject` edges, `lessons` table, global `terms`); `week` field renamed. `admin_agent.mbt`: removed `active` filter on `class_levels`. `frontend/types.ts`: `week_number` → `week`. Gateway Agent: `student_terms`/`student_lessons` endpoints. Frontend: `/api/student/terms`/`lessons` proxy routes. `normalize-schema.surql`: Step 7b (`class_subject_id` FK, updated nav index). Updated `architecture.md` Storage Model, `ai-workflow-rules.md` (removed SQLite rule), `00-build-plan.md` (Hotfix section). Branch `feat/unit-16-hotfix-01-schema-v2`, PR #17 → main. Breaking state change — existing student agents must be recreated. (`golem build` 0 err, `pnpm build` 0 err, `svelte-check` 0 err / 3 warnings.)
+After context reset or new session:
+1. Re-run `db/schema-v2.surql` in Surrealist
+2. Verify lesson count = 1919, arrays populated
+3. Re-init admin: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"admin"' 'None'`
+4. Re-init student: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"student"' 'Some("JSS_3")'`
+5. Verify: `golem agent invoke 'StudentAgent("725d7fe9-2999-410d-8281-bd3016931a1f")' get_subjects`
+
+## Session 2026-05-30 — Optimizations
+
+### Initialization: merged 2 SurrealQL queries into 1 dot-traversal + edge cache pre-population
+
+- **Before:** `initialize()` ran 2 sequential queries: (1) `SELECT VALUE id FROM class_levels WHERE name = $class_level` → parse JSON → extract cl_id, (2) `SELECT out... FROM has_subject WHERE in = <cl_id>` with string interpolation
+- **After:** Single query `SELECT id AS edge_id, out.id AS id, out.name AS name, out.code AS code FROM has_subject WHERE in.name = $class_level AND active = true ORDER BY out.name ASC`
+- **Eliminates:** 1 SQL round-trip, 1 JSON parse of 19-line nested pattern match, class_level string interpolation into SQL
+- **Uses dot-traversal** `in.name = $class_level` on `class_levels(name)` via `idx_cl_name` UNIQUE index (O(1))
+- **Side effect:** Pre-populates `edge_cache[subject_id] = EdgeCacheEntry{ edge_id, fetched_at }` for every subject during init
+- **Lesson page impact:** `get_lessons()` now always hits the trivial `WHERE class_subject = $hs_id AND term = $term_id` indexed query — **no dot-traversal path ever** after init
+
+### `get_subjects`: subquery → dot-traversal
+
+- **Before:** `WHERE in IN (SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1)`
+- **After:** `WHERE in.name = $class_level` — consistent with init query, uses `idx_cl_name`
+
+### `get_terms`: removed unused binding
+
+- Removed `"class_level_id": cl` from bindings dict (SQL never referenced `$class_level_id`)
+
+### Subject code badge on cards
+
+- Added `<span>` badge in `+page.svelte` card headers — small mono font, muted color, rounded, shrink-0 (`bg-primary-100`, `px-1.5 py-0.5`, `font-mono`, `text-xs`)
+- Displays when `subject.code` is non-null: e.g. `Mathematics [MTH 101]`
+
+### Subject code badge — wrap below name when card is narrow
+- Changed `CardTitle` from `flex` to `flex flex-wrap` so the badge drops to a new line when the card is too narrow
+- Added `min-h-[4.5rem]` on `CardHeader` to ensure consistent card heights regardless of badge wrapping
+
+### LMS sidebar nav item + default landing
+- Added "LMS" as primary nav item in sidebar (under Navigation group, before Users section), linking to `/`
+- Auth callback already redirects to `/`, making LMS the default landing page for all users
+- Visible to all roles
+
+### Cleanup: removed obsolete migration scripts
+- Deleted `db/fix-ids.surql` — one-time UUID→custom-ID migration; `schema-v2.surql` now creates custom IDs directly
+- Deleted `db/normalize-schema.surql` — pre-v2 schema; all functionality superseded by `schema-v2.surql`
+
+### Context files synced with latest architecture
+- **`architecture.md`**: Added `idx_cl_name` index to indexes table; updated content field types to `FLEXIBLE TYPE array<object>`; fixed Student Agent struct fields to match real code (`subject_cache`, `terms_cache`, `lessons_cache`, `edge_cache`); flattened monorepo structure (removed `(auth)/` route group); corrected Agent Memory Cache (no background refresh — simple TTL); added dot-traversal and edge-caching patterns to Key Design Patterns table
+- **`code-standards.md`**: Removed duplicate content block (L44-100 was an exact copy); flattened directory structure (removed `(auth)/` route group)
+- **`project-overview.md`**: Updated Core User Flow to reflect LMS as default landing page with sidebar tab; renamed "Dashboard Access" → "LMS Access"
+
+### Fixes (same session — documentation consistency)
+- **`db/schema-v2.surql` term slug generation:** `string::lowercase($t)` → `string::lowercase(string::replace($t, ' ', '_'))` — now consistent with subject slug pattern (lines 68-69)
+- **`docs/specs/17-student-lms-term-lesson-browsing.md`:** All 4 `class_subject_id` references → `subject_id` (routes, proxy calls). Clarified `[subjectId]` param is subject record ID (e.g., `subjects:basic_science`), resolved to edge ID via `edge_cache`.
+- **`docs/architecture.md`:** Removed 3 stale-while-revalidate references — cache section (line 374: "schedules a background refresh… stale-while-revalidate" → simple TTL with pre-populated edge cache), design patterns table (line 451: "Stale-While-Revalidate Caching" → "Simple TTL Caching"), and content caching subsection (line 372-374). All consistent with Agent Memory Cache description on line 295.
+- **`docs/code-standards.md`:** "stale-while-revalidate" → "Cache TTL with synchronous refresh. No background refresh — edge cache pre-populated during init."
+
+### Build
+- Golem agents built + deployed (revision 8, `golem deploy --reset -Y`)
+- `moon check --target wasm` — 0 errors
+- `moon build` — 0 errors
+- `pnpm build` — 0 errors
 
 - Unit 15: Student Dashboard — Subject Cards — Replaced generic dashboard for students with a responsive subject card grid. Added 12-skeleton loading state during navigation, "No Subjects Assigned" empty state with info icon, and destructive Alert error state with Retry button. Cards are clickable (linking to `/lms/{id}`, 404 until Unit 17) with hover effects. Admin and teacher users continue to see the existing generic dashboard. Fixed role group check: changed `user.roles.includes('student')` → `'students'` to match Authentik's plural group naming. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
 - Unit 14: Auth Refresh Fixes — Race Condition, Client-Side 401, Cookie Cleanup — Fixed five issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel requests, preventing OIDC token rotation races from logging users out. (2) New `apiFetch` wrapper at `frontend/src/lib/client/api.ts` catches client-side 401s, calls `POST /api/auth/refresh` silently, retries on success, redirects to `/?error=session_expired` on failure. (3) Cookie `maxAge` aligned to real JWT `exp` in hooks.server.ts, callback, and refresh route — removed the `Math.max(..., 60)` floor; if `maxAge` is 0, no cookie is written. (4) Removed unused `accessToken` from `TokenResponse` interface and destructured out in both `handleCallback` and `refreshTokens`. (5) Standardised `SECURE` constant from `process.env.NODE_ENV === 'production'` to `!dev` (SvelteKit compile-time constant) in callback and refresh routes. Exported `TokenResponse` and `JwtClaims` types from `authentik.ts` for use in hooks. (`pnpm build` zero errors, `pnpm check` 0 errors 3 benign warnings — same baseline as Unit 13.)
@@ -87,7 +166,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
-- Hotfix 01 / Unit 16 completed. Branch: `feat/unit-16-hotfix-01-schema-v2`. PR #17 → main. Merged Unit 16 student term/lesson lists with Hotfix 01 SurrealDB schema v2 refactor. Key schema changes: `class_subjects` → `has_subject TYPE RELATION`, `lesson_content` → `lessons` SCHEMAFULL, `week_number` → `week`, global terms. Migration script `db/schema-v2.surql` (idempotent with existence checks). Student agent SQL rewritten for graph traversal. `golem build`, `pnpm build`, `svelte-check` all pass with zero errors. (`pp.diff` reviewed: LessonInfo struct field `week` → `week_number` to match generated Golem schema; `schema-v2.surql` migration steps wrapped in `IF $existing == NONE` guards for true idempotency.)
+- Unit 17 completed (final fixes). Branch: N/A (no branch — direct fixes to main after earlier merge). Key work: (F) Root-caused `get_subjects` bug — name string vs record ID. (G) Created `db/fix-ids.surql` — converted lookup tables to custom human-readable record IDs (`class_levels:jss_1`, `subjects:basic_science`, `terms:first`). Rebuilt edges (98 class_subjects + 98 has_subject). (H) Fixed lessons migration (`LET` inside `IF` doesn't persist in SurrealDB). Migrated all 1919 lesson_content records to `lessons` table in 3 batches. (I) Confirmed indexes already exist. (J) Agents rebuilt (revision 5), deployed, test user re-initialized. Verified end-to-end: subjects return correct custom IDs, terms return 3 terms, lessons return 10 per subject-term combo. All queries < 2ms. Key discovery: `INFORMATION_SCHEMA.INDEXES` returning `[]` was a query format issue, not missing indexes. `pnpm build` and `pnpm check` both pass (0 errors, 3 pre-existing warnings). `golem deploy --reset -Y` destroys agent state — re-initialization required after every deploy with `--reset`. Branch: `feat/unit-16-hotfix-01-schema-v2`. PR #17 → main. Merged Unit 16 student term/lesson lists with Hotfix 01 SurrealDB schema v2 refactor. Key schema changes: `class_subjects` → `has_subject TYPE RELATION`, `lesson_content` → `lessons` SCHEMAFULL, `week_number` → `week`, global terms. Migration script `db/schema-v2.surql` (idempotent with existence checks). Student agent SQL rewritten for graph traversal. `golem build`, `pnpm build`, `svelte-check` all pass with zero errors. (`pp.diff` reviewed: LessonInfo struct field `week` → `week_number` to match generated Golem schema; `schema-v2.surql` migration steps wrapped in `IF $existing == NONE` guards for true idempotency.)
 - Unit 13 completed. Branch: `feat/13-routing-refactor-direct-authentik-redirect`. Deleted static landing page, `/login` route, and `/api/auth/login` endpoint. Created root `+layout.server.ts` with direct Authentik OIDC redirect using `import { dev }` pattern. Elevated sidebar layout to root `+layout.svelte`. Dashboard moved to root `+page.svelte`. Admin routes moved from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback/logout redirect targets. Logout fallback URL changed to `/`. Cleaned up: removed unused `deleteTarget`, added rollback to `handleAddGroup`, fixed a11y on remove-group button, added `res.ok` check to `loadClassLevels`, optimized group lookups (local `find` instead of API call), fixed `state_referenced_locally` warnings in role pages via prop destructuring. (`pnpm build` zero errors, `svelte-check` 0 errors 3 benign warnings.)
 - Unit 12 completed. Branch: `feat/12-user-crud-create-delete`. Added `createUser` and `deleteUser` to `authentik.ts`. Created `POST /api/admin/users` and `DELETE /api/admin/users/[pk]` API routes. Updated `UserTable.svelte` with Create dialog (username, name, email, password, activate) and Delete AlertDialog in Manage panel. Passed `groupPk` from all three role pages. Installed shadcn-svelte dialog, alert-dialog, label. Fixed password not set on create (added `resetPassword` after `createUser`). Fixed password auto-generation and show/hide toggle. Renamed route dir `[uuid]` → `[pk]`. Replaced all `error()` calls in API routes with consistent JSON error responses. Fixed `!targetPk` validation to use `isNaN(targetPk) || targetPk < 1`. Split shared `actionStates` into per-action-type maps (`initStates`, `authStates`, `pwResetStates`) so loading indicators don't leak between buttons. Fixed class-level `<select>` placeholder (initialize on expand, `disabled` option). (`pnpm build` zero errors, `pnpm check` zero errors.)
 
