@@ -4,7 +4,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { apiFetch } from '$lib/client/api';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
 
@@ -20,7 +19,7 @@
 		pingError = null;
 
 		try {
-			const res = await apiFetch('/api/ping');
+			const res = await fetch('/api/ping');
 			const body = await res.json();
 			if (body.data) {
 				pingResult = body.data;

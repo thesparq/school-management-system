@@ -444,6 +444,63 @@ fn init{
             ]),
           },
           {
+            name: "student_lesson",
+            description: "Returns student-visible lesson content for a given lesson_id.  Requires initialization check.",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("student"),
+                  @common.PathSegment::Literal("lesson"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "user_id", variable_name: "user_id" },
+                  { query_param_name: "lesson_id", variable_name: "lesson_id" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "lesson_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[LessonContent?, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
             name: "list_class_levels",
             description: "Returns all active class levels as a JSON array string.  Requires valid X-Golem-Auth-Key header.",
             http_endpoint: [
@@ -926,6 +983,28 @@ fn init{
               ),
             ]),
           },
+          {
+            name: "get_lesson",
+            description: "Returns student-visible lesson content for a given lesson_id.  Fetches from SurrealDB with TTL caching (600s). Returns None if the lesson does not exist.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "lesson_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[LessonContent?]),
+                ),
+              ),
+            ]),
+          },
         ],
         dependencies: [],
         mode: @common.AgentMode::DURABLE,
@@ -1080,6 +1159,19 @@ impl @agents.RawAgent for GatewayAgent with invoke(
         let term_id :String = @schema.from_element_value_as(elements[3])
         let result = 
           self.student_lessons(incoming_key, user_id, subject_id, term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "student_lesson" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let user_id :String = @schema.from_element_value_as(elements[1])
+        let lesson_id :String = @schema.from_element_value_as(elements[2])
+        let result = self.student_lesson(incoming_key, user_id, lesson_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "list_class_levels" => {
@@ -1279,6 +1371,17 @@ impl @agents.RawAgent for StudentAgent with invoke(
         let subject_id :String = @schema.from_element_value_as(elements[0])
         let term_id :String = @schema.from_element_value_as(elements[1])
         let result = self.get_lessons(subject_id, term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_lesson" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let lesson_id :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_lesson(lesson_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

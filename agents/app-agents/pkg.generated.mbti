@@ -87,6 +87,8 @@ pub fn AdminAgentClient::trigger_is_admin_initialized(Self) -> Unit
 pub fn AdminAgentClient::trigger_is_user_initialized(Self, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::trigger_ping(Self) -> Unit
 
+type EdgeCacheEntry
+
 type GatewayAgent
 pub fn GatewayAgent::admin_ping(Self, String, String) -> String
 pub fn GatewayAgent::check_initialization(Self, String, String) -> String
@@ -95,6 +97,7 @@ pub fn GatewayAgent::initialize_admin(Self, String, String, String, String, Stri
 pub fn GatewayAgent::list_class_levels(Self, String, String) -> String
 pub fn GatewayAgent::list_initializations(Self, String, String) -> String
 pub fn GatewayAgent::ping(Self, String, String) -> String
+pub fn GatewayAgent::student_lesson(Self, String, String, String) -> Result[LessonContent?, String]
 pub fn GatewayAgent::student_lessons(Self, String, String, String, String) -> Result[Array[LessonInfo], String]
 pub fn GatewayAgent::student_subjects(Self, String, String) -> Result[Array[SubjectInfo], String]
 pub fn GatewayAgent::student_terms(Self, String, String) -> Result[Array[TermInfo], String]
@@ -122,6 +125,7 @@ pub fn GatewayAgentClient::schedule_cancelable_initialize_admin(Self, @wallClock
 pub fn GatewayAgentClient::schedule_cancelable_list_class_levels(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn GatewayAgentClient::schedule_cancelable_list_initializations(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn GatewayAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn GatewayAgentClient::schedule_cancelable_student_lesson(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn GatewayAgentClient::schedule_cancelable_student_lessons(Self, @wallClock.Datetime, String, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn GatewayAgentClient::schedule_cancelable_student_subjects(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn GatewayAgentClient::schedule_cancelable_student_terms(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
@@ -131,11 +135,13 @@ pub fn GatewayAgentClient::schedule_initialize_admin(Self, @wallClock.Datetime, 
 pub fn GatewayAgentClient::schedule_list_class_levels(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::schedule_list_initializations(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::schedule_ping(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn GatewayAgentClient::schedule_student_lesson(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::schedule_student_lessons(Self, @wallClock.Datetime, String, String, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::schedule_student_subjects(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::schedule_student_terms(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn[T] GatewayAgentClient::scoped_get_phantom(@types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] GatewayAgentClient::scoped_new_phantom((Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn GatewayAgentClient::student_lesson(Self, String, String, String) -> Result[LessonContent?, String] raise @common.AgentError
 pub fn GatewayAgentClient::student_lessons(Self, String, String, String, String) -> Result[Array[LessonInfo], String] raise @common.AgentError
 pub fn GatewayAgentClient::student_subjects(Self, String, String) -> Result[Array[SubjectInfo], String] raise @common.AgentError
 pub fn GatewayAgentClient::student_terms(Self, String, String) -> Result[Array[TermInfo], String] raise @common.AgentError
@@ -146,6 +152,7 @@ pub fn GatewayAgentClient::trigger_initialize_admin(Self, String, String, String
 pub fn GatewayAgentClient::trigger_list_class_levels(Self, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::trigger_list_initializations(Self, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::trigger_ping(Self, String, String) -> Unit raise @common.AgentError
+pub fn GatewayAgentClient::trigger_student_lesson(Self, String, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::trigger_student_lessons(Self, String, String, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::trigger_student_subjects(Self, String, String) -> Unit raise @common.AgentError
 pub fn GatewayAgentClient::trigger_student_terms(Self, String, String) -> Unit raise @common.AgentError
@@ -156,9 +163,14 @@ pub(all) struct GatewayConfig {
 
 type LessonCacheEntry
 
+type LessonContent
+
+type LessonContentCache
+
 type LessonInfo
 
 type StudentAgent
+pub fn StudentAgent::get_lesson(Self, String) -> LessonContent?
 pub fn StudentAgent::get_lessons(Self, String, String) -> Array[LessonInfo]
 pub fn StudentAgent::get_subjects(Self) -> Array[SubjectInfo]
 pub fn StudentAgent::get_terms(Self) -> Array[TermInfo]
@@ -171,6 +183,7 @@ pub(all) struct StudentAgentClient {
 pub fn StudentAgentClient::drop(Self) -> Unit
 pub fn StudentAgentClient::get(String) -> Self raise @common.AgentError
 pub fn StudentAgentClient::get_agent_id(Self) -> String raise @common.AgentError
+pub fn StudentAgentClient::get_lesson(Self, String) -> LessonContent? raise @common.AgentError
 pub fn StudentAgentClient::get_lessons(Self, String, String) -> Array[LessonInfo] raise @common.AgentError
 pub fn StudentAgentClient::get_phantom(String, @types.Uuid) -> Self raise @common.AgentError
 pub fn StudentAgentClient::get_subjects(Self) -> Array[SubjectInfo] raise @common.AgentError
@@ -178,11 +191,13 @@ pub fn StudentAgentClient::get_terms(Self) -> Array[TermInfo] raise @common.Agen
 pub fn StudentAgentClient::initialize(Self, String) -> String raise @common.AgentError
 pub fn StudentAgentClient::new_phantom(String) -> Self raise @common.AgentError
 pub fn StudentAgentClient::phantom_id(Self) -> @types.Uuid?
+pub fn StudentAgentClient::schedule_cancelable_get_lesson(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_lessons(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_subjects(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn StudentAgentClient::schedule_cancelable_get_terms(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn StudentAgentClient::schedule_cancelable_initialize(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_test_db(Self, @wallClock.Datetime) -> @host.CancellationToken
+pub fn StudentAgentClient::schedule_get_lesson(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_lessons(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_subjects(Self, @wallClock.Datetime) -> Unit
 pub fn StudentAgentClient::schedule_get_terms(Self, @wallClock.Datetime) -> Unit
@@ -192,6 +207,7 @@ pub fn[T] StudentAgentClient::scoped(String, (Self) -> T raise @common.AgentErro
 pub fn[T] StudentAgentClient::scoped_get_phantom(String, @types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] StudentAgentClient::scoped_new_phantom(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn StudentAgentClient::test_db(Self) -> String raise @common.AgentError
+pub fn StudentAgentClient::trigger_get_lesson(Self, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_lessons(Self, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_subjects(Self) -> Unit
 pub fn StudentAgentClient::trigger_get_terms(Self) -> Unit

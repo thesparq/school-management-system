@@ -353,6 +353,121 @@ impl @schema.ToElementValue for EdgeCacheEntry with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for LessonContent with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "topic_title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "week",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+    (
+      "subject_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "term_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "objectives",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "content_sections",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "key_points",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for LessonContent with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week :Int? = @schema.extract_field(e, 2)
+  let subject_name :String? = @schema.extract_field(e, 3)
+  let term_name :String? = @schema.extract_field(e, 4)
+  let objectives :String? = @schema.extract_field(e, 5)
+  let content_sections :String? = @schema.extract_field(e, 6)
+  let key_points :String? = @schema.extract_field(e, 7)
+  {
+    id,
+    topic_title,
+    week,
+    subject_name,
+    term_name,
+    objectives,
+    content_sections,
+    key_points,
+  }
+}
+
+///|
+impl @schema.FromElementValue for LessonContent with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for LessonContent with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.topic_title),
+    @schema.to_element_value_as(self.week),
+    @schema.to_element_value_as(self.subject_name),
+    @schema.to_element_value_as(self.term_name),
+    @schema.to_element_value_as(self.objectives),
+    @schema.to_element_value_as(self.content_sections),
+    @schema.to_element_value_as(self.key_points),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for LessonContentCache with element_schema() {
+  @schema.make_record_schema([
+    (
+      "data",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[LessonContent]),
+      ),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for LessonContentCache with from_extractor(e) {
+  let data :LessonContent = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { data, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for LessonContentCache with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for LessonContentCache with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.data),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
 impl @config.ConfigField for GatewayConfig with collect_entries(path) {
   let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()

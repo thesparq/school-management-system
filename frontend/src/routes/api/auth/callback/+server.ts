@@ -46,5 +46,11 @@ export const GET: RequestHandler = async (event) => {
 	event.cookies.delete('oauth_state', { path: '/api/auth/callback' });
 	event.cookies.delete('oauth_code_verifier', { path: '/api/auth/callback' });
 
-	redirect(302, '/');
+	const oauthRedirect = event.cookies.get('oauth_redirect') || '/';
+	event.cookies.delete('oauth_redirect', { path: '/' });
+
+	const isRelativePath = oauthRedirect.startsWith('/') && !oauthRedirect.startsWith('//');
+	const safeRedirect = isRelativePath ? oauthRedirect : '/';
+
+	redirect(302, safeRedirect);
 };

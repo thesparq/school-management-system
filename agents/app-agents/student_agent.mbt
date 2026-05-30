@@ -62,6 +62,26 @@ struct EdgeCacheEntry {
 }
 
 ///|
+#derive.golem_schema
+struct LessonContent {
+  id : String
+  topic_title : String?
+  week : Int?
+  subject_name : String?
+  term_name : String?
+  objectives : String?
+  content_sections : String?
+  key_points : String?
+}
+
+///|
+#derive.golem_schema
+struct LessonContentCache {
+  data : LessonContent
+  fetched_at : UInt64
+}
+
+///|
 const CACHE_TTL : UInt64 = 600
 
 ///|
@@ -76,6 +96,7 @@ struct StudentAgent {
   terms_cache : Map[String, TermCacheEntry]
   lessons_cache : Map[String, LessonCacheEntry]
   edge_cache : Map[String, EdgeCacheEntry]
+  lesson_cache : Map[String, LessonContentCache]
 }
 
 ///|
@@ -91,6 +112,7 @@ fn StudentAgent::new(
     terms_cache: Map::new(),
     lessons_cache: Map::new(),
     edge_cache: Map::new(),
+    lesson_cache: Map::new(),
   }
 }
 
@@ -518,4 +540,131 @@ pub fn StudentAgent::get_lessons(
     fetched_at: now,
   })
   self.lessons_cache.get(cache_key).map(fn(e) { e.data }).unwrap_or([])
+}
+
+///|
+/// Returns student-visible lesson content for a given lesson_id.
+/// Fetches from SurrealDB with TTL caching (600s).
+/// Returns None if the lesson does not exist.
+pub fn StudentAgent::get_lesson(self : Self, lesson_id : String) -> LessonContent? {
+  let now = @wallClock.now().seconds
+
+  let cached = self.lesson_cache.get(lesson_id)
+  match cached {
+    Some(entry) if now - entry.fetched_at < CACHE_TTL => return Some(entry.data)
+    _ => ()
+  }
+
+  let sql =
+    "SELECT id, topic_title, week, " +
+    "class_subject.out.name AS subject_name, term.name AS term_name, " +
+    "objectives, content_sections, key_points " +
+    "FROM lessons WHERE id = $lesson_id"
+
+  let raw = match
+    surreal_query(self.config, sql, bindings={ "lesson_id": lesson_id }) {
+    Ok(body) => body
+    Err(_) => {
+      let old = self.lesson_cache.get(lesson_id)
+      match old {
+        Some(e) => return Some(e.data)
+        None => return None
+      }
+    }
+  }
+
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => {
+      let old = self.lesson_cache.get(lesson_id)
+      match old {
+        Some(e) => return Some(e.data)
+        None => return None
+      }
+    }
+  }
+
+  if result_arr.length() == 0 {
+    return None
+  }
+
+  let lesson = match result_arr[0] {
+    Object(obj) => {
+      let id = match obj.get("id") {
+        Some(v) =>
+          match v {
+            String(s) => s
+            _ => ""
+          }
+        None => ""
+      }
+      let topic_title = match obj.get("topic_title") {
+        Some(v) =>
+          match v {
+            String(s) => Some(s)
+            _ => None
+          }
+        None => None
+      }
+      let week = match obj.get("week") {
+        Some(v) =>
+          match v {
+            Number(d, ..) => Some(d.to_int())
+            _ => None
+          }
+        None => None
+      }
+      let subject_name = match obj.get("subject_name") {
+        Some(v) =>
+          match v {
+            String(s) => Some(s)
+            _ => None
+          }
+        None => None
+      }
+      let term_name = match obj.get("term_name") {
+        Some(v) =>
+          match v {
+            String(s) => Some(s)
+            _ => None
+          }
+        None => None
+      }
+      let objectives = match obj.get("objectives") {
+        Some(v) => Some(v.stringify())
+        None => None
+      }
+      let content_sections = match obj.get("content_sections") {
+        Some(v) => Some(v.stringify())
+        None => None
+      }
+      let key_points = match obj.get("key_points") {
+        Some(v) => Some(v.stringify())
+        None => None
+      }
+      LessonContent::{
+        id,
+        topic_title,
+        week,
+        subject_name,
+        term_name,
+        objectives,
+        content_sections,
+        key_points,
+      }
+    }
+    _ => {
+      let old = self.lesson_cache.get(lesson_id)
+      match old {
+        Some(e) => return Some(e.data)
+        None => return None
+      }
+    }
+  }
+
+  self.lesson_cache.set(lesson_id, LessonContentCache::{
+    data: lesson,
+    fetched_at: now,
+  })
+  Some(lesson)
 }
