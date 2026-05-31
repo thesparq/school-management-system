@@ -1,6 +1,36 @@
 {
   "version": 1,
   "skills": {
+    "moonbit-agent-guide": {
+      "source": "moonbitlang/moonbit-agent-guide",
+      "sourceType": "github",
+      "skillPath": "moonbit-agent-guide/SKILL.md",
+      "computedHash": "62ca5c2b9962ba8b1c8558be5fe130449618fb3801ef17220493efec5ff2caae"
+    },
+    "moonbit-c-binding": {
+      "source": "moonbitlang/moonbit-agent-guide",
+      "sourceType": "github",
+      "skillPath": "moonbit-c-binding/SKILL.md",
+      "computedHash": "518fe44cda1cea1358e1aa6ed0544dfa9ff746b3aa36fb3d96206a85525644b5"
+    },
+    "moonbit-proof": {
+      "source": "moonbitlang/moonbit-agent-guide",
+      "sourceType": "github",
+      "skillPath": "moonbit-proof/SKILL.md",
+      "computedHash": "f6b801471165a6e79434235a7fcaa317092d2eb9b898042c0ca5792cad7c8908"
+    },
+    "moonbit-refactoring": {
+      "source": "moonbitlang/moonbit-agent-guide",
+      "sourceType": "github",
+      "skillPath": "moonbit-refactoring/SKILL.md",
+      "computedHash": "1a20bd55385e0a076b78cf502b0bb957d2c71a3e637055b6653a678c89b1231b"
+    },
+    "ocaml2moonbit-migration": {
+      "source": "moonbitlang/moonbit-agent-guide",
+      "sourceType": "github",
+      "skillPath": "ocaml2moonbit-migration/SKILL.md",
+      "computedHash": "75f4d4af254f716a36095b7d44ee5200927c722657eb0c08b3fed0d56c2e754e"
+    },
     "surrealdb-python": {
       "source": "surrealdb/agent-skills",
       "sourceType": "github",

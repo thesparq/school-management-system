@@ -49,7 +49,7 @@ export const GET: RequestHandler = async (event) => {
 	const oauthRedirect = event.cookies.get('oauth_redirect') || '/';
 	event.cookies.delete('oauth_redirect', { path: '/' });
 
-	const isRelativePath = oauthRedirect.startsWith('/') && !oauthRedirect.startsWith('//');
+	const isRelativePath = /^\/(?![/\\])/.test(oauthRedirect);
 	const safeRedirect = isRelativePath ? oauthRedirect : '/';
 
 	redirect(302, safeRedirect);
