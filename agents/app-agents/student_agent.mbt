@@ -201,9 +201,8 @@ pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
           None => None
         }
         match obj.get("edge_id") {
-          Some(String(eid)) => {
+          Some(String(eid)) =>
             self.edge_cache.set(id, { edge_id: eid, fetched_at: now })
-          }
           _ => ()
         }
         subjects.push(SubjectInfo::{ id, name, code })
@@ -314,8 +313,7 @@ pub fn StudentAgent::get_terms(self : Self) -> Array[TermInfo] {
   }
 
   let sql = "SELECT * FROM terms WHERE active = true ORDER BY sort_order ASC"
-  let raw = match
-    surreal_query(self.config, sql) {
+  let raw = match surreal_query(self.config, sql) {
     Ok(body) => body
     Err(_) => {
       let old = self.terms_cache.get(cl)
@@ -546,7 +544,10 @@ pub fn StudentAgent::get_lessons(
 /// Returns student-visible lesson content for a given lesson_id.
 /// Fetches from SurrealDB with TTL caching (600s).
 /// Returns None if the lesson does not exist.
-pub fn StudentAgent::get_lesson(self : Self, lesson_id : String) -> LessonContent? {
+pub fn StudentAgent::get_lesson(
+  self : Self,
+  lesson_id : String,
+) -> LessonContent? {
   let now = @wallClock.now().seconds
 
   let cached = self.lesson_cache.get(lesson_id)
@@ -555,8 +556,7 @@ pub fn StudentAgent::get_lesson(self : Self, lesson_id : String) -> LessonConten
     _ => ()
   }
 
-  let sql =
-    "SELECT id, topic_title, week, " +
+  let sql = "SELECT id, topic_title, week, " +
     "class_subject.out.name AS subject_name, term.name AS term_name, " +
     "objectives, content_sections, key_points " +
     "FROM lessons WHERE id = $lesson_id"

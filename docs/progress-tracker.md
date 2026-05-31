@@ -4,6 +4,8 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- Unit 20: **Teacher Agent – Initialization & Dashboard** — Per-teacher durable `TeacherAgent` with `TeacherSubjectPair`/`TeacherClassGroup` types, `trigger_initialize`, `get_my_classes`, `get_terms`, `get_lessons` methods. Admin Agent gains `teacher_assignments` field + 4 methods (`get_available_class_subjects`, `set_teacher_subjects`, `get_teacher_subjects`, updated `initialize_user`). Gateway Agent gains 5 endpoints (`teacher/classes`, `teacher/terms`, `teacher/lessons`, `admin/class-subjects`, `admin/teacher/subjects`). SvelteKit proxy routes at `/api/teacher/classes|terms|lessons`, `/api/admin/class-subjects`, `/api/admin/teacher/subjects`. `my-classes/[classId]/[subjectId]/[termId]` routes (subject list → term selection → lesson list). Teacher dashboard section on root page with "My Classes" card grid (skeleton loading, error alert, empty state). Admin assignment UI (search+badge add/remove pattern in Manage panel). "My Classes" sidebar nav item for teachers. Stubs regenerated — `TeacherAgentClient::scoped` now takes `teacher_id`. Frontend type error fix (`PageData` interface with explicit `as PageData` casts). (`golem build` 0 errors, `pnpm build` 0 errors, `pnpm check` 0 errors 3 warnings — same baseline.)
+
 - Unit 19: **Lesson Content Page with Side Navigation** — Enhanced lesson detail page at `/lms/[subjectId]/[termId]/[lessonId]` with sticky side navigation panel: dots column (w-14) at content's right edge uses `sticky top-50vh translateY(-50%)` to stay vertically centered. Hovering dots reveals section headings card to the left (`absolute right-full`). Scroll spy via `use:scrollSpy` action (passive scroll listener with rAF throttling, scanning `[data-section]` children). Mobile floating TOC button with FAB at bottom-right. Placeholder assignment card with dashed border. Key Points/Assignments sections swapped (assignments last). Removed Separator between title and content. Added `pb-16` after last section. `px-6` on all card headers/content. Fixed scroll spy: `position: fixed` broken by `<SidebarInset>` parent transform → replaced with `sticky` flex layout. A11y fixes: `aria-label` on nav/FAB, keyboard handler on backdrop. Open redirect fix: backslash bypass blocked via regex. Week badge guard: `!= null` catches `undefined`. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
 
 - Unit 17: **Student LMS – Term & Lesson Browsing** — Build `/lms/[subjectId]` (term selection page with compact Card grid, active/inactive distinction, lock icon) and `/lms/[subjectId]/[termId]` (lesson list page with numbered cards, back link). Dynamic breadcrumb in root layout reads from `$page.data.breadcrumbs`. Skeleton loading, empty, and error states on both pages.
@@ -35,7 +37,7 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- None.
+- (none)
 
 ## Important Notes for Next Session
 

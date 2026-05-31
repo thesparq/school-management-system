@@ -43,6 +43,14 @@
 		name: string;
 	}
 
+	interface SubjectPair {
+		class_level_id: string;
+		class_level_name: string;
+		subject_id: string;
+		subject_name: string;
+		subject_code: string | null;
+	}
+
 	let {
 		users = $bindable([]),
 		initMap = $bindable({} as Record<string, string>),
@@ -87,6 +95,13 @@
 	let passwordShowMap = $state<Record<number, boolean>>({});
 	let groupSearchInputs = $state<Record<number, string>>({});
 	let groupActionStates = $state<Record<number, string>>({});
+
+	let allSubjectPairs = $state<SubjectPair[]>([]);
+	let currentTeacherPairs = $state<Record<number, SubjectPair[]>>({});
+	let subjectSearch = $state<Record<number, string>>({});
+	let showSubjectSuggestions = $state<Record<number, boolean>>({});
+	let teacherSubjectLoading = $state<Record<number, string>>({});
+	let teacherPairsLoading = $state<Record<number, boolean>>({});
 
 	let createForm = $state({ username: '', name: '', email: '', password: '', isActive: true, showPassword: false });
 	let createLoading = $state(false);
@@ -137,6 +152,66 @@
 
 	let showSuggestions = $state<Record<number, boolean>>({});
 
+	let filteredSubjectSuggestions = $derived.by(() => {
+		const pk = expandedPk;
+		if (!pk || role !== 'teachers' || !subjectSearch[pk]?.trim()) return [];
+		const search = subjectSearch[pk].toLowerCase();
+		const assigned = currentTeacherPairs[pk] || [];
+		return allSubjectPairs.filter(
+			p => !assigned.some(
+				a => a.class_level_id === p.class_level_id && a.subject_id === p.subject_id
+			) &&
+			(`${p.class_level_name} — ${p.subject_name}`.toLowerCase().includes(search))
+		);
+	});
+
+	async function loadAllSubjectPairs() {
+		try {
+			const res = await fetch('/api/admin/class-subjects');
+			if (!res.ok) throw new Error('Failed to load');
+			const body = await res.json();
+			if (body.data) allSubjectPairs = body.data;
+		} catch {
+			allSubjectPairs = [];
+		}
+	}
+
+	async function loadTeacherPairs(uuid: string, pk: number) {
+		if (!uuid) return;
+		teacherPairsLoading = { ...teacherPairsLoading, [pk]: true };
+		try {
+			const res = await fetch(`/api/admin/teacher/${uuid}/subjects`);
+			if (!res.ok) throw new Error('Failed');
+			const body = await res.json();
+			if (body.data) currentTeacherPairs = { ...currentTeacherPairs, [pk]: body.data };
+		} catch {
+			currentTeacherPairs = { ...currentTeacherPairs, [pk]: [] };
+		} finally {
+			teacherPairsLoading = { ...teacherPairsLoading, [pk]: false };
+		}
+	}
+
+	async function handleSaveTeacherSubjects(pk: number, uuid: string) {
+		teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'loading' };
+		actionErrors = { ...actionErrors, [pk]: '' };
+		try {
+			const res = await fetch('/api/admin/teacher/subjects', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					target_teacher_id: uuid,
+					pairs: currentTeacherPairs[pk] || []
+				})
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) throw new Error(body.error?.message || 'Save failed');
+		} catch (err) {
+			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Save failed' };
+		} finally {
+			teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'idle' };
+		}
+	}
+
 	async function loadClassLevels() {
 		classLevelsLoading = true;
 		try {
@@ -157,6 +232,9 @@
 		if (role === 'students') {
 			loadClassLevels();
 		}
+		if (role === 'teachers') {
+			loadAllSubjectPairs();
+		}
 	});
 
 	function handleRetry() {
@@ -167,6 +245,10 @@
 		expandedPk = expandedPk === pk ? null : pk;
 		if (expandedPk === pk && !(pk in selectedClassLevels)) {
 			selectedClassLevels = { ...selectedClassLevels, [pk]: '' };
+		}
+		if (role === 'teachers' && expandedPk === pk) {
+			const userObj = getUser(pk);
+			if (userObj) loadTeacherPairs(userObj.uuid, pk);
 		}
 	}
 
@@ -659,6 +741,86 @@
 												</div>
 											</div>
 										</div>
+
+									{#if role === 'teachers' && isPending === false}
+										<div class="border-t border-surface-200 pt-3">
+											<span class="text-sm font-medium text-surface-700">Class Subjects</span>
+
+											<div class="flex flex-wrap gap-1.5 mt-2">
+												{#each (currentTeacherPairs[userObj.pk] || []) as pair}
+													<span class="inline-flex items-center gap-1 rounded-md bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+														{pair.class_level_name} — {pair.subject_name}
+														<button
+															type="button"
+															aria-label="Remove {pair.subject_name}"
+															class="inline-flex items-center justify-center rounded-full p-0.5 text-primary-500 hover:bg-primary-200 hover:text-primary-800 transition-colors cursor-pointer"
+															onclick={() => {
+																currentTeacherPairs = {
+																	...currentTeacherPairs,
+																	[userObj.pk]: (currentTeacherPairs[userObj.pk] || []).filter(
+																		(p: SubjectPair) => !(p.class_level_id === pair.class_level_id && p.subject_id === pair.subject_id)
+																	)
+																};
+															}}
+														>
+															<svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+															</svg>
+														</button>
+													</span>
+												{/each}
+												{#if (currentTeacherPairs[userObj.pk] || []).length === 0}
+													{#if teacherPairsLoading[userObj.pk]}
+														<span class="text-xs text-surface-500 italic">Loading…</span>
+													{:else}
+														<span class="text-xs text-surface-500 italic">No subjects assigned</span>
+													{/if}
+												{/if}
+											</div>
+
+											<div class="relative mt-2 flex items-center gap-2">
+												<Input
+													type="text"
+													placeholder="Search class-subject…"
+													class="h-8 flex-1 text-sm cursor-text"
+													value={subjectSearch[userObj.pk] ?? ''}
+													oninput={(e) => subjectSearch = { ...subjectSearch, [userObj.pk]: e.currentTarget.value }}
+													onfocus={() => showSubjectSuggestions = { ...showSubjectSuggestions, [userObj.pk]: true }}
+													onblur={() => setTimeout(() => showSubjectSuggestions = { ...showSubjectSuggestions, [userObj.pk]: false }, 200)}
+												/>
+												{#if showSubjectSuggestions[userObj.pk] && filteredSubjectSuggestions.length > 0}
+													<div class="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-md border border-surface-200 bg-white shadow-lg max-h-40 overflow-y-auto flex flex-col">
+														{#each filteredSubjectSuggestions as suggestion}
+															<button
+																type="button"
+																class="w-full shrink-0 px-3 py-1.5 text-left text-sm text-surface-800 hover:bg-surface-100 transition-colors cursor-pointer"
+																onmousedown={() => {
+																	currentTeacherPairs = {
+																		...currentTeacherPairs,
+																		[userObj.pk]: [...(currentTeacherPairs[userObj.pk] || []), suggestion]
+																	};
+																	subjectSearch = { ...subjectSearch, [userObj.pk]: '' };
+																}}
+															>
+																{suggestion.class_level_name} — {suggestion.subject_name}
+															</button>
+														{/each}
+													</div>
+												{/if}
+											</div>
+
+											<div class="flex justify-end mt-2">
+												<Button
+													size="sm"
+													class="cursor-pointer"
+													onclick={() => handleSaveTeacherSubjects(userObj.pk, userObj.uuid)}
+													disabled={teacherSubjectLoading[userObj.pk] === 'loading'}
+												>
+													{teacherSubjectLoading[userObj.pk] === 'loading' ? 'Saving...' : 'Save'}
+												</Button>
+											</div>
+										</div>
+									{/if}
 
 										<div class="border-t border-surface-200 pt-3 flex justify-end">
 											<AlertDialog>

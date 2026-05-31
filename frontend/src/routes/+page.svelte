@@ -59,6 +59,58 @@
 			Your account has not yet been initialized. Please contact your school administrator.
 		</p>
 	</div>
+{:else if data.teacherClasses !== null}
+	<div class="mx-auto max-w-6xl space-y-6">
+		{#if $navigating && (!data.teacherClasses || data.teacherClasses.length === 0)}
+			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
+			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+				{#each Array(6) as _}
+					<Skeleton class="h-32" />
+				{/each}
+			</div>
+		{:else if data.teacherClassesError}
+			<Alert variant="destructive">
+				<AlertTitle>Failed to load classes</AlertTitle>
+				<AlertDescription>{data.teacherClassesError}</AlertDescription>
+				<AlertAction>
+					<Button variant="outline" onclick={() => goto('/')}>Retry</Button>
+				</AlertAction>
+			</Alert>
+		{:else if data.teacherClasses.length === 0}
+			<div class="mx-auto max-w-lg py-16 text-center space-y-6">
+				<div class="rounded-full bg-secondary-100 dark:bg-secondary-900/20 mx-auto w-fit p-4">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="10" />
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01" />
+					</svg>
+				</div>
+				<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">No Classes Assigned</h1>
+				<p class="text-surface-700 dark:text-surface-400">
+					No classes have been assigned to you yet. Please contact your school administrator.
+				</p>
+			</div>
+		{:else}
+			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
+			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+				{#each data.teacherClasses as group (group.class_level_id)}
+					<a href="/my-classes/{group.class_level_id}">
+						<Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
+							<CardHeader>
+								<CardTitle class="font-display text-base text-primary-700 dark:text-primary-300">
+									{group.class_level_name}
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<p class="text-sm text-surface-700 dark:text-surface-400">
+									{group.subjects.length} {group.subjects.length === 1 ? 'subject' : 'subjects'}
+								</p>
+							</CardContent>
+						</Card>
+					</a>
+				{/each}
+			</div>
+		{/if}
+	</div>
 {:else if data.subjects !== null || data.subjectsError !== null}
 	<div class="mx-auto max-w-6xl space-y-6">
 		{#if $navigating && (!data.subjects || data.subjects.length === 0)}

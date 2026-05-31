@@ -19,16 +19,13 @@ struct UserInitialization {
 struct AdminAgent {
   initialized_users : Map[String, UserInitialization]
   config : @config.Config[SurrealConfig]
+  teacher_assignments : Map[String, Array[TeacherSubjectPair]]
 }
-
-//|
 
 ///|
 fn AdminAgent::new(config : @config.Config[SurrealConfig]) -> AdminAgent {
-  { initialized_users: Map::new(), config }
+  { initialized_users: Map::new(), config, teacher_assignments: Map::new() }
 }
-
-//|
 
 ///|
 /// Health-check method. Returns admin online.
@@ -36,12 +33,11 @@ pub fn AdminAgent::ping(self : Self) -> String {
   "admin online"
 }
 
-//|
-
 ///|
 /// Initializes a user by storing their initialization record in durable state.
 /// For students with a class_level, fire-and-forget initializes the
 /// Student Agent (best-effort; does not fail initialization).
+/// For teachers, fire-and-forget initializes the Teacher Agent.
 pub fn AdminAgent::initialize_user(
   self : Self,
   user_id : String,
@@ -75,10 +71,18 @@ pub fn AdminAgent::initialize_user(
     }
   }
 
+  if role == "teacher" {
+    let _ = TeacherAgentClient::scoped(user_id, fn(
+      client,
+    ) raise @common.AgentError {
+      client.trigger_initialize()
+    }) catch {
+      _ => "error"
+    }
+  }
+
   Ok("ok")
 }
-
-//|
 
 ///|
 /// Checks whether a user has been initialized.
@@ -96,8 +100,6 @@ pub fn AdminAgent::is_admin_initialized(self : Self) -> Bool {
   true
 }
 
-//|
-
 ///|
 /// Returns all initialized users as an array of (user_id, role) tuples.
 pub fn AdminAgent::get_all_initialized(self : Self) -> Array[(String, String)] {
@@ -106,8 +108,6 @@ pub fn AdminAgent::get_all_initialized(self : Self) -> Array[(String, String)] {
   .map(fn(pair) { (pair.0, pair.1.role) })
   .collect()
 }
-
-//|
 
 ///|
 fn escape_json_string(s : String) -> String {
@@ -180,4 +180,96 @@ pub fn AdminAgent::get_class_levels(self : Self) -> String {
     }
   })
   "[" + items.join(",") + "]"
+}
+
+///|
+/// Returns all active class-subject pairs from has_subject edges.
+pub fn AdminAgent::get_available_class_subjects(
+  self : Self,
+) -> Array[TeacherSubjectPair] {
+  let sql = "SELECT in.id AS class_level_id, " +
+    "in.name AS class_level_name, " +
+    "out.id AS subject_id, out.name AS subject_name, " +
+    "out.code AS subject_code " +
+    "FROM has_subject WHERE active = true " +
+    "ORDER BY in.name ASC, out.name ASC"
+  let raw = match surreal_query(self.config, sql) {
+    Ok(body) => body
+    Err(_) => return []
+  }
+
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => return []
+  }
+
+  let pairs : Array[TeacherSubjectPair] = []
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let class_level_name = match obj.get("class_level_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_id = match obj.get("subject_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_name = match obj.get("subject_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_code = match obj.get("subject_code") {
+          Some(String(s)) => Some(s)
+          _ => None
+        }
+        pairs.push(TeacherSubjectPair::{
+          class_level_id,
+          class_level_name,
+          subject_id,
+          subject_name,
+          subject_code,
+        })
+      }
+      _ => ()
+    }
+  }
+  pairs
+}
+
+///|
+/// Stores a teacher's assigned class-subject pairs and triggers
+/// Teacher Agent re-initialization via fire-and-forget RPC.
+pub fn AdminAgent::set_teacher_subjects(
+  self : Self,
+  teacher_id : String,
+  pairs : Array[TeacherSubjectPair],
+) -> Result[String, String] {
+  self.teacher_assignments.set(teacher_id, pairs)
+
+  let _ = TeacherAgentClient::scoped(teacher_id, fn(
+    client,
+  ) raise @common.AgentError {
+    client.trigger_initialize()
+  }) catch {
+    _ => "error"
+  }
+
+  Ok("ok")
+}
+
+///|
+/// Returns the stored assignments for a teacher, or [] if none.
+pub fn AdminAgent::get_teacher_subjects(
+  self : Self,
+  teacher_id : String,
+) -> Array[TeacherSubjectPair] {
+  match self.teacher_assignments.get(teacher_id) {
+    Some(pairs) => pairs
+    None => []
+  }
 }
