@@ -4,6 +4,34 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture) — Complete**
+  Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`, `bbd06ca`). Init persistence to SurrealDB verified end-to-end. No known regressions.
+  
+  **What was built:**
+  - Schema (`user_profile`, `teacher_assignment` tables) + `surreal_query_retry()` wrapper
+  - Admin Agent refactor: `initialized_users`/`teacher_assignments` maps removed, all entity reads/writes to SurrealDB
+  - Teacher Agent refactor: `trigger_initialize` reads `teacher_assignment` table directly; `class_groups` is push-invalidation cache
+  - Student Agent profile → `user_profile` table: `profile` field removed, `get_class_level()` queries DB
+  - Gateway Agent endpoints: teacher classes/terms/lessons, admin class-subjects, admin get/set teacher subjects
+  - Frontend: teacher dashboard "My Classes" card grid, admin assignment UI (filtered combobox + badge pattern in Manage panel), `/my-classes/` routes, 6 proxy routes
+  - **Init persistence fix:** Surreal Cloud (v2.6.5) returns non-array `result` for `INSERT ... ON DUPLICATE KEY UPDATE` — fixed with simple `INSERT` + duplicate-key error check. Removed redundant `user_profile` write from `StudentAgent.initialize()`. Fixed RPC method name typo: `trigger_initialize` → `initialize`. Verified: `get_all_initialized` returns 3 persisted users; StudentAgent created via RPC; idempotent re-initialization returns `"OK"`.
+  
+  **Known deviations from spec:**
+  - `with_atomic_operation` not used (Golem durability + retry is sufficient)
+  - `INSERT` + error check instead of `ON DUPLICATE KEY UPDATE` (SurrealDB 2.x compat)
+  - StudentAgent does NOT write `user_profile` during `initialize()` — AdminAgent is the sole authority
+  - Raw `surreal_query` used for init INSERT (not `surreal_query_retry`) since ON DUPLICATE KEY UPDATE returns non-array result
+  
+  **Note:** Much of this code will be rewritten in the next unit (GatewayAgent removal refactor). The DB-backed architecture and Agent Memory Cache patterns are the lasting contributions.
+
+## Up Next
+
+- **GatewayAgent removal refactor.** Eliminate GatewayAgent entirely — move `#derive.endpoint` annotations and auth to the respective agents (StudentAgent, TeacherAgent, AdminAgent). Each agent becomes its own HTTP endpoint. SvelteKit proxy routes target agent-specific endpoints. Frontend `golem.ts` updated or replaced. This will simplify the architecture significantly: fewer RPC hops, one less WASM artifact to deploy, clearer data flow.
+
+  Design spec to be written as the first task of the next session.
+
+## Completed
+
 - Unit 19: **Lesson Content Page with Side Navigation** — Enhanced lesson detail page at `/lms/[subjectId]/[termId]/[lessonId]` with sticky side navigation panel: dots column (w-14) at content's right edge uses `sticky top-50vh translateY(-50%)` to stay vertically centered. Hovering dots reveals section headings card to the left (`absolute right-full`). Scroll spy via `use:scrollSpy` action (passive scroll listener with rAF throttling, scanning `[data-section]` children). Mobile floating TOC button with FAB at bottom-right. Placeholder assignment card with dashed border. Key Points/Assignments sections swapped (assignments last). Removed Separator between title and content. Added `pb-16` after last section. `px-6` on all card headers/content. Fixed scroll spy: `position: fixed` broken by `<SidebarInset>` parent transform → replaced with `sticky` flex layout. A11y fixes: `aria-label` on nav/FAB, keyboard handler on backdrop. Open redirect fix: backslash bypass blocked via regex. Week badge guard: `!= null` catches `undefined`. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
 
 - Unit 17: **Student LMS – Term & Lesson Browsing** — Build `/lms/[subjectId]` (term selection page with compact Card grid, active/inactive distinction, lock icon) and `/lms/[subjectId]/[termId]` (lesson list page with numbered cards, back link). Dynamic breadcrumb in root layout reads from `$page.data.breadcrumbs`. Skeleton loading, empty, and error states on both pages.
@@ -33,9 +61,17 @@ Update this file after every meaningful implementation change.
 
   **Post-deploy fix (part 2):** The lesson detail page hung (amber loader forever) due to the Gateway endpoint at `/gateway/student/lesson` returning 404. Root cause: the generated `.mbti` interface file was stale — `student_lesson` function was added to `gateway_agent.mbt` but `moon info` was never run to regenerate the `.mbti`. Fixed by running `moon info` before `golem build` to ensure generated stubs match the actual source. The build pipeline (`golem build` → `golem-sdk-tools agents` → `moon build`) regenerates `golem_agents.mbt` etc. but does NOT regenerate `.mbti` files, so `moon info` must be run manually after adding new endpoint functions. Also: Gateway HTTP API is on port **9006** (not 9881 which is the Golem management API), and `golem deploy --reset` deletes all agent state requiring re-initialization.
 
-## In Progress
+## Most Recent Fix — Class-Subject Dropdown Empty (Session 2026-05-31)
 
-- None.
+**Root cause:** Admin Agent was running revision 1 (old code without `get_available_class_subjects`). After `golem deploy --reset`, a new revision 2 agent was created. The SQL and SurrealDB query were correct all along.
+
+**Additional finding:** Fresh Agent instances have a first-call issue where `@json.parse()` in MoonBit WASM fails with "parse response failed" on the first `surreal_query` response (returns `[]` silently). Subsequent calls work correctly. Added a one-time retry in `get_available_class_subjects` — if `parse_result_array` fails, it re-queries SurrealDB and retries the parse.
+
+**Fix applied:**
+1. Deployed agents with `golem deploy --reset -Y` (component revision 2, later 4)
+2. Added retry for `parse_result_array` in `AdminAgent.get_available_class_subjects` (`admin_agent.mbt:202-212`)
+3. Verified gateway returns 98 class-subject pairs: `curl /gateway/admin/class-subjects` → `200 OK` with full data
+4. Verdict: **No class-subject data missing** — stale agent instance was the culprit
 
 ## Important Notes for Next Session
 
@@ -43,17 +79,22 @@ Update this file after every meaningful implementation change.
 - After adding new endpoint functions to any agent: run `moon info && moon fmt` before `golem build` to keep `.mbti` files in sync
 - `golem deploy --reset` destroys all agent state — re-init is always required
 - `LessonContent` content fields are JSON strings (`String?`) — frontend `JSON.parse()`s them
+- **Surreal Cloud runs surrealdb-2.6.5** — `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` works syntax-wise but returns non-array `result`; prefer simple `INSERT` + duplicate-key error handling
+- **Curl to Surreal Cloud `/sql` endpoint returns 415 for any SQL body containing keywords like `FROM`, `INSERT`, `DEFINE`** — only `SELECT N`-style queries pass through. The agent's WASM HTTP client does NOT have this issue (receives proper responses). Suspect proxy/WAF layer limitation.
+- **`ON DUPLICATE KEY UPDATE` is SurrealDB 1.x terminology** — in 2.x the same syntax exists for `INSERT INTO ... VALUES` but not for `CREATE ... CONTENT`
+- **`INSERT INTO ... VALUES ...` (no upsert clause) + check error string for "Duplicate"/"unique"/"already exists"** is the working idempotent init pattern
 
 ## Next Steps (Session Bootstrap)
 
 After context reset or new session:
 1. Re-run `db/schema-v2.surql` in Surrealist
 2. Verify lesson count = 1919, arrays populated
-3. Re-init admin: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"admin"' 'None'`
-4. Re-init student: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"student"' 'Some("JSS_3")'`
-5. Verify: `golem agent invoke 'StudentAgent("725d7fe9-2999-410d-8281-bd3016931a1f")' get_subjects`
-6. Verify lesson detail API: `curl "http://agents.localhost:9006/gateway/student/lesson?user_id=725d7fe9-2999-410d-8281-bd3016931a1f&lesson_id=lessons:s48v5um2fyzq6ad5lplu" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
-7. Verify lesson detail navigation: click a lesson card on `/lms/[subjectId]/[termId]/` → loads lesson detail page with objectives, content sections, key points
+3. Deploy agents: `golem deploy --reset -Y` (from `agents/` dir)
+4. Re-init admin: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"admin"' 'None'`
+5. Re-init student: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"student"' 'Some("JSS_3")'`
+6. Verify: `golem agent invoke 'StudentAgent("725d7fe9-2999-410d-8281-bd3016931a1f")' get_subjects`
+7. Verify lesson detail API: `curl "http://agents.localhost:9006/gateway/student/lesson?user_id=725d7fe9-2999-410d-8281-bd3016931a1f&lesson_id=lessons:s48v5um2fyzq6ad5lplu" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
+8. Verify lesson detail navigation: click a lesson card on `/lms/[subjectId]/[termId]/` → loads lesson detail page with objectives, content sections, key points
 
 ## Session 2026-05-30 — Optimizations
 

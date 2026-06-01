@@ -45,11 +45,15 @@
 
 ## Data and Storage
 
-- **Agent-local state uses Golem's durable memory.** State is stored in agent struct fields and persisted by the op‑log. No external database is needed for user state. New fields are added with safe defaults; no migration scripts required.
-- **User profiles, rosters, assignments, submissions, and grades live in agent struct fields.** AI-generated lesson text and question banks live in SurrealDB, cached by agents in memory.
-- **Do not store large content directly in agent struct fields.** Lesson content cached in memory is acceptable for performance, but the authoritative copy is in SurrealDB. The cache must have a TTL and a maximum size limit.
+- **SurrealDB owns facts. Agents own work in progress.** Entity data (user profiles, teacher assignments, class rosters, grades, lessons) lives in SurrealDB. Agent durable state is reserved for in-progress work and cache.
+- **Every cache must declare its strategy.** Choose between Push Invalidation (Rule 4A), TTL (Rule 4B), or No Cache (Rule 4C). Document the strategy in the struct field comment.
+- **Do not store canonical entity data in agent struct fields.** The SSOT is always SurrealDB. Agent state fields are ephemeral cache or in-progress work only.
 - **HTTP calls to SurrealDB must be deterministic.** Use Golem's HTTP client so that responses are recorded in the operation log. On replay, the logged response is replayed instead of a new network call.
-- **Cache TTL with synchronous refresh.** When cached data exceeds its TTL, the next request waits for a fresh fetch from SurrealDB. No background refresh — the edge cache is pre-populated during initialization, so lesson queries are fast on first access.
+- **Cache TTL with synchronous refresh.** When cached data exceeds its TTL, the next request waits for a fresh fetch from SurrealDB. No background refresh.
+- **DB writes that are atomic with notifications must use `with_atomic_operation`.** When a DB write and a fan-out RPC must happen together, wrap them so crash recovery replays both.
+- **All DB writes inside `with_atomic_operation` must be idempotent.** Use upsert semantics (`ON DUPLICATE KEY UPDATE`, `UPDATE ... SET deleted_at`) — never plain inserts.
+- **Soft deletes everywhere.** Every table has a `deleted_at` field. All queries filter `deleted_at IS NONE`. Never hard-delete records.
+- **Agent recreation is never a crisis.** Because entity data lives in DB, any agent can be rebuilt via `init()`/`reconcile()` reading from SurrealDB.
 
 ## File Organization
 

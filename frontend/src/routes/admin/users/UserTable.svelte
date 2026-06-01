@@ -43,6 +43,14 @@
 		name: string;
 	}
 
+	interface SubjectPair {
+		class_level_id: string;
+		class_level_name: string;
+		subject_id: string;
+		subject_name: string;
+		subject_code: string | null;
+	}
+
 	let {
 		users = $bindable([]),
 		initMap = $bindable({} as Record<string, string>),
@@ -87,6 +95,27 @@
 	let passwordShowMap = $state<Record<number, boolean>>({});
 	let groupSearchInputs = $state<Record<number, string>>({});
 	let groupActionStates = $state<Record<number, string>>({});
+
+	let allSubjectPairs = $state<SubjectPair[]>([]);
+	let subjectPairsError = $state('');
+	let subjectPairsLoading = $state(true);
+	let currentTeacherPairs = $state<Record<number, SubjectPair[]>>({});
+	let selectedSubjectPair = $state<Record<number, SubjectPair | null>>({});
+	let subjectPairSearch = $state<Record<number, string>>({});
+	let subjectPairDropdownOpen = $state<Record<number, boolean>>({});
+
+	function filterSubjectPairs(search: string): SubjectPair[] {
+		const q = search.toLowerCase();
+		return allSubjectPairs.filter(p =>
+			!q
+			|| p.class_level_name.toLowerCase().includes(q)
+			|| p.subject_name.toLowerCase().includes(q)
+			|| (p.subject_code && p.subject_code.toLowerCase().includes(q))
+		);
+	}
+
+	let teacherSubjectLoading = $state<Record<number, string>>({});
+	let teacherPairsLoading = $state<Record<number, boolean>>({});
 
 	let createForm = $state({ username: '', name: '', email: '', password: '', isActive: true, showPassword: false });
 	let createLoading = $state(false);
@@ -137,6 +166,73 @@
 
 	let showSuggestions = $state<Record<number, boolean>>({});
 
+	async function loadAllSubjectPairs() {
+		subjectPairsLoading = true;
+		subjectPairsError = '';
+		try {
+			const res = await fetch('/api/admin/class-subjects');
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error?.message || `HTTP ${res.status}`);
+			}
+			const body = await res.json();
+			if (body.data) {
+				allSubjectPairs = (body.data as SubjectPair[]).toSorted((a, b) => {
+					const cl = a.class_level_name.localeCompare(b.class_level_name);
+					if (cl !== 0) return cl;
+					return a.subject_name.localeCompare(b.subject_name);
+				});
+			} else {
+				throw new Error('Gateway returned empty response');
+			}
+		} catch (err) {
+			allSubjectPairs = [];
+			subjectPairsError = err instanceof Error ? err.message : 'Failed to load class-subjects';
+		} finally {
+			subjectPairsLoading = false;
+		}
+	}
+
+	async function loadTeacherPairs(uuid: string, pk: number) {
+		if (!uuid) return;
+		teacherPairsLoading = { ...teacherPairsLoading, [pk]: true };
+		try {
+			const res = await fetch(`/api/admin/teacher/${uuid}/subjects`);
+			if (!res.ok) throw new Error('Failed');
+			const body = await res.json();
+			if (body.data) currentTeacherPairs = { ...currentTeacherPairs, [pk]: body.data };
+		} catch {
+			currentTeacherPairs = { ...currentTeacherPairs, [pk]: [] };
+		} finally {
+			teacherPairsLoading = { ...teacherPairsLoading, [pk]: false };
+		}
+	}
+
+	async function handleSaveTeacherSubjects(pk: number, uuid: string) {
+		teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'loading' };
+		actionErrors = { ...actionErrors, [pk]: '' };
+		try {
+			const minimalPairs = (currentTeacherPairs[pk] || []).map(p => ({
+				class_level_id: p.class_level_id,
+				subject_id: p.subject_id
+			}));
+			const res = await fetch('/api/admin/teacher/subjects', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					target_teacher_id: uuid,
+					pairs: minimalPairs
+				})
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) throw new Error(body.error?.message || 'Save failed');
+		} catch (err) {
+			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Save failed' };
+		} finally {
+			teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'idle' };
+		}
+	}
+
 	async function loadClassLevels() {
 		classLevelsLoading = true;
 		try {
@@ -157,6 +253,9 @@
 		if (role === 'students') {
 			loadClassLevels();
 		}
+		if (role === 'teachers') {
+			loadAllSubjectPairs();
+		}
 	});
 
 	function handleRetry() {
@@ -167,6 +266,10 @@
 		expandedPk = expandedPk === pk ? null : pk;
 		if (expandedPk === pk && !(pk in selectedClassLevels)) {
 			selectedClassLevels = { ...selectedClassLevels, [pk]: '' };
+		}
+		if (role === 'teachers' && expandedPk === pk) {
+			const userObj = getUser(pk);
+			if (userObj) loadTeacherPairs(userObj.uuid, pk);
 		}
 	}
 
@@ -448,7 +551,7 @@
 	</Card>
 
 {:else}
-	<Card>
+	<Card class="overflow-visible teacher-table-card">
 		<CardContent class="p-0">
 			<Table>
 				<TableHeader>
@@ -660,7 +763,119 @@
 											</div>
 										</div>
 
-										<div class="border-t border-surface-200 pt-3 flex justify-end">
+									{#if role === 'teachers'}
+										<div class="border-t border-surface-200 pt-3">
+											<span class="text-sm font-medium text-surface-700">Class Subjects</span>
+
+											<div class="flex flex-wrap gap-1.5 mt-2">
+												{#each (currentTeacherPairs[userObj.pk] || []) as pair}
+													<span class="inline-flex items-center gap-1 rounded-md bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+														{pair.class_level_name} — {pair.subject_name}
+														<button
+															type="button"
+															aria-label="Remove {pair.subject_name}"
+															class="inline-flex items-center justify-center rounded-full p-0.5 text-primary-500 hover:bg-primary-200 hover:text-primary-800 transition-colors cursor-pointer"
+															onclick={() => {
+																currentTeacherPairs = {
+																	...currentTeacherPairs,
+																	[userObj.pk]: (currentTeacherPairs[userObj.pk] || []).filter(
+																		(p: SubjectPair) => !(p.class_level_id === pair.class_level_id && p.subject_id === pair.subject_id)
+																	)
+																};
+															}}
+														>
+															<svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+															</svg>
+														</button>
+													</span>
+												{/each}
+												{#if (currentTeacherPairs[userObj.pk] || []).length === 0}
+													{#if teacherPairsLoading[userObj.pk]}
+														<span class="text-xs text-surface-500 italic">Loading…</span>
+													{:else}
+														<span class="text-xs text-surface-500 italic">No subjects assigned</span>
+													{/if}
+												{/if}
+											</div>
+
+											{#if subjectPairsLoading}
+												<div class="mt-2 text-xs text-surface-500 italic">Loading class-subject pairs…</div>
+											{:else if subjectPairsError}
+												<div class="mt-2 text-xs text-error-500">{subjectPairsError}</div>
+											{:else if allSubjectPairs.length === 0}
+												<div class="mt-2 text-xs text-surface-500 italic">No class-subject pairs available in database</div>
+											{:else}
+												<div class="relative mt-2">
+													<div class="flex items-center gap-2">
+														<div class="relative flex-1">
+															<input
+																type="text"
+																placeholder="Search class level or subject…"
+																class="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 pr-8 text-sm text-surface-800 transition-colors placeholder:text-surface-400 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-1"
+																value={subjectPairSearch[userObj.pk] || ''}
+																onfocus={() => { subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: true }; }}
+																oninput={(e) => {
+																	subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: e.currentTarget.value };
+																	subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: true };
+																}}
+																onblur={() => {
+																	setTimeout(() => { subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: false }; }, 200);
+																}}
+															/>
+															{#if subjectPairDropdownOpen[userObj.pk]}
+																<div class="absolute left-0 right-0 top-full z-10 mt-0.5 max-h-48 overflow-y-auto border border-input bg-white shadow-lg">
+																	{#each filterSubjectPairs(subjectPairSearch[userObj.pk] || '') as pair}
+																		<button
+																			type="button"
+																			class="block w-full px-2.5 py-1.5 text-left text-sm hover:bg-surface-100 cursor-pointer"
+																			onmousedown={() => {
+																				selectedSubjectPair = { ...selectedSubjectPair, [userObj.pk]: pair };
+																				subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: `${pair.class_level_name} — ${pair.subject_name}` };
+																				subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: false };
+																			}}
+																		>
+																			{pair.class_level_name} — {pair.subject_name}
+																		</button>
+																	{:else}
+																		<div class="px-2.5 py-1.5 text-xs text-surface-500 italic">No matches</div>
+																	{/each}
+																</div>
+															{/if}
+														</div>
+														<Button
+															variant="default"
+															size="sm"
+															class="cursor-pointer shrink-0"
+															disabled={!selectedSubjectPair[userObj.pk] || teacherSubjectLoading[userObj.pk] === 'loading'}
+															onclick={() => {
+																const pair = selectedSubjectPair[userObj.pk];
+																if (!pair) return;
+																currentTeacherPairs = {
+																	...currentTeacherPairs,
+																	[userObj.pk]: [...(currentTeacherPairs[userObj.pk] || []), pair]
+																};
+																selectedSubjectPair = { ...selectedSubjectPair, [userObj.pk]: null };
+																subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: '' };
+															}}
+														>
+															Add
+														</Button>
+													<Button
+														size="sm"
+														class="cursor-pointer"
+														onclick={() => handleSaveTeacherSubjects(userObj.pk, userObj.uuid)}
+														disabled={teacherSubjectLoading[userObj.pk] === 'loading'}
+													>
+														{teacherSubjectLoading[userObj.pk] === 'loading' ? 'Saving...' : 'Save'}
+													</Button>
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
+
+									<div class="border-t border-surface-200 pt-3 flex justify-end">
 											<AlertDialog>
 												<AlertDialogTrigger>
 												{#snippet child({ props })}
@@ -713,8 +928,9 @@
 			</Table>
 		</CardContent>
 	</Card>
+{/if}
 
-	<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
+<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
 		<DialogContent>
 			<DialogHeader>
 				<DialogTitle>Create {role === 'admin-role' ? 'Admin' : roleLabel}</DialogTitle>
@@ -795,4 +1011,9 @@
 			</form>
 		</DialogContent>
 	</Dialog>
-{/if}
+
+<style>
+	:global(.teacher-table-card [data-slot="table-container"]) {
+		overflow: visible !important;
+	}
+</style>

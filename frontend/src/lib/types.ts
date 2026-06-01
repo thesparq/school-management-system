@@ -48,6 +48,20 @@ export interface LessonContentSection {
   sub_points: SubPoint[];
 }
 
+export interface TeacherSubjectPair {
+  class_level_id: string;
+  class_level_name: string;
+  subject_id: string;
+  subject_name: string;
+  subject_code: string | null;
+}
+
+export interface TeacherClassGroup {
+  class_level_id: string;
+  class_level_name: string;
+  subjects: TeacherSubjectPair[];
+}
+
 export interface BreadcrumbItem {
   label: string;
   href?: string;

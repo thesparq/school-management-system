@@ -1,24 +1,44 @@
 import { proxyToGateway } from '$lib/server/golem';
 import type { PageServerLoad } from './$types';
-import type { Subject } from '$lib/types';
+import type { Subject, TeacherClassGroup } from '$lib/types';
+
+interface PageData {
+	initialized: boolean;
+	subjects: Subject[] | null;
+	subjectsError: string | null;
+	teacherClasses: TeacherClassGroup[] | null;
+	teacherClassesError: string | null;
+}
 
 export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
-	if (!user) return { initialized: true, subjects: null, subjectsError: null };
+	if (!user) return { initialized: true, subjects: null, subjectsError: null, teacherClasses: null, teacherClassesError: null } as PageData;
 
 	if (user.roles.includes('admin')) {
-		return { initialized: true, subjects: null, subjectsError: null };
+		return { initialized: true, subjects: null, subjectsError: null, teacherClasses: null, teacherClassesError: null } as PageData;
 	}
 
 	const initResult = await proxyToGateway('/gateway/check-initialization', user.id);
 	if (initResult.error?.code === 'NOT_INITIALIZED') {
-		return { initialized: false, subjects: null, subjectsError: null };
+		return { initialized: false, subjects: null, subjectsError: null, teacherClasses: null, teacherClassesError: null } as PageData;
 	}
 
-	if (!user.roles.includes('students')) {
-		return { initialized: true, subjects: null, subjectsError: null };
+	// Teacher dashboard: fetch my classes
+	if (user.roles.includes('teachers') && !user.roles.includes('students')) {
+		try {
+			const classesResult = await proxyToGateway('/gateway/teacher/classes', user.id);
+			if (classesResult.error) {
+				return { initialized: true, teacherClasses: null, teacherClassesError: classesResult.error.message, subjects: null, subjectsError: null } as PageData;
+			}
+			const parsed = JSON.parse(classesResult.data);
+			const teacherClasses: TeacherClassGroup[] = Array.isArray(parsed) ? parsed : [];
+			return { initialized: true, teacherClasses, teacherClassesError: null, subjects: null, subjectsError: null } as PageData;
+		} catch {
+			return { initialized: true, teacherClasses: null, teacherClassesError: 'Failed to reach backend service.', subjects: null, subjectsError: null } as PageData;
+		}
 	}
 
+	// Student (or teacher+student) dashboard: fetch subjects
 	let subjects: Subject[] | null = null;
 	let subjectsError: string | null = null;
 
@@ -34,5 +54,5 @@ export const load: PageServerLoad = async (event) => {
 		subjectsError = 'Failed to reach backend service.';
 	}
 
-	return { initialized: true, subjects, subjectsError };
+	return { initialized: true, subjects, subjectsError, teacherClasses: null, teacherClassesError: null } as PageData;
 };

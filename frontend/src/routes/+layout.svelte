@@ -82,6 +82,15 @@
 							{/snippet}
 						</SidebarMenuButton>
 					</SidebarMenuItem>
+					{#if data.user.roles.includes('teachers')}
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/my-classes')}>
+								{#snippet child({ props })}
+									<a href="/" {...props}>My Classes</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					{/if}
 				</SidebarMenu>
 			</SidebarGroup>
 

@@ -11,7 +11,7 @@ struct GatewayAgent {
   config : @config.Config[GatewayConfig]
 }
 
-//|
+///|
 
 ///|
 #derive.config
@@ -19,14 +19,14 @@ pub(all) struct GatewayConfig {
   auth_key : @config.Secret[String]
 }
 
-//|
+///|
 
 ///|
 fn GatewayAgent::new(config : @config.Config[GatewayConfig]) -> GatewayAgent {
   { config, }
 }
 
-//|
+///|
 
 ///|
 /// Shared auth check for all Gateway Agent endpoints.
@@ -374,6 +374,224 @@ pub fn GatewayAgent::list_initializations(
 }
 
 ///|
+/// Returns teacher's assigned classes with subjects.
+/// Requires initialization check.
+#derive.endpoint(get="/teacher/classes?user_id={user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::teacher_classes(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> Result[Array[TeacherClassGroup], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+  let result = TeacherAgentClient::scoped(user_id, fn(
+    teacher,
+  ) raise @common.AgentError {
+    teacher.get_my_classes()
+  }) catch {
+    _ => return Err("teacher agent unreachable")
+  }
+  Ok(result)
+}
+
+///|
+/// Returns all active terms (for teacher browsing).
+/// Requires initialization check.
+#derive.endpoint(get="/teacher/terms?user_id={user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::teacher_terms(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+) -> Result[Array[TermInfo], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+  let result = TeacherAgentClient::scoped(user_id, fn(
+    teacher,
+  ) raise @common.AgentError {
+    teacher.get_terms()
+  }) catch {
+    _ => return Err("teacher agent unreachable")
+  }
+  Ok(result)
+}
+
+///|
+/// Returns lessons for a given class_level + subject + term.
+/// Requires initialization check.
+#derive.endpoint(get="/teacher/lessons?user_id={user_id}&class_level_id={class_level_id}&subject_id={subject_id}&term_id={term_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::teacher_lessons(
+  self : Self,
+  incoming_key : String,
+  user_id : String,
+  class_level_id : String,
+  subject_id : String,
+  term_id : String,
+) -> Result[Array[LessonInfo], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let initialized = AdminAgentClient::scoped(fn(
+    admin,
+  ) raise @common.AgentError {
+    admin.is_user_initialized(user_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  if !initialized {
+    return Err("NOT_INITIALIZED")
+  }
+  let result = TeacherAgentClient::scoped(user_id, fn(
+    teacher,
+  ) raise @common.AgentError {
+    teacher.get_lessons(class_level_id, subject_id, term_id)
+  }) catch {
+    _ => return Err("teacher agent unreachable")
+  }
+  Ok(result)
+}
+
+///|
+/// Returns all active class-subject pairs (admin only).
+/// No per-user init check — admin-level endpoint.
+#derive.endpoint(get="/admin/class-subjects?user_id={admin_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::list_class_subjects(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+) -> Result[Array[TeacherSubjectPair], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let pairs = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.get_available_class_subjects()
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  Ok(pairs)
+}
+
+///|
+/// Returns stored assignments for a teacher (admin only).
+/// Reads from teacher_assignment table via AdminAgent.
+#derive.endpoint(get="/admin/teacher/subjects-read?user_id={admin_user_id}&target_teacher_id={target_teacher_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::get_teacher_subjects_admin(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+  target_teacher_id : String,
+) -> Result[Array[TeacherSubjectPair], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  let pairs = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.get_teacher_subjects(target_teacher_id)
+  }) catch {
+    _ => return Err("admin unreachable")
+  }
+  Ok(pairs)
+}
+
+///|
+/// Admin sets a teacher's assigned class-subject pairs.
+/// Body: JSON array of TeacherSubjectPair.
+#derive.endpoint(post="/admin/teacher/subjects?user_id={admin_user_id}&target_teacher_id={target_teacher_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+#derive.endpoint_body("pairs_json")
+pub fn GatewayAgent::set_teacher_subjects_admin(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+  target_teacher_id : String,
+  pairs_json : String,
+) -> Result[String, String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+
+  let pairs : Array[TeacherSubjectPair] = []
+  let val = @json.parse(pairs_json) catch {
+    _ => return Err("invalid JSON body")
+  }
+  match val {
+    Array(arr) =>
+      for item in arr {
+        match item {
+          Object(obj) => {
+            let class_level_id = match obj.get("class_level_id") {
+              Some(String(s)) => s
+              _ => continue
+            }
+            let class_level_name = match obj.get("class_level_name") {
+              Some(String(s)) => s
+              _ => ""
+            }
+            let subject_id = match obj.get("subject_id") {
+              Some(String(s)) => s
+              _ => continue
+            }
+            let subject_name = match obj.get("subject_name") {
+              Some(String(s)) => s
+              _ => ""
+            }
+            let subject_code = match obj.get("subject_code") {
+              Some(String(s)) => Some(s)
+              _ => None
+            }
+            pairs.push(TeacherSubjectPair::{
+              class_level_id,
+              class_level_name,
+              subject_id,
+              subject_name,
+              subject_code,
+            })
+          }
+          _ => ()
+        }
+      }
+    _ => return Err("invalid JSON body")
+  }
+
+  AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.set_teacher_subjects(target_teacher_id, pairs)
+  }) catch {
+    _ => Err("admin unreachable")
+  }
+}
+
+///|
 /// Extension method needed by generated golem_agents.mbt.
 fn @common.AgentError::to_string(self : @common.AgentError) -> String {
   match self {
@@ -385,7 +603,7 @@ fn @common.AgentError::to_string(self : @common.AgentError) -> String {
   }
 }
 
-//|
+///|
 
 ///|
 fn main {

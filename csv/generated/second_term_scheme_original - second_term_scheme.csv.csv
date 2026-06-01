@@ -1,0 +1,719 @@
+class,term,week,subject,topic,agegroup
+Year 1,Calvary Term,1,Numeracy,"2 dimensional and 3D shapes: Identification of 2D and 3D shapes (e.g cylinder, square, circle, triangle, rectangle, sphere, cone) and drawing of 2D and 3D shapes",5-6
+Year 1,Calvary Term,2,Numeracy,"Money: What is money? Currencies of different countries, recognition of Nigerian currency",5-6
+Year 1,Calvary Term,3,Numeracy,"Money: Changing units of money ( i.e two 100k=#1, two 5k pieces = 10k e.t.c), the concept of change",5-6
+Year 1,Calvary Term,4,Numeracy,"Time: Introduction of time using clock showing the hands of clock ( hours, minutes & seconds), reading clock to the hour & half an hour",5-6
+Year 1,Calvary Term,5,Numeracy,"Time: Drawing clock, indicating on drawn clocks given time, days of the week",5-6
+Year 1,Calvary Term,6,Numeracy,"Capacity: Amount in liquids ( meaning of capacity, identify objects used for measuring capacity, naming objects used for measuring capacity",5-6
+Year 1,Calvary Term,7,Numeracy,Capacity: Ordering of containers base on their capacities,5-6
+Year 1,Calvary Term,8,Numeracy,"Weight: Meaning, introducing the idea of weight ( e.g heavy or light), unit of weight ( e.g kilograms & grams)",5-6
+Year 1,Calvary Term,9,Numeracy,"Weight: Measurements of weight, ordering of weight",5-6
+Year 2,Calvary Term,1,Numeracy,"Writing in words up to 20,000",6-7
+Year 2,Calvary Term,2,Numeracy,"Multiplication: multiplication table from 2-6, multiplication of 2-digits numbers by one (1) digit number without and with carrying ( including word problems)",6-7
+Year 2,Calvary Term,3,Numeracy,"Division as a basic operation of arithmetic: understanding the meaning of division, application of division",6-7
+Year 2,Calvary Term,4,Numeracy,Factors and multiples of numbers,6-7
+Year 2,Calvary Term,5,Numeracy,Money: changing money not exceeding #100 from naira to Kobo - Shopping involving addition and subtraction with money not greater than #100 - Multiplication involving money with products not exceeding #100 - Concept of change or balance after buying and selling,6-7
+Year 2,Calvary Term,6,Numeracy,Measurements ( length and width) - Estimation of length and width ( in centimeters (cm) and meters (m) - Simple word problems involving measurements,6-7
+Year 2,Calvary Term,7,Numeracy,Fraction,6-7
+Year 2,Calvary Term,8,Numeracy,Division: finding the missing factors in a given numbers,6-7
+Year 2,Calvary Term,9,Numeracy,"Data presentation: meaning of data presentation, pictogram, meaning of pictogram interpret and construct pictogram",6-7
+Year 3,Calvary Term,1,Numeracy,"Multiplication: multiplication of whole numbers by 2 digits numbers not exceeding 50, multiplication of decimal by 2 digit numbers, multiplication of decimal by decimal",7-8
+Year 3,Calvary Term,2,Numeracy,Estimation: rounding off decimals to the nearest whole number - Estimation of sums (e.g 7.8 and 8.9) - Estimation of products (e.g 2.1 and 3.8),7-8
+Year 3,Calvary Term,3,Numeracy,Open sentence: open sentence in addition ( e.g 12+?= 36) - Open sentence in subtraction ( e.g ?-6= 13) - Open sentences in multiplication (6 × ? =30) - Open sentence in division(?÷8 = 3),7-8
+Year 3,Calvary Term,4,Numeracy,"Money: addition of money (#7.50+6.60), - Subtraction of money (#27.50-#19.60) - Word problem on addition & subtraction of money",7-8
+Year 3,Calvary Term,5,Numeracy,Money: multiplication of money by a whole number - Division of money by a whole number - Word problems on multiplication and division of money by a whole number - Calculation of profit ( profit = selling price i.e price i.e SP -- CP),7-8
+Year 3,Calvary Term,6,Numeracy,"Weight: addition and subtraction of weight in kilograms and grams, multiplication and division of weight in kg and g by whole numbers",7-8
+Year 3,Calvary Term,7,Numeracy,"Time: telling the time on the clock as shown on the clock chart or clock, changing from minutes to seconds, hours to minutes and vice versa, the calendar and date",7-8
+Year 3,Calvary Term,8,Numeracy,"Time: concept of AM and PM to indicate time of the day, solve more problems on the use of 'am' and 'pm'",7-8
+Year 3,Calvary Term,9,Numeracy,"Calendar formation: reading a calendar, building a calendar",7-8
+Year 4,Calvary Term,1,Numeracy,"Money: identifying various currencies used in Nigeria and other countries, conversion from one currencies to another, profit and loss simple interest, commission, discount and transaction in offices, banks and markets",8-9
+Year 4,Calvary Term,2,Numeracy,"Perimeter: meaning of perimeter and identification of shapes around the classroom, finding perimeter of shapes using formulary measurements of objects around the class, finding the perimeter of irregular objects",8-9
+Year 4,Calvary Term,3,Numeracy,"Circle: properties of a circle, calculate the circumference of a circle ( with given radius, with given diameter), find the relationship between circumference and πd",8-9
+Year 4,Calvary Term,4,Numeracy,"Weight: introduction to the idea of weight, presentation of weight scale ( g & kg ) changing g to kg, word problems involving kg and g",8-9
+Year 4,Calvary Term,5,Numeracy,"Time: definition of average, speed, use formulary for speed in calculating and recording in km/hr, solving problems on average speed, word problem on average speed",8-9
+Year 4,Calvary Term,6,Numeracy,"Temperature: meaning of temperature and types of thermometer, reading of temperature using thermometer, identifying the degrees of hotness, various objects and area (locations) in degree Celsius, word problem in temperature Area: calculation of areas of rectangles and squares by multiplying length and breadth, construction of a right -- angle triangle by dividing the rectangles into two halves along the diagonal to form the equal right -- angle , calculating are of right angle triangle( ½ × b × h)",8-9
+Year 4,Calvary Term,7,Numeracy,Capacity: presentation of an open cube of dimensions 10cm × 10 cm ×10 cm and containers that can control liquid - Find the relationship between litres and cubic centimeters (cm³) - Company two containers to know the capacity - Identify the use of litre as a unit of capacity and established relationship between litre and cm³,8-9
+Year 4,Calvary Term,8,Numeracy,"Capacity: identifying types of containers that holds water, identify numbers of litres that a container can hold, revise the relationship between litres and cm³, word problem on capacity",8-9
+Year 5,Calvary Term,1,Numeracy,"Order of operations (BODMAS): understanding BODMAS as a way ordering mathematical operations, solving problems using BODMAS",9-10
+Year 5,Calvary Term,2,Numeracy,Indices (power): writing numbers in index from multiplying numbers using the index form (e.g 20× 63= ( 2²× 5) × (3² ×7),9-10
+Year 5,Calvary Term,3,Numeracy,"Ratio and percentage: expressing a number as a % of another number, profit and loss percent ( finding profit & loss percentage in a given problem)",9-10
+Year 5,Calvary Term,4,Numeracy,"Open sentences: interpreting & solving word problems (e.g 60 oranges are divided equally in 3 baskets, how many are in one basket)",9-10
+Year 5,Calvary Term,5,Numeracy,"Money, population, economics and conversion of currencies: tax rates, rents, buying and selling of shares and dividends - Use of calculator in converting of currencies",9-10
+Year 5,Calvary Term,6,Numeracy,"Time: timing in minutes and seconds, reading timetables of journeys",9-10
+Year 5,Calvary Term,7,Numeracy,"Perimeter: meaning, perimeter of a rectangle, of regular and irregular shapes",9-10
+Year 5,Calvary Term,8,Numeracy,Area: area of trapezium and other figures,9-10
+Year 5,Calvary Term,9,Numeracy,"Length: measuring lengths, angles and the use of Pythagoras rule",9-10
+Year 1,Calvary Term,1,Vocational Studies,"Classroom: meaning, things that can be found in classroom, classroom rules and manners",5-6
+Year 1,Calvary Term,2,Vocational Studies,"Profession: meaning, different professions",5-6
+Year 1,Calvary Term,3,Vocational Studies,"Occupation: meaning, different occupation",5-6
+Year 1,Calvary Term,4,Vocational Studies,"Tools: meaning, types, importance of tools",5-6
+Year 1,Calvary Term,5,Vocational Studies,"The light : meaning, sources of light",5-6
+Year 1,Calvary Term,6,Vocational Studies,"Transport: meaning, different modes of transport",5-6
+Year 1,Calvary Term,7,Vocational Studies,"Blacksmith: meaning, tools used in blacksmith",5-6
+Year 1,Calvary Term,8,Vocational Studies,"Vocations in homes management e.g gardener, cleaners, cook/chef, laundry men e.t.c",5-6
+Year 1,Calvary Term,9,Vocational Studies,"Animal farmers, rearers and sellers: meaning, roles and importance",5-6
+Year 2,Calvary Term,1,Vocational Studies,"Vegetables: meaning, types and benefits",6-7
+Year 2,Calvary Term,2,Vocational Studies,"Fruits: meaning, types and benefits",6-7
+Year 2,Calvary Term,3,Vocational Studies,Differences between vegetables and fruits,6-7
+Year 2,Calvary Term,4,Vocational Studies,"Containers: meaning, different types of containers",6-7
+Year 2,Calvary Term,5,Vocational Studies,Sporting equipment -- football,6-7
+Year 2,Calvary Term,6,Vocational Studies,Sporting equipment -- racket,6-7
+Year 2,Calvary Term,7,Vocational Studies,The body -- parts of the body,6-7
+Year 2,Calvary Term,8,Vocational Studies,Athletics -- vocations and tools in athletics,6-7
+Year 2,Calvary Term,9,Vocational Studies,"Shoe cobbler and shoe maker: meaning, tools and differences",6-7
+Year 3,Calvary Term,1,Vocational Studies,"Building: meaning, types ( bungalow, storey e.t.c) and importance",7-8
+Year 3,Calvary Term,2,Vocational Studies,"Specialized building: stadium, hospital, market, bank e.t.c ( building for a particular purpose)",7-8
+Year 3,Calvary Term,3,Vocational Studies,"Simple abbreviation: AU, FRSC, NYSC, UN, EFCC, ICPC, AIDS e.t.c",7-8
+Year 3,Calvary Term,4,Vocational Studies,"Education: meaning, different levels of education ( nursery, primary, secondary and tertiary)",7-8
+Year 3,Calvary Term,5,Vocational Studies,"Flying objects: meaning, types/ examples",7-8
+Year 3,Calvary Term,6,Vocational Studies,"Flight/partial flight/flightless birds: eagles, parrot, turkey, ducks, geese e.t.c",7-8
+Year 3,Calvary Term,7,Vocational Studies,"Pottery: meaning, steps involved, people involved and things gotten",7-8
+Year 3,Calvary Term,8,Vocational Studies,"Medicine: profession in Medicine, tools in medicine",7-8
+Year 3,Calvary Term,9,Vocational Studies,"Building) house construction: meaning, types, materials used, stages of house construction, professional involved in house construction",7-8
+Year 4,Calvary Term,1,Vocational Studies,Our world: the plants,8-9
+Year 4,Calvary Term,2,Vocational Studies,"The hospital: meaning, types and functions",8-9
+Year 4,Calvary Term,3,Vocational Studies,"Marine engineering: meaning, tools and careers",8-9
+Year 4,Calvary Term,4,Vocational Studies,"Pipes and plumbing: meaning of pipes and plumbing, plumbing tools, who is a plumber? And what he does, materials used in making pipes",8-9
+Year 4,Calvary Term,5,Vocational Studies,"Welding: meaning, things done, tools used and process followed",8-9
+Year 4,Calvary Term,6,Vocational Studies,"Forest workers / lumberman : meaning, methods of lumbering, instruments used by forest workers/ lumber man",8-9
+Year 4,Calvary Term,7,Vocational Studies,"Banking: meaning, tools",8-9
+Year 4,Calvary Term,8,Vocational Studies,"Secretariat studies: meaning, functions",8-9
+Year 4,Calvary Term,9,Vocational Studies,"Designing: meaning, types and examples",8-9
+Year 5,Calvary Term,1,Vocational Studies,Architecture or architectural design: meaning and tools,9-10
+Year 5,Calvary Term,2,Vocational Studies,"Automobiles and automobile engineering: automobile, vulcanized, panel beater, car aligners e.t.c",9-10
+Year 5,Calvary Term,3,Vocational Studies,Shapes and pattern making,9-10
+Year 5,Calvary Term,4,Vocational Studies,"Cement production: types of cement, materials required for cement production, process in cement production",9-10
+Year 5,Calvary Term,5,Vocational Studies,Meteorologist: meaning and tools,9-10
+Year 5,Calvary Term,6,Vocational Studies,Major occupation in different regions of Nigeria,9-10
+Year 5,Calvary Term,7,Vocational Studies,"Security education: meaning, agencies and importance",9-10
+Year 5,Calvary Term,8,Vocational Studies,"Workshop: meaning, tools, safety devices in work shoo",9-10
+Year 5,Calvary Term,9,Vocational Studies,Teaching as a profession,9-10
+Year 1,Calvary Term,1,Physical and Health Education,"P- local games: do as I do, clap over your head, who is in the garden H- personal hygiene: general body cleanliness",5-6
+Year 1,Calvary Term,2,Physical and Health Education,P- basic skills in basketball H- personal hygiene -- teeth brushing,5-6
+Year 1,Calvary Term,3,Physical and Health Education,P- safety rules in basketball games H- care of the nails and hair,5-6
+Year 1,Calvary Term,4,Physical and Health Education,P- basic skills in swimming H-Benefits of cleanliness,5-6
+Year 1,Calvary Term,5,Physical and Health Education,P- Safety rules in swimming H- Sense organs,5-6
+Year 1,Calvary Term,6,Physical and Health Education,"P: basic skills in volleyball H: Fracture: Meaning, types, prevention",5-6
+Year 1,Calvary Term,7,Physical and Health Education,P- Safety rules in volleyball H- balance diet,5-6
+Year 1,Calvary Term,8,Physical and Health Education,"P- basic movements: moving our body parts H-Immunization: meaning, importance",5-6
+Year 1,Calvary Term,9,Physical and Health Education,"P- Safety rules for basic movements H- air pollution: meaning, effects",5-6
+Year 2,Calvary Term,1,Physical and Health Education,"P- movements of the body: shooting, heading, bending, stretching H- health and hygiene: meaning and method of purifying water",6-7
+Year 2,Calvary Term,2,Physical and Health Education,P- movements of our body: skipping and squatting H- Health and hygiene: process of purifying water,6-7
+Year 2,Calvary Term,3,Physical and Health Education,P- safety rules for basic movements H- Practical demonstration of water purification,6-7
+Year 2,Calvary Term,4,Physical and Health Education,"P- football: brief history of football, basic skills, materials needed H- air pollution: meaning and causes",6-7
+Year 2,Calvary Term,5,Physical and Health Education,"P- Safety rules in football H- environmental health: meaning, importance",6-7
+Year 2,Calvary Term,6,Physical and Health Education,"P- Tennis: basic skills, materials needed H- safety education: meaning of safety and safety rules",6-7
+Year 2,Calvary Term,7,Physical and Health Education,"P- Athletics: meaning of athletics, meaning of short distance race, benefits of running H- exercise",6-7
+Year 2,Calvary Term,8,Physical and Health Education,P- Safety rules in athletics H- Rest and sleep,6-7
+Year 2,Calvary Term,9,Physical and Health Education,"P- javelin H- Good body posture: meaning, examples and importance",6-7
+Year 3,Calvary Term,1,Physical and Health Education,"P- Ball games: meaning, types of ball games H- personal hygiene: meaning, importance and materials",7-8
+Year 3,Calvary Term,2,Physical and Health Education,"P- football: meaning, skills in football H- pathogens: meaning and types",7-8
+Year 3,Calvary Term,3,Physical and Health Education,P- table tennis: meaning and skills H- eye diseases,7-8
+Year 3,Calvary Term,4,Physical and Health Education,P- basketball: meaning and skills H- Ear infection,7-8
+Year 3,Calvary Term,5,Physical and Health Education,P- basic swimming styles: H- physical fitness,7-8
+Year 3,Calvary Term,6,Physical and Health Education,P- fundamental movements patterns H- pollution: meaning and causes,7-8
+Year 3,Calvary Term,7,Physical and Health Education,P- swimming safety rules H- Noise pollution: meaning and how to prevent noise pollution,7-8
+Year 3,Calvary Term,8,Physical and Health Education,"P- basic safety kits H- Waste disposal: meaning, types and importance",7-8
+Year 3,Calvary Term,9,Physical and Health Education,"P- ball games: safety rules in table tennis, football and basketball H- food : meaning and importance",7-8
+Year 4,Calvary Term,1,Physical and Health Education,P- locomotive movements: meaning and types H- Communicable and non Communicable diseases,8-9
+Year 4,Calvary Term,2,Physical and Health Education,P- non locomotive movements: meaning and types H- preventive measures of diseases,8-9
+Year 4,Calvary Term,3,Physical and Health Education,P- middle distance races H- Common health signs and symptoms,8-9
+Year 4,Calvary Term,4,Physical and Health Education,"P- high jump H- drug abuse: meaning, effects of harmful food",8-9
+Year 4,Calvary Term,5,Physical and Health Education,"P- long jump H- harmful foods: meaning, how to identify harmful food, danger of eating harmful food",8-9
+Year 4,Calvary Term,6,Physical and Health Education,P- golf H- overfeeding: meaning and causes,8-9
+Year 4,Calvary Term,7,Physical and Health Education,"P- middle distance races: meaning, types, skills H- underfeeding: meaning and causes",8-9
+Year 4,Calvary Term,8,Physical and Health Education,P- long distance races: meaning and skills H- nutritional deficiency: meaning and examples,8-9
+Year 4,Calvary Term,9,Physical and Health Education,P- gymnastic activities: meaning and types H- safety at home and school,8-9
+Year 5,Calvary Term,1,Physical and Health Education,"P- hockey H- nutrition: meaning of nutrition, meaning of food, sources of nutrition",9-10
+Year 5,Calvary Term,2,Physical and Health Education,"P- recreation: meaning, importance, components of recreational activities H- nutritional deficiency: meaning, examples, prevention",9-10
+Year 5,Calvary Term,3,Physical and Health Education,"P- martial art : meaning, types and importance H- Heart diseases : meaning, examples and prevention",9-10
+Year 5,Calvary Term,4,Physical and Health Education,"P- judo rules and skills H- Respiratory diseases: meaning, examples and prevention",9-10
+Year 5,Calvary Term,5,Physical and Health Education,"P- introduction to direction: the significance of four cardinal point H- eye health: meaning of vision, importance of vision, care of the eyes",9-10
+Year 5,Calvary Term,6,Physical and Health Education,"P- sports facilities and equipment: examples, maintenance of sports facilities and equipment H- drug abuse: meaning, consequences of drug abuse on individuals, family and society",9-10
+Year 5,Calvary Term,7,Physical and Health Education,"P- track event: long distance races and relay race H- school health program: meaning, components and importance",9-10
+Year 5,Calvary Term,8,Physical and Health Education,"P- long jump -- basic skills, rules and regulations H- drug education: meaning of drugs, examples, importance of drug",9-10
+Year 5,Calvary Term,9,Physical and Health Education,P- shuttle relay: meaning H- the immune system: meaning and functions,9-10
+Year 1,Calvary Term,1,Agricultural Science,"Plant: meaning, examples, part of a plant, drawing of a typical plant and uses of plant",5-6
+Year 1,Calvary Term,2,Agricultural Science,"Requirements for plant growth: soil, water, air and sunlight",5-6
+Year 1,Calvary Term,3,Agricultural Science,"Soil and its uses: meaning, uses and types",5-6
+Year 1,Calvary Term,4,Agricultural Science,"Water and its uses: meaning, uses in agriculture and sources",5-6
+Year 1,Calvary Term,5,Agricultural Science,"Water contamination: meaning, ways and sources",5-6
+Year 1,Calvary Term,6,Agricultural Science,"Air: meaning, uses",5-6
+Year 1,Calvary Term,7,Agricultural Science,"Fruit crops: meaning, examples, differences between fruits and vegetables and uses of fruit crops",5-6
+Year 1,Calvary Term,8,Agricultural Science,"Farm insect: meaning, examples, uses",5-6
+Year 1,Calvary Term,9,Agricultural Science,"Farm animals: Meaning, examples, uses, care of farm animals (Feeding, cleaning and housing)",5-6
+Year 2,Calvary Term,1,Agricultural Science,"Classification of crops: meaning, classes",6-7
+Year 2,Calvary Term,2,Agricultural Science,"Tuber crops: meaning, examples and uses",6-7
+Year 2,Calvary Term,3,Agricultural Science,"Fruit crops: meaning, examples, uses",6-7
+Year 2,Calvary Term,4,Agricultural Science,"Vegetable crops: meaning, examples and uses",6-7
+Year 2,Calvary Term,5,Agricultural Science,"Crop propagation: meaning, materials, the place of seeding crop propagation, practical experiments of planting seed",6-7
+Year 2,Calvary Term,6,Agricultural Science,"Classification of food, energy giving food and body building food: meaning, sources and functions",6-7
+Year 2,Calvary Term,7,Agricultural Science,"Classification of food: vitamin, minerals, fat and oil and water: Meaning, sources and functions",6-7
+Year 2,Calvary Term,8,Agricultural Science,"Farm tools and equipment: meaning, classification, examples and uses",6-7
+Year 2,Calvary Term,9,Agricultural Science,Maintenance of farm tools,6-7
+Year 3,Calvary Term,1,Agricultural Science,People involved in agricultural activities: roles of different people in agriculture,7-8
+Year 3,Calvary Term,2,Agricultural Science,"Classification of farm animals: meaning, classes",7-8
+Year 3,Calvary Term,3,Agricultural Science,Uses of farm animals,7-8
+Year 3,Calvary Term,4,Agricultural Science,Aquaculture ( fish farming),7-8
+Year 3,Calvary Term,5,Agricultural Science,Apiculture ( bee farming),7-8
+Year 3,Calvary Term,6,Agricultural Science,"Food processing: meaning, method and importance",7-8
+Year 3,Calvary Term,7,Agricultural Science,"Food preservation: meaning, method and importance",7-8
+Year 3,Calvary Term,8,Agricultural Science,Weathering as a process of soil formation: meaning of weathering and types of weathering,7-8
+Year 3,Calvary Term,9,Agricultural Science,"Weather and climate: meaning, types and importance to agriculture",7-8
+Year 4,Calvary Term,1,Agricultural Science,"Soil: meaning, classification and importance",8-9
+Year 4,Calvary Term,2,Agricultural Science,"Soil fertility: meaning, ways of maintaining soil fertility, causes of soil fertility reduction",8-9
+Year 4,Calvary Term,3,Agricultural Science,"Irrigation: meaning, types and importance of farming",8-9
+Year 4,Calvary Term,4,Agricultural Science,"Weed: meaning, types, importance and problems of weed to farmers, weed control measures",8-9
+Year 4,Calvary Term,5,Agricultural Science,"Crop diseases: meaning, casual agents of disease in plants control measures",8-9
+Year 4,Calvary Term,6,Agricultural Science,"Farm produce preservations: meaning, methods and importance",8-9
+Year 4,Calvary Term,7,Agricultural Science,Safety measures in applying chemicals to farm produce,8-9
+Year 4,Calvary Term,8,Agricultural Science,"Crop farm tools: meaning, description and uses",8-9
+Year 4,Calvary Term,9,Agricultural Science,"Animal farm tools: meaning, description and uses",8-9
+Year 5,Calvary Term,1,Agricultural Science,General requirements for livestock production,9-10
+Year 5,Calvary Term,2,Agricultural Science,"Animal feed: meaning, components, types and importance",9-10
+Year 5,Calvary Term,3,Agricultural Science,Common pest and diseases of crop plants,9-10
+Year 5,Calvary Term,4,Agricultural Science,"Pest control: meaning of pest, meaning of pest control and method",9-10
+Year 5,Calvary Term,5,Agricultural Science,Classification of crops according to their lifespan and their uses,9-10
+Year 5,Calvary Term,6,Agricultural Science,General requirements for crop farming,9-10
+Year 5,Calvary Term,7,Agricultural Science,"Farm equipment: meaning, classes, uses and maintenance",9-10
+Year 5,Calvary Term,8,Agricultural Science,"Packaging of farm product: meaning, importance and method",9-10
+Year 5,Calvary Term,9,Agricultural Science,Careers in agricultural science,9-10
+Year 1,Calvary Term,1,Social Studies,"Sanitation ( meaning and method, ways to keep our environment clean, proper disposal of waste, toilet facilities",5-6
+Year 1,Calvary Term,2,Social Studies,"Home sanitation ( functions of home cleaning tools e.g broom, hoe, brush, cutlass, mop, parker, rake e.t.c)",5-6
+Year 1,Calvary Term,3,Social Studies,"Accident ( meaning, types, causes and prevention)",5-6
+Year 1,Calvary Term,4,Social Studies,"Home accidents ( definition, causes of home accidents, prevention)",5-6
+Year 1,Calvary Term,5,Social Studies,"Home appliances ( meaning, types of home appliances, uses and care)",5-6
+Year 1,Calvary Term,6,Social Studies,"Drugs awareness ( meaning of drugs, categories of good and bad drugs)",5-6
+Year 1,Calvary Term,7,Social Studies,"Overdose ( meaning, effects and prevention)",5-6
+Year 1,Calvary Term,8,Social Studies,"Illness ( meaning, causes and prevention)",5-6
+Year 1,Calvary Term,9,Social Studies,"Water ( sources of water, uses and storage)",5-6
+Year 2,Calvary Term,1,Social Studies,"The community ( meaning, rules and regulations, community leaders)",6-7
+Year 2,Calvary Term,2,Social Studies,"Road accident ( definition, causes and effects)",6-7
+Year 2,Calvary Term,3,Social Studies,"First aid to road accident victims ( definition of first aid, first aid to road accident victims)",6-7
+Year 2,Calvary Term,4,Social Studies,"Communication ( definition, ancient and modern means, importance)",6-7
+Year 2,Calvary Term,5,Social Studies,Keeping our environment clean ( ways and refuse disposal),6-7
+Year 2,Calvary Term,6,Social Studies,"Marriage ( definition, types)",6-7
+Year 2,Calvary Term,7,Social Studies,Traditional rites performed in a traditional marriage ( items/materials used in traditional marriage religion),6-7
+Year 2,Calvary Term,8,Social Studies,Court marriage/marriage ordainees,6-7
+Year 2,Calvary Term,9,Social Studies,"Medicine: classification of medicine ( understanding the meaning of analgesic, antibiotics medicines, understanding OTC drugs and prescription",6-7
+Year 3,Calvary Term,1,Social Studies,Concept of government ( meaning and types),7-8
+Year 3,Calvary Term,2,Social Studies,"World famous leaders: meaning, what makes a leader famous, some leaders and their achievements",7-8
+Year 3,Calvary Term,3,Social Studies,War and conflict ( meaning and effects),7-8
+Year 3,Calvary Term,4,Social Studies,"Employment ( Definition, importance, underemployment and unemployment)",7-8
+Year 3,Calvary Term,5,Social Studies,Naturalization ( meaning of naturalization),7-8
+Year 3,Calvary Term,6,Social Studies,"Sanitation ( modern toilet facilities, community sanitation",7-8
+Year 3,Calvary Term,7,Social Studies,"Savings ( meaning of savings, mode of saving)",7-8
+Year 3,Calvary Term,8,Social Studies,"Housing ( meaning and types, the house we live in, gadget used at home)",7-8
+Year 3,Calvary Term,9,Social Studies,"Seasons and weather ( meaning, types, features and differences)",7-8
+Year 4,Calvary Term,1,Social Studies,"Leadership ( meaning of leadership, qualities of good leadership, importance of leadership",8-9
+Year 4,Calvary Term,2,Social Studies,"Organization and cooperation ( definition of organization and cooperation, importance of organization and cooperation)",8-9
+Year 4,Calvary Term,3,Social Studies,Resources development (capitals) -- meaning of capitals and concept of resources development,8-9
+Year 4,Calvary Term,4,Social Studies,"Resources distribution (meaning, fair distribution of resources, concept of raw materials)",8-9
+Year 4,Calvary Term,5,Social Studies,"Social injustice ( meaning, types of group that fights against social injustice of child act policy)",8-9
+Year 4,Calvary Term,6,Social Studies,"Wages and income ( meaning, importance and other method of rewarding or compensating workers)",8-9
+Year 4,Calvary Term,7,Social Studies,"Power( Definition of power, authority, legitimacy and influence",8-9
+Year 4,Calvary Term,8,Social Studies,Human resources development,8-9
+Year 4,Calvary Term,9,Social Studies,"National water supply ( concept of water supply, state national agencies in charge of water supply)",8-9
+Year 5,Calvary Term,1,Social Studies,"Interpersonal relationships ( concept of healthy boy-girl relationship, ways to maintain healthy boys-girls relationship",9-10
+Year 5,Calvary Term,2,Social Studies,"Pressure groups: meaning, importance of pressure group in the society",9-10
+Year 5,Calvary Term,3,Social Studies,Religious differences: meaning and effects in the society,9-10
+Year 5,Calvary Term,4,Social Studies,"Ethnic groups: concepts of ethnic groups, understanding the meaning of lingua franca, types of ethnic groups",9-10
+Year 5,Calvary Term,5,Social Studies,"International conflicts: meaning, causes, resolutions",9-10
+Year 5,Calvary Term,6,Social Studies,The united nations organization and its agencies,9-10
+Year 5,Calvary Term,7,Social Studies,"Responsible parenthood ( meaning, characteristics and effects of irresponsible parenthood",9-10
+Year 5,Calvary Term,8,Social Studies,International exchanges,9-10
+Year 5,Calvary Term,9,Social Studies,"Natural resources: meaning, development of natural and utilization of natural resources",9-10
+Year 1,Calvary Term,1,Basic Science,Harmful objects: meaning and examples,5-6
+Year 1,Calvary Term,2,Basic Science,"Harmful substances: meaning, dangers of taking harmful substances into the body",5-6
+Year 1,Calvary Term,3,Basic Science,Animal identification and their babies off springs,5-6
+Year 1,Calvary Term,4,Basic Science,"Communication and information technology: meaning of technology, benefits and examples in relations to communication and information",5-6
+Year 1,Calvary Term,5,Basic Science,States of matters,5-6
+Year 1,Calvary Term,6,Basic Science,"Sorting things: into colors, into shapes, into sizes",5-6
+Year 1,Calvary Term,7,Basic Science,"Road: types of road, how to walk along the road, road signs",5-6
+Year 1,Calvary Term,8,Basic Science,Body movements ( moving our body parts) types of body movements,5-6
+Year 1,Calvary Term,9,Basic Science,Characteristics of living things -- MR NIGER D and Non-living things,5-6
+Year 2,Calvary Term,1,Basic Science,"Measurements: meaning, types and instruments used in measurements",6-7
+Year 2,Calvary Term,2,Basic Science,"Measurements conversion: meter to kilometer, kilogram to gram and units of length",6-7
+Year 2,Calvary Term,3,Basic Science,Plant reproduction,6-7
+Year 2,Calvary Term,4,Basic Science,"Pollination: meaning, types and importance",6-7
+Year 2,Calvary Term,5,Basic Science,First twenty elements,6-7
+Year 2,Calvary Term,6,Basic Science,"Technology: meaning, forms and product of technology",6-7
+Year 2,Calvary Term,7,Basic Science,"Conversion of energy: meaning, examples and application of technology products that uses the conversion",6-7
+Year 2,Calvary Term,8,Basic Science,Animals in the school compound Animals and road safetys,6-7
+Year 2,Calvary Term,9,Basic Science,"Weather: meaning, elements and instruments for measuring weather",6-7
+Year 3,Calvary Term,1,Basic Science,"Water as a universal solvent: meaning of solvent, examples of solvent and water as a universal solvent",7-8
+Year 3,Calvary Term,2,Basic Science,"Soluble and non-soluble substances: meaning, differences and examples",7-8
+Year 3,Calvary Term,3,Basic Science,"The feeding system: set of teeth, types of teeth, functions of tongue and role of lips in the feeding system",7-8
+Year 3,Calvary Term,4,Basic Science,"The digestive system: the process of food digestion, the digestive organs",7-8
+Year 3,Calvary Term,5,Basic Science,"The alimentary canal: parts of the alimentary canal, diagram of the alimentary canal",7-8
+Year 3,Calvary Term,6,Basic Science,Changes in non- living things: rusting,7-8
+Year 3,Calvary Term,7,Basic Science,Simple circuit: meaning and uses,7-8
+Year 3,Calvary Term,8,Basic Science,Sounds and noise: meaning and differences,7-8
+Year 3,Calvary Term,9,Basic Science,Flower: parts and functions of part of flowers,7-8
+Year 4,Calvary Term,1,Basic Science,"Feeding habits in animals: omnivores, carnivores ( scavengers and predators) and herbivores ( rodents and ruminants)",8-9
+Year 4,Calvary Term,2,Basic Science,"Pollination and fertilization in flowers: types of pollination, agents of pollination, features",8-9
+Year 4,Calvary Term,3,Basic Science,Fruits and seed dispersal,8-9
+Year 4,Calvary Term,4,Basic Science,"Moveable and immovable joints: meaning, examples",8-9
+Year 4,Calvary Term,5,Basic Science,"Muscles and tendons: meaning, functions and examples",8-9
+Year 4,Calvary Term,6,Basic Science,"Ligament, cartilage and marrows: meaning, functions and examples",8-9
+Year 4,Calvary Term,7,Basic Science,"Vertebrates and invertebrates animal : meaning, examples",8-9
+Year 4,Calvary Term,8,Basic Science,"Wood: identification and properties of wood, uses and importance",8-9
+Year 4,Calvary Term,9,Basic Science,"Plastic: identification and properties of plastic, uses and importance",8-9
+Year 5,Calvary Term,1,Basic Science,"Environment-conservation: meaning, ways, afforestation, game reserve, irrigation",9-10
+Year 5,Calvary Term,2,Basic Science,"Mineral resources: meaning, control, sources, locations of minerals and uses",9-10
+Year 5,Calvary Term,3,Basic Science,"Raw materials and maintenance: meaning, importance and uses",9-10
+Year 5,Calvary Term,4,Basic Science,"Energy conversion: concept of energy conversion, forms and importance",9-10
+Year 5,Calvary Term,5,Basic Science,"Basic electricity: types, method of generating electricity, uses, conductor and non-conductors",9-10
+Year 5,Calvary Term,6,Basic Science,"Friction: meaning, effects of friction, frictional force, advantages and disadvantages of frictional force",9-10
+Year 5,Calvary Term,7,Basic Science,"Reproduction in male: meaning, purposes and reproductive organs",9-10
+Year 5,Calvary Term,8,Basic Science,"Reproduction in female: meaning, purposes and reproductive organs",9-10
+Year 5,Calvary Term,9,Basic Science,"Workshop safety: meaning of safety, rules that guides work shop",9-10
+Year 1,Calvary Term,1,Cultural and Creative Arts,"Drawing and painting: definition, drawing of craft work, drawing of things around us",5-6
+Year 1,Calvary Term,2,Cultural and Creative Arts,"Printing ( leaf , yam, potatoes)",5-6
+Year 1,Calvary Term,3,Cultural and Creative Arts,Valentine's day decorations ( meaning of valentine day),5-6
+Year 1,Calvary Term,4,Cultural and Creative Arts,Mother's day decorations (meaning of mother's day),5-6
+Year 1,Calvary Term,5,Cultural and Creative Arts,"Collage( meaning, using different color paper( shapes)",5-6
+Year 1,Calvary Term,6,Cultural and Creative Arts,Easter decorations ( meaning of Easter celebration),5-6
+Year 1,Calvary Term,7,Cultural and Creative Arts,"Traditional song/folk song( introduction to Nigeria folksongs, uses and functions of Nigerian traditional music: joy relaxation e.t.c",5-6
+Year 1,Calvary Term,8,Cultural and Creative Arts,"Traditional dance( meaning, functions, types)",5-6
+Year 1,Calvary Term,9,Cultural and Creative Arts,Beads decorations ( practical),5-6
+Year 2,Calvary Term,1,Cultural and Creative Arts,"Modelling ( meaning, media for modelling, importance)",6-7
+Year 2,Calvary Term,2,Cultural and Creative Arts,Imaginative composition ( meaning and types of imaginative composition),6-7
+Year 2,Calvary Term,3,Cultural and Creative Arts,"Melodic pattern of music ( meaning of music, singing in a scale of natural keys)",6-7
+Year 2,Calvary Term,4,Cultural and Creative Arts,Valentine card/activities ( meaning of valentine),6-7
+Year 2,Calvary Term,5,Cultural and Creative Arts,Making of mother's day cards,6-7
+Year 2,Calvary Term,6,Cultural and Creative Arts,Fabric design and decorations,6-7
+Year 2,Calvary Term,7,Cultural and Creative Arts,Drama( creating a drama from a storybook),6-7
+Year 2,Calvary Term,8,Cultural and Creative Arts,Easter activities ( meaning of Easter and making of Easter card),6-7
+Year 2,Calvary Term,9,Cultural and Creative Arts,Towns where art are being practiced,6-7
+Year 3,Calvary Term,1,Cultural and Creative Arts,"Colour: meaning, primary and secondary colors, uses of color, colour wheel on primary colour)",7-8
+Year 3,Calvary Term,2,Cultural and Creative Arts,"Modelling: definition, media for modelling and uses",7-8
+Year 3,Calvary Term,3,Cultural and Creative Arts,"Drawing: meaning, shading, importance",7-8
+Year 3,Calvary Term,4,Cultural and Creative Arts,"Card making and activities: valentine card, Easter card and decorations",7-8
+Year 3,Calvary Term,5,Cultural and Creative Arts,Traditional dance in Nigeria ( examples of some traditional dance in Nigeria),7-8
+Year 3,Calvary Term,6,Cultural and Creative Arts,"Texture in arts ( meaning of texture in arts, types of texture, uses of texture)",7-8
+Year 3,Calvary Term,7,Cultural and Creative Arts,"Local instruments (meaning, classification of local instruments e.g idiophones, membranophone, chordophones e.t.c",7-8
+Year 3,Calvary Term,8,Cultural and Creative Arts,"Fabric decorations ( meaning of fabric, concept of making adire, materials needed, production of adire)",7-8
+Year 3,Calvary Term,9,Cultural and Creative Arts,"Drama practical ( meaning of drama, introduction to staging play, drama on good behavior)",7-8
+Year 4,Calvary Term,1,Cultural and Creative Arts,"Mosaic: meaning, materials and production of mosaic",8-9
+Year 4,Calvary Term,2,Cultural and Creative Arts,Musical notes and symbols: meaning and symbols,8-9
+Year 4,Calvary Term,3,Cultural and Creative Arts,"Wood carving: wood carving and painting, method of wood carving, materials for wood carving",8-9
+Year 4,Calvary Term,4,Cultural and Creative Arts,"Calabash decorations: introduction to calabash decorations, uses and the concept behind calabash decorations",8-9
+Year 4,Calvary Term,5,Cultural and Creative Arts,Valentine card decorations- activities for mother's day -- card/gift decorations,8-9
+Year 4,Calvary Term,6,Cultural and Creative Arts,Fabric design -- batik (waxing),8-9
+Year 4,Calvary Term,7,Cultural and Creative Arts,"Drawing -- meaning of drawing, head and face, drawing of items",8-9
+Year 4,Calvary Term,8,Cultural and Creative Arts,"Collage: drawing and shading of paper, posting of papers on drawing",8-9
+Year 4,Calvary Term,9,Cultural and Creative Arts,Easter activities: card making,8-9
+Year 5,Calvary Term,1,Cultural and Creative Arts,"Imaginative composition: meaning and concept of imaginative composition, uses",9-10
+Year 5,Calvary Term,2,Cultural and Creative Arts,"Imaginative drawing: definition, materials, processes",9-10
+Year 5,Calvary Term,3,Cultural and Creative Arts,"Imaginative drawing: definition, materials and procedure",9-10
+Year 5,Calvary Term,4,Cultural and Creative Arts,"Perspective: meaning, types and importance",9-10
+Year 5,Calvary Term,5,Cultural and Creative Arts,Valentine: card/decorations,9-10
+Year 5,Calvary Term,6,Cultural and Creative Arts,Painting -- still life,9-10
+Year 5,Calvary Term,7,Cultural and Creative Arts,"Light and shape: meaning, how light reflects on object to show light and shadow",9-10
+Year 5,Calvary Term,8,Cultural and Creative Arts,"Components of dance e.g movements, time, space, expressions, music e.t.c",9-10
+Year 5,Calvary Term,9,Cultural and Creative Arts,Easter activities: card making,9-10
+Year 1,Calvary Term,1,Yoruba,Onka yoruba: ookanla de Ogun (11-20),5-6
+Year 1,Calvary Term,2,Yoruba,Sise nnkan,5-6
+Year 1,Calvary Term,3,Yoruba,Dida awon nnkan Inu kilassi mo ati ayika,5-6
+Year 1,Calvary Term,4,Yoruba,Ojo Inu ose,5-6
+Year 1,Calvary Term,5,Yoruba,Faweli akosori ( a e e i o o u),5-6
+Year 1,Calvary Term,6,Yoruba,Fifi faweli akosori pinle oro,5-6
+Year 1,Calvary Term,7,Yoruba,Yiya aworan awon oro ti a fi faweli akosori pinle,5-6
+Year 1,Calvary Term,8,Yoruba,Akosori : ise agbe,5-6
+Year 1,Calvary Term,9,Yoruba,Orin: iya ni wura,5-6
+Year 2,Calvary Term,1,Yoruba,Kika silebu yoruba,6-7
+Year 2,Calvary Term,2,Yoruba,Kiko silebu yoruba,6-7
+Year 2,Calvary Term,3,Yoruba,Asiko/akoko to wa laarin ojo,6-7
+Year 2,Calvary Term,4,Yoruba,Asa Ile yoruba,6-7
+Year 2,Calvary Term,5,Yoruba,Owe keekeeke,6-7
+Year 2,Calvary Term,6,Yoruba,Ewi: ise login ise,6-7
+Year 2,Calvary Term,7,Yoruba,Oro ati idakeji,6-7
+Year 2,Calvary Term,8,Yoruba,Ihun gbolohun -- Oro oruko,6-7
+Year 2,Calvary Term,9,Yoruba,Ise sise lori oro oruko,6-7
+Year 3,Calvary Term,1,Yoruba,"Oge sise: ( itoju ara, ohun elo itoju ara)",7-8
+Year 3,Calvary Term,2,Yoruba,Ojuse obi si omo,7-8
+Year 3,Calvary Term,3,Yoruba,Asa bi a se n jeun ( ofin ti oro mo ounje jije),7-8
+Year 3,Calvary Term,4,Yoruba,Alo apamo,7-8
+Year 3,Calvary Term,5,Yoruba,Ikini fun oniruru ayeye ati idahun,7-8
+Year 3,Calvary Term,6,Yoruba,Ipolowo oja,7-8
+Year 3,Calvary Term,7,Yoruba,Asa: igbalejo ni Ile yoruba,7-8
+Year 3,Calvary Term,8,Yoruba,Orin omode: ako mo ni wa,7-8
+Year 3,Calvary Term,9,Yoruba,Ihun gbolohun: Oro ise ati ise sise lori oro ise,7-8
+Year 4,Calvary Term,1,Yoruba,Pontueson,8-9
+Year 4,Calvary Term,2,Yoruba,Ere: onitan,8-9
+Year 4,Calvary Term,3,Yoruba,Alo apagbe,8-9
+Year 4,Calvary Term,4,Yoruba,Awon owe Ile yoruba ati itumo won,8-9
+Year 4,Calvary Term,5,Yoruba,Alo onitan to ko lorin,8-9
+Year 4,Calvary Term,6,Yoruba,Aso wiwo ni Ile yoruba,8-9
+Year 4,Calvary Term,7,Yoruba,Oge sise ni aye atijo ati ode oni ni Ile yoruba,8-9
+Year 4,Calvary Term,8,Yoruba,Iwa rere ati iwa buruku,8-9
+Year 4,Calvary Term,9,Yoruba,Asiko Ogun,8-9
+Year 5,Calvary Term,1,Yoruba,Awon ohun elo igbeyawo,9-10
+Year 5,Calvary Term,2,Yoruba,Awon oba alaye Ile yoruba,9-10
+Year 5,Calvary Term,3,Yoruba,Ounje: ifipanu ati ohun mimu,9-10
+Year 5,Calvary Term,4,Yoruba,Awon oba ibara -- eni -- soro ibile ati ode oni,9-10
+Year 5,Calvary Term,5,Yoruba,Gbolohun alakanpo,9-10
+Year 5,Calvary Term,6,Yoruba,Ikini: onise owo,9-10
+Year 5,Calvary Term,7,Yoruba,Ohun elo ise / irinse,9-10
+Year 5,Calvary Term,8,Yoruba,Eje orile - ede Naijiria,9-10
+Year 5,Calvary Term,9,Yoruba,Kika iwe itan aroso keekeeke,9-10
+Year 1,Calvary Term,1,History,Neighborhood: my neighbor at home and at school,5-6
+Year 1,Calvary Term,2,History,"Important places in the community: school, market and at school",5-6
+Year 1,Calvary Term,3,History,"Community leaders: meaning, roles and respect for community leaders",5-6
+Year 1,Calvary Term,4,History,"National symbols: coat of arms, national flag and national pledge",5-6
+Year 1,Calvary Term,5,History,First election in Nigeria,5-6
+Year 1,Calvary Term,6,History,Christian missionaries in Nigeria,5-6
+Year 1,Calvary Term,7,History,Slave trade in Nigeria,5-6
+Year 1,Calvary Term,8,History,Bishop Samuel Ajayi Crowther,5-6
+Year 1,Calvary Term,9,History,"Mother Teresa, David Livingstone",5-6
+Year 2,Calvary Term,1,History,Ethnic group in Nigeria: meaning and types,6-7
+Year 2,Calvary Term,2,History,"History of the Yoruba's : their origin, story of oduduwa, afonja of Ilorin, Alafin of Oyo, Oni of Ife",6-7
+Year 2,Calvary Term,3,History,The history of the Hausa's: their origin and spread,6-7
+Year 2,Calvary Term,4,History,History of Igbo's: their origin and spread,6-7
+Year 2,Calvary Term,5,History,Comparison of the three major ethnic group,6-7
+Year 2,Calvary Term,6,History,"Martin Luther king, Obafemi Awolowo",6-7
+Year 2,Calvary Term,7,History,"Fela Anikulapo Ransomkuti, Nnamdi Azikwe",6-7
+Year 2,Calvary Term,8,History,"Shaka Zulu, Alexander the great",6-7
+Year 2,Calvary Term,9,History,"Chief Anthony Enahoro, Queen Elizabeth II",6-7
+Year 3,Calvary Term,1,History,"Early history of west African country -- history of Ghana, Senegal and Liberia",7-8
+Year 3,Calvary Term,2,History,British rule in Nigeria,7-8
+Year 3,Calvary Term,3,History,Nigeria first republic,7-8
+Year 3,Calvary Term,4,History,Nigeria decolonization and independence,7-8
+Year 3,Calvary Term,5,History,Nigeria monument,7-8
+Year 3,Calvary Term,6,History,"Nigeria tourist sites -- Olumo rock, Ikogosi spring",7-8
+Year 3,Calvary Term,7,History,"Nigeria early heroes and heroines -- sir Ahmadu Bello, King Jaja of Opobo",7-8
+Year 3,Calvary Term,8,History,"Nigeria early heroes and heroines -- Nnamdi Azikwe, Nana Olumo of Itsekiri",7-8
+Year 3,Calvary Term,9,History,History of Ogbomoso land / Excursion to Soun palace,7-8
+Year 4,Calvary Term,1,History,Method of trading in the past and now,8-9
+Year 4,Calvary Term,2,History,"Traditional way of farming: use of local tools, crop grown and pest control",8-9
+Year 4,Calvary Term,3,History,Modern method of farming: use of modern machines and chemicals,8-9
+Year 4,Calvary Term,4,History,Distribution of agricultural products within Nigeria,8-9
+Year 4,Calvary Term,5,History,Wole Soyinka,8-9
+Year 4,Calvary Term,6,History,Chimamanda Adichie,8-9
+Year 4,Calvary Term,7,History,Chinua Achebe,8-9
+Year 4,Calvary Term,8,History,"Some Nigeria people: the Nupe, the Oworo",8-9
+Year 4,Calvary Term,9,History,"Some Nigeria people: the Kanuri, the Yakor",8-9
+Year 5,Calvary Term,1,History,The discovery of electricity and railway engine,9-10
+Year 5,Calvary Term,2,History,The discovery of malaria and invention of vaccination,9-10
+Year 5,Calvary Term,3,History,"The invention of television, airplane and the printing press",9-10
+Year 5,Calvary Term,4,History,Traditional religion in Nigeria: meaning and types,9-10
+Year 5,Calvary Term,5,History,"Islamic religion: origin of Islam, agent of Islam and dominate areas of Islam",9-10
+Year 5,Calvary Term,6,History,"Christianity in Nigeria: origin of Christianity in Nigeria, dominate areas of Christianity, early Christian missionaries and their roles",9-10
+Year 5,Calvary Term,7,History,Civil war in Africa,9-10
+Year 5,Calvary Term,8,History,Military rule: period of military rule in Nigeria,9-10
+Year 5,Calvary Term,9,History,"Military heads of states in Nigeria: Aguyi Ironsi, Yakubu Gowon, Muritala Mohammed, Olusegun Obasanjo e.t.c",9-10
+Year 1,Calvary Term,1,Moral Instructions,Fairness,5-6
+Year 1,Calvary Term,2,Moral Instructions,Hard work,5-6
+Year 1,Calvary Term,3,Moral Instructions,Tolerance,5-6
+Year 1,Calvary Term,4,Moral Instructions,Cooperation,5-6
+Year 1,Calvary Term,5,Moral Instructions,Love,5-6
+Year 1,Calvary Term,6,Moral Instructions,Endurance,5-6
+Year 1,Calvary Term,7,Moral Instructions,Self -- discipline,5-6
+Year 1,Calvary Term,8,Moral Instructions,Adaptability,5-6
+Year 1,Calvary Term,9,Moral Instructions,Giving,5-6
+Year 2,Calvary Term,1,Moral Instructions,Patriotism,6-7
+Year 2,Calvary Term,2,Moral Instructions,Addiction,6-7
+Year 2,Calvary Term,3,Moral Instructions,Self reliance,6-7
+Year 2,Calvary Term,4,Moral Instructions,Self control,6-7
+Year 2,Calvary Term,5,Moral Instructions,Conflict management,6-7
+Year 2,Calvary Term,6,Moral Instructions,Decency in dressing,6-7
+Year 2,Calvary Term,7,Moral Instructions,Decency in speaking,6-7
+Year 2,Calvary Term,8,Moral Instructions,Problems solving skills,6-7
+Year 2,Calvary Term,9,Moral Instructions,Etiquette,6-7
+Year 3,Calvary Term,1,Moral Instructions,Perseverance,7-8
+Year 3,Calvary Term,2,Moral Instructions,Self esteem,7-8
+Year 3,Calvary Term,3,Moral Instructions,Favoritism,7-8
+Year 3,Calvary Term,4,Moral Instructions,Confidence,7-8
+Year 3,Calvary Term,5,Moral Instructions,Cheerfulness,7-8
+Year 3,Calvary Term,6,Moral Instructions,Obedience,7-8
+Year 3,Calvary Term,7,Moral Instructions,Courtesy,7-8
+Year 3,Calvary Term,8,Moral Instructions,Respect for elders,7-8
+Year 3,Calvary Term,9,Moral Instructions,Positive thinking,7-8
+Year 4,Calvary Term,1,Moral Instructions,Tolerance,8-9
+Year 4,Calvary Term,2,Moral Instructions,Peer pressure,8-9
+Year 4,Calvary Term,3,Moral Instructions,Good communication,8-9
+Year 4,Calvary Term,4,Moral Instructions,Love,8-9
+Year 4,Calvary Term,5,Moral Instructions,Team -- work,8-9
+Year 4,Calvary Term,6,Moral Instructions,Discipline,8-9
+Year 4,Calvary Term,7,Moral Instructions,Respect,8-9
+Year 4,Calvary Term,8,Moral Instructions,Orderliness,8-9
+Year 4,Calvary Term,9,Moral Instructions,Cooperation,8-9
+Year 5,Calvary Term,1,Moral Instructions,Time management,9-10
+Year 5,Calvary Term,2,Moral Instructions,Chastity,9-10
+Year 5,Calvary Term,3,Moral Instructions,Addiction,9-10
+Year 5,Calvary Term,4,Moral Instructions,Emotional balance,9-10
+Year 5,Calvary Term,5,Moral Instructions,Patriotism,9-10
+Year 5,Calvary Term,6,Moral Instructions,Examination malpractices,9-10
+Year 5,Calvary Term,7,Moral Instructions,Handling disappointment,9-10
+Year 5,Calvary Term,8,Moral Instructions,Humility,9-10
+Year 5,Calvary Term,9,Moral Instructions,Purposeful living,9-10
+Year 1,Calvary Term,1,Citizenship,The community: meaning and types of community,5-6
+Year 1,Calvary Term,2,Citizenship,"Cooperation in the community: working together, respect for one another, importance of cooperation in the community",5-6
+Year 1,Calvary Term,3,Citizenship,"Community rules: meaning, list of community rules",5-6
+Year 1,Calvary Term,4,Citizenship,The roles of community members,5-6
+Year 1,Calvary Term,5,Citizenship,"Leadership: meaning, types of leaders",5-6
+Year 1,Calvary Term,6,Citizenship,"Neighbors at home, school and community",5-6
+Year 1,Calvary Term,7,Citizenship,National symbols,5-6
+Year 1,Calvary Term,8,Citizenship,"Social amenities: meaning, examples and functions",5-6
+Year 1,Calvary Term,9,Citizenship,Personal security: meaning and measures,5-6
+Year 2,Calvary Term,1,Citizenship,"National symbols: meaning, examples of national symbols",6-7
+Year 2,Calvary Term,2,Citizenship,"How to respect national symbols: respect for our currency, respect for the national anthem and pledge",6-7
+Year 2,Calvary Term,3,Citizenship,Respect for elders in the society,6-7
+Year 2,Calvary Term,4,Citizenship,"Constituted authority: meaning, examples and functions",6-7
+Year 2,Calvary Term,5,Citizenship,Buying and selling in the community: market days,6-7
+Year 2,Calvary Term,6,Citizenship,Traditional leaders in our community and their roles,6-7
+Year 2,Calvary Term,7,Citizenship,Foreigner in our community,6-7
+Year 2,Calvary Term,8,Citizenship,GRA (Government Reserved Areas) : meaning and functions,6-7
+Year 3,Calvary Term,1,Citizenship,"Law and court: meaning of law and court, branches of law practiced in the court, courts in Nigeria, highest court in Nigeria, roles of law in our society",7-8
+Year 3,Calvary Term,2,Citizenship,"Security education: meaning of security, security education, reasons for security education",7-8
+Year 3,Calvary Term,3,Citizenship,"Security agencies in Nigeria: meaning, examples and functions",7-8
+Year 3,Calvary Term,4,Citizenship,"Criminal behavior: concept of criminal behavior, causes, categories of crime, preventive measures against crime",7-8
+Year 3,Calvary Term,5,Citizenship,"Violence: meaning, effects, examples, prevention",7-8
+Year 3,Calvary Term,6,Citizenship,"Unity: meaning of unity, concept of national unity, importance of national unity",7-8
+Year 3,Calvary Term,7,Citizenship,"Factors that promotes unity among people e.g sports, cultural activities",7-8
+Year 3,Calvary Term,8,Citizenship,"UN: meaning, specific objectives, functions and countries in the united nations",7-8
+Year 3,Calvary Term,9,Citizenship,"The rule of law in Nigeria: meaning, importance, Nigeria constitution",7-8
+Year 4,Calvary Term,1,Citizenship,"Human resources development: meaning, types of work people do, why people work, problems of getting a job, building of work skills and ethics",8-9
+Year 4,Calvary Term,2,Citizenship,"Good leadership: meaning of leadership, benefits of good leadership in the society",8-9
+Year 4,Calvary Term,3,Citizenship,"Bad leadership: meaning, effects of bad leadership",8-9
+Year 4,Calvary Term,4,Citizenship,"Arms of government: meaning, division, functions",8-9
+Year 4,Calvary Term,5,Citizenship,Executive and legislative arms of government: members and functions,8-9
+Year 4,Calvary Term,6,Citizenship,"Trade unions: meaning, examples and functions",8-9
+Year 4,Calvary Term,7,Citizenship,"Political parties in Nigeria -- aims and objectives, examples, functions",8-9
+Year 4,Calvary Term,8,Citizenship,"Campaigns: meaning, procedure and importance",8-9
+Year 4,Calvary Term,9,Citizenship,"Division of labour : meaning, types and effects",8-9
+Year 5,Calvary Term,1,Citizenship,"Tourism: meaning, importance and tourist sites in Nigeria",9-10
+Year 5,Calvary Term,2,Citizenship,Tourist sites in Africa,9-10
+Year 5,Calvary Term,3,Citizenship,Community leadership: meaning and importance,9-10
+Year 5,Calvary Term,4,Citizenship,"Employment: meaning, types of employment, concept of wages and salary, benefits of job availability, importance of employment",9-10
+Year 5,Calvary Term,5,Citizenship,"Unemployment: meaning, effects on national development, solutions",9-10
+Year 5,Calvary Term,6,Citizenship,"Immigration: meaning, effects and benefits",9-10
+Year 5,Calvary Term,7,Citizenship,"Emigration: meaning, effects and benefits",9-10
+Year 5,Calvary Term,8,Citizenship,"Tolerance as a national values: meaning, importance",9-10
+Year 5,Calvary Term,9,Citizenship,"Citizenship and naturalization: meaning of citizenship and naturalization, means of acquiring citizenship, differences between dual and multiple citizenship",9-10
+Year 1,Calvary Term,1,Literacy,Present tense and past tense,5-6
+Year 1,Calvary Term,2,Literacy,Future tense,5-6
+Year 1,Calvary Term,3,Literacy,Use of capital letters,5-6
+Year 1,Calvary Term,4,Literacy,"Verbs -- meaning , examples",5-6
+Year 1,Calvary Term,5,Literacy,"Preposition -- meaning , examples and uses",5-6
+Year 1,Calvary Term,6,Literacy,"Using the possessive pronouns -- I, your, our",5-6
+Year 1,Calvary Term,7,Literacy,Compound words,5-6
+Year 1,Calvary Term,8,Literacy,Conjugating verbs,5-6
+Year 1,Calvary Term,9,Literacy,The use of abbreviation,5-6
+Year 2,Calvary Term,1,Literacy,Regular past tense,6-7
+Year 2,Calvary Term,2,Literacy,Irregular past tense,6-7
+Year 2,Calvary Term,3,Literacy,Past continuous tense,6-7
+Year 2,Calvary Term,4,Literacy,"Punctuation marks: question marks, exclamation mark",6-7
+Year 2,Calvary Term,5,Literacy,"Punctuation marks: Apostrophe ( meaning, use)",6-7
+Year 2,Calvary Term,6,Literacy,"Homophones -- meaning , use of homophones as guide to right pronunciation",6-7
+Year 2,Calvary Term,7,Literacy,Conjunction,6-7
+Year 2,Calvary Term,8,Literacy,Contractions and expansion of words ( formation and examples),6-7
+Year 2,Calvary Term,9,Literacy,Using a dictionary,6-7
+Year 3,Calvary Term,1,Literacy,Parts of speech -- nouns ( meaning and all types of noun with examples),7-8
+Year 3,Calvary Term,2,Literacy,"Parts of speech -- adjectives ( meaning, examples and uses)",7-8
+Year 3,Calvary Term,3,Literacy,"Parts of speech -- verbs ( meaning, examples and uses)",7-8
+Year 3,Calvary Term,4,Literacy,"Parts of speech -- pronouns ( meaning, examples and uses)",7-8
+Year 3,Calvary Term,5,Literacy,Subject -- verb agreement,7-8
+Year 3,Calvary Term,6,Literacy,Using adverb of comparison,7-8
+Year 3,Calvary Term,7,Literacy,Prefixes and suffixes,7-8
+Year 3,Calvary Term,8,Literacy,Introduction to letter writing -- meaning and types of letters,7-8
+Year 3,Calvary Term,9,Literacy,"Building a dictionary skills -- meaning of dictionary, uses of a dictionary, how to use a dictionary",7-8
+Year 4,Calvary Term,1,Literacy,Present perfect tense -- use of have and has,8-9
+Year 4,Calvary Term,2,Literacy,"Past perfect tense -- meaning , uses",8-9
+Year 4,Calvary Term,3,Literacy,Punctuation and capitalization -- correct usage of punctuation marks and capital letters,8-9
+Year 4,Calvary Term,4,Literacy,Apostrophe- meaning and uses,8-9
+Year 4,Calvary Term,5,Literacy,Prefixes and suffixes,8-9
+Year 4,Calvary Term,6,Literacy,Synonyms and antonyms,8-9
+Year 4,Calvary Term,7,Literacy,Introduction to stress and intonation,8-9
+Year 4,Calvary Term,8,Literacy,"Preposition- preposition of time, use of 'for' and 'since'",8-9
+Year 4,Calvary Term,9,Literacy,Auxiliary verbs,8-9
+Year 5,Calvary Term,1,Literacy,Complex sentences,9-10
+Year 5,Calvary Term,2,Literacy,Phrasal verbs,9-10
+Year 5,Calvary Term,3,Literacy,"Pronouns- meaning, types and examples",9-10
+Year 5,Calvary Term,4,Literacy,Noun phrase,9-10
+Year 5,Calvary Term,5,Literacy,Expressing consequences or cause and effect with the use of 'so that',9-10
+Year 5,Calvary Term,6,Literacy,Letter writing,9-10
+Year 5,Calvary Term,7,Literacy,"Developing poetic skills -- creating rhyming words, writing poem with rhyming words",9-10
+Year 5,Calvary Term,8,Literacy,Sentence building,9-10
+Year 5,Calvary Term,9,Literacy,Contracting sentences,9-10
+Year 1,Calvary Term,1,Home Economics,Keeping healthy environment,5-6
+Year 1,Calvary Term,2,Home Economics,"Obesity: meaning, identification and how to avoid obesity",5-6
+Year 1,Calvary Term,3,Home Economics,"Foot wears: meaning, importance and maintenance",5-6
+Year 1,Calvary Term,4,Home Economics,"Eating habits: meaning, importance, how to have a good eating habits",5-6
+Year 1,Calvary Term,5,Home Economics,"Foods: classification based on the time of the day: meaning, importance and examples",5-6
+Year 1,Calvary Term,6,Home Economics,"Kitchen etiquette: meaning, do's and don't in the kitchen and importance",5-6
+Year 1,Calvary Term,7,Home Economics,"Cleaning: meaning, procedures for cleaning dishes before and after use and importance",5-6
+Year 1,Calvary Term,8,Home Economics,"Home garden: meaning, importance and how to keep home garden",5-6
+Year 1,Calvary Term,9,Home Economics,Practical: showing going eating habits during breakfast,5-6
+Year 2,Calvary Term,1,Home Economics,"Fabrics: meaning, types and identification of fabrics",6-7
+Year 2,Calvary Term,2,Home Economics,"Building positive image in relations to dressing: meaning of image, dressing as important element of positive image",6-7
+Year 2,Calvary Term,3,Home Economics,"Posture: meaning, types, importance, classification of posture and effects",6-7
+Year 2,Calvary Term,4,Home Economics,"Home accidents: meaning, types, how to avoid home accidents",6-7
+Year 2,Calvary Term,5,Home Economics,"Fashion: meaning, importance and how to manage good fashion",6-7
+Year 2,Calvary Term,6,Home Economics,Nutrition: meaning and importance,6-7
+Year 2,Calvary Term,7,Home Economics,Clothing: clothes for different weather conditions,6-7
+Year 2,Calvary Term,8,Home Economics,"Simple snacks ( puff-puff) : meaning, process of preparation",6-7
+Year 2,Calvary Term,9,Home Economics,Practical : snacks ( puff-puff),6-7
+Year 3,Calvary Term,1,Home Economics,Wants and needs: meaning and differences,7-8
+Year 3,Calvary Term,2,Home Economics,"Financial management: meaning, money matter ( money and where it comes from) importance",7-8
+Year 3,Calvary Term,3,Home Economics,Budgeting and making choices : meaning and importance,7-8
+Year 3,Calvary Term,4,Home Economics,Savings: meaning and importance,7-8
+Year 3,Calvary Term,5,Home Economics,"The food menu: meaning, uses and importance",7-8
+Year 3,Calvary Term,6,Home Economics,The art of cooking at home: principles that guides cooking a proper meal at home,7-8
+Year 3,Calvary Term,7,Home Economics,"Personal clothing: Meaning, types and care of personal clothing",7-8
+Year 3,Calvary Term,8,Home Economics,"Clothes arrangements: sorting according to ( size, uses and occasions), sorting according to ( colors, texture and fabrics)",7-8
+Year 3,Calvary Term,9,Home Economics,Practical -- Acts of mending -- using needle and thread,7-8
+Year 4,Calvary Term,1,Home Economics,Food guide pyramid: meaning and importance,8-9
+Year 4,Calvary Term,2,Home Economics,Food groups and sources: functions of food groups,8-9
+Year 4,Calvary Term,3,Home Economics,"Snacks: meaning, examples, types and preparation",8-9
+Year 4,Calvary Term,4,Home Economics,"Stitches: meaning, types and tools used in stitching",8-9
+Year 4,Calvary Term,5,Home Economics,"Food service: meaning, food entertainment and food hygiene, types of food servicing, principles in food service",8-9
+Year 4,Calvary Term,6,Home Economics,"Food labelling: meaning, importance and agencies that regulate food labelling",8-9
+Year 4,Calvary Term,7,Home Economics,"Gender studies: meaning, understanding of gender differences in the society",8-9
+Year 4,Calvary Term,8,Home Economics,Home management,8-9
+Year 4,Calvary Term,9,Home Economics,Practical: snacks,8-9
+Year 5,Calvary Term,1,Home Economics,"Food preservation and packaging: meaning, importance and ways",9-10
+Year 5,Calvary Term,2,Home Economics,"Entertainment: meaning, importance and how to entertain people",9-10
+Year 5,Calvary Term,3,Home Economics,Family relationships and family tree,9-10
+Year 5,Calvary Term,4,Home Economics,"Sewing machine: meaning, parts and their uses",9-10
+Year 5,Calvary Term,5,Home Economics,"Food safety: meaning, reasons for food safety, dangerous of poor food safety",9-10
+Year 5,Calvary Term,6,Home Economics,"Food contamination: meaning and importance, diseases/illness caused by food contamination",9-10
+Year 5,Calvary Term,7,Home Economics,Healthy living: meaning and importance,9-10
+Year 5,Calvary Term,8,Home Economics,"Special dishes: meaning, examples, types and importance ( continental dishes)",9-10
+Year 5,Calvary Term,9,Home Economics,Practical (continental dishes),9-10
+Year 1,Calvary Term,1,Computer Studies,"Printer: meaning, types and uses",5-6
+Year 1,Calvary Term,2,Computer Studies,"ICT : meaning, ICT devices around us",5-6
+Year 1,Calvary Term,3,Computer Studies,ICT: how ICT shapes our lives/importance of ICT,5-6
+Year 1,Calvary Term,4,Computer Studies,ICT: introducing robots as a mode in ICT devices,5-6
+Year 1,Calvary Term,5,Computer Studies,"GSM phone: meaning, parts and understanding what a SIM card does for mobile phone",5-6
+Year 1,Calvary Term,6,Computer Studies,GSM phone: uses of GSM phones,5-6
+Year 1,Calvary Term,7,Computer Studies,"Mobile network operators: meaning, mobile network operators within and around",5-6
+Year 1,Calvary Term,8,Computer Studies,Mobile network operators: the work of mobile network operators,5-6
+Year 1,Calvary Term,9,Computer Studies,Computer etiquette,5-6
+Year 2,Calvary Term,1,Computer Studies,"Introduction to computers: learning how to turn the computer on and off, introduction to desktop, icons and their functions",6-7
+Year 2,Calvary Term,2,Computer Studies,"Basic computer skills: using the mouse ( clicking and dragging), typing simple words and sentences using the keyboard, understanding the functions of the enter and space bar keys",6-7
+Year 2,Calvary Term,3,Computer Studies,"Computer network: meaning, types and importance",6-7
+Year 2,Calvary Term,4,Computer Studies,The introduction of internet as a computer network ( meaning and uses of internet),6-7
+Year 2,Calvary Term,5,Computer Studies,"The internet: online safety rules for young learners, trusted websites for educational purposes",6-7
+Year 2,Calvary Term,6,Computer Studies,"Websites: meaning, components and types",6-7
+Year 2,Calvary Term,7,Computer Studies,System unit: meaning and components,6-7
+Year 2,Calvary Term,8,Computer Studies,"The motherboard: unit of motherboard, functions of motherboard",6-7
+Year 2,Calvary Term,9,Computer Studies,"Control unit: identification of parts, uses of part",6-7
+Year 3,Calvary Term,1,Computer Studies,Input and output devices,7-8
+Year 3,Calvary Term,2,Computer Studies,C.P.U as the brain of the computer,7-8
+Year 3,Calvary Term,3,Computer Studies,"Computer software: meaning, differences between system software and application of software",7-8
+Year 3,Calvary Term,4,Computer Studies,"System software: meaning, key components of system software, functions and roles of system software",7-8
+Year 3,Calvary Term,5,Computer Studies,"Operating system: meaning, examples of operating system (e.g MS-DOS, WINDOWS, ICONS, LINUX, UNIX, e.t.c)",7-8
+Year 3,Calvary Term,6,Computer Studies,"Utilities: meaning, examples of utilities software ( e.g antivirus)",7-8
+Year 3,Calvary Term,7,Computer Studies,"Application software: meaning, categories of application software, functions and characteristics of application software",7-8
+Year 3,Calvary Term,8,Computer Studies,Uses of computer software,7-8
+Year 3,Calvary Term,9,Computer Studies,"Computer cables( meaning, types)",7-8
+Year 4,Calvary Term,1,Computer Studies,Classification of computer by purpose,8-9
+Year 4,Calvary Term,2,Computer Studies,Reasons for taking care of computer,8-9
+Year 4,Calvary Term,3,Computer Studies,"Computer hardware: meaning, components and care of computer hardware",8-9
+Year 4,Calvary Term,4,Computer Studies,"The mouse: description, parts, application of computer mouse ( left/right clicking, scroll ball, double clicking, drag operation",8-9
+Year 4,Calvary Term,5,Computer Studies,The keyboard: sections of computer keyboard,8-9
+Year 4,Calvary Term,6,Computer Studies,"Computer virus: meaning, how it spread, signs of a computer virus, protection against computer virus",8-9
+Year 4,Calvary Term,7,Computer Studies,"Introduction to computer malicious software malware : meaning, types and protection of computer against malware ( use of antivirus)",8-9
+Year 4,Calvary Term,8,Computer Studies,"Content of the desktop and functions of each icon on desktop: recycling bin, my documents, my computer, start button, task bar e.t.c",8-9
+Year 4,Calvary Term,9,Computer Studies,"Practical: functions of the desktop: creating folders, deleting folders, copying files from one directory to another, identifying copied file",8-9
+Year 5,Calvary Term,1,Computer Studies,Precautions with the use of computer hardware: precautions that should be taken in the use of the computer and by the computer user,9-10
+Year 5,Calvary Term,2,Computer Studies,Care of human ware: why we should take care of human ware,9-10
+Year 5,Calvary Term,3,Computer Studies,"Drawing with computer: meaning, identifying different computer, drawing software, types of computer, drawing software e.g Corel draw",9-10
+Year 5,Calvary Term,4,Computer Studies,"Paint program : description of paint, program, components of paint program and uses",9-10
+Year 5,Calvary Term,5,Computer Studies,"Microsoft paint environment: meaning, exploring the Microsoft paint environment, basic tools and features",9-10
+Year 5,Calvary Term,6,Computer Studies,Computer and the society: small and large scale application of computer in the society,9-10
+Year 5,Calvary Term,7,Computer Studies,"Computer as IPO ( input prices and output) system: meaning, examples of computer IPO system",9-10
+Year 5,Calvary Term,8,Computer Studies,"Connecting different parts of a computer: how to connect the system unit, keyboard, monitor, mouse, printer, scanner e.t.c",9-10
+Year 5,Calvary Term,9,Computer Studies,"Practical -- draw simple, drawing using computer ( Corel draw) or draw lines, eclipse, circle and rectangles using paint artists",9-10
+Year 1,Calvary Term,1,Geography,Rivers in Africa,5-6
+Year 1,Calvary Term,2,Geography,"A map -- meaning of a map, functions of a map",5-6
+Year 1,Calvary Term,3,Geography,"Mapping with colors -- our school, our home",5-6
+Year 1,Calvary Term,4,Geography,"Natural resources -- meaning , natural resources found in Oyo state",5-6
+Year 1,Calvary Term,5,Geography,"Land -- meaning of land, uses and benefits",5-6
+Year 1,Calvary Term,6,Geography,"The air -- meaning , constituents and uses",5-6
+Year 1,Calvary Term,7,Geography,West African countries and capitals,5-6
+Year 1,Calvary Term,8,Geography,Natural resources in Oyo,5-6
+Year 1,Calvary Term,9,Geography,Rock -- meaning and types,5-6
+Year 2,Calvary Term,1,Geography,Major cities in Nigeria: examples and locations,6-7
+Year 2,Calvary Term,2,Geography,"Deforestation: meaning, benefits and effects",6-7
+Year 2,Calvary Term,3,Geography,Afforestation: meaning and benefits,6-7
+Year 2,Calvary Term,4,Geography,Geographical term: list and explain terms in geography,6-7
+Year 2,Calvary Term,5,Geography,Rural settlement ( meaning and features),6-7
+Year 2,Calvary Term,6,Geography,"Urban settlement ( meaning, features and differences between rural and urban settlement)",6-7
+Year 2,Calvary Term,7,Geography,The atmosphere ( meaning and constituents),6-7
+Year 2,Calvary Term,8,Geography,Plains ( meaning of plains and examples),6-7
+Year 2,Calvary Term,9,Geography,Rainfall ( definition and process of rainfall),6-7
+Year 3,Calvary Term,1,Geography,ECOWAS countries: capital and their leaders (aims and objectives),7-8
+Year 3,Calvary Term,2,Geography,Nations and their currencies ( explanation and examples),7-8
+Year 3,Calvary Term,3,Geography,Nations and the country code ( meaning and examples),7-8
+Year 3,Calvary Term,4,Geography,Vegetational belts in west Africa,7-8
+Year 3,Calvary Term,5,Geography,Lakes and rivers in west Africa,7-8
+Year 3,Calvary Term,6,Geography,Map of Africa ( diagram Identification),7-8
+Year 3,Calvary Term,7,Geography,West African countries and capitals,7-8
+Year 3,Calvary Term,8,Geography,Natural resources in Africa ( African countries and their natural resources),7-8
+Year 3,Calvary Term,9,Geography,Major export goods in Nigeria ( meaning and examples),7-8
+Year 4,Calvary Term,1,Geography,"Agricultural resources: meaning, examples and benefits",8-9
+Year 4,Calvary Term,2,Geography,Capital resources: income distributions in developed and under developed countries,8-9
+Year 4,Calvary Term,3,Geography,Conservation of natural resources: meaning and importance,8-9
+Year 4,Calvary Term,4,Geography,"Population density: meaning of population, population density and effects",8-9
+Year 4,Calvary Term,5,Geography,"Resources distribution: meaning, types and effects",8-9
+Year 4,Calvary Term,6,Geography,"Land mark: meaning, types and importance",8-9
+Year 4,Calvary Term,7,Geography,"Human geography: meaning, human features of geography, the effect on physical features of geography on man's occupation and homes",8-9
+Year 4,Calvary Term,8,Geography,"Longitude and latitude: meaning, differences and measurements",8-9
+Year 4,Calvary Term,9,Geography,"Natural hazard: meaning, examples and effects",8-9
+Year 5,Calvary Term,1,Geography,"Some languages of the world: English, French, Italy, Portuguese, Latin, countries that speaks them",9-10
+Year 5,Calvary Term,2,Geography,"The aerospace: definition, usage and examples",9-10
+Year 5,Calvary Term,3,Geography,"Soil : meaning, importance and constituents",9-10
+Year 5,Calvary Term,4,Geography,Famous geographers in the world,9-10
+Year 5,Calvary Term,5,Geography,Migration: meaning and effects of migration,9-10
+Year 5,Calvary Term,6,Geography,Oceans of the world: meaning list of oceans in the world,9-10
+Year 5,Calvary Term,7,Geography,Global warming: meaning and effects,9-10
+Year 5,Calvary Term,8,Geography,"Survey: meaning, types and importance",9-10
+Year 5,Calvary Term,9,Geography,"Africa: countries, climate, map of Africa and languages spoken in Africa",9-10
+Year 1,Calvary Term,1,Christian Religious Knowledge,The life of Jesus: Jesus call little children to come to him. Matthew 19: 13-15,5-6
+Year 1,Calvary Term,2,Christian Religious Knowledge,"Jesus our friend : Matthew 4:18-22, John 15:7-15, Luke 11:5-8 and 36",5-6
+Year 1,Calvary Term,3,Christian Religious Knowledge,"Jesus our brother: Matthew 3:31-35, Act 17:24-27, Exodus 12:1-4",5-6
+Year 1,Calvary Term,4,Christian Religious Knowledge,"Jesus want us to love one another: Matthew 5:1-12, 1 Corinthians 13:1-3, John 13:34-35",5-6
+Year 1,Calvary Term,5,Christian Religious Knowledge,The provision of food: John 6:1-13,5-6
+Year 1,Calvary Term,6,Christian Religious Knowledge,"Using God strength and ability:1 Samuel 17:41-51, Genesis 40:1-19",5-6
+Year 1,Calvary Term,7,Christian Religious Knowledge,"The death and resurrection of Jesus Christ: the definition of Jesus death, Matthew 27:27-50, 28:1-8",5-6
+Year 1,Calvary Term,8,Christian Religious Knowledge,"The power of death: God has power over death, suffering and all evil powers, God has given us his power, God's power protect us from my kind of harm",5-6
+Year 1,Calvary Term,9,Christian Religious Knowledge,"Ways to sacrifice: obeying parents, keeping your home and classroom clean, forgiving others -- Matthew 23:11, Galatians 6:9-10, obeying God our father, Matthew 21:28-32, Luke 2:51",5-6
+Year 2,Calvary Term,1,Christian Religious Knowledge,"The early life of Jesus: Luke 2:29-32, Matthew 2:13-23",6-7
+Year 2,Calvary Term,2,Christian Religious Knowledge,"Jesus preparation for his ministry: Matthew 3:13-17, John 1:25-52, Luke 4:1-13",6-7
+Year 2,Calvary Term,3,Christian Religious Knowledge,"Jesus teaches about God love: John 3:16, luke15:3-7",6-7
+Year 2,Calvary Term,4,Christian Religious Knowledge,"Jesus teaching on the kingdom of God -- Luke 8:4-15, Matthew 25:1-30",6-7
+Year 2,Calvary Term,5,Christian Religious Knowledge,"Jesus power over natural forces: Mark 4 : 35-42, John 6:5-14 and 2 :1-11",6-7
+Year 2,Calvary Term,6,Christian Religious Knowledge,"Jesus power over diseases and death: Peter mother's in-law, the paralyzed man, Jairus daughter, the widow son, Lazarus -- Matthew 8:14-17, Luke 5:17-26, john11:1-44",6-7
+Year 2,Calvary Term,7,Christian Religious Knowledge,"Jesus power over evil: what is evil, examples, results of evil, examples of evil people, king Herod e.t.c, results of evil; hellfire, death, punishment, sorrow",6-7
+Year 2,Calvary Term,8,Christian Religious Knowledge,Identification of bad friends,6-7
+Year 2,Calvary Term,9,Christian Religious Knowledge,Death and resurrection of Jesus,6-7
+Year 3,Calvary Term,1,Christian Religious Knowledge,Jesus is the only way to God: John 4:6 and 3:1-7,7-8
+Year 3,Calvary Term,2,Christian Religious Knowledge,"Jesus the good shepherd: the qualities of a good shepherd -- John 10:2-18, Psalm 23",7-8
+Year 3,Calvary Term,3,Christian Religious Knowledge,"Jesus the bread of life: John 6:35, significance of Jesus as the bread of life, John 6:51",7-8
+Year 3,Calvary Term,4,Christian Religious Knowledge,"The goodness of Jesus: John 2:1-11, Matthew 20:30",7-8
+Year 3,Calvary Term,5,Christian Religious Knowledge,How can a person be born again: John 3:1-8,7-8
+Year 3,Calvary Term,6,Christian Religious Knowledge,Wages of sin : Roman 3:23,7-8
+Year 3,Calvary Term,7,Christian Religious Knowledge,"Christians as the light and salt of the world: Matthew 5:13, Luke 13:34-35, Matthew 5:15-16",7-8
+Year 3,Calvary Term,8,Christian Religious Knowledge,"Suffering of Jesus: Luke 22:47-53, Matthew 36:57-68, suffering as Christians: John 15:18-29",7-8
+Year 3,Calvary Term,9,Christian Religious Knowledge,"The death and resurrection of Jesus: Luke 22:33, and 23:46, and 24:1-6",7-8
+Year 4,Calvary Term,1,Christian Religious Knowledge,"The coming of Jesus Christ: Luke 1:1-7, Matthew 2:1-23",8-9
+Year 4,Calvary Term,2,Christian Religious Knowledge,"Jesus loves all people: Matthew 5:44-48, John 15:12, Mark 10:46-52",8-9
+Year 4,Calvary Term,3,Christian Religious Knowledge,"Jesus and the Father: Luke 2:50, Matthew 6:3, John 11:1-44",8-9
+Year 4,Calvary Term,4,Christian Religious Knowledge,"Jesus prays to the father: Luke 21:22, Matthew 21:22",8-9
+Year 4,Calvary Term,5,Christian Religious Knowledge,"Jesus the son of God: Matthew 16:13-20, 17:1-13",8-9
+Year 4,Calvary Term,6,Christian Religious Knowledge,The value of hard work II Thessalonians 3:6-15,8-9
+Year 4,Calvary Term,7,Christian Religious Knowledge,"The temptations and problems of the world: Matthew 4:1-11, Exodus 20:1-17",8-9
+Year 4,Calvary Term,8,Christian Religious Knowledge,"Jesus gave His life for us on the cross: Matthew 28:47-54, Luke 23: 1-25",8-9
+Year 4,Calvary Term,9,Christian Religious Knowledge,The resurrection and ascension of Jesus Christ: Mark 16:1-14 Luke 24- 48-52,8-9
+Year 5,Calvary Term,1,Christian Religious Knowledge,"Jesus the son of God: Matthew 3:1, 3:17 & 16:1-19",9-10
+Year 5,Calvary Term,2,Christian Religious Knowledge,"Jesus leads us to the father: John 1:10-16, Psalm 23",9-10
+Year 5,Calvary Term,3,Christian Religious Knowledge,"Jesus prays to the father for us: Matthew 5:43-48, Luke 23:33-43",9-10
+Year 5,Calvary Term,4,Christian Religious Knowledge,"Jesus conquers the devil: Matthew4:1-11, Mark 9:17-29",9-10
+Year 5,Calvary Term,5,Christian Religious Knowledge,"Jesus gives us the Golden rule : Matthew 7:1-27, Luke 6:31",9-10
+Year 5,Calvary Term,6,Christian Religious Knowledge,"Jesus teaches us to forgive our enemies: Luke 15:11-24, Luke 23:39-43",9-10
+Year 5,Calvary Term,7,Christian Religious Knowledge,"God's mercy on us: meaning of mercy, how God shows mercy to us, parable of the unmerciful servant: Matthew 18:21-34",9-10
+Year 5,Calvary Term,8,Christian Religious Knowledge,Fruits of the spirit: Galatians 5:21-23,9-10
+Year 5,Calvary Term,9,Christian Religious Knowledge,Jesus gives His life for us,9-10

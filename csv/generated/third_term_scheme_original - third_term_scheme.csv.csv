@@ -1,0 +1,671 @@
+class,term,week,subject,topic,agegroup
+Year 1,Summer Term,1,Moral Instructions,Honesty,5-6
+Year 1,Summer Term,2,Moral Instructions,Kindness,5-6
+Year 1,Summer Term,3,Moral Instructions,My duties at home,5-6
+Year 1,Summer Term,4,Moral Instructions,Obedience to parents and elders,5-6
+Year 1,Summer Term,5,Moral Instructions,Patience,5-6
+Year 1,Summer Term,6,Moral Instructions,Taking turns,5-6
+Year 1,Summer Term,7,Moral Instructions,My duties at school,5-6
+Year 1,Summer Term,8,Moral Instructions,Obeying school rules and instructions from my teacher,5-6
+Year 2,Summer Term,1,Moral Instructions,Conscience,6-7
+Year 2,Summer Term,2,Moral Instructions,Understanding right and wrong,6-7
+Year 2,Summer Term,3,Moral Instructions,Making a total child - Physical development - Spiritual development - Academic development,6-7
+Year 2,Summer Term,4,Moral Instructions,"Dangers of examination malpractices, lying and stealing",6-7
+Year 2,Summer Term,5,Moral Instructions,Justification by faith,6-7
+Year 2,Summer Term,6,Moral Instructions,Diligence,6-7
+Year 2,Summer Term,7,Moral Instructions,"Raw materials: definition of raw materials, sources of raw materials",6-7
+Year 2,Summer Term,8,Moral Instructions,"Things seen in offices, homes different materials and their uses",6-7
+Year 2,Summer Term,9,Moral Instructions,Obedience,6-7
+Year 3,Summer Term,1,Moral Instructions,Spending time wisely,7-8
+Year 3,Summer Term,2,Moral Instructions,Self reliance,7-8
+Year 3,Summer Term,3,Moral Instructions,Anger and fear,7-8
+Year 3,Summer Term,4,Moral Instructions,Voluntary service,7-8
+Year 3,Summer Term,5,Moral Instructions,Responsibility,7-8
+Year 3,Summer Term,6,Moral Instructions,Participating in different projects and games,7-8
+Year 3,Summer Term,7,Moral Instructions,Table manners,7-8
+Year 3,Summer Term,8,Moral Instructions,Participating in different projects and games,7-8
+Year 4,Summer Term,1,Moral Instructions,Love and honesty for people and country,8-9
+Year 4,Summer Term,2,Moral Instructions,Ability to build up confidence,8-9
+Year 4,Summer Term,3,Moral Instructions,Identification and acceptance of problem,8-9
+Year 4,Summer Term,4,Moral Instructions,Forgiveness,8-9
+Year 4,Summer Term,5,Moral Instructions,Passive and bad citizens,8-9
+Year 4,Summer Term,6,Moral Instructions,Active and good citizen,8-9
+Year 4,Summer Term,7,Moral Instructions,The spirit of give and take,8-9
+Year 4,Summer Term,8,Moral Instructions,Patience,8-9
+Year 4,Summer Term,9,Moral Instructions,Contentment,8-9
+Year 5,Summer Term,1,Moral Instructions,The value of hard work ( 2 Thessalonians 3:6-15),9-10
+Year 5,Summer Term,2,Moral Instructions,Moderation (James 3:2-12),9-10
+Year 5,Summer Term,3,Moral Instructions,Moderation in dressing,9-10
+Year 5,Summer Term,4,Moral Instructions,Lust,9-10
+Year 5,Summer Term,5,Moral Instructions,Temptations,9-10
+Year 5,Summer Term,6,Moral Instructions,Corruption,9-10
+Year 5,Summer Term,7,Moral Instructions,Injustice,9-10
+Year 5,Summer Term,8,Moral Instructions,Discipline,9-10
+Year 5,Summer Term,9,Moral Instructions,Disciplinary measures in school,9-10
+Year 1,Summer Term,1,History,Nigeria before independence ( colonial era),5-6
+Year 1,Summer Term,2,History,"Heroes and heroines: differences, qualities, names",5-6
+Year 1,Summer Term,3,History,"Achievements of heroes and heroines: Abraham Lincoln, Alvan Ikoku, Martin Luther king, Ben Carson and Mark Zuckerberg",5-6
+Year 1,Summer Term,4,History,"Traditional rulers : meaning, history and importance",5-6
+Year 1,Summer Term,5,History,"Festivals: definition, examples",5-6
+Year 1,Summer Term,6,History,History of local government in Nigeria: year it started number of local government in Oyo state and Nigeria,5-6
+Year 1,Summer Term,7,History,History of Oyo state,5-6
+Year 1,Summer Term,8,History,History of Ogbomoso land,5-6
+Year 1,Summer Term,9,History,My origin,5-6
+Year 2,Summer Term,1,History,Definition of heroes and heroines: general role of hero and heroines,6-7
+Year 2,Summer Term,2,History,"Heroes and heroines in the past: Samuel Ajayi Crowther, Queen Amina of Zaria e.t.c",6-7
+Year 2,Summer Term,3,History,"Heroes and heroines in our time: professor Wole Soyinka, Ngozi Okonjo Iweala e.t.c",6-7
+Year 2,Summer Term,4,History,Achievements of heroes and heroines both past and present,6-7
+Year 2,Summer Term,5,History,"Great patriots from across Africa: Nelson Mandela, Kwane Nknimah, Julius Nyerere, Robert Mugabc, Hellen-Johnson sir leaf",6-7
+Year 2,Summer Term,6,History,"History of Oyo state -- year of creation, population, landmass, geo- political zone, major traditional rulers",6-7
+Year 2,Summer Term,7,History,"History of government in Oyo state: local government, first governor to the current governor",6-7
+Year 2,Summer Term,8,History,Some ancient and modern towns in Nigeria,6-7
+Year 2,Summer Term,9,History,"History of Johnethel school: year of creation, vision and mission statement, school organogram, geographical locations, name of the founder",6-7
+Year 3,Summer Term,1,History,"History: meaning of history, types, importance of history",7-8
+Year 3,Summer Term,2,History,"The beginning of history -- the primitive man, the storage, the discovery of fire",7-8
+Year 3,Summer Term,3,History,The history of Ethiopia,7-8
+Year 3,Summer Term,4,History,The Kenyans:- The Kikuyu The Massai,7-8
+Year 3,Summer Term,5,History,South Africa:- The Zulus The bushman The Hottentot,7-8
+Year 3,Summer Term,6,History,"Some ancient towns in Nigeria: Oyo, Onitsha, Kano, Calabar",7-8
+Year 3,Summer Term,7,History,"Modern towns in Nigeria (cities): Port Harcourt, Abuja, Lagos, Kaduna, Ibadan",7-8
+Year 3,Summer Term,8,History,"Christianity: meaning, importance of Christianity in Nigeria",7-8
+Year 3,Summer Term,9,History,"Christian missionaries in Nigeria: David Livingstone, Reverend Ajayi Crowther, Mary Slessor, Reverend Henry Townsend, Pa Elton",7-8
+Year 4,Summer Term,1,History,The story of the Vikings,8-9
+Year 4,Summer Term,2,History,Benin and Oyo Kingdom,8-9
+Year 4,Summer Term,3,History,The Asante kingdom,8-9
+Year 4,Summer Term,4,History,"African union (AU) -- meaning, members state, aims and objectives",8-9
+Year 4,Summer Term,5,History,"MDG -- meaning, aims and objectives",8-9
+Year 4,Summer Term,6,History,Nigeria civil war,8-9
+Year 4,Summer Term,7,History,Nigeria military regime,8-9
+Year 4,Summer Term,8,History,History of money in Nigeria,8-9
+Year 4,Summer Term,9,History,Former subject union: USSD,8-9
+Year 5,Summer Term,1,History,The Trans- Sahara trade and rout: the importance and decline of the trade,9-10
+Year 5,Summer Term,2,History,"Traditional occupation in the locality- farming, fishing, carving e.t.c, importance of traditional occupation in the locality",9-10
+Year 5,Summer Term,3,History,History of NYSC,9-10
+Year 5,Summer Term,4,History,"FESTAC 77""",9-10
+Year 5,Summer Term,5,History,The story of some beliefs of the past on the origin of man,9-10
+Year 5,Summer Term,6,History,The cross Atlantic trade,9-10
+Year 5,Summer Term,7,History,"The United National (UN): meaning, organs, members state, aims and objectives",9-10
+Year 5,Summer Term,8,History,Human Rights Commission,9-10
+Year 5,Summer Term,9,History,"SDG -- meaning, aims and objectives",9-10
+Year 1,Summer Term,1,Social Studies,"Food -- meaning , our cultural food, risk factors in food",5-6
+Year 1,Summer Term,2,Social Studies,Good eating habits and how to keep food safe,5-6
+Year 1,Summer Term,3,Social Studies,Harmful substances and how to avoid taking them,5-6
+Year 1,Summer Term,4,Social Studies,Safety rules within the community,5-6
+Year 1,Summer Term,5,Social Studies,"Concept of security -- meaning , major security agencies in Nigeria and their functions",5-6
+Year 1,Summer Term,6,Social Studies,"Sources of danger and insecurity -- road accident, fire outbreak, kidnapping, relationship with strangers",5-6
+Year 1,Summer Term,7,Social Studies,"Addiction, drug addiction and addictive behaviors in children -- solutions to addiction",5-6
+Year 1,Summer Term,8,Social Studies,Water -- sources and uses of water,5-6
+Year 1,Summer Term,9,Social Studies,"Savings -- meaning , things that can be save, where do we save? Importance of saving",5-6
+Year 2,Summer Term,1,Social Studies,"Drugs and drug abuse: meaning, danger and way of preventing drug abuse",6-7
+Year 2,Summer Term,2,Social Studies,"Harmful substances -- meaning , sources, danger and prevention of harmful substances",6-7
+Year 2,Summer Term,3,Social Studies,"Herbal medicines -- meaning , examples and uses",6-7
+Year 2,Summer Term,4,Social Studies,"Accidents -- meaning, types, causes and ways of preventing accident",6-7
+Year 2,Summer Term,5,Social Studies,Resources development: using raw materials to make more useful product,6-7
+Year 2,Summer Term,6,Social Studies,Division of labour: meaning and importance,6-7
+Year 2,Summer Term,7,Social Studies,"Transportation -- meaning , types: ancient and modern means of transportation",6-7
+Year 2,Summer Term,8,Social Studies,Savings,6-7
+Year 2,Summer Term,9,Social Studies,Moral aspect of drug education and enforcement of drug laws,6-7
+Year 3,Summer Term,1,Social Studies,"Man and his environment: meaning, concept of man as both make and female and how man related with his environment",7-8
+Year 3,Summer Term,2,Social Studies,"Religion: meaning of religion, different religions in the world -- Christianity , Islam, African tradition, Hinduism, meaning and importance of religious worship",7-8
+Year 3,Summer Term,3,Social Studies,"Marriage: meaning of marriage, types of marriage and importance of marriage",7-8
+Year 3,Summer Term,4,Social Studies,"Accidents: meaning of accident, types of accident and ways to prevent accident",7-8
+Year 3,Summer Term,5,Social Studies,"Community sanitation/cleaning: meaning, benefits of community sanitation",7-8
+Year 3,Summer Term,6,Social Studies,"Leadership: meaning, levels of leadership: family leadership, religious leadership, community leadership, school leadership e.t.c and qualities of good leadership",7-8
+Year 3,Summer Term,7,Social Studies,"Community values and development: meaning of community values, importance of community values and development",7-8
+Year 3,Summer Term,8,Social Studies,"Government: meaning, types, military government, democracy and functions of government",7-8
+Year 3,Summer Term,9,Social Studies,"The earth and natural disasters: meaning and types of disaster ( flood, earthquake, storms, tsunami, tornado)",7-8
+Year 4,Summer Term,1,Social Studies,Puberty: meaning and stages of puberty,8-9
+Year 4,Summer Term,2,Social Studies,Constituted authorities: meaning and responsibilities of constituted authorities,8-9
+Year 4,Summer Term,3,Social Studies,"Traffic regulations: meaning, needs, why we should obey traffic regulations and problems and solutions of traffic regulations",8-9
+Year 4,Summer Term,4,Social Studies,Accident victims: meaning and how to develop positive attitude towards accident victims,8-9
+Year 4,Summer Term,5,Social Studies,"National consciousness: meaning, loyalty, evidence, consequences of loyalty and loyal service to the nation",8-9
+Year 4,Summer Term,6,Social Studies,"Population and housing: meaning, types, need to provide adequate housing for people",8-9
+Year 4,Summer Term,7,Social Studies,"Pollution: meaning, types, causes, effects and prevention",8-9
+Year 4,Summer Term,8,Social Studies,"Physical development: meaning, factors that can contribute to the development of a child and stages and signs of development",8-9
+Year 5,Summer Term,1,Social Studies,"Gender discrimination: meaning, forms, consequences and solutions",9-10
+Year 5,Summer Term,2,Social Studies,"Conflict: meaning, types, causes, consequences and resolution",9-10
+Year 5,Summer Term,3,Social Studies,"Peace education: cooperation, unity, peace and tolerance",9-10
+Year 5,Summer Term,4,Social Studies,"Population: how population relate to housing, concept of over/under population, population census",9-10
+Year 5,Summer Term,5,Social Studies,"Drug abuse and prevention: meaning, method, types and prevention",9-10
+Year 5,Summer Term,6,Social Studies,"Production: meaning, chains, factors, branches, division of labour",9-10
+Year 5,Summer Term,7,Social Studies,"Marriage: meaning, types, importance of good marriage and problems of bad marriage",9-10
+Year 5,Summer Term,8,Social Studies,"Natural water supply: meaning, sources and uses",9-10
+Year 5,Summer Term,9,Social Studies,"Import and export goods: locally made goods, foreign made goods, Nigeria import and export goods and countries from which Nigeria import goods",9-10
+Year 1,Summer Term,1,Citizenship,"Respect -- meaning , people to respect, places and things to respect",5-6
+Year 1,Summer Term,2,Citizenship,Leadership in Nigeria traditional setting,5-6
+Year 1,Summer Term,3,Citizenship,"Title of traditional rulers in Nigeria, functions of traditional rulers",5-6
+Year 1,Summer Term,4,Citizenship,Ethnicity and ethnic groups,5-6
+Year 1,Summer Term,5,Citizenship,"Cultural awareness -- language, greeting, food, dressing",5-6
+Year 1,Summer Term,6,Citizenship,Tolerance -- practical demonstrations on respecting differences and similarities,5-6
+Year 1,Summer Term,7,Citizenship,How to respect God and why,5-6
+Year 1,Summer Term,8,Citizenship,"My role as a citizen -- community , school, home",5-6
+Year 1,Summer Term,9,Citizenship,My neighborhood and my neighbors,5-6
+Year 2,Summer Term,1,Citizenship,"People in authority: identification of authority at home, identification in Johnethel school",6-7
+Year 2,Summer Term,2,Citizenship,"Respect for law and order in school, home and community",6-7
+Year 2,Summer Term,3,Citizenship,"Community leaders: traditional, religious, association",6-7
+Year 2,Summer Term,4,Citizenship,Our local state government leaders,6-7
+Year 2,Summer Term,5,Citizenship,"Our national leaders : president, vice president, senate president, speaker house of representatives",6-7
+Year 2,Summer Term,6,Citizenship,"Law enforcement agency: police, traffic warden, OYRTMA, FRSC, VIO e.t.c",6-7
+Year 2,Summer Term,7,Citizenship,"National anthem: Nigeria first national anthem, Nigeria current national anthem",6-7
+Year 2,Summer Term,8,Citizenship,The Nigeria coat of arms as a national symbols: meaning and importance,6-7
+Year 2,Summer Term,9,Citizenship,"Political parties: meaning, how they are formed, examples and problems created by bad political leaders",6-7
+Year 3,Summer Term,1,Citizenship,"Nation: meaning, characteristics and make up of a nation",7-8
+Year 3,Summer Term,2,Citizenship,Africa countries ( Cote D'Ivoire and South Africa): the people and their occupation,7-8
+Year 3,Summer Term,3,Citizenship,"Ethnic and ethnicity: meaning, causes, problems and solutions",7-8
+Year 3,Summer Term,4,Citizenship,"Patriotism: meaning, reasons and importance",7-8
+Year 3,Summer Term,5,Citizenship,"Taxation: meaning, importance and people to pay tax",7-8
+Year 3,Summer Term,6,Citizenship,"Conflict and peaceful coexistence: meaning, causes and solutions",7-8
+Year 3,Summer Term,7,Citizenship,Citizenship: meaning and importance,7-8
+Year 3,Summer Term,8,Citizenship,"Communication: meaning, types, importance and means of communication",7-8
+Year 3,Summer Term,9,Citizenship,"National growth and development: meaning, benefits and ways",7-8
+Year 4,Summer Term,1,Citizenship,"Road safety commission: meaning, aims and objectives and functions",8-9
+Year 4,Summer Term,2,Citizenship,"NAFDAC: meaning, roles and importance",8-9
+Year 4,Summer Term,3,Citizenship,National Drug Law Enforcement Agency ( NDLEA): roles and importance,8-9
+Year 4,Summer Term,4,Citizenship,"Custom, the immigration and the Nigeria police: meaning of custom, immigration and the Nigeria police, roles of their work in Nigeria and importance of custom, the immigration and the Nigeria police",8-9
+Year 4,Summer Term,5,Citizenship,"Governance: meaning, characteristics, features and importance of good governance",8-9
+Year 4,Summer Term,6,Citizenship,"Judiciary as an arms of government: people that works in judiciary, types and functions of courts in Nigeria",8-9
+Year 4,Summer Term,7,Citizenship,"Pressure groups: meaning, examples, importance of pressure groups",8-9
+Year 4,Summer Term,8,Citizenship,Difference between pressure group and political parties: disadvantages of pressure group,8-9
+Year 4,Summer Term,9,Citizenship,Social injustice: meaning and ways people communicate social injustice,8-9
+Year 5,Summer Term,1,Citizenship,"Civil society: meaning, examples and characteristics of civil society",9-10
+Year 5,Summer Term,2,Citizenship,National unity,9-10
+Year 5,Summer Term,3,Citizenship,"Social injustice: meaning, types and ways people communicate social injustice",9-10
+Year 5,Summer Term,4,Citizenship,"War and conflict: meaning, causes and effects",9-10
+Year 5,Summer Term,5,Citizenship,Road to world peace: types of international organization and their common objectives and things involved in making peace,9-10
+Year 5,Summer Term,6,Citizenship,"Law: meaning of law and institutions, role of law in our society",9-10
+Year 5,Summer Term,7,Citizenship,"Influence: meaning, types, causes and effects",9-10
+Year 5,Summer Term,8,Citizenship,Attitude to victims of disaster: natural and un- natural disasters,9-10
+Year 5,Summer Term,9,Citizenship,"Power: definition of terms( power, authority, legitimacy), sources and forms of power",9-10
+Year 1,Summer Term,1,Numeracy,Addition and subtraction of number line,5-6
+Year 1,Summer Term,2,Numeracy,Addition and subtraction of number line,5-6
+Year 1,Summer Term,3,Numeracy,Concept of measurements,5-6
+Year 1,Summer Term,4,Numeracy,Concept of measurements,5-6
+Year 1,Summer Term,5,Numeracy,2 & 3 dimensional shapes,5-6
+Year 1,Summer Term,6,Numeracy,Time,5-6
+Year 1,Summer Term,7,Numeracy,Odd & even numbers,5-6
+Year 1,Summer Term,8,Numeracy,Greater than > & less than<,5-6
+Year 1,Summer Term,9,Numeracy,Fraction,5-6
+Year 2,Summer Term,1,Numeracy,"Shapes: 2D & 3D shapes recognition used, mathematical names description of some features ( faces, edges)",6-7
+Year 2,Summer Term,2,Numeracy,"Time: 0'clock, minutes past, minutes ½ and ¼",6-7
+Year 2,Summer Term,3,Numeracy,Roman numerals: 1-100,6-7
+Year 2,Summer Term,4,Numeracy,Division of 3 digit number by 1 digit number without remainder,6-7
+Year 2,Summer Term,5,Numeracy,Measurements -- length: standard and non- standard units and estimation. Conversion -- metre and centimetre. Addition and subtraction,6-7
+Year 2,Summer Term,6,Numeracy,Measurements -- area: recognition and shaping and comparison areas of various objects and shapes -- finding area of squares and rectangles,6-7
+Year 2,Summer Term,7,Numeracy,"Measurements -- perimeter : recognition and description, addition of sides ( using standard units to find perimeter of rectangles, squares, triangles )",6-7
+Year 2,Summer Term,8,Numeracy,"Measurements -- capacity / weight: direct comparison using standard and non-standard units (cl, l), addition of cl and l with sun not more than, subtraction from numbers up to 10cl or l",6-7
+Year 2,Summer Term,9,Numeracy,"Geometry -- symmetry : concept of symmetry, identifying symmetrical shapes, lines of symmetry in various objects, folding various plane shapes along their lines of symmetry; finding the number of lines of symmetry in various shapes",6-7
+Year 3,Summer Term,1,Numeracy,"2D and 3D shapes: identification of right angle, ∆, recognition of shapes with units of symmetry deriving and using the formulae",7-8
+Year 3,Summer Term,2,Numeracy,"Area: meaning and units of measurement of areas, areas of rectangles and squares, word problems involving area",7-8
+Year 3,Summer Term,3,Numeracy,"Plane shapes: identification of shapes in symmetry and non- symmetry lines, locations of lines of symmetry of different shapes",7-8
+Year 3,Summer Term,4,Numeracy,"Construction of plane shapes: identification of right, acute, obtuse",7-8
+Year 3,Summer Term,5,Numeracy,Compass bearing: meaning construction and Q/R's in compass bearing,7-8
+Year 3,Summer Term,6,Numeracy,"Measurements: time -- identification and reading of clock to ½ hr and ¼ hr, telling time in minutes, changing seconds to minutes and minutes to seconds, word problem on time",7-8
+Year 3,Summer Term,7,Numeracy,"Measurements: length -- changing from centimetre to metre and metre to centimetre, addition and subtraction of kilometer and meter, multiplication and division of length, word problem on length",7-8
+Year 3,Summer Term,8,Numeracy,"Measurements: capacity and its units of measurement, words problems in addition and subtraction, word problem in multiplication and division of litres",7-8
+Year 3,Summer Term,9,Numeracy,"Statistics -- data representation preparation and reading of pictogram, bar chart or graph and mode, tally",7-8
+Year 4,Summer Term,1,Numeracy,Decimal fraction: addition and subtraction of decimal fraction including word problem,8-9
+Year 4,Summer Term,2,Numeracy,Decimal fraction: multiplication and division of decimal fraction including word problem,8-9
+Year 4,Summer Term,3,Numeracy,"Shapes: classification of polygons using criteria such as number of right angles, regular or irregular, symmetrical property e.t.c",8-9
+Year 4,Summer Term,4,Numeracy,Volume of a cube and cuboid including property,8-9
+Year 4,Summer Term,5,Numeracy,"Data presentation: bar chart, pictogram, histogram -- extracting and interpreting information presented in simple tables and list",8-9
+Year 4,Summer Term,6,Numeracy,"Measurements of central tendency: mean, median and mode",8-9
+Year 4,Summer Term,7,Numeracy,"Probability: understand and learn simple vocabularies including 'or', 'certain , likely: tossing of coins, throwing of dice, preparing tally from the data and others choices of events in daily life activities",8-9
+Year 4,Summer Term,8,Numeracy,"Measurements: length, mass, capacity, use of addition and subtraction",8-9
+Year 4,Summer Term,9,Numeracy,"Structure of the earth -- introduction of shapes that are spherical, shape of the earth, volume of the globe, comparing volume of a sphere and cuboid, Q/R involving, volume of sphere and cuboid",8-9
+Year 5,Summer Term,1,Numeracy,"Rate: speed, distance and time",9-10
+Year 5,Summer Term,2,Numeracy,Taxes and rate -- income tax,9-10
+Year 5,Summer Term,3,Numeracy,"Capacity and weight : conversion, addition, subtraction, multiplication and division, word problems",9-10
+Year 5,Summer Term,4,Numeracy,"Algebra: factorization, four operation, forming simple equation, use of brackets, word problems",9-10
+Year 5,Summer Term,5,Numeracy,"Lines and angles: lines, triangles, mathematical problems on lines, ( opposite, corresponding angles) and angles",9-10
+Year 5,Summer Term,6,Numeracy,Length and Pythagoras theorem,9-10
+Year 5,Summer Term,7,Numeracy,"Geometry: position, direction, motion, properties of plane and solid shapes",9-10
+Year 5,Summer Term,8,Numeracy,Compound interest,9-10
+Year 5,Summer Term,9,Numeracy,"Number base: denary or decimal base, counting in base two, conversion from binary to decimal system, conversion from decimal to binary system. Addition and subtraction in base two",9-10
+Year 1,Summer Term,1,Literacy,Alphabetical order,5-6
+Year 1,Summer Term,2,Literacy,Parts of speech,5-6
+Year 1,Summer Term,3,Literacy,Verb tenses,5-6
+Year 1,Summer Term,4,Literacy,Adjectives,5-6
+Year 1,Summer Term,5,Literacy,Adverbs,5-6
+Year 1,Summer Term,6,Literacy,Synonyms,5-6
+Year 1,Summer Term,7,Literacy,Antonyms,5-6
+Year 1,Summer Term,8,Literacy,Plural,5-6
+Year 1,Summer Term,9,Literacy,Speech marks,5-6
+Year 2,Summer Term,1,Literacy,Verb tenses: expressing future action using present continuous tense to replace shall it will,6-7
+Year 2,Summer Term,2,Literacy,"Modal auxiliary: expressing obligation- ought to, have to, has to should, could, must, shall",6-7
+Year 2,Summer Term,3,Literacy,Asking for permission using CAN or MAY in asking for permission to show politeness,6-7
+Year 2,Summer Term,4,Literacy,Sentences,6-7
+Year 2,Summer Term,5,Literacy,"Demonstrative: the use of this, these, that and those",6-7
+Year 2,Summer Term,6,Literacy,Synonyms,6-7
+Year 2,Summer Term,7,Literacy,Antonyms,6-7
+Year 2,Summer Term,8,Literacy,"Articles : A, AN and THE",6-7
+Year 2,Summer Term,9,Literacy,Root words and compound words,6-7
+Year 3,Summer Term,1,Literacy,"Tenses -- present perfect tense and uses, past perfect tense and uses",7-8
+Year 3,Summer Term,2,Literacy,"Adjectives: meaning, identifying of adjectives and degrees of comparing adjectives",7-8
+Year 3,Summer Term,3,Literacy,Active and passive sentences,7-8
+Year 3,Summer Term,4,Literacy,Direct and indirect speech,7-8
+Year 3,Summer Term,5,Literacy,"Punctuation: full stop (.), Apostrophe () comma ()",7-8
+Year 3,Summer Term,6,Literacy,Antonyms and synonyms,7-8
+Year 3,Summer Term,7,Literacy,"Subject and predicate, pronouns",7-8
+Year 3,Summer Term,8,Literacy,Word formation: prefixes and suffixes,7-8
+Year 3,Summer Term,9,Literacy,"Figure of speech: simile, metaphor, pun, hyperbole and personification",7-8
+Year 4,Summer Term,1,Literacy,Structuring argument,8-9
+Year 4,Summer Term,2,Literacy,"Sentences structures: simple, compound and complex",8-9
+Year 4,Summer Term,3,Literacy,Stress in English Language,8-9
+Year 4,Summer Term,4,Literacy,Positive and negative statement,8-9
+Year 4,Summer Term,5,Literacy,Conjunction,8-9
+Year 4,Summer Term,6,Literacy,Contractions,8-9
+Year 4,Summer Term,7,Literacy,Direct and indirect speech,8-9
+Year 4,Summer Term,8,Literacy,"Tenses -- present continuous, past continuous, present perfect and past perfect",8-9
+Year 4,Summer Term,9,Literacy,Classes of word,8-9
+Year 5,Summer Term,1,Literacy,Punctuation,9-10
+Year 5,Summer Term,2,Literacy,The use of comma's in complex sentences,9-10
+Year 5,Summer Term,3,Literacy,Idiomatic expressions and proverbs,9-10
+Year 5,Summer Term,4,Literacy,Synonyms and antonyms,9-10
+Year 5,Summer Term,5,Literacy,Homonyms and homophones,9-10
+Year 5,Summer Term,6,Literacy,Phrases and clauses,9-10
+Year 5,Summer Term,7,Literacy,Connectives,9-10
+Year 5,Summer Term,8,Literacy,Figure of speech,9-10
+Year 5,Summer Term,9,Literacy,Essay writing,9-10
+Year 1,Summer Term,1,Basic Science,Human body,5-6
+Year 1,Summer Term,2,Basic Science,Floating and sinking objects,5-6
+Year 1,Summer Term,3,Basic Science,Living and nonliving things,5-6
+Year 1,Summer Term,4,Basic Science,Plants,5-6
+Year 1,Summer Term,5,Basic Science,Animals around us,5-6
+Year 1,Summer Term,6,Basic Science,Electricity,5-6
+Year 1,Summer Term,7,Basic Science,Light -- dangers of light,5-6
+Year 1,Summer Term,8,Basic Science,Sound,5-6
+Year 1,Summer Term,9,Basic Science,Force -- push and pull,5-6
+Year 2,Summer Term,1,Basic Science,Electricity -- safety use of electricity,6-7
+Year 2,Summer Term,2,Basic Science,Force -- push and pull,6-7
+Year 2,Summer Term,3,Basic Science,"Science of gravity: meaning, discovery of gravitational force and importance",6-7
+Year 2,Summer Term,4,Basic Science,Human body -- meaning and parts,6-7
+Year 2,Summer Term,5,Basic Science,"Human body -- uses of body parts e.g brain, throat, nostrils, ankles and knees e.t.c",6-7
+Year 2,Summer Term,6,Basic Science,"Water -- water cycle, contamination and purification of water",6-7
+Year 2,Summer Term,7,Basic Science,"Mechanical gadgets -- meaning , examples and uses of simple machine",6-7
+Year 2,Summer Term,8,Basic Science,Concept of pulley and lever,6-7
+Year 2,Summer Term,9,Basic Science,"Matter: meaning and forms , concept of mass and weight",6-7
+Year 3,Summer Term,1,Basic Science,"Evaporation: meaning, experiments on evaporation, what happens in the evaporated water in the atmosphere, why rain falls and process of precipitation",7-8
+Year 3,Summer Term,2,Basic Science,"Forces and magnet: meaning, types identification of magnetic and non-magnetic materials",7-8
+Year 3,Summer Term,3,Basic Science,"Insulator and conductor : insulator -- rubbers, wood, foam e.t.c conductors -- most metals -- gold silver and cooper",7-8
+Year 3,Summer Term,4,Basic Science,"Volume: meaning, measuring volume of liquid and measuring volume of irregular solid",7-8
+Year 3,Summer Term,5,Basic Science,"Mass and weight: meaning, differences, similarities and standard units of measurement",7-8
+Year 3,Summer Term,6,Basic Science,"Acid and base: meaning, examples and uses",7-8
+Year 3,Summer Term,7,Basic Science,"Animals and humans: identification of animals, nutrition, ways water and nutrients are transported in animals/ humans",7-8
+Year 3,Summer Term,8,Basic Science,Skeletal and muscular system: meaning and locations in body and functions,7-8
+Year 3,Summer Term,9,Basic Science,"Fruits: meaning, how fruits develop and classification of fruit with examples",7-8
+Year 4,Summer Term,1,Basic Science,Heat: meaning and sources,8-9
+Year 4,Summer Term,2,Basic Science,"Heat transfer processes: radiation, induction, convection",8-9
+Year 4,Summer Term,3,Basic Science,"Rock: meaning, types and uses",8-9
+Year 4,Summer Term,4,Basic Science,"Types of rock : formation, properties and examples of each",8-9
+Year 4,Summer Term,5,Basic Science,"Effects of force: change shape, direction and position",8-9
+Year 4,Summer Term,6,Basic Science,"Hereditary: meaning, dominant and recessive genes, explore family tree resemblance and some characteristics that are passed onto off springs",8-9
+Year 4,Summer Term,7,Basic Science,"Blood and circulation: meaning of circulatory system, functions of the blood vessels and hearts",8-9
+Year 4,Summer Term,8,Basic Science,"Digestive system: meaning, parts, proper nutrients/ exercise",8-9
+Year 4,Summer Term,9,Basic Science,"Water cycle: meaning, elements, formation of rain, dew must, fog e.t.c ( diagram)",8-9
+Year 5,Summer Term,1,Basic Science,"Evolution: meaning, evidence of evolution, identifying how plants and animals including humans resemble the parents in many features",9-10
+Year 5,Summer Term,2,Basic Science,"Genetics: meaning, law of genetics, recessive and dominant genes",9-10
+Year 5,Summer Term,3,Basic Science,"Vaccination: meaning, types and importance",9-10
+Year 5,Summer Term,4,Basic Science,"Air: meaning, properties and composition",9-10
+Year 5,Summer Term,5,Basic Science,"Light: meaning, how light is formed, how light travels, formation of rainbow, reflection and refraction",9-10
+Year 5,Summer Term,6,Basic Science,"Measurements: meaning, standard units, types and units, olden days measurements",9-10
+Year 5,Summer Term,7,Basic Science,"Viruses and bacteria: meaning, examples, diseases caused by viruses and bacteria",9-10
+Year 5,Summer Term,8,Basic Science,"Magnetism: meaning, characteristics, magnetic and non-magnetic materials with e.g use of magnet",9-10
+Year 5,Summer Term,9,Basic Science,"Saponification: meaning, processes and uses of soap",9-10
+Year 1,Summer Term,1,Agricultural Science,Farm animals,5-6
+Year 1,Summer Term,2,Agricultural Science,Homes ( habitat),5-6
+Year 1,Summer Term,3,Agricultural Science,Uses of farm animals,5-6
+Year 1,Summer Term,4,Agricultural Science,Gardening -- meaning,5-6
+Year 1,Summer Term,5,Agricultural Science,Pest in our garden,5-6
+Year 1,Summer Term,6,Agricultural Science,Pest control,5-6
+Year 1,Summer Term,7,Agricultural Science,Rodents,5-6
+Year 1,Summer Term,8,Agricultural Science,Useful insects in our garden -- pollination,5-6
+Year 1,Summer Term,9,Agricultural Science,Farm tools and their uses,5-6
+Year 2,Summer Term,1,Agricultural Science,"Ornamental crops: meaning, stages in raising ornamental crops, plants nursery, acts of transplanting",6-7
+Year 2,Summer Term,2,Agricultural Science,"Food processing: meaning, stages of food processing, importance of food processing",6-7
+Year 2,Summer Term,3,Agricultural Science,"Life cycle of plants: meaning of life cycle, different life cycle of plants, their meaning and time",6-7
+Year 2,Summer Term,4,Agricultural Science,"Farm insects- definition of farm insect, examples of useful farm insect ( butterflies, bees, termites, praying mantis), usefulness of insects",6-7
+Year 2,Summer Term,5,Agricultural Science,"Rodents -- meaning and description of rodent, examples of rodents",6-7
+Year 2,Summer Term,6,Agricultural Science,"Method of controlling rodents: shooting, trapping, poisoning, proper storage",6-7
+Year 2,Summer Term,7,Agricultural Science,"Farmer's friend ( earthworm): meaning of farmer's friend, usefulness of farmer's friend",6-7
+Year 2,Summer Term,8,Agricultural Science,Harmful insects: definition and examples,6-7
+Year 2,Summer Term,9,Agricultural Science,"Useful but harmful insects: examples of harmful insects e.g ants, bees, termites, damages caused by harmful insects",6-7
+Year 3,Summer Term,1,Agricultural Science,"Soil: meaning, types, properties and importance of each type",7-8
+Year 3,Summer Term,2,Agricultural Science,"Soil fertility: meaning, ways of improving soil fertility and importance of soil fertility",7-8
+Year 3,Summer Term,3,Agricultural Science,Soil texture: meaning and importance of soil texture,7-8
+Year 3,Summer Term,4,Agricultural Science,Soil structure: meaning and importance,7-8
+Year 3,Summer Term,5,Agricultural Science,Soil profile: meaning and importance,7-8
+Year 3,Summer Term,6,Agricultural Science,"Agriculture: meaning, types and importance",7-8
+Year 3,Summer Term,7,Agricultural Science,"Branches of agriculture: crop production, livestock/ animals",7-8
+Year 3,Summer Term,8,Agricultural Science,"Agricultural tools: meaning, types and examples",7-8
+Year 3,Summer Term,9,Agricultural Science,Maintenance of agricultural tools,7-8
+Year 4,Summer Term,1,Agricultural Science,"Concept of farm animals/livestock production: meaning, basic requirements for livestock production, types of animal housing, the need of young animals",8-9
+Year 4,Summer Term,2,Agricultural Science,"Concept of farm animals -- procedure or steps in rearing farm animals, bye-product from farm animals",8-9
+Year 4,Summer Term,3,Agricultural Science,"Agricultural tools and equipment: meaning, classification and maintenance",8-9
+Year 4,Summer Term,4,Agricultural Science,"Diseases of farm animals: meaning, examples and control",8-9
+Year 4,Summer Term,5,Agricultural Science,"Parasite: meaning, types, control and economic importance",8-9
+Year 4,Summer Term,6,Agricultural Science,"Crop pest: meaning, types, control and economic importance",8-9
+Year 4,Summer Term,7,Agricultural Science,"Fishery: meaning, types, control and economic importance",8-9
+Year 4,Summer Term,8,Agricultural Science,"Vaccination: meaning, types and importance",8-9
+Year 4,Summer Term,9,Agricultural Science,Forestry,8-9
+Year 5,Summer Term,1,Agricultural Science,"Agricultural marketing -- meaning of market and marketing of agricultural produce, agricultural marketing activities, types of marketing for agricultural produce",9-10
+Year 5,Summer Term,2,Agricultural Science,"Farm records: meaning, types and uses of farm records",9-10
+Year 5,Summer Term,3,Agricultural Science,"Farm records: records keeping, daily farm activities and events, purchase and sales in the farm",9-10
+Year 5,Summer Term,4,Agricultural Science,"Irrigation: meaning, types and importance",9-10
+Year 5,Summer Term,5,Agricultural Science,"Storage and processing: meaning, reasons, facilities and importance",9-10
+Year 5,Summer Term,6,Agricultural Science,Forestry and wildlife conservation,9-10
+Year 5,Summer Term,7,Agricultural Science,"Agricultural policies in Nigeria,: OFN, SAP",9-10
+Year 5,Summer Term,8,Agricultural Science,"Agricultural institute in Nigeria: FRIN, CRIN, IITA, NSPRI",9-10
+Year 5,Summer Term,9,Agricultural Science,Agricultural technology,9-10
+Year 1,Summer Term,1,Computer Studies,"Common devices -- laptop , tab calculator, wrist watch, palmtop and phones",5-6
+Year 1,Summer Term,2,Computer Studies,"Smart phones -- meaning , parts, uses,( how smart are smart phones)",5-6
+Year 1,Summer Term,3,Computer Studies,Part of a mobile phone: examples and how it works,5-6
+Year 1,Summer Term,4,Computer Studies,How mouthpiece and earpiece works,5-6
+Year 1,Summer Term,5,Computer Studies,"Basic steps in using a Computer Studies -- meaning of booting, how to switch/turn on a Computer Studies",5-6
+Year 1,Summer Term,6,Computer Studies,"Common IT devices -- fax my, printer, scanner, light pen",5-6
+Year 1,Summer Term,7,Computer Studies,"Radio and television: meaning, uses, types and how it operates",5-6
+Year 1,Summer Term,8,Computer Studies,"Liquid dispenser -- water dispenser, fuel pumps",5-6
+Year 1,Summer Term,9,Computer Studies,A. T. M,5-6
+Year 2,Summer Term,1,Computer Studies,Storage devices in Computer Studies: meaning and why Computer Studies needs storage devices,6-7
+Year 2,Summer Term,2,Computer Studies,Types of storage devices,6-7
+Year 2,Summer Term,3,Computer Studies,The usefulness of storage devices in Computer Studies,6-7
+Year 2,Summer Term,4,Computer Studies,System unit: meaning and components,6-7
+Year 2,Summer Term,5,Computer Studies,"C.P.U: meaning, parts and components",6-7
+Year 2,Summer Term,6,Computer Studies,"Disk drive: meaning, types and uses; do's and don't when using disk drive",6-7
+Year 2,Summer Term,7,Computer Studies,Information technology: meaning and importance,6-7
+Year 2,Summer Term,8,Computer Studies,Information technology devices -- types and uses of IT devices,6-7
+Year 2,Summer Term,9,Computer Studies,"Computer Studies abbreviation e.g WWW, http, RAM, ROM, CPU, GIGO, CD, DVD",6-7
+Year 3,Summer Term,1,Computer Studies,"Social media: meaning, various platform of social media ( Facebook, website, WhatsApp, Instagram) importance",7-8
+Year 3,Summer Term,2,Computer Studies,"Components of a system units: meaning of disk drive, types of disk drive ( floppy disk, hard disk, C.D, ROM), do's and don't of using a disk drive",7-8
+Year 3,Summer Term,3,Computer Studies,"Storage devices: meaning, types of Computer Studies storage devices -- digital or versatile disk, Read only memory",7-8
+Year 3,Summer Term,4,Computer Studies,Booting in Computer Studies: meaning and types of booting ( cold and warm booting),7-8
+Year 3,Summer Term,5,Computer Studies,"Computer Studies icons: discovering Computer Studies icons, common icons, Computer Studies desktop and practical",7-8
+Year 3,Summer Term,6,Computer Studies,The recycle bin: meaning and features of a recycle bin,7-8
+Year 3,Summer Term,7,Computer Studies,"Floppy disk: identification, description of the floppy diskette and types of diskette",7-8
+Year 3,Summer Term,8,Computer Studies,Introduction to word processing programs: meaning and examples of word processing,7-8
+Year 3,Summer Term,9,Computer Studies,Practical,7-8
+Year 4,Summer Term,1,Computer Studies,"Internet: meaning of internet, parts of internet",8-9
+Year 4,Summer Term,2,Computer Studies,"Internet browser: meaning, uses of internet browser, Identification of internet browser",8-9
+Year 4,Summer Term,3,Computer Studies,Creating a yahoo E-mail account: Gmail,8-9
+Year 4,Summer Term,4,Computer Studies,Uses of internet and benefits of internet,8-9
+Year 4,Summer Term,5,Computer Studies,"Misuse of internet: abuse of internet, effects of abuse of internet in the society",8-9
+Year 4,Summer Term,6,Computer Studies,Sending and receiving emails: practice sending and receiving emails; email addresses,8-9
+Year 4,Summer Term,7,Computer Studies,Reasons for taking care of Computer Studies,8-9
+Year 4,Summer Term,8,Computer Studies,Computer Studies users ( human),8-9
+Year 4,Summer Term,9,Computer Studies,"The three technologies in the web: HTML, URL, HTTP, who invented the web? ( Tim Berners-Lee in the year 1989)",8-9
+Year 5,Summer Term,1,Computer Studies,"IT gadgets -- meaning, classification and examples",9-10
+Year 5,Summer Term,2,Computer Studies,IT gadgets -- uses and operation of IT gadget,9-10
+Year 5,Summer Term,3,Computer Studies,"Search engines -- meaning, types and uses",9-10
+Year 5,Summer Term,4,Computer Studies,"Social networking -- meaning, types and importance",9-10
+Year 5,Summer Term,5,Computer Studies,"Understanding cyber bullying -- meaning of internet, cyber bullying, abuse of internet",9-10
+Year 5,Summer Term,6,Computer Studies,Cyber security -- meaning and,9-10
+Year 5,Summer Term,7,Computer Studies,"IT and society -- meaning, small and large scale application of Computer Studies, misconception of IT, career opportunities",9-10
+Year 5,Summer Term,8,Computer Studies,"Computer Studies language: meaning, uses and examples",9-10
+Year 5,Summer Term,9,Computer Studies,Introduction of forensic,9-10
+Year 1,Summer Term,1,Geography,"Environment -- meaning , beautifying and importance",5-6
+Year 1,Summer Term,2,Geography,"Weather -- meaning , types/seasons, effects of each weather",5-6
+Year 1,Summer Term,3,Geography,Countries and their weather,5-6
+Year 1,Summer Term,4,Geography,"Pollution ( water, air, land ): meaning, types",5-6
+Year 1,Summer Term,5,Geography,"Bush burning: meaning, advantages and disadvantages",5-6
+Year 1,Summer Term,6,Geography,"Flood -- meaning , causes, effects and solutions",5-6
+Year 1,Summer Term,7,Geography,African countries and their capitals,5-6
+Year 1,Summer Term,8,Geography,Seasons around the world,5-6
+Year 1,Summer Term,9,Geography,Notable dates around the world,5-6
+Year 2,Summer Term,1,Geography,"Weather: meaning, types and seasons of the year",6-7
+Year 2,Summer Term,2,Geography,Climate change and its effects,6-7
+Year 2,Summer Term,3,Geography,Population: meaning and importance,6-7
+Year 2,Summer Term,4,Geography,Population census: meaning and types,6-7
+Year 2,Summer Term,5,Geography,Earth: the earth surface and the ozone layer,6-7
+Year 2,Summer Term,6,Geography,Famine: meaning and effects,6-7
+Year 2,Summer Term,7,Geography,Continents of the world,6-7
+Year 2,Summer Term,8,Geography,West Africa countries: names of countries and their capitals,6-7
+Year 2,Summer Term,9,Geography,Excursion,6-7
+Year 3,Summer Term,1,Geography,"Overviews of Africa: African countries and capitals ( Anglophone, Francophone)",7-8
+Year 3,Summer Term,2,Geography,"Natural disasters and man made disasters: meaning of natural and man made disasters, famine and drought",7-8
+Year 3,Summer Term,3,Geography,The rain forest,7-8
+Year 3,Summer Term,4,Geography,The four seasons,7-8
+Year 3,Summer Term,5,Geography,"Important rivers, lakes, highlands in Africa: examples of rivers, highlands and lakes",7-8
+Year 3,Summer Term,6,Geography,Ozone layer,7-8
+Year 3,Summer Term,7,Geography,Major projects on a paper machine map of Africa,7-8
+Year 3,Summer Term,8,Geography,Organic farming: meaning of organic farming,7-8
+Year 4,Summer Term,1,Geography,"Weather and climate: attributes of the weather, seasons in Nigeria, seasons around the world",8-9
+Year 4,Summer Term,2,Geography,"Natural and man made disasters: meaning, types, causes of natural disasters",8-9
+Year 4,Summer Term,3,Geography,"Nigerian Armed forces: Nigerian army, Navy and Air force",8-9
+Year 4,Summer Term,4,Geography,"Voluntary organization; red cross, man o war, boy scout, boys brigade, rotary",8-9
+Year 4,Summer Term,5,Geography,"Security agencies in Nigeria: NPF, FRSC, NSDC, fire service, EFCC, ICPC",8-9
+Year 4,Summer Term,6,Geography,"Locating the national headquarters of the security agencies in Nigeria such as FRSC, ICPC, fire service commission, EFCC, NPF",8-9
+Year 4,Summer Term,7,Geography,Tourism sites in Nigeria,8-9
+Year 4,Summer Term,8,Geography,The early explorers and path finders,8-9
+Year 4,Summer Term,9,Geography,The Boers,8-9
+Year 5,Summer Term,1,Geography,The solar system: meaning and components,9-10
+Year 5,Summer Term,2,Geography,"The movements of the earth- rotation and revolution of the earth, solar and lunar eclipse",9-10
+Year 5,Summer Term,3,Geography,"Environmental problem- erosion, flooding, draught, hurricane, tsunami, tornado and earthquake",9-10
+Year 5,Summer Term,4,Geography,"ECOWAS- meaning, members, and objectives; ECOMOG",9-10
+Year 5,Summer Term,5,Geography,"Tourism in Nigeria: meaning, major tourist centers in Nigeria, economic importance of tourism in Nigeria",9-10
+Year 5,Summer Term,6,Geography,"Terrorism: meaning, causes and effects",9-10
+Year 5,Summer Term,7,Geography,Land transportation,9-10
+Year 5,Summer Term,8,Geography,Communication: modern means of communication,9-10
+Year 5,Summer Term,9,Geography,Some inventors and their discoveries,9-10
+Year 1,Summer Term,1,Christian Religious Knowledge,Abraham -- God's promise to Abraham and the fulfilment,5-6
+Year 1,Summer Term,2,Christian Religious Knowledge,Who is a Christian and how to become a Christian?,5-6
+Year 1,Summer Term,3,Christian Religious Knowledge,What a Christian does and what a Christian should not do,5-6
+Year 1,Summer Term,4,Christian Religious Knowledge,God our father -- the joy of having God as our father,5-6
+Year 1,Summer Term,5,Christian Religious Knowledge,Talking to God in prayer,5-6
+Year 1,Summer Term,6,Christian Religious Knowledge,How Christians should relate with other people,5-6
+Year 1,Summer Term,7,Christian Religious Knowledge,Benefits of relating with God,5-6
+Year 1,Summer Term,8,Christian Religious Knowledge,Sharing with one another,5-6
+Year 1,Summer Term,9,Christian Religious Knowledge,Thanking God our father,5-6
+Year 2,Summer Term,1,Christian Religious Knowledge,"Jesus teaches us how to behave -- Luke 16:19-31, 10:25-37, Matthew 21:28-31",6-7
+Year 2,Summer Term,2,Christian Religious Knowledge,"God creates everything ( the creation) -- Genesis 1:1-31, 2:2-11",6-7
+Year 2,Summer Term,3,Christian Religious Knowledge,"God creates nation ( the call of Abraham) -- Genesis 12:1-19, 17:1-8, 17:15-21",6-7
+Year 2,Summer Term,4,Christian Religious Knowledge,"The person of Jacob: the birth, relationship between Jacob and Esau, his dream at bethel , the sons of Jacob -- Gen 25:21-34, 28:10-22",6-7
+Year 2,Summer Term,5,Christian Religious Knowledge,"Joseph in Egypt: Joseph in prison -- Gen 37:1-38, 39:1-23, 41:39-46",6-7
+Year 2,Summer Term,6,Christian Religious Knowledge,"Joseph: his relationship with his family, his dreams -- Gen 37:1-38",6-7
+Year 2,Summer Term,7,Christian Religious Knowledge,"Moses the liberator -- Exodus 1:12-18, 2:1-22, 3:2-6",6-7
+Year 2,Summer Term,8,Christian Religious Knowledge,"Judges as leaders -- judges 4,5,6 and 7, 1samuel 7:7-16",6-7
+Year 2,Summer Term,9,Christian Religious Knowledge,"Saul and David as leaders in Israel -- 1 Samuel 10,15,16,17",6-7
+Year 3,Summer Term,1,Christian Religious Knowledge,"Showing hospitality: the need for being hospitable -- Gen 18:1-6, 1 Kings,17:8-16, Luke 10:30, Roman 12:13, Hebrew 13:2",7-8
+Year 3,Summer Term,2,Christian Religious Knowledge,"Showing love and unselfishness: our moral responsibilities -- showing unselfish love to others. The love between Jonathan and David -- 1 Samuel 18:1-13, 25:15-17",7-8
+Year 3,Summer Term,3,Christian Religious Knowledge,"Showing desire for peaceful coexistence -- Gen 13:1-8, Matthew 5:21-25, Gen 31:1-11",7-8
+Year 3,Summer Term,4,Christian Religious Knowledge,Forbearance and understanding -- Gen 26:17-23,7-8
+Year 3,Summer Term,5,Christian Religious Knowledge,"Kindness in action -- Ruth 1:22, 2:1-2, Luke 20:25-35",7-8
+Year 3,Summer Term,6,Christian Religious Knowledge,Helping people in trouble -- Luke 10:30-37,7-8
+Year 3,Summer Term,7,Christian Religious Knowledge,"The blessedness of peace -- Makers -- Matthew 5:19, Acts 9:26-31, Philemon 4:21",7-8
+Year 3,Summer Term,8,Christian Religious Knowledge,"Turning enemies to friends: Isaac in the face of provocation Gen 26:17-23, tolerance and love - proverbs 16:7",7-8
+Year 3,Summer Term,9,Christian Religious Knowledge,Identifying reasons for having peace,7-8
+Year 4,Summer Term,1,Christian Religious Knowledge,"Jesus is with us -- Psalm 121, Matthew 28:20, John 15:1-17, reasons why Jesus is with us",8-9
+Year 4,Summer Term,2,Christian Religious Knowledge,"Using our God given gift: meaning of gift, reasons why God gave us gift, how to use our God given gift",8-9
+Year 4,Summer Term,3,Christian Religious Knowledge,"Christ gives us a new life -- Galatians 5:22-26, Act 16:31-34",8-9
+Year 4,Summer Term,4,Christian Religious Knowledge,"Christ at work in our homes -- Revelation 3:20, Luke 19:5-10, Mark 1:19-32",8-9
+Year 4,Summer Term,5,Christian Religious Knowledge,"Gift and talents are given by God to each person differently: definition of gift and talents, how God give gifts and talents to everyone, how to discover your gift and talents",8-9
+Year 4,Summer Term,6,Christian Religious Knowledge,"The purpose of gift and talents: for his glory to manifest, they are as important as our spiritual gifts",8-9
+Year 4,Summer Term,7,Christian Religious Knowledge,"Parable of talent: definition, how to make use of our talents wisely",8-9
+Year 4,Summer Term,8,Christian Religious Knowledge,"Kindness to others -- Luke 10:29-37, meaning, how to be kind, story of the good Samaritan",8-9
+Year 4,Summer Term,9,Christian Religious Knowledge,"People in need of help in our community -- definition of needy, how we can help the needy around us, importance of helping people in need",8-9
+Year 5,Summer Term,1,Christian Religious Knowledge,"The event of the day of Pentecost -- Act 2:1-14, John 15:7",9-10
+Year 5,Summer Term,2,Christian Religious Knowledge,Holy spirit makes us faithful,9-10
+Year 5,Summer Term,3,Christian Religious Knowledge,"The influence of the holy spirit in our daily lives -- 2 Timothy 1:7, how holy spirit influence our life",9-10
+Year 5,Summer Term,4,Christian Religious Knowledge,The holy spirit makes us to love one another -- God loves is in us through the holy spirit,9-10
+Year 5,Summer Term,5,Christian Religious Knowledge,God sent his son to demonstrate love for us,9-10
+Year 5,Summer Term,6,Christian Religious Knowledge,The importance of loving one another,9-10
+Year 5,Summer Term,7,Christian Religious Knowledge,The reward of work with the holy spirit,9-10
+Year 5,Summer Term,8,Christian Religious Knowledge,The reward of working for God and walking with God,9-10
+Year 5,Summer Term,9,Christian Religious Knowledge,The reward of the Faithful servant -- Matthew 25:14-29.,9-10
+Year 1,Summer Term,1,Home Economics,"Food and fruits for health: meaning, food and fruits in our locality, reasons for eating food for energy activity",5-6
+Year 1,Summer Term,2,Home Economics,Classes of food,5-6
+Year 1,Summer Term,3,Home Economics,"The immune system: the ultimate body protection, pathogens as major invaders that attack the body, the castle wall",5-6
+Year 1,Summer Term,4,Home Economics,"Food safety: meaning, method / ways of preserving our food, importance of food preservation",5-6
+Year 1,Summer Term,5,Home Economics,"The home and its surroundings: meaning of home, tools and materials used for cleaning",5-6
+Year 1,Summer Term,6,Home Economics,Practical ways of cleaning the homes and surrounding: maintenance of tools used for cleaning,5-6
+Year 1,Summer Term,7,Home Economics,"Toilet: meaning, types and items found in the toilet",5-6
+Year 1,Summer Term,8,Home Economics,Toilet hygiene: practical ways of cleaning the toilet,5-6
+Year 1,Summer Term,9,Home Economics,"Home beautification: meaning, uses of natural and artificial flowers for beautification",5-6
+Year 2,Summer Term,1,Home Economics,Beautifying our surroundings: use of ornamental plant,6-7
+Year 2,Summer Term,2,Home Economics,Home furnishings practical: meaning and ways,6-7
+Year 2,Summer Term,3,Home Economics,Qualities of a clean environment,6-7
+Year 2,Summer Term,4,Home Economics,"Food and fruits in the locality: meaning, examples and functions",6-7
+Year 2,Summer Term,5,Home Economics,"Under and over feeding: meaning, causes and effects",6-7
+Year 2,Summer Term,6,Home Economics,Leftovers food: meaning and method of keeping leftovers food,6-7
+Year 2,Summer Term,7,Home Economics,Communicable and non Communicable diseases,6-7
+Year 2,Summer Term,8,Home Economics,Food and nutrition: practical,6-7
+Year 2,Summer Term,9,Home Economics,Home cleaning: practical,6-7
+Year 3,Summer Term,1,Home Economics,"Communicable and non Communicable diseases: meaning, examples, causes, effects and solutions",7-8
+Year 3,Summer Term,2,Home Economics,"Immunization: meaning, types and health importance",7-8
+Year 3,Summer Term,3,Home Economics,Nutritional value: meaning and composition of selected food products,7-8
+Year 3,Summer Term,4,Home Economics,"Enzymes: meaning, examples and functions",7-8
+Year 3,Summer Term,5,Home Economics,Nutrients deficiency diseases: meaning and examples,7-8
+Year 3,Summer Term,6,Home Economics,"Cooking method: meaning, various cooking method",7-8
+Year 3,Summer Term,7,Home Economics,"Cooking tools: meaning, classes and uses",7-8
+Year 3,Summer Term,8,Home Economics,"Home management skills: meaning, sweeping, dusting, mopping, washing",7-8
+Year 3,Summer Term,9,Home Economics,Practical,7-8
+Year 4,Summer Term,1,Home Economics,Care and maintenance of clothing,8-9
+Year 4,Summer Term,2,Home Economics,"Laundry: meaning, materials and tools",8-9
+Year 4,Summer Term,3,Home Economics,Various rooms in the home,8-9
+Year 4,Summer Term,4,Home Economics,"Food processing: meaning, processing of selected food",8-9
+Year 4,Summer Term,5,Home Economics,Identification of clothing for different occasions,8-9
+Year 4,Summer Term,6,Home Economics,"Household pest: meaning, examples and dangers",8-9
+Year 4,Summer Term,7,Home Economics,"Personal grooming: meaning, identification and functions of each parts of the body",8-9
+Year 4,Summer Term,8,Home Economics,"Personal hygiene: meaning, ways and importance",8-9
+Year 4,Summer Term,9,Home Economics,Practical,8-9
+Year 5,Summer Term,1,Home Economics,"Manicure and pedicure- meaning, tools and importance",9-10
+Year 5,Summer Term,2,Home Economics,"Simple sewing tools and equipment: meaning of sewing, tools and equipment used in sewing",9-10
+Year 5,Summer Term,3,Home Economics,Stitches,9-10
+Year 5,Summer Term,4,Home Economics,Knitting and crocheting,9-10
+Year 5,Summer Term,5,Home Economics,Making some relevant article: making of aprons,9-10
+Year 5,Summer Term,6,Home Economics,"Pastries: making doughnuts, puff-puff, buns, meat pie, fish pie, eggroll, sausage rolls",9-10
+Year 5,Summer Term,7,Home Economics,"Physical development: stages of child development, early childhood stage of development, child hood proper stage of development, adolescent stage of development",9-10
+Year 5,Summer Term,8,Home Economics,"Cosmetics and deodorant: meaning, materials and importance",9-10
+Year 5,Summer Term,9,Home Economics,Practical,9-10
+Year 1,Summer Term,1,Vocational Studies,"Preservation of food: meaning, method and importance",5-6
+Year 1,Summer Term,2,Vocational Studies,"Changing raw materials into finished product: meaning, examples of raw materials and it's finished product in a tabular forms",5-6
+Year 1,Summer Term,3,Vocational Studies,"Local instruments that produces sound : meaning, examples, gathering and cutting of local instruments",5-6
+Year 1,Summer Term,4,Vocational Studies,"Things found in the classroom: Meaning, examples and uses",5-6
+Year 1,Summer Term,5,Vocational Studies,"Measurements: meaning, types, instruments and importance",5-6
+Year 1,Summer Term,6,Vocational Studies,"Energy: meaning, types, ways of generating energy",5-6
+Year 1,Summer Term,7,Vocational Studies,Energy: practical ways of generating energy and importance,5-6
+Year 1,Summer Term,8,Vocational Studies,"Vocation: meaning, types and importance",5-6
+Year 1,Summer Term,9,Vocational Studies,Vocational instruments,5-6
+Year 2,Summer Term,1,Vocational Studies,"States of matters: liquid, solid and gas",6-7
+Year 2,Summer Term,2,Vocational Studies,"Raw materials: meaning, types and importance",6-7
+Year 2,Summer Term,3,Vocational Studies,Finished product,6-7
+Year 2,Summer Term,4,Vocational Studies,Modern instruments that produces sound,6-7
+Year 2,Summer Term,5,Vocational Studies,Plumbing: meaning and tools,6-7
+Year 2,Summer Term,6,Vocational Studies,Barbing: meaning and tools,6-7
+Year 2,Summer Term,7,Vocational Studies,Welding: meaning and tools,6-7
+Year 2,Summer Term,8,Vocational Studies,Gathering and cutting of local instruments,6-7
+Year 2,Summer Term,9,Vocational Studies,"Farming: meaning, tools and importance",6-7
+Year 3,Summer Term,1,Vocational Studies,Photography: meaning and tools used in photography,7-8
+Year 3,Summer Term,2,Vocational Studies,"Shoemaking: meaning and tools used in shoemaking, who is a cobbler?",7-8
+Year 3,Summer Term,3,Vocational Studies,Hairdressing: meaning and tools,7-8
+Year 3,Summer Term,4,Vocational Studies,Musical instruments: meaning and various types,7-8
+Year 3,Summer Term,5,Vocational Studies,"Sports: meaning types, career opportunities in sports, equipment used in various sports",7-8
+Year 3,Summer Term,6,Vocational Studies,"Teaching: meaning, qualities of a good teacher, teaching materials/aids",7-8
+Year 3,Summer Term,7,Vocational Studies,Farming: meaning and simple farm tools,7-8
+Year 3,Summer Term,8,Vocational Studies,"Banking: meaning, types of banks, terms and terminologies used in banks",7-8
+Year 3,Summer Term,9,Vocational Studies,Practical: photography,7-8
+Year 4,Summer Term,1,Vocational Studies,"Tailoring: meaning, tools and equipment",8-9
+Year 4,Summer Term,2,Vocational Studies,Blacksmith and goldsmith: meaning and tools,8-9
+Year 4,Summer Term,3,Vocational Studies,"Mining: meaning, tools and equipment",8-9
+Year 4,Summer Term,4,Vocational Studies,"Journalism: meaning, requirements and importance",8-9
+Year 4,Summer Term,5,Vocational Studies,Sound engineering: meaning and tools,8-9
+Year 4,Summer Term,6,Vocational Studies,Viewing gadgets: meaning and various viewing gadgets,8-9
+Year 4,Summer Term,7,Vocational Studies,Printing and publishing: meaning and processes,8-9
+Year 4,Summer Term,8,Vocational Studies,Masonry: meaning and tools,8-9
+Year 4,Summer Term,9,Vocational Studies,Practical: sound production,8-9
+Year 5,Summer Term,1,Vocational Studies,Wood work and joinery,9-10
+Year 5,Summer Term,2,Vocational Studies,Science tools and equipment ( laboratory),9-10
+Year 5,Summer Term,3,Vocational Studies,Constructing tools and equipment ( building and road),9-10
+Year 5,Summer Term,4,Vocational Studies,Basic technical skills: Computer Studies and phone repair (tools),9-10
+Year 5,Summer Term,5,Vocational Studies,Software engineering,9-10
+Year 5,Summer Term,6,Vocational Studies,Freelance broadcasting: meaning and forms,9-10
+Year 5,Summer Term,7,Vocational Studies,Driving: meaning and skills in driving,9-10
+Year 5,Summer Term,8,Vocational Studies,Mechatronics,9-10
+Year 5,Summer Term,9,Vocational Studies,Practical,9-10
+Year 1,Summer Term,1,Physical and Health Education,P -- fundamental dancing steps H -- road accident and causes,5-6
+Year 1,Summer Term,2,Physical and Health Education,P -- dodging H - fire accident and causes,5-6
+Year 1,Summer Term,3,Physical and Health Education,P -- throwing a catching of ball H -- accident at home,5-6
+Year 1,Summer Term,4,Physical and Health Education,P -- bouncing a kicking of ball H -- water accident,5-6
+Year 1,Summer Term,5,Physical and Health Education,P -- swimming H -- first aid and its contents,5-6
+Year 1,Summer Term,6,Physical and Health Education,P- bean -- bag race H -- Qualities of a first aider,5-6
+Year 1,Summer Term,7,Physical and Health Education,P- pocking of imaginary objects H- the sense,5-6
+Year 1,Summer Term,8,Physical and Health Education,P- hopping in and out of hoops H- functions of parts of the body,5-6
+Year 1,Summer Term,9,Physical and Health Education,P- throwing and catching H- revision,5-6
+Year 2,Summer Term,1,Physical and Health Education,P- throwing and catching at chest level H- conditions conducive to sleep and rest,6-7
+Year 2,Summer Term,2,Physical and Health Education,P- wheel barrow push H- what is balance diet,6-7
+Year 2,Summer Term,3,Physical and Health Education,P- forward roll H- what is food hygiene,6-7
+Year 2,Summer Term,4,Physical and Health Education,P- crab walk H- good way of eating,6-7
+Year 2,Summer Term,5,Physical and Health Education,P- sit up with and without partners H- accident and its classification,6-7
+Year 2,Summer Term,6,Physical and Health Education,P- cart wheels H- care of our food,6-7
+Year 2,Summer Term,7,Physical and Health Education,P- push up H- care of the ear,6-7
+Year 2,Summer Term,8,Physical and Health Education,P- kicking of balls H- safety and accident prevention,6-7
+Year 2,Summer Term,9,Physical and Health Education,P-bouncing of balls H- revision,6-7
+Year 3,Summer Term,1,Physical and Health Education,P- knee boxing/balancing H- road accident and causes,7-8
+Year 3,Summer Term,2,Physical and Health Education,P- sit up with partner H- how we can keep our community clean,7-8
+Year 3,Summer Term,3,Physical and Health Education,P- wind mill arm action H- individuals and groups effort to keep the community clean,7-8
+Year 3,Summer Term,4,Physical and Health Education,P- cart wheels H- Communicable diseases and types,7-8
+Year 3,Summer Term,5,Physical and Health Education,P- hop and jump H- prevention and control of communicable diseases,7-8
+Year 3,Summer Term,6,Physical and Health Education,P- throwing and catching at chest level H- care of our food,7-8
+Year 3,Summer Term,7,Physical and Health Education,P- head stand with support H- what we should not do,7-8
+Year 3,Summer Term,8,Physical and Health Education,Head stand without support H- uses of latrine,7-8
+Year 3,Summer Term,9,Physical and Health Education,P- press up H- how to keep our homes and surrounding clean,7-8
+Year 4,Summer Term,1,Physical and Health Education,P- head stand with support H- care of the ear,8-9
+Year 4,Summer Term,2,Physical and Health Education,Head stand with support H- part of the ear and structure,8-9
+Year 4,Summer Term,3,Physical and Health Education,P- cart wheels H- smoking and its effects,8-9
+Year 4,Summer Term,4,Physical and Health Education,P- forward roll H- first aid and its objectives,8-9
+Year 4,Summer Term,5,Physical and Health Education,P- badminton skills- long and short service H- principles of first aid and qualities of a good aider,8-9
+Year 4,Summer Term,6,Physical and Health Education,P- badminton skills- back hand service H- safety and precautionary measures against accident,8-9
+Year 4,Summer Term,7,Physical and Health Education,P- table tennis- forehand service H- sports injuries and common sport injuries,8-9
+Year 4,Summer Term,8,Physical and Health Education,P- table tennis- back hand service H- wounds and its types,8-9
+Year 4,Summer Term,9,Physical and Health Education,P- singles and doubles in table tennis H- description of common sport injuries,8-9
+Year 5,Summer Term,1,Physical and Health Education,P- dodging H- agencies and organization of health,9-10
+Year 5,Summer Term,2,Physical and Health Education,P- crab walk H- professional health worker and their importance to the community,9-10
+Year 5,Summer Term,3,Physical and Health Education,P- cart wheels H- safety and precautionary measures against accident,9-10
+Year 5,Summer Term,4,Physical and Health Education,P- press up H- smoking and its harmful effects,9-10
+Year 5,Summer Term,5,Physical and Health Education,P- sit up H- wounds and its types,9-10
+Year 5,Summer Term,6,Physical and Health Education,"P- badminton skills -- long and short service, back hand, fore hand skills H -- sprain, signs and symptoms",9-10
+Year 5,Summer Term,7,Physical and Health Education,P- table tennis- fore hand service H- strain and causes,9-10
+Year 5,Summer Term,8,Physical and Health Education,P- table tennis- back hand service H- dislocation signs and symptoms of dislocation,9-10
+Year 5,Summer Term,9,Physical and Health Education,P- singles and doubles in table tennis H- fracture and types of fracture,9-10
+Year 1,Summer Term,1,Cultural and Creative Arts,"Introduction to story telling: meaning, making up a story i.e folktale, role play",5-6
+Year 1,Summer Term,2,Cultural and Creative Arts,"Ceremonies: meaning, types and importance",5-6
+Year 1,Summer Term,3,Cultural and Creative Arts,"National art and cultural festivals: egungun festivals in Oyo state, Abuja carnival, dancers in Anambra state, Eyo masquerade in Lagos",5-6
+Year 1,Summer Term,4,Cultural and Creative Arts,Drawing and painting festivals and carnival,5-6
+Year 1,Summer Term,5,Cultural and Creative Arts,"Modelling- simple objects meaning, types and examples",5-6
+Year 1,Summer Term,6,Cultural and Creative Arts,"Mosaic: meaning, types and importance",5-6
+Year 1,Summer Term,7,Cultural and Creative Arts,Origami,5-6
+Year 1,Summer Term,8,Cultural and Creative Arts,End of the session class decorations,5-6
+Year 1,Summer Term,9,Cultural and Creative Arts,End of the session class decorations,5-6
+Year 2,Summer Term,1,Cultural and Creative Arts,"Story telling: creation of story, dramatic elements in story telling",6-7
+Year 2,Summer Term,2,Cultural and Creative Arts,"Practical: formation of a story, playing a role, dramatize the character of the story",6-7
+Year 2,Summer Term,3,Cultural and Creative Arts,"Pattern making: meaning, methods of making",6-7
+Year 2,Summer Term,4,Cultural and Creative Arts,Practical of making pattern with simple design,6-7
+Year 2,Summer Term,5,Cultural and Creative Arts,"Drawing: meaning, types and materials",6-7
+Year 2,Summer Term,6,Cultural and Creative Arts,"Painting: meaning, types and materials",6-7
+Year 2,Summer Term,7,Cultural and Creative Arts,Practical: drawing and painting of costumes used in carnival and festivals,6-7
+Year 2,Summer Term,8,Cultural and Creative Arts,"Body beautification: meaning, ways and materials",6-7
+Year 2,Summer Term,9,Cultural and Creative Arts,Practical: founder's and decorations,6-7
+Year 3,Summer Term,1,Cultural and Creative Arts,Textile pattern design and traditional fabrics: meaning and types of traditional fabrics,7-8
+Year 3,Summer Term,2,Cultural and Creative Arts,"Importance of traditional fabrics, drawing of traditional fabrics",7-8
+Year 3,Summer Term,3,Cultural and Creative Arts,"Traditional fashion accessories: meaning, types and importance",7-8
+Year 3,Summer Term,4,Cultural and Creative Arts,Drawing and painting fashion accessories ( practical),7-8
+Year 3,Summer Term,5,Cultural and Creative Arts,Fabrics design (batik): meaning and tools for batik,7-8
+Year 3,Summer Term,6,Cultural and Creative Arts,Practical: bead and crown making,7-8
+Year 3,Summer Term,7,Cultural and Creative Arts,"Paper Mache : meaning, tools and materials",7-8
+Year 3,Summer Term,8,Cultural and Creative Arts,Paper Mache: practical,7-8
+Year 4,Summer Term,1,Cultural and Creative Arts,"Local musical instruments: meaning, classification and importance",8-9
+Year 4,Summer Term,2,Cultural and Creative Arts,"Foreign musical instruments: meaning, classification and importance",8-9
+Year 4,Summer Term,3,Cultural and Creative Arts,"Musical instruments: practical- playing musical instruments such as piano, guitar, talking drum e.t.c",8-9
+Year 4,Summer Term,4,Cultural and Creative Arts,"Still life drawing: meaning and examples, techniques used and steps taken when drawing still life objects",8-9
+Year 4,Summer Term,5,Cultural and Creative Arts,"Introduction to theatre and drama: meaning of drama and roles of actors/actress in drama, meaning of theatre, differences between theatre and drama",8-9
+Year 4,Summer Term,6,Cultural and Creative Arts,"Dances of the locality: elements and uses of dance, features of traditional dance, some Nigeria traditional dance",8-9
+Year 4,Summer Term,7,Cultural and Creative Arts,"Body movements in dance: meaning and principles, movements to music and rhythms",8-9
+Year 4,Summer Term,8,Cultural and Creative Arts,"Introduction to play acting: meaning and terminologies used in play acting e.g character, impersonation, costume, role play",8-9
+Year 4,Summer Term,9,Cultural and Creative Arts,Classes of characters,8-9
+Year 5,Summer Term,1,Cultural and Creative Arts,"Casting: meaning, process and personnel",9-10
+Year 5,Summer Term,2,Cultural and Creative Arts,"Rehearsal: meaning, types and importance",9-10
+Year 5,Summer Term,3,Cultural and Creative Arts,Introduction to staging a play: meaning and roles of director in staging a play,9-10
+Year 5,Summer Term,4,Cultural and Creative Arts,Portrait painting : practical,9-10
+Year 5,Summer Term,5,Cultural and Creative Arts,"Nigerian local architecture: meaning, forms and materials used in building traditional houses in Nigeria",9-10
+Year 5,Summer Term,6,Cultural and Creative Arts,"Nigerian local architecture: the purpose, the basic consideration and areas where local architectural design can be found",9-10
+Year 5,Summer Term,7,Cultural and Creative Arts,"Collage: meaning, materials, functions and steps in making collage",9-10
+Year 5,Summer Term,8,Cultural and Creative Arts,"Musical notes: meaning, names of musical note and singing the scale in sofa notation (d:r:m:f:s:l:t:d)",9-10
+Year 5,Summer Term,9,Cultural and Creative Arts,Practical: land scape painting,9-10
