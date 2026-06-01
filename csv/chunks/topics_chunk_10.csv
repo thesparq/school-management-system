@@ -1,0 +1,301 @@
+class,term,week,subject,topic,agegroup,context,generated
+Year 1,Noel Term,8,Creative Writing,"My favorite food",5-6,"",false
+Year 1,Noel Term,9,Creative Writing,"All about lies",5-6,"",false
+Year 1,Noel Term,1,Cultural and Creative Arts,"Introduction to Arts and Culture: Meaning and Branches",5-6,"",false
+Year 1,Noel Term,2,Cultural and Creative Arts,"Shapes and sizes -- Identification of different shapes, drawing basic shapes, sizes of object (big and small) rectangle and circle",5-6,"",false
+Year 1,Noel Term,3,Cultural and Creative Arts,"Drawing and painting shaped object of different sizes e.g. Ruler, chalk etc. (practical)",5-6,"",false
+Year 1,Noel Term,4,Cultural and Creative Arts,"Element of design: lines, recognition of straight lines",5-6,"",false
+Year 1,Noel Term,5,Cultural and Creative Arts,"Art and materials: Identification, uses, drawing of each materials",5-6,"",false
+Year 1,Noel Term,6,Cultural and Creative Arts,"Functional art: meaning and types, colouring functional artwork",5-6,"",false
+Year 1,Noel Term,7,Cultural and Creative Arts,"Introduction to craft making: meaning, types and materials",5-6,"",false
+Year 1,Noel Term,8,Cultural and Creative Arts,"Types of Craft: paper craft, meaning, materials and types, embroidery, crafts in the home, drawing of craft items or materials (beads, local mats, local clay pot, woven clothes), fabric craft",5-6,"",false
+Year 1,Noel Term,9,Cultural and Creative Arts,"Practical (Christmas celebration)",5-6,"",false
+Year 1,Noel Term,1,Geography,"Geography: meaning and why we study geography",5-6,"",false
+Year 1,Noel Term,2,Geography,"The school environment: meaning of environment and school environment, things that can be found in school environment",5-6,"",false
+Year 1,Noel Term,3,Geography,"States in Nigeria and their capitals",5-6,"",false
+Year 1,Noel Term,4,Geography,"The seven continents of the world",5-6,"",false
+Year 1,Noel Term,5,Geography,"Rivers: meaning and rivers in Nigeria",5-6,"",false
+Year 1,Noel Term,6,Geography,"Ocean: meaning and oceans in Nigeria",5-6,"",false
+Year 1,Noel Term,7,Geography,"Desert: meaning and desert in Nigeria",5-6,"",false
+Year 1,Noel Term,8,Geography,"Island: meaning and island in Nigeria",5-6,"",false
+Year 1,Noel Term,9,Geography,"Tourism: meaning, who is a tourist? Tourist sites in Nigeria",5-6,"",false
+Year 1,Noel Term,1,History,"Introduction to history: meaning and importance",5-6,"",false
+Year 1,Noel Term,2,History,"Facts about history",5-6,"",false
+Year 1,Noel Term,3,History,"Branches of History",5-6,"",false
+Year 1,Noel Term,4,History,"Transportation in the past and now",5-6,"",false
+Year 1,Noel Term,5,History,"Communication in the past and now",5-6,"",false
+Year 1,Noel Term,6,History,"The tallest building in Nigeria",5-6,"",false
+Year 1,Noel Term,7,History,"The first storey building in Nigeria",5-6,"",false
+Year 1,Noel Term,8,History,"Food in the past and now",5-6,"",false
+Year 1,Noel Term,9,History,"Clothing in the past and now",5-6,"",false
+Year 1,Noel Term,1,Home Economics,"The human body: meaning, identifying the body parts and their functions",5-6,"",false
+Year 1,Noel Term,2,Home Economics,"Personal hygiene: meaning, ways and importance",5-6,"",false
+Year 1,Noel Term,3,Home Economics,"Household equipments: meaning, examples and simple ways of taking care of household equipments",5-6,"",false
+Year 1,Noel Term,4,Home Economics,"Exercise: meaning, examples and importance",5-6,"",false
+Year 1,Noel Term,5,Home Economics,"Rest and sleep: meaning and importance",5-6,"",false
+Year 1,Noel Term,6,Home Economics,"Rooms in the house: meaning, types and functions",5-6,"",false
+Year 1,Noel Term,7,Home Economics,"Ventilations in our homes: meaning and importance",5-6,"",false
+Year 1,Noel Term,8,Home Economics,"Food and its functions",5-6,"",false
+Year 1,Noel Term,9,Home Economics,"Practical ( table setting)",5-6,"",false
+Year 1,Noel Term,1,Literacy,"Rainbow capitals: capital letters",5-6,"",false
+Year 1,Noel Term,2,Literacy,"Sentences making and stinking",5-6,"",false
+Year 1,Noel Term,3,Literacy,"Alphabetical orders",5-6,"",false
+Year 1,Noel Term,4,Literacy,"Singular and plural",5-6,"",false
+Year 1,Noel Term,5,Literacy,"Nouns: meaning, types and examples",5-6,"",false
+Year 1,Noel Term,6,Literacy,"Proper nouns and common nouns",5-6,"",false
+Year 1,Noel Term,7,Literacy,"Countable and uncountable nouns",5-6,"",false
+Year 1,Noel Term,8,Literacy,"Pronoun",5-6,"",false
+Year 1,Noel Term,9,Literacy,"Article 'A' 'An'",5-6,"",false
+Year 1,Noel Term,1,Moral Instructions,"Good manners",5-6,"",false
+Year 1,Noel Term,2,Moral Instructions,"Obedience: meaning of obedience and importance of obedience",5-6,"",false
+Year 1,Noel Term,3,Moral Instructions,"How to show courtesy to others",5-6,"",false
+Year 1,Noel Term,4,Moral Instructions,"Courtesy at home",5-6,"",false
+Year 1,Noel Term,5,Moral Instructions,"Courtesy at school",5-6,"",false
+Year 1,Noel Term,6,Moral Instructions,"Courtesy in speaking",5-6,"",false
+Year 1,Noel Term,7,Moral Instructions,"Kindness: meaning, importance and ways to show kindness",5-6,"",false
+Year 1,Noel Term,8,Moral Instructions,"Respect: meaning and importance of respect",5-6,"",false
+Year 1,Noel Term,9,Moral Instructions,"Integrity",5-6,"",false
+Year 1,Noel Term,1,Numeracy,"Whole numbers 1-1000: identification, reading, and writing",5-6,"",false
+Year 1,Noel Term,2,Numeracy,"Writing of 1-1000 in words",5-6,"",false
+Year 1,Noel Term,3,Numeracy,"Ordering of numbers using greater than(>), less than (<), and equals to (=)",5-6,"",false
+Year 1,Noel Term,4,Numeracy,"Place value up to 100 (H, T, U)",5-6,"",false
+Year 1,Noel Term,5,Numeracy,"Addition of three digit numbers (without remaining)",5-6,"",false
+Year 1,Noel Term,6,Numeracy,"Subtraction of three digit numbers (without remaining)",5-6,"",false
+Year 1,Noel Term,7,Numeracy,"Multiplication of numbers",5-6,"",false
+Year 1,Noel Term,8,Numeracy,"Division of numbers",5-6,"",false
+Year 1,Noel Term,9,Numeracy,"Open sentences",5-6,"",false
+Year 1,Noel Term,1,Physical and Health Education,"P- what is physical education H- Parts of the body and functions",5-6,"",false
+Year 1,Noel Term,2,Physical and Health Education,"P- Aims and objectives of physical education H- Care of the body: part of the body and how to care for the body",5-6,"",false
+Year 1,Noel Term,3,Physical and Health Education,"P- Athletics : meaning and examples H- care of the teeth: meaning and types of teeth",5-6,"",false
+Year 1,Noel Term,4,Physical and Health Education,"P- Athletics: benefits of athletics H- Care of the eye",5-6,"",false
+Year 1,Noel Term,5,Physical and Health Education,"P- Athletics: track event H- care of the ears: meaning and parts of the ears",5-6,"",false
+Year 1,Noel Term,6,Physical and Health Education,"P- sprints and types of sprint( 50 meters, 100 meters) H- Care of clothing",5-6,"",false
+Year 1,Noel Term,7,Physical and Health Education,"P- phases and features of sprints race H- care of the classroom",5-6,"",false
+Year 1,Noel Term,8,Physical and Health Education,"P- rules guiding sprint race H- care of the school environment",5-6,"",false
+Year 1,Noel Term,9,Physical and Health Education,"P- standing broad jump H-Care of the toilet",5-6,"",false
+Year 1,Noel Term,1,Social Studies,"Social studies- meaning, the study of man and how his problem are solved in the environment",5-6,"",false
+Year 1,Noel Term,2,Social Studies,"Understanding the physical environment -- meaning , components and types",5-6,"",false
+Year 1,Noel Term,3,Social Studies,"Culture -- meaning , types, element, difference and importance",5-6,"",false
+Year 1,Noel Term,4,Social Studies,"Food: meaning, types and sources",5-6,"",false
+Year 1,Noel Term,5,Social Studies,"Food safety: meaning, importance and guides to food safety",5-6,"",false
+Year 1,Noel Term,6,Social Studies,"Religion -- meaning , types, how culture is related to religion",5-6,"",false
+Year 1,Noel Term,7,Social Studies,"Family -- meaning , types, duties of the family members and qualities of a good family",5-6,"",false
+Year 1,Noel Term,8,Social Studies,"Moral values -- meaning , types, good and bad moral values",5-6,"",false
+Year 1,Noel Term,9,Social Studies,"Greeting & respecting elders in our culture",5-6,"",false
+Year 1,Noel Term,1,Vocational Studies,"Vocation: meaning and types",5-6,"",false
+Year 1,Noel Term,2,Vocational Studies,"Vocation: tools used by different vocations and their uses",5-6,"",false
+Year 1,Noel Term,3,Vocational Studies,"The house: meaning, types and importance",5-6,"",false
+Year 1,Noel Term,4,Vocational Studies,"Different rooms in the house and their functions",5-6,"",false
+Year 1,Noel Term,5,Vocational Studies,"Home appliances: meaning, types and uses",5-6,"",false
+Year 1,Noel Term,6,Vocational Studies,"Farm equipment and their uses",5-6,"",false
+Year 1,Noel Term,7,Vocational Studies,"Sanitation: meaning, tools/materials used for sanitation and reasons for sanitation",5-6,"",false
+Year 1,Noel Term,8,Vocational Studies,"Keeping our environment clean: meaning of environment and ways of keeping our environment clean",5-6,"",false
+Year 1,Noel Term,9,Vocational Studies,"Raw materials: meaning, types and uses",5-6,"",false
+Year 1,Noel Term,1,Yoruba Language,"Mo mi nmo o IKINNI: igba ninu aro, osan, irole ati ale",5-6,"",false
+Year 1,Noel Term,2,Yoruba Language,"ASA: (I) ikinni ati idahun ojo (II) ikinni ni oniruru ise, bi apeere, agbe, awoka abbl",5-6,"",false
+Year 1,Noel Term,3,Yoruba Language,"ALIFABEETI: kika alifabetti : A-Y ALIFABEETI: siseda alifabetti Yoruba ati kiko won. Bi apeere; A- aja, B- bata, D- doje E-eye abbl",5-6,"",false
+Year 1,Noel Term,4,Yoruba Language,"ONKA YORUBA: kika onka Yoruba lati ikinni -- ikewa (1) Kini- onka (2) Lilo - onka (3) Kika -onka (4) Sise idamo figo onka",5-6,"",false
+Year 1,Noel Term,5,Yoruba Language,"MIMO EYA ARA ENI : kika awon eya ara wa - Kiko Orin nipa eya ara wa bi apeere, oju, eti, imu abbl",5-6,"",false
+Year 1,Noel Term,6,Yoruba Language,"IMOTOTO ARA ENI: (1) Itoju ara eni, ohun elo fun itoju ara eni (2) Ewu ti I was ninu aitoju ara eni",5-6,"",false
+Year 1,Noel Term,7,Yoruba Language,"ORIN IDARAYA: bi apeere Awa soja kekere, ja itana ton -- tan, eye meta tolongo waye abbl",5-6,"",false
+Year 1,Noel Term,8,Yoruba Language,"ISORONGBESI: (1) Ibeere lati odo akeko si oluko (2) Ibeere larin akeko si ara won",5-6,"",false
+Year 1,Noel Term,9,Yoruba Language,"IWA RERE: kinni anpe ni iwa rere II. Bawo ni asele do omoluabi mo",5-6,"",false
+Year 2,Noel Term,1,Agricultural Science,"Branches of agriculture",6-7,"",false
+Year 2,Noel Term,2,Agricultural Science,"Animal husbandry: meaning, classes and by- products",6-7,"",false
+Year 2,Noel Term,3,Agricultural Science,"Crop production -- meaning , types and importance",6-7,"",false
+Year 2,Noel Term,4,Agricultural Science,"Weed- meaning, examples, effects and control",6-7,"",false
+Year 2,Noel Term,5,Agricultural Science,"Pests: meaning, examples, effects and control",6-7,"",false
+Year 2,Noel Term,6,Agricultural Science,"Fertilization; manure and compost: meaning, differences and importance",6-7,"",false
+Year 2,Noel Term,7,Agricultural Science,"Horticulture: meaning and advantages",6-7,"",false
+Year 2,Noel Term,8,Agricultural Science,"Soil : meaning, types and importance",6-7,"",false
+Year 2,Noel Term,9,Agricultural Science,"Farm animals diseases",6-7,"",false
+Year 2,Noel Term,1,Basic Science,"Soil: meaning, types and importance of soil to plants",6-7,"",false
+Year 2,Noel Term,2,Basic Science,"Erosion and flood: meaning, types and effects",6-7,"",false
+Year 2,Noel Term,3,Basic Science,"Weed : meaning, types and effects",6-7,"",false
+Year 2,Noel Term,4,Basic Science,"Plants: features, uses of plants",6-7,"",false
+Year 2,Noel Term,5,Basic Science,"Air pollution: meaning, effects and prevention",6-7,"",false
+Year 2,Noel Term,6,Basic Science,"Diseases: (Air and water borne diseases)",6-7,"",false
+Year 2,Noel Term,7,Basic Science,"Safety in our environment: Meaning, ways of keeping safe at home and school, simple safety, features, devices and rules",6-7,"",false
+Year 2,Noel Term,8,Basic Science,"Nocturnal animals and predators: meaning, features and examples",6-7,"",false
+Year 2,Noel Term,9,Basic Science,"Water quality: Substance that contaminate, common uses of water and water purification",6-7,"",false
+Year 2,Noel Term,1,Christian Religious Knowledge,"Meaning and types of prayers (Gen 18:20-23; Acts 4:23; 1 Sam 1:9-18, Matt7:7), Reasons for prayer and Right attitude for prayer",6-7,"",false
+Year 2,Noel Term,2,Christian Religious Knowledge,"When to pray: Jesus the man of prayer( Luke 6:12-16; John 14:41-43; Mark 14:22-23) (when we ought to pray)",6-7,"",false
+Year 2,Noel Term,3,Christian Religious Knowledge,"Talking to God through Jesus Christ ( Matthew 7:7-11; Luke 18 :9-14) : How to pray, Jesus teaches how to pray, pray without ceasing (1Thes 5:17), pray in faith (Matt 6: 9-15)",6-7,"",false
+Year 2,Noel Term,4,Christian Religious Knowledge,"God cares for us ( Psalm 23; Daniel 3:1-30; Daniel 6:1-28)",6-7,"",false
+Year 2,Noel Term,5,Christian Religious Knowledge,"God announces the coming if the savior ( Luke 1:26-38; Matthew 1:18-25; Isaiah 7:14)",6-7,"",false
+Year 2,Noel Term,6,Christian Religious Knowledge,"God gives the world a savior ( Luke 2:1-7, Luke 2:8-26; Matthew 2:11-12)",6-7,"",false
+Year 2,Noel Term,7,Christian Religious Knowledge,"The coming of the Holy spirit ( Act 2:1-14, Mark 16:17 ) (The comforter)",6-7,"",false
+Year 2,Noel Term,8,Christian Religious Knowledge,"The work of the Holy spirit -- To comfort us ( John14:12) To lead us into all truths and teach us all things ( John 16:12-14)",6-7,"",false
+Year 2,Noel Term,9,Christian Religious Knowledge,"The second coming of Jesus, preparation for the second coming.( Act 1:11; 1 Corinthians 15 :23, Mark 13:24 -37; Matthew 25:1-13)",6-7,"",false
+Year 2,Noel Term,1,Citizenship,"Civic education: meaning, components and importance",6-7,"",false
+Year 2,Noel Term,2,Citizenship,"Dimensions of civic education: meaning, exploring the different dimensions",6-7,"",false
+Year 2,Noel Term,3,Citizenship,"Cultural dimension of civic education: meaning of culture, characteristics of culture, tribes in Nigeria",6-7,"",false
+Year 2,Noel Term,4,Citizenship,"Political and legal dimensions of civic education: levels of government, arms of government",6-7,"",false
+Year 2,Noel Term,5,Citizenship,"Nationality: meaning, countries and their nationality",6-7,"",false
+Year 2,Noel Term,6,Citizenship,"Patriotism: meaning, who is a patriot? Reasons for patriotism",6-7,"",false
+Year 2,Noel Term,7,Citizenship,"Fundamental human rights",6-7,"",false
+Year 2,Noel Term,8,Citizenship,"Democratic practice : meaning of democracy, current political parties in Nigeria, role of political parties",6-7,"",false
+Year 2,Noel Term,9,Citizenship,"Rules and regulations in the school",6-7,"",false
+Year 2,Noel Term,1,Computer Studies,"History of computer: ( how computer came into existence)",6-7,"",false
+Year 2,Noel Term,2,Computer Studies,"Early counting devices ( fingers, pebbles, cowries, stones, sticks, toes e.t.c)",6-7,"",false
+Year 2,Noel Term,3,Computer Studies,"Later development of computer: Abacus, calculator",6-7,"",false
+Year 2,Noel Term,4,Computer Studies,"Input devices: ( keyboard- description, types, uses, functions of special keys)",6-7,"",false
+Year 2,Noel Term,5,Computer Studies,"Input devices:( mouse- description, functions, practical use of mouse)",6-7,"",false
+Year 2,Noel Term,6,Computer Studies,"Output devices: (printer- description , types and uses",6-7,"",false
+Year 2,Noel Term,7,Computer Studies,"Output devices: ( monitor -- description , types and uses)",6-7,"",false
+Year 2,Noel Term,8,Computer Studies,"Digital computer: meaning, origin and types",6-7,"",false
+Year 2,Noel Term,9,Computer Studies,"Introduction to machine codes: meaning of binary digit, understanding decimal numbers",6-7,"",false
+Year 2,Noel Term,1,Creative Writing,"My summer holiday",6-7,"",false
+Year 2,Noel Term,2,Creative Writing,"Writing your own poem -- My neighbor",6-7,"",false
+Year 2,Noel Term,3,Creative Writing,"My school",6-7,"",false
+Year 2,Noel Term,4,Creative Writing,"A picnic at the beach",6-7,"",false
+Year 2,Noel Term,5,Creative Writing,"Giving Instructions -- How to brush your teeth",6-7,"",false
+Year 2,Noel Term,6,Creative Writing,"My grandparents",6-7,"",false
+Year 2,Noel Term,7,Creative Writing,"How plants grow",6-7,"",false
+Year 2,Noel Term,8,Creative Writing,"How can I be a better friend",6-7,"",false
+Year 2,Noel Term,9,Creative Writing,"My family",6-7,"",false
+Year 2,Noel Term,1,Cultural and Creative Arts,"Introduction to nature drawing: definition of nature drawing, meaning of environment and natural things found in our environment",6-7,"",false
+Year 2,Noel Term,2,Cultural and Creative Arts,"Nature drawing: Animal drawing and painting",6-7,"",false
+Year 2,Noel Term,3,Cultural and Creative Arts,"Nature drawing: flowering plant drawing and painting",6-7,"",false
+Year 2,Noel Term,4,Cultural and Creative Arts,"Element of design -- meaning , types, lines, tracing using templates, stencils",6-7,"",false
+Year 2,Noel Term,5,Cultural and Creative Arts,"Element of design -- primary colors, pattern using colors, splash",6-7,"",false
+Year 2,Noel Term,6,Cultural and Creative Arts,"Pattern: meaning, drawing basic shapes, designing pattern from basic shapes, designs on clothes, bedsheets, curtains etc, drawing basic shapes",6-7,"",false
+Year 2,Noel Term,7,Cultural and Creative Arts,"Motifs: meaning, types, arranging motifs to make simple repeating patterns, drawing different motifs and colouring different motifs",6-7,"",false
+Year 2,Noel Term,8,Cultural and Creative Arts,"Leaf print: application of water color on leaves and print on paper",6-7,"",false
+Year 2,Noel Term,9,Cultural and Creative Arts,"Practical ( Christmas decorations)",6-7,"",false
+Year 2,Noel Term,1,Geography,"World countries and their capitals",6-7,"",false
+Year 2,Noel Term,2,Geography,"Map: meaning and map in Nigeria",6-7,"",false
+Year 2,Noel Term,3,Geography,"Ethnic group: landscape and locations",6-7,"",false
+Year 2,Noel Term,4,Geography,"Ethnic group: various occupation",6-7,"",false
+Year 2,Noel Term,5,Geography,"Ethnic group: Dressing, food and transportation of different ethnic groups",6-7,"",false
+Year 2,Noel Term,6,Geography,"Natural resources in Nigeria: meaning, classification with examples",6-7,"",false
+Year 2,Noel Term,7,Geography,"Natural resources in Nigeria: location of Nigeria map",6-7,"",false
+Year 2,Noel Term,8,Geography,"Rocks: meaning, types, importance, and major ricks in Nigeria",6-7,"",false
+Year 2,Noel Term,9,Geography,"Mountain: meaning, notable mountains in Nigeria",6-7,"",false
+Year 2,Noel Term,1,History,"The history of Nigeria ( important dates in Nigeria)",6-7,"",false
+Year 2,Noel Term,2,History,"The indigenous people of Nigeria ( origin of the three main ethnic group, significant features",6-7,"",false
+Year 2,Noel Term,3,History,"The Nigeria independence",6-7,"",false
+Year 2,Noel Term,4,History,"States in Nigeria, capitals and when they were created",6-7,"",false
+Year 2,Noel Term,5,History,"Heroes of our nation : meaning of heroes, examples of Nigeria super heroes",6-7,"",false
+Year 2,Noel Term,6,History,"Major monarch in Nigeria",6-7,"",false
+Year 2,Noel Term,7,History,"Major beliefs and festivals in Nigeria",6-7,"",false
+Year 2,Noel Term,8,History,"Historical artifacts in Nigeria -- Nok culture (terracotta), igbo-ukwubronze, Benin bronze e.t.c",6-7,"",false
+Year 2,Noel Term,9,History,"Christian missionaries in Nigeria: Meaning and goals of the missionaries",6-7,"",false
+Year 2,Noel Term,1,Home Economics,"Personal grooming: meaning and identification of body parts",6-7,"",false
+Year 2,Noel Term,2,Home Economics,"Personal grooming: care of the body, hand and feet",6-7,"",false
+Year 2,Noel Term,3,Home Economics,"Personal grooming: care of the mouth",6-7,"",false
+Year 2,Noel Term,4,Home Economics,"Exercise: exercise equipments and dangers of not exercising",6-7,"",false
+Year 2,Noel Term,5,Home Economics,"Clothing: meaning, types and reasons for wearing clothe",6-7,"",false
+Year 2,Noel Term,6,Home Economics,"Balanced diet: meaning and importance",6-7,"",false
+Year 2,Noel Term,7,Home Economics,"Courtesy and etiquettes: meaning, examples and ways",6-7,"",false
+Year 2,Noel Term,8,Home Economics,"Personal health rules ( rules for good health)",6-7,"",false
+Year 2,Noel Term,9,Home Economics,"Practical ( physical exercise)",6-7,"",false
+Year 2,Noel Term,1,Literacy,"Alphabetical order",6-7,"",false
+Year 2,Noel Term,2,Literacy,"Consonant and consonant clusters",6-7,"",false
+Year 2,Noel Term,3,Literacy,"Noun: meaning, examples and types",6-7,"",false
+Year 2,Noel Term,4,Literacy,"Adjective: meaning, examples and types",6-7,"",false
+Year 2,Noel Term,5,Literacy,"Verb: meaning, examples and types",6-7,"",false
+Year 2,Noel Term,6,Literacy,"Adverb: meaning, examples and types",6-7,"",false
+Year 2,Noel Term,7,Literacy,"Punctuation marks: meaning and types",6-7,"",false
+Year 2,Noel Term,8,Literacy,"Punctuation using full stop, comma and question marks in sentences",6-7,"",false
+Year 2,Noel Term,9,Literacy,"Plural: use of regular and irregular plural",6-7,"",false
+Year 2,Noel Term,1,Moral Instructions,"Leadership at school",6-7,"",false
+Year 2,Noel Term,2,Moral Instructions,"Leadership at home",6-7,"",false
+Year 2,Noel Term,3,Moral Instructions,"Discipline : meaning and reasons for discipline",6-7,"",false
+Year 2,Noel Term,4,Moral Instructions,"Discipline at home and in school",6-7,"",false
+Year 2,Noel Term,5,Moral Instructions,"Good and bad habit",6-7,"",false
+Year 2,Noel Term,6,Moral Instructions,"Discovering your talent",6-7,"",false
+Year 2,Noel Term,7,Moral Instructions,"Developing your talent",6-7,"",false
+Year 2,Noel Term,8,Moral Instructions,"Honesty and telling the truth",6-7,"",false
+Year 2,Noel Term,9,Moral Instructions,"Teachability",6-7,"",false
+Year 2,Noel Term,1,Numeracy,"Whole numbers 1-100 (counting, writing and ordering)",6-7,"",false
+Year 2,Noel Term,2,Numeracy,"Writing 1-10,000 in words",6-7,"",false
+Year 2,Noel Term,3,Numeracy,"Place value (TH, H, T, U)",6-7,"",false
+Year 2,Noel Term,4,Numeracy,"Addition of three digit numbers",6-7,"",false
+Year 2,Noel Term,5,Numeracy,"Subtraction of three digit numbers",6-7,"",false
+Year 2,Noel Term,6,Numeracy,"Inequalities (<, >, =)",6-7,"",false
+Year 2,Noel Term,7,Numeracy,"Fraction",6-7,"",false
+Year 2,Noel Term,8,Numeracy,"Multiplication of numbers",6-7,"",false
+Year 2,Noel Term,9,Numeracy,"Open sentences",6-7,"",false
+Year 2,Noel Term,1,Physical and Health Education,"P- starting a race H- Importance of a clean body",6-7,"",false
+Year 2,Noel Term,2,Physical and Health Education,"P- finishing a race H- Care of our surroundings",6-7,"",false
+Year 2,Noel Term,3,Physical and Health Education,"P- athletics: meaning of athletics, meaning of short distance race, benefit of running H- Care if the face, hands and body",6-7,"",false
+Year 2,Noel Term,4,Physical and Health Education,"P- field event : broad jump H- Table manners",6-7,"",false
+Year 2,Noel Term,5,Physical and Health Education,"P- Jumping distance H -refuse disposal",6-7,"",false
+Year 2,Noel Term,6,Physical and Health Education,"P- fill in the basket H-Good and bad habit",6-7,"",false
+Year 2,Noel Term,7,Physical and Health Education,"P- fill in the bottles with water H- Condition that requires first aid (bleeding, fainting, bruises, heat and exhaustion)",6-7,"",false
+Year 2,Noel Term,8,Physical and Health Education,"P- shuttle relay H- Basic first aid procedures (cleaning a wound, applying bandage and plaster)",6-7,"",false
+Year 2,Noel Term,9,Physical and Health Education,"P- cycling in the air H- Safety rules in games",6-7,"",false
+Year 2,Noel Term,1,Social Studies,"Scope of social studies: meaning of scope of social studies; the areas social studies focuses to solve man's problem, areas which social studies focused are: critical thinking, reflective thinking and problem solving",6-7,"",false
+Year 2,Noel Term,2,Social Studies,"Religious practices -- difference in religious practices and beliefs, objects used for worship",6-7,"",false
+Year 2,Noel Term,3,Social Studies,"Drugs: meaning, types and importance",6-7,"",false
+Year 2,Noel Term,4,Social Studies,"Family -- family tree and family relationships",6-7,"",false
+Year 2,Noel Term,5,Social Studies,"Concept of family as a social unit -- understanding the concept of social unit",6-7,"",false
+Year 2,Noel Term,6,Social Studies,"Food poisoning -- definition , causes, effects and prevention",6-7,"",false
+Year 2,Noel Term,7,Social Studies,"Physical environment: people live in desert, fertile places, lakesides, riversides, mountain, low laying area, climate varies area",6-7,"",false
+Year 2,Noel Term,8,Social Studies,"Growth and development -- meaning , stages of growth",6-7,"",false
+Year 2,Noel Term,9,Social Studies,"Communication -- meaning , types, medium and importance",6-7,"",false
+Year 2,Noel Term,1,Vocational Studies,"Occupation: meaning, types and importance",6-7,"",false
+Year 2,Noel Term,2,Vocational Studies,"Professional working tools ( doctors, teacher lawyer, pilot, banker, engineer e.t.c)",6-7,"",false
+Year 2,Noel Term,3,Vocational Studies,"Personal health: meaning, importance, equipments use in maintaining personal health",6-7,"",false
+Year 2,Noel Term,4,Vocational Studies,"Health agencies in Nigeria",6-7,"",false
+Year 2,Noel Term,5,Vocational Studies,"Transportation: meaning, means/ mode and importance",6-7,"",false
+Year 2,Noel Term,6,Vocational Studies,"Communication: meaning, means/mode and importance",6-7,"",false
+Year 2,Noel Term,7,Vocational Studies,"Print media: meaning, materials, forms and benefits",6-7,"",false
+Year 2,Noel Term,8,Vocational Studies,"Musical instruments: meaning, classification with examples and functions",6-7,"",false
+Year 2,Noel Term,9,Vocational Studies,"People that study about the earth, weather and climate (Astrologist, geologist, meteorologist)",6-7,"",false
+Year 2,Noel Term,1,Yoruba Language,"Itesiwaju lori kika alifabeeti Yoruba - Kiko alifabeeti Yoruba si ara patako ikowe - Sise afihan alifabeeti ti o je faweli - Kiko konsonanti si oju patako",6-7,"",false
+Year 2,Noel Term,2,Yoruba Language,"Itesiwaju lori kika alifabeeti Yoruba - Iyato alifabeeti ede oyinbo ati ede yoruba ABC ni a n pe ni alifabeeti ede oyinbo nigba ti ABD je alifabeeti ti ede yoruba abbl - Onka yoruba : Ookanlelogun de ogbon (21-30)",6-7,"",false
+Year 2,Noel Term,3,Yoruba Language,"Imototo ayika - Itoju Ile ati ayika : riro ojo egbe Ile ati ayika Ile - Ewu to wa ninu aitoju ayika wa - Yiya aworan ohun ti o wa ni ayika kilassi ati ayika Ile iwe, ayika igba lejo, iyara idana, iyara ibusun - Orin ati ewi to jemo imototo bi apeere imototo lo le segun arun gbogbo abbl",6-7,"",false
+Year 2,Noel Term,4,Yoruba Language,"Itesiwaju lori di daruko nkan - Ile- television, redio abbl - Ile eko- efun, aga abbl - Opopona oja- moto, eniyan abbl - Oja- isu, ata",6-7,"",false
+Year 2,Noel Term,5,Yoruba Language,"Iro ede ( Ami ohun) - Kinni ami ohun - Orisi ami ohun Ohun aarin ( akii fihan) Ohun oke Ohun isale Itesiwaju lori iro ede ( Ami ohun) - Faweli ati orisirisi ami ohun kookan lori faweli. Bi apeere à, a, á, e, ē, é abbl - Ami ohun lori oro onisilebu kan bi apeere bà, ba abbl - Ami ohun lori oro onisilebu, bi apeere okó, okó, òkò abbl",6-7,"",false
+Year 2,Noel Term,6,Yoruba Language,"Kika silebu - Alaye ohun ti silebu je ( Ege , oro) - Gige awon oro onisilebu bi apeere Bàbá- bá/bá, Bàtá -- bà/ta abbl",6-7,"",false
+Year 2,Noel Term,7,Yoruba Language,"Ere osupa - Itan siso bi apeere boju boju abbl - Orin eremode - Eko ti a ri ko Ni imo -- kikun nipa ayika won Mo Orin ko, mo oro Orin ati kika won",6-7,"",false
+Year 2,Noel Term,8,Yoruba Language,"Iwe kika - Kika iwe asayan - Ayoka ti imo re ko ju ti ojo -- ori akekoo lo - Ewi : ise loogun ise",6-7,"",false
+Year 2,Noel Term,9,Yoruba Language,"Aayan ogbufo - Kinni aayan ogbufo - Titumo awon oro bi apeere Come -- wa House -- Ile Dog -- aja Food -- ounje Stick -- igi",6-7,"",false
+Year 3,Noel Term,1,Agricultural Science,"Agriculture -- meaning , types, careers and importance",7-8,"",false
+Year 3,Noel Term,2,Agricultural Science,"Agronomy -- meaning , types and importance",7-8,"",false
+Year 3,Noel Term,3,Agricultural Science,"Livestock farming -- meaning , types and importance",7-8,"",false
+Year 3,Noel Term,4,Agricultural Science,"Fishery -- meaning , types and importance, fishing tools and equipment",7-8,"",false
+Year 3,Noel Term,5,Agricultural Science,"Agro -- industry : meaning, branches and importance",7-8,"",false
+Year 3,Noel Term,6,Agricultural Science,"Distribution of crops -- meaning , types and importance",7-8,"",false
+Year 3,Noel Term,7,Agricultural Science,"Distribution of animals -- meaning , types and importance",7-8,"",false
+Year 3,Noel Term,8,Agricultural Science,"Raising of seedlings in the nursery",7-8,"",false
+Year 3,Noel Term,9,Agricultural Science,"Materials needed for growing crops",7-8,"",false
+Year 3,Noel Term,1,Basic Science,"Changes in nature: meaning, types ( with examples)",7-8,"",false
+Year 3,Noel Term,2,Basic Science,"Air in motion: meaning, effects and importance",7-8,"",false
+Year 3,Noel Term,3,Basic Science,"Life cycle of plants and their features",7-8,"",false
+Year 3,Noel Term,4,Basic Science,"Life cycle of animals and their features",7-8,"",false
+Year 3,Noel Term,5,Basic Science,"Metamorphosis in insects : complete and incomplete",7-8,"",false
+Year 3,Noel Term,6,Basic Science,"Light energy: meaning, sources, uses and reflection",7-8,"",false
+Year 3,Noel Term,7,Basic Science,"Measurement of time, Instruments and units of measurement",7-8,"",false
+Year 3,Noel Term,8,Basic Science,"Ecosystem: meaning, food chain, food web and relationship in ecosystem",7-8,"",false
+Year 3,Noel Term,9,Basic Science,"Pollution: meaning, types, effects and control, pollutants and sources",7-8,"",false
+Year 3,Noel Term,1,Christian Religious Knowledge,"God calls us for a purpose -- The story of the call of Abraham (Gen12:1-3;4-9)",7-8,"",false
+Year 3,Noel Term,2,Christian Religious Knowledge,"God calls us for a purpose -- Benefits of obedience to God's call ( Luke 5:1-11, Gen 12:10-20)",7-8,"",false
+Year 3,Noel Term,3,Christian Religious Knowledge,"God's promise: (a) God fulfil His promises to Abraham (Gen 12:1-9;28:10-15) (b) God fulfil His promises of the savior Emmanuel ( Matthew 1:23), Meaning of Emmanuel",7-8,"",false
+Year 3,Noel Term,4,Christian Religious Knowledge,"The promise of a saviour, Isaiah prophesy about Jesus, Types of saviour the Jews were expecting, Types of saviour Jesus is: Suffering Messiah",7-8,"",false
+Year 3,Noel Term,5,Christian Religious Knowledge,"Deliverance from Egypt: (a)Crossing the Red sea ( Exodus 1:8-22; 4:1-7; 14:23-28) (b)The Passover (Ex 12:1-50) (c) Entering into the promise land ( Joshua 3:1-17; 4:1-24) (d) Moses and the bronze serpent in the wilderness (Num 21:4-9, John 3:14-16)",7-8,"",false
+Year 3,Noel Term,6,Christian Religious Knowledge,"We are children of one Father (a) The fatherhood of God ( John 1:12; 3:16) (b) The brotherhood of man ( Matthew 5:21-24) (c) The significance of being in Christ ( John 13:34-35)",7-8,"",false
+Year 3,Noel Term,7,Christian Religious Knowledge,"The prophecy of the coming of our savior (a) The promise of the savior ( Matthew 1:23, Isaiah 7:14; 9:6-7,11:1-5) (b) The announcement of the coming of the Lord (Isaiah 9:6, Micah 5:2-4)",7-8,"",false
+Year 3,Noel Term,8,Christian Religious Knowledge,"The birth of Christ ( Luke 2:1-16, Matthew 2:1-15) (a) Significance of the savior ( Matthew 1:21, John 3:16-17; 10:10) (b) The type of savior the Jews were expecting (Acts1:6, John 18:36)",7-8,"",false
+Year 3,Noel Term,9,Christian Religious Knowledge,"The coming of the Holy spirit (Acts 2:1-14, Mark 16:17) (a) The work of the Holy spirit on the apostles -- Boldness, Power, Healing, Comfort, Protection, Deliverance and Teaching (b) The works of the Holy spirit ( John 14:12;16:12-14) (c) The promise of the comforter (Acts 1:8,John 14:16)",7-8,"",false
+Year 3,Noel Term,1,Citizenship,"Governance: meaning, characteristics of good governance and importance",7-8,"",false
+Year 3,Noel Term,2,Citizenship,"Government: meaning, arms of government ( components and their functions)",7-8,"",false
+Year 3,Noel Term,3,Citizenship,"Government: levels of government ( components and their functions",7-8,"",false
+Year 3,Noel Term,4,Citizenship,"Government: forms of government -- democracy, monarchy, oligarchy, bureaucracy, theocracy, aristocracy etc",7-8,"",false
+Year 3,Noel Term,5,Citizenship,"Democracy and democratic countries: meaning and examples",7-8,"",false
+Year 3,Noel Term,6,Citizenship,"National values: meaning of values, meaning of national values, examples of national values, the need to imbibe values in the society",7-8,"",false
+Year 3,Noel Term,7,Citizenship,"Constituted authority: meaning, types and respect for constituted authority",7-8,"",false
+Year 3,Noel Term,8,Citizenship,"Communities in Nigeria: meaning, types and roles of community members",7-8,"",false
+Year 3,Noel Term,9,Citizenship,"Peaceful coexistence: meaning, reasons and importance",7-8,"",false
+Year 3,Noel Term,1,Computer Studies,"Generation of computer",7-8,"",false
+Year 3,Noel Term,2,Computer Studies,"Data and information: meaning, relationships between data and information",7-8,"",false
+Year 3,Noel Term,3,Computer Studies,"Data processing: meaning, steps involved in data processing, data processing, information as end of results of data processing",7-8,"",false
+Year 3,Noel Term,4,Computer Studies,"Database: meaning, types and importance",7-8,"",false
+Year 3,Noel Term,5,Computer Studies,"Computer hardware: meaning and examples",7-8,"",false
+Year 3,Noel Term,6,Computer Studies,"Hardware components: meaning, classes - input and output devices",7-8,"",false
+Year 3,Noel Term,7,Computer Studies,"Converting soft copy data into digital data ( scanner as an input devices)",7-8,"",false
+Year 3,Noel Term,8,Computer Studies,"Computer memory: RAM and ROM",7-8,"",false
+Year 3,Noel Term,9,Computer Studies,"Microphone and the digital camera as an input devices",7-8,"",false
+Year 3,Noel Term,1,Creative Writing,"Varied ending of stories -- My summer holiday",7-8,"",false

@@ -97,9 +97,23 @@
 	let groupActionStates = $state<Record<number, string>>({});
 
 	let allSubjectPairs = $state<SubjectPair[]>([]);
+	let subjectPairsError = $state('');
+	let subjectPairsLoading = $state(true);
 	let currentTeacherPairs = $state<Record<number, SubjectPair[]>>({});
-	let subjectSearch = $state<Record<number, string>>({});
-	let showSubjectSuggestions = $state<Record<number, boolean>>({});
+	let selectedSubjectPair = $state<Record<number, SubjectPair | null>>({});
+	let subjectPairSearch = $state<Record<number, string>>({});
+	let subjectPairDropdownOpen = $state<Record<number, boolean>>({});
+
+	function filterSubjectPairs(search: string): SubjectPair[] {
+		const q = search.toLowerCase();
+		return allSubjectPairs.filter(p =>
+			!q
+			|| p.class_level_name.toLowerCase().includes(q)
+			|| p.subject_name.toLowerCase().includes(q)
+			|| (p.subject_code && p.subject_code.toLowerCase().includes(q))
+		);
+	}
+
 	let teacherSubjectLoading = $state<Record<number, string>>({});
 	let teacherPairsLoading = $state<Record<number, boolean>>({});
 
@@ -152,27 +166,30 @@
 
 	let showSuggestions = $state<Record<number, boolean>>({});
 
-	let filteredSubjectSuggestions = $derived.by(() => {
-		const pk = expandedPk;
-		if (!pk || role !== 'teachers' || !subjectSearch[pk]?.trim()) return [];
-		const search = subjectSearch[pk].toLowerCase();
-		const assigned = currentTeacherPairs[pk] || [];
-		return allSubjectPairs.filter(
-			p => !assigned.some(
-				a => a.class_level_id === p.class_level_id && a.subject_id === p.subject_id
-			) &&
-			(`${p.class_level_name} — ${p.subject_name}`.toLowerCase().includes(search))
-		);
-	});
-
 	async function loadAllSubjectPairs() {
+		subjectPairsLoading = true;
+		subjectPairsError = '';
 		try {
 			const res = await fetch('/api/admin/class-subjects');
-			if (!res.ok) throw new Error('Failed to load');
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error?.message || `HTTP ${res.status}`);
+			}
 			const body = await res.json();
-			if (body.data) allSubjectPairs = body.data;
-		} catch {
+			if (body.data) {
+				allSubjectPairs = (body.data as SubjectPair[]).toSorted((a, b) => {
+					const cl = a.class_level_name.localeCompare(b.class_level_name);
+					if (cl !== 0) return cl;
+					return a.subject_name.localeCompare(b.subject_name);
+				});
+			} else {
+				throw new Error('Gateway returned empty response');
+			}
+		} catch (err) {
 			allSubjectPairs = [];
+			subjectPairsError = err instanceof Error ? err.message : 'Failed to load class-subjects';
+		} finally {
+			subjectPairsLoading = false;
 		}
 	}
 
@@ -195,12 +212,16 @@
 		teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'loading' };
 		actionErrors = { ...actionErrors, [pk]: '' };
 		try {
+			const minimalPairs = (currentTeacherPairs[pk] || []).map(p => ({
+				class_level_id: p.class_level_id,
+				subject_id: p.subject_id
+			}));
 			const res = await fetch('/api/admin/teacher/subjects', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					target_teacher_id: uuid,
-					pairs: currentTeacherPairs[pk] || []
+					pairs: minimalPairs
 				})
 			});
 			const body = await res.json();
@@ -530,7 +551,7 @@
 	</Card>
 
 {:else}
-	<Card>
+	<Card class="overflow-visible teacher-table-card">
 		<CardContent class="p-0">
 			<Table>
 				<TableHeader>
@@ -742,7 +763,7 @@
 											</div>
 										</div>
 
-									{#if role === 'teachers' && isPending === false}
+									{#if role === 'teachers'}
 										<div class="border-t border-surface-200 pt-3">
 											<span class="text-sm font-medium text-surface-700">Class Subjects</span>
 
@@ -778,51 +799,83 @@
 												{/if}
 											</div>
 
-											<div class="relative mt-2 flex items-center gap-2">
-												<Input
-													type="text"
-													placeholder="Search class-subject…"
-													class="h-8 flex-1 text-sm cursor-text"
-													value={subjectSearch[userObj.pk] ?? ''}
-													oninput={(e) => subjectSearch = { ...subjectSearch, [userObj.pk]: e.currentTarget.value }}
-													onfocus={() => showSubjectSuggestions = { ...showSubjectSuggestions, [userObj.pk]: true }}
-													onblur={() => setTimeout(() => showSubjectSuggestions = { ...showSubjectSuggestions, [userObj.pk]: false }, 200)}
-												/>
-												{#if showSubjectSuggestions[userObj.pk] && filteredSubjectSuggestions.length > 0}
-													<div class="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-md border border-surface-200 bg-white shadow-lg max-h-40 overflow-y-auto flex flex-col">
-														{#each filteredSubjectSuggestions as suggestion}
-															<button
-																type="button"
-																class="w-full shrink-0 px-3 py-1.5 text-left text-sm text-surface-800 hover:bg-surface-100 transition-colors cursor-pointer"
-																onmousedown={() => {
-																	currentTeacherPairs = {
-																		...currentTeacherPairs,
-																		[userObj.pk]: [...(currentTeacherPairs[userObj.pk] || []), suggestion]
-																	};
-																	subjectSearch = { ...subjectSearch, [userObj.pk]: '' };
+											{#if subjectPairsLoading}
+												<div class="mt-2 text-xs text-surface-500 italic">Loading class-subject pairs…</div>
+											{:else if subjectPairsError}
+												<div class="mt-2 text-xs text-error-500">{subjectPairsError}</div>
+											{:else if allSubjectPairs.length === 0}
+												<div class="mt-2 text-xs text-surface-500 italic">No class-subject pairs available in database</div>
+											{:else}
+												<div class="relative mt-2">
+													<div class="flex items-center gap-2">
+														<div class="relative flex-1">
+															<input
+																type="text"
+																placeholder="Search class level or subject…"
+																class="h-8 w-full rounded-none border border-input bg-transparent px-2.5 py-1 pr-8 text-sm text-surface-800 transition-colors placeholder:text-surface-400 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-1"
+																value={subjectPairSearch[userObj.pk] || ''}
+																onfocus={() => { subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: true }; }}
+																oninput={(e) => {
+																	subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: e.currentTarget.value };
+																	subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: true };
 																}}
-															>
-																{suggestion.class_level_name} — {suggestion.subject_name}
-															</button>
-														{/each}
-													</div>
-												{/if}
+																onblur={() => {
+																	setTimeout(() => { subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: false }; }, 200);
+																}}
+															/>
+															{#if subjectPairDropdownOpen[userObj.pk]}
+																<div class="absolute left-0 right-0 top-full z-10 mt-0.5 max-h-48 overflow-y-auto border border-input bg-white shadow-lg">
+																	{#each filterSubjectPairs(subjectPairSearch[userObj.pk] || '') as pair}
+																		<button
+																			type="button"
+																			class="block w-full px-2.5 py-1.5 text-left text-sm hover:bg-surface-100 cursor-pointer"
+																			onmousedown={() => {
+																				selectedSubjectPair = { ...selectedSubjectPair, [userObj.pk]: pair };
+																				subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: `${pair.class_level_name} — ${pair.subject_name}` };
+																				subjectPairDropdownOpen = { ...subjectPairDropdownOpen, [userObj.pk]: false };
+																			}}
+																		>
+																			{pair.class_level_name} — {pair.subject_name}
+																		</button>
+																	{:else}
+																		<div class="px-2.5 py-1.5 text-xs text-surface-500 italic">No matches</div>
+																	{/each}
+																</div>
+															{/if}
+														</div>
+														<Button
+															variant="default"
+															size="sm"
+															class="cursor-pointer shrink-0"
+															disabled={!selectedSubjectPair[userObj.pk] || teacherSubjectLoading[userObj.pk] === 'loading'}
+															onclick={() => {
+																const pair = selectedSubjectPair[userObj.pk];
+																if (!pair) return;
+																currentTeacherPairs = {
+																	...currentTeacherPairs,
+																	[userObj.pk]: [...(currentTeacherPairs[userObj.pk] || []), pair]
+																};
+																selectedSubjectPair = { ...selectedSubjectPair, [userObj.pk]: null };
+																subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: '' };
+															}}
+														>
+															Add
+														</Button>
+													<Button
+														size="sm"
+														class="cursor-pointer"
+														onclick={() => handleSaveTeacherSubjects(userObj.pk, userObj.uuid)}
+														disabled={teacherSubjectLoading[userObj.pk] === 'loading'}
+													>
+														{teacherSubjectLoading[userObj.pk] === 'loading' ? 'Saving...' : 'Save'}
+													</Button>
+												</div>
 											</div>
+										{/if}
+									</div>
+								{/if}
 
-											<div class="flex justify-end mt-2">
-												<Button
-													size="sm"
-													class="cursor-pointer"
-													onclick={() => handleSaveTeacherSubjects(userObj.pk, userObj.uuid)}
-													disabled={teacherSubjectLoading[userObj.pk] === 'loading'}
-												>
-													{teacherSubjectLoading[userObj.pk] === 'loading' ? 'Saving...' : 'Save'}
-												</Button>
-											</div>
-										</div>
-									{/if}
-
-										<div class="border-t border-surface-200 pt-3 flex justify-end">
+									<div class="border-t border-surface-200 pt-3 flex justify-end">
 											<AlertDialog>
 												<AlertDialogTrigger>
 												{#snippet child({ props })}
@@ -875,8 +928,9 @@
 			</Table>
 		</CardContent>
 	</Card>
+{/if}
 
-	<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
+<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
 		<DialogContent>
 			<DialogHeader>
 				<DialogTitle>Create {role === 'admin-role' ? 'Admin' : roleLabel}</DialogTitle>
@@ -957,4 +1011,9 @@
 			</form>
 		</DialogContent>
 	</Dialog>
-{/if}
+
+<style>
+	:global(.teacher-table-card [data-slot="table-container"]) {
+		overflow: visible !important;
+	}
+</style>

@@ -1,0 +1,766 @@
+class,term,week,subject,topic,agegroup
+Year 1,1st Term,1,Numeracy,"Whole numbers 1-1000: identification, reading, and writing",5-6
+Year 1,1st Term,2,Numeracy,Writing of 1-1000 in words,5-6
+Year 1,1st Term,3,Numeracy,"Ordering of numbers using greater than(>), less than (<), and equals to (=)",5-6
+Year 1,1st Term,4,Numeracy,"Place value up to 100 (H, T, U)",5-6
+Year 1,1st Term,5,Numeracy,Addition of three digit numbers (without remaining),5-6
+Year 1,1st Term,6,Numeracy,Subtraction of three digit numbers (without remaining),5-6
+Year 1,1st Term,7,Numeracy,Multiplication of numbers,5-6
+Year 1,1st Term,8,Numeracy,Division of numbers,5-6
+Year 1,1st Term,9,Numeracy,Open sentences,5-6
+Year 2,1st Term,1,Numeracy,"Whole numbers 1-100 (counting, writing and ordering)",6-7
+Year 2,1st Term,2,Numeracy,"Writing 1-10,000 in words",6-7
+Year 2,1st Term,3,Numeracy,"Place value (TH, H, T, U)",6-7
+Year 2,1st Term,4,Numeracy,Addition of three digit numbers,6-7
+Year 2,1st Term,5,Numeracy,Subtraction of three digit numbers,6-7
+Year 2,1st Term,6,Numeracy,"Inequalities (<, >, =)",6-7
+Year 2,1st Term,7,Numeracy,Fraction,6-7
+Year 2,1st Term,8,Numeracy,Multiplication of numbers,6-7
+Year 2,1st Term,9,Numeracy,Open sentences,6-7
+Year 3,1st Term,1,Numeracy,"Whole numbers 1-100,000:( counting, ordering and writing in words)",7-8
+Year 3,1st Term,2,Numeracy,Place value,7-8
+Year 3,1st Term,3,Numeracy,Roman Numerals,7-8
+Year 3,1st Term,4,Numeracy,Addition of 3-4 digit numbers (with and without remaining),7-8
+Year 3,1st Term,5,Numeracy,Subtraction of 3-4 digit numbers (with and without remaining),7-8
+Year 3,1st Term,6,Numeracy,Multiplication of 2 and 3 digit numbers by 1and 2 digit numbers,7-8
+Year 3,1st Term,7,Numeracy,"Factors and multiples (LCM, HCF)",7-8
+Year 3,1st Term,8,Numeracy,Fraction,7-8
+Year 3,1st Term,9,Numeracy,Decimal fraction (Decimals),7-8
+Year 4,1st Term,1,Numeracy,"Whole numbers 1-100,000,000 (counting, ordering and writing in words)",8-9
+Year 4,1st Term,2,Numeracy,Place value,8-9
+Year 4,1st Term,3,Numeracy,Roman numerals up to 5000,8-9
+Year 4,1st Term,4,Numeracy,Addition and subtraction of numbers up to 5 digits,8-9
+Year 4,1st Term,5,Numeracy,Fraction,8-9
+Year 4,1st Term,6,Numeracy,Multiplication of numbers up to 5 digits (including word problem),8-9
+Year 4,1st Term,7,Numeracy,Division of numbers up to 5 digits (including word problem),8-9
+Year 4,1st Term,8,Numeracy,Number line,8-9
+Year 4,1st Term,9,Numeracy,Open sentences (introduction to algebra),8-9
+Year 5,1st Term,1,Numeracy,"Notation and place value up to 1,000,000,000",9-10
+Year 5,1st Term,2,Numeracy,"Factors, prime numbers and multiples",9-10
+Year 5,1st Term,3,Numeracy,Ratio and proportion,9-10
+Year 5,1st Term,4,Numeracy,Fraction and decimal,9-10
+Year 5,1st Term,5,Numeracy,Percentage,9-10
+Year 5,1st Term,6,Numeracy,HiDemography,9-10
+Year 5,1st Term,7,Numeracy,Approximation and estimation,9-10
+Year 5,1st Term,8,Numeracy,Multiplication and division of whole numbers (including word problem),9-10
+Year 5,1st Term,9,Numeracy,Squares and square roots of numbers,9-10
+Year 1,1st Term,1,Literacy,Rainbow capitals: capital letters,5-6
+Year 1,1st Term,2,Literacy,Sentences making and stinking,5-6
+Year 1,1st Term,3,Literacy,Alphabetical orders,5-6
+Year 1,1st Term,4,Literacy,Singular and plural,5-6
+Year 1,1st Term,5,Literacy,"Nouns: meaning, types and examples",5-6
+Year 1,1st Term,6,Literacy,Proper nouns and common nouns,5-6
+Year 1,1st Term,7,Literacy,Countable and uncountable nouns,5-6
+Year 1,1st Term,8,Literacy,Pronoun,5-6
+Year 1,1st Term,9,Literacy,"Article ""A"" ""An""",5-6
+Year 2,1st Term,1,Literacy,Alphabetical order,6-7
+Year 2,1st Term,2,Literacy,Consonant and consonant clusters,6-7
+Year 2,1st Term,3,Literacy,"Noun: meaning, examples and types",6-7
+Year 2,1st Term,4,Literacy,"Adjective: meaning, examples and types",6-7
+Year 2,1st Term,5,Literacy,"Verb: meaning, examples and types",6-7
+Year 2,1st Term,6,Literacy,"Adverb: meaning, examples and types",6-7
+Year 2,1st Term,7,Literacy,Punctuation marks: meaning and types,6-7
+Year 2,1st Term,8,Literacy,"Punctuation using full stop, comma and question marks in sentences",6-7
+Year 2,1st Term,9,Literacy,Plural: use of regular and irregular plural,6-7
+Year 3,1st Term,1,Literacy,Speech marks: ( Quotation marks),7-8
+Year 3,1st Term,2,Literacy,Preposition,7-8
+Year 3,1st Term,3,Literacy,Conjunction and interjection,7-8
+Year 3,1st Term,4,Literacy,"Question tags: meaning, formation of question tags and examples",7-8
+Year 3,1st Term,5,Literacy,Phrase: meaning and examples,7-8
+Year 3,1st Term,6,Literacy,Clause: meaning and examples,7-8
+Year 3,1st Term,7,Literacy,"Sentences: meaning, types and formation of sentences",7-8
+Year 3,1st Term,8,Literacy,Idiomatic expressions,7-8
+Year 3,1st Term,9,Literacy,"Future action: using ""shall"" and ""will""",7-8
+Year 4,1st Term,1,Literacy,Relative pronouns: WH questions,8-9
+Year 4,1st Term,2,Literacy,"Adjectives: meaning, types and examples",8-9
+Year 4,1st Term,3,Literacy,"Adverb: meaning, types and examples",8-9
+Year 4,1st Term,4,Literacy,Intonation and stress pattern,8-9
+Year 4,1st Term,5,Literacy,Active and passive sentences,8-9
+Year 4,1st Term,6,Literacy,Concord: subject / verb agreement,8-9
+Year 4,1st Term,7,Literacy,"Verb tenses: present, past, and future tense",8-9
+Year 4,1st Term,8,Literacy,"Modal verb: use of ""can, will, shall"" etc",8-9
+Year 4,1st Term,9,Literacy,Showing necessity and obligation,8-9
+Year 5,1st Term,1,Literacy,Dashes and bracket: meaning and uses,9-10
+Year 5,1st Term,2,Literacy,Active and passive voice,9-10
+Year 5,1st Term,3,Literacy,Direct and indirect speech,9-10
+Year 5,1st Term,4,Literacy,Articles: uses of articles,9-10
+Year 5,1st Term,5,Literacy,Colon's and semi colon,9-10
+Year 5,1st Term,6,Literacy,Adverb: comparison,9-10
+Year 5,1st Term,7,Literacy,Preposition,9-10
+Year 5,1st Term,8,Literacy,Stress and intonation,9-10
+Year 5,1st Term,9,Literacy,Dialogue,9-10
+Year 1,1st Term,1,Creative Writing,My summer holiday,5-6
+Year 1,1st Term,2,Creative Writing,Number poems,5-6
+Year 1,1st Term,3,Creative Writing,A patterned story -- My self,5-6
+Year 1,1st Term,4,Creative Writing,Giving Instructions -- How to fry eggs,5-6
+Year 1,1st Term,5,Creative Writing,My best friend,5-6
+Year 1,1st Term,6,Creative Writing,My teacher,5-6
+Year 1,1st Term,7,Creative Writing,A day in the beach,5-6
+Year 1,1st Term,8,Creative Writing,My favorite food,5-6
+Year 1,1st Term,9,Creative Writing,All about lies,5-6
+Year 2,1st Term,1,Creative Writing,My summer holiday,6-7
+Year 2,1st Term,2,Creative Writing,Writing your own poem -- My neighbor,6-7
+Year 2,1st Term,3,Creative Writing,My school,6-7
+Year 2,1st Term,4,Creative Writing,A picnic at the beach,6-7
+Year 2,1st Term,5,Creative Writing,Giving Instructions -- How to brush your teeth,6-7
+Year 2,1st Term,6,Creative Writing,My grandparents,6-7
+Year 2,1st Term,7,Creative Writing,How plants grow,6-7
+Year 2,1st Term,8,Creative Writing,How can I be a better friend,6-7
+Year 2,1st Term,9,Creative Writing,My family,6-7
+Year 3,1st Term,1,Creative Writing,Varied ending of stories -- My summer holiday,7-8
+Year 3,1st Term,2,Creative Writing,Completing stories: The sand castle as a play,7-8
+Year 3,1st Term,3,Creative Writing,Shape poem,7-8
+Year 3,1st Term,4,Creative Writing,Picture description and labelling,7-8
+Year 3,1st Term,5,Creative Writing,Writing reports,7-8
+Year 3,1st Term,6,Creative Writing,My favorite superhero,7-8
+Year 3,1st Term,7,Creative Writing,A day in the desert,7-8
+Year 3,1st Term,8,Creative Writing,Loosing my teeth,7-8
+Year 3,1st Term,9,Creative Writing,What I know about dinosaurs,7-8
+Year 4,1st Term,1,Creative Writing,An interview on the COVID-19 break,8-9
+Year 4,1st Term,2,Creative Writing,Ending a story strange happening at night,8-9
+Year 4,1st Term,3,Creative Writing,A most interesting experience,8-9
+Year 4,1st Term,4,Creative Writing,A prayer poem,8-9
+Year 4,1st Term,5,Creative Writing,Giving Instructions -- How to bake a cake,8-9
+Year 4,1st Term,6,Creative Writing,The surprise birthday party,8-9
+Year 4,1st Term,7,Creative Writing,My secret dream,8-9
+Year 4,1st Term,8,Creative Writing,A visit to the orphanage,8-9
+Year 4,1st Term,9,Creative Writing,My favorite season,8-9
+Year 5,1st Term,1,Creative Writing,My summer holiday,9-10
+Year 5,1st Term,2,Creative Writing,"Beginning, middle and end of a story -- The secondary school of my choice",9-10
+Year 5,1st Term,3,Creative Writing,The owl and the pussy cat,9-10
+Year 5,1st Term,4,Creative Writing,How to create an Email address,9-10
+Year 5,1st Term,5,Creative Writing,Bell rings for end of lesson,9-10
+Year 5,1st Term,6,Creative Writing,Hard work pays off,9-10
+Year 5,1st Term,7,Creative Writing,How I can change the world,9-10
+Year 5,1st Term,8,Creative Writing,What I want to be when I grow up ( child hood dreams and ambitions),9-10
+Year 5,1st Term,9,Creative Writing,A visit to the relative house,9-10
+Year 1,1st Term,1,Geography,Geography: meaning and why we study geography,5-6
+Year 1,1st Term,2,Geography,"The school environment: meaning of environment and school environment, things that can be found in school environment",5-6
+Year 1,1st Term,3,Geography,States in Nigeria and their capitals,5-6
+Year 1,1st Term,4,Geography,The seven continents of the world,5-6
+Year 1,1st Term,5,Geography,Rivers: meaning and rivers in Nigeria,5-6
+Year 1,1st Term,6,Geography,Ocean: meaning and oceans in Nigeria,5-6
+Year 1,1st Term,7,Geography,Desert: meaning and desert in Nigeria,5-6
+Year 1,1st Term,8,Geography,Island: meaning and island in Nigeria,5-6
+Year 1,1st Term,9,Geography,"Tourism: meaning, who is a tourist? Tourist sites in Nigeria",5-6
+Year 2,1st Term,1,Geography,World countries and their capitals,6-7
+Year 2,1st Term,2,Geography,Map: meaning and map in Nigeria,6-7
+Year 2,1st Term,3,Geography,Ethnic group: landscape and locations,6-7
+Year 2,1st Term,4,Geography,Ethnic group: various occupation,6-7
+Year 2,1st Term,5,Geography,"Ethnic group: Dressing, food and transportation of different ethnic groups",6-7
+Year 2,1st Term,6,Geography,"Natural resources in Nigeria: meaning, classification with examples",6-7
+Year 2,1st Term,7,Geography,Natural resources in Nigeria: location of Nigeria map,6-7
+Year 2,1st Term,8,Geography,"Rocks: meaning, types, importance, and major ricks in Nigeria",6-7
+Year 2,1st Term,9,Geography,"Mountain: meaning, notable mountains in Nigeria",6-7
+Year 3,1st Term,1,Geography,"Weather and climate: meaning, elements, seasons and their classification",7-8
+Year 3,1st Term,2,Geography,The earth: meaning and components,7-8
+Year 3,1st Term,3,Geography,"Vegetation zones in Nigeria: meaning, types, characteristics and locations",7-8
+Year 3,1st Term,4,Geography,"Afforestation and Deforestation: meaning causes, advantages and disadvantages",7-8
+Year 3,1st Term,5,Geography,"Flooding: meaning, causes and effects",7-8
+Year 3,1st Term,6,Geography,"Plains and plateaus: meaning, formation, types and characteristics",7-8
+Year 3,1st Term,7,Geography,"Hills and valleys: meaning, formation, types and characteristics",7-8
+Year 3,1st Term,8,Geography,"Rainfall: meaning, formation, types and importance",7-8
+Year 3,1st Term,9,Geography,Map of Nigeria,7-8
+Year 4,1st Term,1,Geography,"Natural resources: meaning, sources, examples and uses",8-9
+Year 4,1st Term,2,Geography,"Mineral resources in Nigeria and Africa : meaning, locations and uses",8-9
+Year 4,1st Term,3,Geography,"Mining: meaning, processes involved in mining, instrument and importance",8-9
+Year 4,1st Term,4,Geography,"Climatic change: meaning, causes and effects",8-9
+Year 4,1st Term,5,Geography,Early explorers: Mungo park ( routes and destination),8-9
+Year 4,1st Term,6,Geography,Early explorers: Vasco Da Gama ( routes and destination),8-9
+Year 4,1st Term,7,Geography,Early explorers: Bartholomew Disc (routes and destination),8-9
+Year 4,1st Term,8,Geography,Early explorers: The landed brothers (routes and destination),8-9
+Year 4,1st Term,9,Geography,"Settlement: meaning, types, features and importance",8-9
+Year 5,1st Term,1,Geography,"Town and villages: meaning, features and amenities",9-10
+Year 5,1st Term,2,Geography,The local government areas in Nigeria and their headquarters,9-10
+Year 5,1st Term,3,Geography,Major land forms in Nigeria,9-10
+Year 5,1st Term,4,Geography,"Topography: meaning, forms, features, examples and importance",9-10
+Year 5,1st Term,5,Geography,Rocks and rock formations: meaning and formation of different types of rock with examples,9-10
+Year 5,1st Term,6,Geography,"Weathering: meaning, agents, and process",9-10
+Year 5,1st Term,7,Geography,"Population: meaning, types and features",9-10
+Year 5,1st Term,8,Geography,Nuclear and biological weapons: meaning and uses,9-10
+Year 5,1st Term,9,Geography,"Ecological ecosystem: meaning, types and importance",9-10
+Year 1,1st Term,1,Moral Instructions,Good manners,5-6
+Year 1,1st Term,2,Moral Instructions,Obedience: meaning of obedience and importance of obedience,5-6
+Year 1,1st Term,3,Moral Instructions,How to show courtesy to others,5-6
+Year 1,1st Term,4,Moral Instructions,Courtesy at home,5-6
+Year 1,1st Term,5,Moral Instructions,Courtesy at school,5-6
+Year 1,1st Term,6,Moral Instructions,Courtesy in speaking,5-6
+Year 1,1st Term,7,Moral Instructions,"Kindness: meaning, importance and ways to show kindness",5-6
+Year 1,1st Term,8,Moral Instructions,Respect: meaning and importance of respect,5-6
+Year 1,1st Term,9,Moral Instructions,Integrity,5-6
+Year 2,1st Term,1,Moral Instructions,Leadership at school,6-7
+Year 2,1st Term,2,Moral Instructions,Leadership at home,6-7
+Year 2,1st Term,3,Moral Instructions,Discipline : meaning and reasons for discipline,6-7
+Year 2,1st Term,4,Moral Instructions,Discipline at home and in school,6-7
+Year 2,1st Term,5,Moral Instructions,Good and bad habit,6-7
+Year 2,1st Term,6,Moral Instructions,Discovering your talent,6-7
+Year 2,1st Term,7,Moral Instructions,Developing your talent,6-7
+Year 2,1st Term,8,Moral Instructions,Honesty and telling the truth,6-7
+Year 2,1st Term,9,Moral Instructions,Teachability,6-7
+Year 3,1st Term,1,Moral Instructions,Forgiveness: meaning and benefit of forgiveness,7-8
+Year 3,1st Term,2,Moral Instructions,Forbearance,7-8
+Year 3,1st Term,3,Moral Instructions,Loyalty,7-8
+Year 3,1st Term,4,Moral Instructions,"Punctuality: meaning, importance and effect of not been punctual",7-8
+Year 3,1st Term,5,Moral Instructions,Diligence: attribute of a diligent person,7-8
+Year 3,1st Term,6,Moral Instructions,Team work: meaning and benefit of team work,7-8
+Year 3,1st Term,7,Moral Instructions,Savings,7-8
+Year 3,1st Term,8,Moral Instructions,Contentment: meaning and benefit of contentment,7-8
+Year 3,1st Term,9,Moral Instructions,Cleanliness,7-8
+Year 4,1st Term,1,Moral Instructions,Good comportment,8-9
+Year 4,1st Term,2,Moral Instructions,Humility: meaning and benefit of humility,8-9
+Year 4,1st Term,3,Moral Instructions,Interpersonal relationships,8-9
+Year 4,1st Term,4,Moral Instructions,Conflict resolution,8-9
+Year 4,1st Term,5,Moral Instructions,Moderation: meaning and types of moderation,8-9
+Year 4,1st Term,6,Moral Instructions,Time management,8-9
+Year 4,1st Term,7,Moral Instructions,"Cooperation: meaning, ways and examples of cooperation",8-9
+Year 4,1st Term,8,Moral Instructions,"Etiquette: meaning, types and how to practice etiquette",8-9
+Year 4,1st Term,9,Moral Instructions,Self control,8-9
+Year 5,1st Term,1,Moral Instructions,Sowing and reaping,9-10
+Year 5,1st Term,2,Moral Instructions,Decision making,9-10
+Year 5,1st Term,3,Moral Instructions,Good stewardship,9-10
+Year 5,1st Term,4,Moral Instructions,Developing boldness,9-10
+Year 5,1st Term,5,Moral Instructions,Reliability,9-10
+Year 5,1st Term,6,Moral Instructions,Hospitality,9-10
+Year 5,1st Term,7,Moral Instructions,Taking responsibility,9-10
+Year 5,1st Term,8,Moral Instructions,Self discovery,9-10
+Year 5,1st Term,9,Moral Instructions,Overcoming negative peer influence,9-10
+Year 1,1st Term,1,Vocational Studies,Vocation: meaning and types,5-6
+Year 1,1st Term,2,Vocational Studies,Vocation: tools used by different vocations and their uses,5-6
+Year 1,1st Term,3,Vocational Studies,"The house: meaning, types and importance",5-6
+Year 1,1st Term,4,Vocational Studies,Different rooms in the house and their functions,5-6
+Year 1,1st Term,5,Vocational Studies,"Home appliances: meaning, types and uses",5-6
+Year 1,1st Term,6,Vocational Studies,Farm equipment and their uses,5-6
+Year 1,1st Term,7,Vocational Studies,"Sanitation: meaning, tools/materials used for sanitation and reasons for sanitation",5-6
+Year 1,1st Term,8,Vocational Studies,Keeping our environment clean: meaning of environment and ways of keeping our environment clean,5-6
+Year 1,1st Term,9,Vocational Studies,"Raw materials: meaning, types and uses",5-6
+Year 2,1st Term,1,Vocational Studies,"Occupation: meaning, types and importance",6-7
+Year 2,1st Term,2,Vocational Studies,"Professional working tools ( doctors, teacher lawyer, pilot, banker, engineer e.t.c)",6-7
+Year 2,1st Term,3,Vocational Studies,"Personal health: meaning, importance, equipments use in maintaining personal health",6-7
+Year 2,1st Term,4,Vocational Studies,Health agencies in Nigeria,6-7
+Year 2,1st Term,5,Vocational Studies,"Transportation: meaning, means/ mode and importance",6-7
+Year 2,1st Term,6,Vocational Studies,"Communication: meaning, means/mode and importance",6-7
+Year 2,1st Term,7,Vocational Studies,"Print media: meaning, materials, forms and benefits",6-7
+Year 2,1st Term,8,Vocational Studies,"Musical instruments: meaning, classification with examples and functions",6-7
+Year 2,1st Term,9,Vocational Studies,"People that study about the earth, weather and climate (Astrologist, geologist, meteorologist)",6-7
+Year 3,1st Term,1,Vocational Studies,"Carpentry: meaning of carpentry, who is a carpenter, tools used in carpentry",7-8
+Year 3,1st Term,2,Vocational Studies,"Plumbing: meaning of plumbing, who is a plumber, tools used in plumbing",7-8
+Year 3,1st Term,3,Vocational Studies,"Brick laying (Masonry): meaning of bricklaying/masonry, who is a brick layer/mason, tools used in brick laying/masonry",7-8
+Year 3,1st Term,4,Vocational Studies,Electrician: meaning and tools,7-8
+Year 3,1st Term,5,Vocational Studies,"Beauty therapy( hair care, makeup, skin care, nail care and other beauty service): meaning, who is a beautician, tools used by beautician",7-8
+Year 3,1st Term,6,Vocational Studies,"Painting: meaning, who is a painter, tools used in painting",7-8
+Year 3,1st Term,7,Vocational Studies,"Engineering: meaning, who is an engineer and types and tools",7-8
+Year 3,1st Term,8,Vocational Studies,"Fishing: meaning, who is a fisherman, fisher woman and fish monger and fishing tools",7-8
+Year 3,1st Term,9,Vocational Studies,Practical (makeup),7-8
+Year 4,1st Term,1,Vocational Studies,"Home appliances: meaning, types and importance/uses",8-9
+Year 4,1st Term,2,Vocational Studies,"Profession and occupation: differences, types and importance",8-9
+Year 4,1st Term,3,Vocational Studies,"Automobile: meaning, types and importance",8-9
+Year 4,1st Term,4,Vocational Studies,"Mineral resources: meaning, types and importance",8-9
+Year 4,1st Term,5,Vocational Studies,"Clothing: meaning, clothing materials, clothes for different occasions and seasons",8-9
+Year 4,1st Term,6,Vocational Studies,"Blacksmithing: meaning, tools used by blacksmith and process of production, who is a blacksmith?",8-9
+Year 4,1st Term,7,Vocational Studies,Building/ house construction: materials for building,8-9
+Year 4,1st Term,8,Vocational Studies,"Building) house construction: stages of house construction, profession involved in house construction",8-9
+Year 4,1st Term,9,Vocational Studies,Practical: ( Tie and Dye),8-9
+Year 5,1st Term,1,Vocational Studies,"Introduction to entrepreneurship: what is entrepreneurship, who is an entrepreneurship? Successful entrepreneurship and company founded, importance of entrepreneurship",9-10
+Year 5,1st Term,2,Vocational Studies,"Skills acquisition: meaning, classification and types of skills, benefits of skills acquisition",9-10
+Year 5,1st Term,3,Vocational Studies,Bead making,9-10
+Year 5,1st Term,4,Vocational Studies,Batik/Tie and die,9-10
+Year 5,1st Term,5,Vocational Studies,Baking (finger food),9-10
+Year 5,1st Term,6,Vocational Studies,Communication ( modern gadget of communication),9-10
+Year 5,1st Term,7,Vocational Studies,"Building/ house construction: cement -- types of cement, and uses of cement",9-10
+Year 5,1st Term,8,Vocational Studies,"Forestry : meaning, forest resources, who is a lumber man?",9-10
+Year 5,1st Term,9,Vocational Studies,Practical ( baking) Tie and Dye/ batik,9-10
+Year 1,1st Term,1,History,Introduction to history: meaning and importance,5-6
+Year 1,1st Term,2,History,Facts about history,5-6
+Year 1,1st Term,3,History,Branches of History,5-6
+Year 1,1st Term,4,History,Transportation in the past and now,5-6
+Year 1,1st Term,5,History,Communication in the past and now,5-6
+Year 1,1st Term,6,History,The tallest building in Nigeria,5-6
+Year 1,1st Term,7,History,The first storey building in Nigeria,5-6
+Year 1,1st Term,8,History,Food in the past and now,5-6
+Year 1,1st Term,9,History,Clothing in the past and now,5-6
+Year 2,1st Term,1,History,The history of Nigeria ( important dates in Nigeria),6-7
+Year 2,1st Term,2,History,"The indigenous people of Nigeria ( origin of the three main ethnic group, significant features",6-7
+Year 2,1st Term,3,History,The Nigeria independence,6-7
+Year 2,1st Term,4,History,"States in Nigeria, capitals and when they were created",6-7
+Year 2,1st Term,5,History,"Heroes of our nation : meaning of heroes, examples of Nigeria super heroes",6-7
+Year 2,1st Term,6,History,Major monarch in Nigeria,6-7
+Year 2,1st Term,7,History,Major beliefs and festivals in Nigeria,6-7
+Year 2,1st Term,8,History,"Historical artifacts in Nigeria -- Nok culture (terracotta), igbo-ukwubronze, Benin bronze e.t.c",6-7
+Year 2,1st Term,9,History,Christian missionaries in Nigeria: Meaning and goals of the missionaries,6-7
+Year 3,1st Term,1,History,The history of man,7-8
+Year 3,1st Term,2,History,Early history of west African states,7-8
+Year 3,1st Term,3,History,Colonial era in Nigeria,7-8
+Year 3,1st Term,4,History,Monarchy ( monarch's around the world),7-8
+Year 3,1st Term,5,History,Queen Elizabeth ii ( the longest reigning monarch in the world),7-8
+Year 3,1st Term,6,History,Alexander the great,7-8
+Year 3,1st Term,7,History,Queen Amina of Zaria,7-8
+Year 3,1st Term,8,History,Ben Carson,7-8
+Year 3,1st Term,9,History,Abraham Lincoln,7-8
+Year 4,1st Term,1,History,"British rule in Nigeria: names of colonial administrators in Nigeria, British protectorates in Nigeria, Amalgamation of the protectorates in 1914, consequences of British rule in Nigeria",8-9
+Year 4,1st Term,2,History,"Nigeria: How Nigeria was named, the struggles for independence, how nationalists secure our indepsendence, independence and its challenges",8-9
+Year 4,1st Term,3,History,"Nationalist and Nationalism in Nigeria: meaning of nationalist and nationalism, nationalist activities",8-9
+Year 4,1st Term,4,History,"Some nationalist in Nigeria:( Herbert Macauley, Nnamdi Azikwe, Obafemi Awolowo)-Background, activities and lessons",8-9
+Year 4,1st Term,5,History,"Some nationalist in Nigeria:( Sir Ahmadu Bello, Mallam Aminu Kano)-Background activities and lessons",8-9
+Year 4,1st Term,6,History,History of education in Nigeria,8-9
+Year 4,1st Term,7,History,Origin of banks in Nigeria,8-9
+Year 4,1st Term,8,History,Discovery of crude oil in Nigeria,8-9
+Year 4,1st Term,9,History,History of trade unions in Nigeria,8-9
+Year 5,1st Term,1,History,"Myths: meaning, creation, myth of major tribes ( Hausa, Igbo, Yoruba)",9-10
+Year 5,1st Term,2,History,Pre-colonial rule in Nigeria: meaning and periods,9-10
+Year 5,1st Term,3,History,Colonial rule in Nigeria: meaning and periods,9-10
+Year 5,1st Term,4,History,Civil rule in Nigeria: meaning and periods,9-10
+Year 5,1st Term,5,History,"Civilian leaders in Nigeria: (Dr Nnamdi Azikwe, Sir Tafawa Balewa, Alhaji Shehu Shagari, Chief Olusegun Obasanjo )",9-10
+Year 5,1st Term,6,History,"Civilian leaders in Nigeria (Mallam Umaru Musa, Yar'adua, Dr Good luck Ebele Jonathan, Muhammadu Buhari)",9-10
+Year 5,1st Term,7,History,Military heads of states in Nigeria,9-10
+Year 5,1st Term,8,History,Conduct of election in Nigeria,9-10
+Year 5,1st Term,9,History,Nigeria civil war (1967-1970): Introduction to Nigeruan Civil war and reason for civil war,9-10
+Year 1,1st Term,1,Christian Religious Knowledge,"God the creator: who is God? (John4:24) (a) The creator of all things (b) The creator of human being (c) Things God created: sun, moon, stars, planets, animals and human (d) God create human being and things to fear and respect Him, to love and respect our parents (Gen 1:26-28, Rev 4-11) (e) Why God created all things: for His glory, honour, to serve Him, worship Him and to reproduce",5-6
+Year 1,1st Term,2,Christian Religious Knowledge,"Things that were created by man: (a) Golden image, toys, cars, table etc. (b) Car, airplane, phone, etc",5-6
+Year 1,1st Term,3,Christian Religious Knowledge,"God's Goodness: (a) The provider of all things [ Gen 9:1-8, 1:4-30] (b) The helper [1 king 17:1-7, Num 11:31, Gen 2:7] (c) The giver of family [ Gen 1: 26-28, 7:18-25]",5-6
+Year 1,1st Term,4,Christian Religious Knowledge,"Using God's gift of sight and hearing [ 1 Sam 3:4-10, Mark 10:46-52, Luke 18:35-40]",5-6
+Year 1,1st Term,5,Christian Religious Knowledge,Holy spirit: (a) All powerful ( John 4: 26) (b) Knowing about holy spirit (Holy spirit),5-6
+Year 1,1st Term,6,Christian Religious Knowledge,"Ways of protection: By God, our parents and government. (a) By praying and studying the word of God (b) Memorize the word of God (c) The blood of Jesus",5-6
+Year 1,1st Term,7,Christian Religious Knowledge,The birth of Jesus : (a) The forecast of Jesus' birth (b) The father of Jesus (c) The Angel appearing to Mary ( Luke 1:26-28),5-6
+Year 1,1st Term,8,Christian Religious Knowledge,"The birth of Jesus: (a) How Jesus was born (b) Where Jesus was born ( John 3:16) (c) Why Jesus was born; ways in which God protected Jesus ( Luke 2:1-7, Matthew 2:1-6)",5-6
+Year 1,1st Term,9,Christian Religious Knowledge,The significance of Christmas: (a) His purpose of coming (b) The remembrance of Jesus birth,5-6
+Year 2,1st Term,1,Christian Religious Knowledge,"Meaning and types of prayers (Gen 18:20-23; Acts 4:23; 1 Sam 1:9-18, Matt7:7), Reasons for prayer and Right attitude for prayer",6-7
+Year 2,1st Term,2,Christian Religious Knowledge,When to pray: Jesus the man of prayer( Luke 6:12-16; John 14:41-43; Mark 14:22-23) (when we ought to pray),6-7
+Year 2,1st Term,3,Christian Religious Knowledge,"Talking to God through Jesus Christ ( Matthew 7:7-11; Luke 18 :9-14) : How to pray, Jesus teaches how to pray, pray without ceasing (1Thes 5:17), pray in faith (Matt 6: 9-15)",6-7
+Year 2,1st Term,4,Christian Religious Knowledge,God cares for us ( Psalm 23; Daniel 3:1-30; Daniel 6:1-28),6-7
+Year 2,1st Term,5,Christian Religious Knowledge,God announces the coming if the savior ( Luke 1:26-38; Matthew 1:18-25; Isaiah 7:14),6-7
+Year 2,1st Term,6,Christian Religious Knowledge,"God gives the world a savior ( Luke 2:1-7, Luke 2:8-26; Matthew 2:11-12)",6-7
+Year 2,1st Term,7,Christian Religious Knowledge,"The coming of the Holy spirit ( Act 2:1-14, Mark 16:17 ) (The comforter)",6-7
+Year 2,1st Term,8,Christian Religious Knowledge,The work of the Holy spirit -- To comfort us ( John14:12) To lead us into all truths and teach us all things ( John 16:12-14),6-7
+Year 2,1st Term,9,Christian Religious Knowledge,"The second coming of Jesus, preparation for the second coming.( Act 1:11; 1 Corinthians 15 :23, Mark 13:24 -37; Matthew 25:1-13)",6-7
+Year 3,1st Term,1,Christian Religious Knowledge,God calls us for a purpose -- The story of the call of Abraham (Gen12:1-3;4-9),7-8
+Year 3,1st Term,2,Christian Religious Knowledge,"God calls us for a purpose -- Benefits of obedience to God's call ( Luke 5:1-11, Gen 12:10-20)",7-8
+Year 3,1st Term,3,Christian Religious Knowledge,"God's promise: (a) God fulfil His promises to Abraham (Gen 12:1-9;28:10-15) (b) God fulfil His promises of the savior Emmanuel ( Matthew 1:23), Meaning of Emmanuel",7-8
+Year 3,1st Term,4,Christian Religious Knowledge,"The promise of a saviour, Isaiah prophesy about Jesus, Types of saviour the Jews were expecting, Types of saviour Jesus is: Suffering Messiah",7-8
+Year 3,1st Term,5,Christian Religious Knowledge,"Deliverance from Egypt: (a)Crossing the Red sea ( Exodus 1:8-22; 4:1-7; 14:23-28) (b)The Passover (Ex 12:1-50) (c) Entering into the promise land ( Joshua 3:1-17; 4:1-24) (d) Moses and the bronze serpent in the wilderness (Num 21:4-9, John 3:14-16)",7-8
+Year 3,1st Term,6,Christian Religious Knowledge,We are children of one Father (a) The fatherhood of God ( John 1:12; 3:16) (b) The brotherhood of man ( Matthew 5:21-24) (c) The significance of being in Christ ( John 13:34-35),7-8
+Year 3,1st Term,7,Christian Religious Knowledge,"The prophecy of the coming of our savior (a) The promise of the savior ( Matthew 1:23, Isaiah 7:14; 9:6-7,11:1-5) (b) The announcement of the coming of the Lord (Isaiah 9:6, Micah 5:2-4)",7-8
+Year 3,1st Term,8,Christian Religious Knowledge,"The birth of Christ ( Luke 2:1-16, Matthew 2:1-15) (a) Significance of the savior ( Matthew 1:21, John 3:16-17; 10:10) (b) The type of savior the Jews were expecting (Acts1:6, John 18:36)",7-8
+Year 3,1st Term,9,Christian Religious Knowledge,"The coming of the Holy spirit (Acts 2:1-14, Mark 16:17) (a) The work of the Holy spirit on the apostles -- Boldness, Power, Healing, Comfort, Protection, Deliverance and Teaching (b) The works of the Holy spirit ( John 14:12;16:12-14) (c) The promise of the comforter (Acts 1:8,John 14:16)",7-8
+Year 4,1st Term,1,Christian Religious Knowledge,"God is our father, we are children of one father who takes care of us, The fatherhood of God and brotherhood of Man (Matthew 6:25-34 Exodus 16:4-5) (a) Significance of being in Christ: Attitude of one father (b) How He communicate to us as children and importance of living in peace",8-9
+Year 4,1st Term,2,Christian Religious Knowledge,"God speaks to us ( Exodus 33:11, Gen 28:10-17) (a) When God speaks (b) How to hear God when he speaks (c) Importance of when God speaks",8-9
+Year 4,1st Term,3,Christian Religious Knowledge,"God calls us for a purpose (Gen 13:1-3, Luke 5:1-11, Gen 12:1-20) - Meaning of purpose of God's call. - Right response to God's call. Story of the call of Abraham - Importance of God purpose in our life",8-9
+Year 4,1st Term,4,Christian Religious Knowledge,Benefits of obedience to God's call - Meaning of obedience - How to be obedient - Importance of obedience,8-9
+Year 4,1st Term,5,Christian Religious Knowledge,God gives his law to us - Meaning of law - Reasons for the law and the ten commandments - Purpose of the law (Exodus 20:1-11),8-9
+Year 4,1st Term,6,Christian Religious Knowledge,The ten commandments ( Exodus 20:3-17) (a) Meaning of commandments (b) Reasons to obey the commandments (c) Importance of commandments,8-9
+Year 4,1st Term,7,Christian Religious Knowledge,The story of Joseph (Gen 37:1-39) (a) Who is Joseph (b) How did Joseph live his life,8-9
+Year 4,1st Term,8,Christian Religious Knowledge,The Israelites (God's chosen people) ( Genesis 32:28),8-9
+Year 4,1st Term,9,Christian Religious Knowledge,Jesus the son of God (a) Definition of son of God (b) Jesus was born by power of the Holy spirit (c) Evidence of Jesus as the son of God (d) The event of transfiguration ( Matthew 13:1-13),8-9
+Year 5,1st Term,1,Christian Religious Knowledge,God creates and love us (Genesis 1:1-31),9-10
+Year 5,1st Term,2,Christian Religious Knowledge,"God supplies our needs : Ways God provides for our needs (God grants our request and provide for our needs) (Exodus 16, Matthew 6:25-35) (a) How God provide for our needs (b) Things that God provided",9-10
+Year 5,1st Term,3,Christian Religious Knowledge,"God saves us from danger ( Daniel 3:3-10, Genesis 22:1-19) (a) God delivers people from danger (b) Examples of God's deliverance (c) The crossing of the Red sea (d) God saved Daniel in the lion's den",9-10
+Year 5,1st Term,4,Christian Religious Knowledge,"God wants us to work (a) Meaning of work (b) Bible references: Matthew 4:18-22, Proverb 32:13-19 (c) Ways- types of work (2 Thessalonians 3:10) (d) Examples are teachers (e) Why we should work",9-10
+Year 5,1st Term,5,Christian Religious Knowledge,"Paul's early life: Paul's name, nationality and religion i.e Saul I. Paul was a Hebrew, a Roman and a Greek II. He was originally a Judas and later a Christian - Paul's early life continues: I. Paul's place of birth (Tarsus)(Acts 22:3) II. Son of a Pharisee( Acts 23:6) - Paul's early life continues: I. Paul studied under Gamaliel ( Acts 22:3) II. Persecuted the church (Acts 8:1-3) - Paul's early life continues: I. Approval of Stephen's death ( Acts 7:54-60, 8:1)",9-10
+Year 5,1st Term,6,Christian Religious Knowledge,Paul's conversion: I. Paul's proposed mission to Damascus( Acts 9:3-9) II. What happened to Paul on the way(Acts 9:3-9) - Paul's conversion continues: The healing and commission of Paul by Ananias (Acts 9:10 -19): I. Ananias vision (Acts 9:10-16) II. The healing and commissioning ( Acts 9:17-19),9-10
+Year 5,1st Term,7,Christian Religious Knowledge,"Paul's missionary journey - Paul preached to different people ( Acts 13:5; 14:5) Paul's missionary journey continues - Paul preached to different people ( Antioch in Pisidia, Lystra and Derbe) (Acts 14:6-21)",9-10
+Year 5,1st Term,8,Christian Religious Knowledge,"The prince of peace is coming ( Luke 1:26-38, Isaiah 2:2-4, Matthew 3:1-12)",9-10
+Year 5,1st Term,9,Christian Religious Knowledge,"The prince of peace has come ( Luke 2:1-7, Matthew 2:1-12)",9-10
+Year 1,1st Term,1,Cultural and Creative Arts,Introduction to Arts and Culture: Meaning and Branches,5-6
+Year 1,1st Term,2,Cultural and Creative Arts,"Shapes and sizes -- Identification of different shapes, drawing basic shapes, sizes of object (big and small) rectangle and circle",5-6
+Year 1,1st Term,3,Cultural and Creative Arts,"Drawing and painting shaped object of different sizes e.g. Ruler, chalk etc. (practical)",5-6
+Year 1,1st Term,4,Cultural and Creative Arts,"Element of design: lines, recognition of straight lines",5-6
+Year 1,1st Term,5,Cultural and Creative Arts,"Art and materials: Identification, uses, drawing of each materials",5-6
+Year 1,1st Term,6,Cultural and Creative Arts,"Functional art: meaning and types, colouring functional artwork",5-6
+Year 1,1st Term,7,Cultural and Creative Arts,"Introduction to craft making: meaning, types and materials",5-6
+Year 1,1st Term,8,Cultural and Creative Arts,"Types of Craft: paper craft, meaning, materials and types, embroidery, crafts in the home, drawing of craft items or materials (beads, local mats, local clay pot, woven clothes), fabric craft",5-6
+Year 1,1st Term,9,Cultural and Creative Arts,Practical (Christmas celebration),5-6
+Year 2,1st Term,1,Cultural and Creative Arts,"Introduction to nature drawing: definition of nature drawing, meaning of environment and natural things found in our environment",6-7
+Year 2,1st Term,2,Cultural and Creative Arts,Nature drawing: Animal drawing and painting,6-7
+Year 2,1st Term,3,Cultural and Creative Arts,Nature drawing: flowering plant drawing and painting,6-7
+Year 2,1st Term,4,Cultural and Creative Arts,"Element of design -- meaning , types, lines, tracing using templates, stencils",6-7
+Year 2,1st Term,5,Cultural and Creative Arts,"Element of design -- primary colors, pattern using colors, splash",6-7
+Year 2,1st Term,6,Cultural and Creative Arts,"Pattern: meaning, drawing basic shapes, designing pattern from basic shapes, designs on clothes, bedsheets, curtains etc, drawing basic shapes",6-7
+Year 2,1st Term,7,Cultural and Creative Arts,"Motifs: meaning, types, arranging motifs to make simple repeating patterns, drawing different motifs and colouring different motifs",6-7
+Year 2,1st Term,8,Cultural and Creative Arts,Leaf print: application of water color on leaves and print on paper,6-7
+Year 2,1st Term,9,Cultural and Creative Arts,Practical ( Christmas decorations),6-7
+Year 3,1st Term,1,Cultural and Creative Arts,Arts: definition and uses,7-8
+Year 3,1st Term,2,Cultural and Creative Arts,"Branches of arts: music, drama, and dance; meaning of music, drama and art",7-8
+Year 3,1st Term,3,Cultural and Creative Arts,"Introduction to Nigeria artworks: theatre, sources of musical sounds, difference between music and noise",7-8
+Year 3,1st Term,4,Cultural and Creative Arts,"Musical instruments: meaning, classes and examples",7-8
+Year 3,1st Term,5,Cultural and Creative Arts,"Greeting practices, time and greeting and occasions in Nigeria",7-8
+Year 3,1st Term,6,Cultural and Creative Arts,Different ceremonies and dances for tribes in Nigeria,7-8
+Year 3,1st Term,7,Cultural and Creative Arts,"Elements of design: shapes, lines and colors ( meaning, types and uses)",7-8
+Year 3,1st Term,8,Cultural and Creative Arts,"Pattern: designing pattern from simple basic shapes, making simple repeated patterns, using patterns to make Christmas cards, exhibitions",7-8
+Year 3,1st Term,9,Cultural and Creative Arts,"Principles of design; meaning, types and uses",7-8
+Year 4,1st Term,1,Cultural and Creative Arts,"Arts: meaning, origin, branches and importance",8-9
+Year 4,1st Term,2,Cultural and Creative Arts,Classification of art and Nigerian artworks and drawing of artwork,8-9
+Year 4,1st Term,3,Cultural and Creative Arts,"Songs that promotes national values, songs that promote values like patriotism in Nigeria e.g National Anthem, NYSC Anthem e.t.c ( Art of composing poetic lines/texts to be put in music )",8-9
+Year 4,1st Term,4,Cultural and Creative Arts,"Drawing: meaning, types (Nature, still-life, life)",8-9
+Year 4,1st Term,5,Cultural and Creative Arts,Drawing and painting,8-9
+Year 4,1st Term,6,Cultural and Creative Arts,"Introduction to pattern and card making: meaning, types of cards and materials",8-9
+Year 4,1st Term,7,Cultural and Creative Arts,Introduction to weaving: meaning and types,8-9
+Year 4,1st Term,8,Cultural and Creative Arts,"Colors: meaning, types, sources and uses",8-9
+Year 4,1st Term,9,Cultural and Creative Arts,"Introduction to music: meaning, types of music, importance of music",8-9
+Year 5,1st Term,1,Cultural and Creative Arts,"Light and shade: meaning, how light reflects on object to show light and shadow",9-10
+Year 5,1st Term,2,Cultural and Creative Arts,"Imaginative drawing: meaning, materials, draw from your memory, e.g festivals, village scenes",9-10
+Year 5,1st Term,3,Cultural and Creative Arts,"Imaginative composition: meaning, definition of choir, voice parts of choir",9-10
+Year 5,1st Term,4,Cultural and Creative Arts,Drawing and painting: Benin bronze work,9-10
+Year 5,1st Term,5,Cultural and Creative Arts,"Pattern, design and motif: meaning, types (plain, twill and mat weaving) and uses",9-10
+Year 5,1st Term,6,Cultural and Creative Arts,"Weaving: meaning, types, materials and importance",9-10
+Year 5,1st Term,7,Cultural and Creative Arts,Introduction values in cultural and creative arts,9-10
+Year 5,1st Term,8,Cultural and Creative Arts,"Perspectives: meaning, types and importance",9-10
+Year 5,1st Term,9,Cultural and Creative Arts,Practical ( Christmas decorations),9-10
+Year 1,1st Term,1,Social Studies,"Social studies- meaning, the study of man and how his problem are solved in the environment",5-6
+Year 1,1st Term,2,Social Studies,"Understanding the physical environment -- meaning , components and types",5-6
+Year 1,1st Term,3,Social Studies,"Culture -- meaning , types, element, difference and importance",5-6
+Year 1,1st Term,4,Social Studies,"Food: meaning, types and sources",5-6
+Year 1,1st Term,5,Social Studies,"Food safety: meaning, importance and guides to food safety",5-6
+Year 1,1st Term,6,Social Studies,"Religion -- meaning , types, how culture is related to religion",5-6
+Year 1,1st Term,7,Social Studies,"Family -- meaning , types, duties of the family members and qualities of a good family",5-6
+Year 1,1st Term,8,Social Studies,"Moral values -- meaning , types, good and bad moral values",5-6
+Year 1,1st Term,9,Social Studies,Greeting & respecting elders in our culture,5-6
+Year 2,1st Term,1,Social Studies,"Scope of social studies: meaning of scope of social studies; the areas social studies focuses to solve man's problem, areas which social studies focused are: critical thinking, reflective thinking and problem solving",6-7
+Year 2,1st Term,2,Social Studies,"Religious practices -- difference in religious practices and beliefs, objects used for worship",6-7
+Year 2,1st Term,3,Social Studies,"Drugs: meaning, types and importance",6-7
+Year 2,1st Term,4,Social Studies,Family -- family tree and family relationships,6-7
+Year 2,1st Term,5,Social Studies,Concept of family as a social unit -- understanding the concept of social unit,6-7
+Year 2,1st Term,6,Social Studies,"Food poisoning -- definition , causes, effects and prevention",6-7
+Year 2,1st Term,7,Social Studies,"Physical environment: people live in desert, fertile places, lakesides, riversides, mountain, low laying area, climate varies area",6-7
+Year 2,1st Term,8,Social Studies,"Growth and development -- meaning , stages of growth",6-7
+Year 2,1st Term,9,Social Studies,"Communication -- meaning , types, medium and importance",6-7
+Year 3,1st Term,1,Social Studies,"Physical environment: People live in desert, fertile places, lakes, rivers or ocean, mountain, low areas, climate varies",7-8
+Year 3,1st Term,2,Social Studies,"Customs and beliefs -- meaning , cultural practices, differences in customs and beliefs among cultures in Nigeria, beliefs and traditions; difference an similarities, values that can be promoted",7-8
+Year 3,1st Term,3,Social Studies,"Marriage: meaning, types and importance",7-8
+Year 3,1st Term,4,Social Studies,"Marriage practices in Nigeria: roles of culture in marriage practices, concepts of dowry, and reasons for differences in marriage practices",7-8
+Year 3,1st Term,5,Social Studies,"Culture: meaning, elements, ways of preserving culture and why different people have different customs (difference in history, geographical positions and external influences",7-8
+Year 3,1st Term,6,Social Studies,"Natural resources -- meaning, examples and resources development",7-8
+Year 3,1st Term,7,Social Studies,"Production -- meaning, types, factors and importance",7-8
+Year 3,1st Term,8,Social Studies,Division of labour,7-8
+Year 3,1st Term,9,Social Studies,Traditional festivals and ceremonies,7-8
+Year 4,1st Term,1,Social Studies,Man and his social environment -- meaning of social environment and effects of humans activities on the social environment,8-9
+Year 4,1st Term,2,Social Studies,"Ecosystem -- meaning, types, who is an ecologist? Differences between environment and ecosystem",8-9
+Year 4,1st Term,3,Social Studies,"Unity in cultural diversity -- meaning of cultural diversity and unity, unity in cultural diversity and benefits of cultural diversity, ways of promoting cultural diversity",8-9
+Year 4,1st Term,4,Social Studies,"Responsible parenthood -- meaning of parenthood, responsibilities of parents towards their children and benefits of responsible parenthood",8-9
+Year 4,1st Term,5,Social Studies,"Problems of parenthood -- challenges parents face, factors that contribute to poor parenting, characteristics and effects of irresponsible parenthood",8-9
+Year 4,1st Term,6,Social Studies,"Religious intolerance -- meaning of tolerance, intolerance, religious intolerance, danger of religious intolerance, how to prevent or reduce religious intolerance",8-9
+Year 4,1st Term,7,Social Studies,"Social amenities -- meaning , examples, importance and maintenance",8-9
+Year 4,1st Term,8,Social Studies,"Attitude to different forms of accident: meaning, types (air, road, water, rail, fire, hot water etc). The first aid treatment, positive attitude to accident victims",8-9
+Year 4,1st Term,9,Social Studies,"Resources distribution -- meaning of resources distribution, fair distribution of resources, concept of raw materials",8-9
+Year 5,1st Term,1,Social Studies,"Fundamental of social studies -- meaning of social studies, influence of man on his environment, influence of the environment both physically and socially on man, how man interacts with his environment",9-10
+Year 5,1st Term,2,Social Studies,"Influence -- meaning , types, sources and effects of bad influence",9-10
+Year 5,1st Term,3,Social Studies,"Understanding human relationships -- meaning , concepts of living together and advantages of living together",9-10
+Year 5,1st Term,4,Social Studies,"Marriage customs and practices -- steps in selecting marriages partners, relevant values, roles of family and friends",9-10
+Year 5,1st Term,5,Social Studies,"Inter marriage -- meaning , types of inter marriage, advantages and disadvantages of inter -ethnic marriages, problems of inter religious marriage, problems of inter- racial marriage",9-10
+Year 5,1st Term,6,Social Studies,"Transportation -- meaning , types, medium and importance",9-10
+Year 5,1st Term,7,Social Studies,"Leadership -- who is a leader? Meaning of leadership, qualities of a good leader, need for leadership",9-10
+Year 5,1st Term,8,Social Studies,"Employment and unemployment -- meaning , types of employment, causes of unemployment and ways of reducing unemployment",9-10
+Year 5,1st Term,9,Social Studies,"Social injustice -- meaning , causes and effects",9-10
+Year 1,1st Term,1,Agricultural Science,"Introduction to agriculture -- meaning , types and importance",5-6
+Year 1,1st Term,2,Agricultural Science,Simple farm tools -- meaning and examples,5-6
+Year 1,1st Term,3,Agricultural Science,Simple farm tools -- uses and maintenance,5-6
+Year 1,1st Term,4,Agricultural Science,Crops -- meaning and classes,5-6
+Year 1,1st Term,5,Agricultural Science,"Vegetable crop -- meaning , examples and uses",5-6
+Year 1,1st Term,6,Agricultural Science,"Grain crops -- meaning , examples and uses",5-6
+Year 1,1st Term,7,Agricultural Science,"Tuber crops -- meaning , examples and uses",5-6
+Year 1,1st Term,8,Agricultural Science,"Ornamental crops -- meaning , examples and uses",5-6
+Year 1,1st Term,9,Agricultural Science,"Forestry -- meaning of forest and forestry, forest resources, importance of forest",5-6
+Year 2,1st Term,1,Agricultural Science,Branches of agriculture,6-7
+Year 2,1st Term,2,Agricultural Science,"Animal husbandry: meaning, classes and by- products",6-7
+Year 2,1st Term,3,Agricultural Science,"Crop production -- meaning , types and importance",6-7
+Year 2,1st Term,4,Agricultural Science,"Weed- meaning, examples, effects and control",6-7
+Year 2,1st Term,5,Agricultural Science,"Pests: meaning, examples, effects and control",6-7
+Year 2,1st Term,6,Agricultural Science,"Fertilization; manure and compost: meaning, differences and importance",6-7
+Year 2,1st Term,7,Agricultural Science,Horticulture: meaning and advantages,6-7
+Year 2,1st Term,8,Agricultural Science,"Soil : meaning, types and importance",6-7
+Year 2,1st Term,9,Agricultural Science,Farm animals diseases,6-7
+Year 3,1st Term,1,Agricultural Science,"Agriculture -- meaning , types, careers and importance",7-8
+Year 3,1st Term,2,Agricultural Science,"Agronomy -- meaning , types and importance",7-8
+Year 3,1st Term,3,Agricultural Science,"Livestock farming -- meaning , types and importance",7-8
+Year 3,1st Term,4,Agricultural Science,"Fishery -- meaning , types and importance, fishing tools and equipment",7-8
+Year 3,1st Term,5,Agricultural Science,"Agro -- industry : meaning, branches and importance",7-8
+Year 3,1st Term,6,Agricultural Science,"Distribution of crops -- meaning , types and importance",7-8
+Year 3,1st Term,7,Agricultural Science,"Distribution of animals -- meaning , types and importance",7-8
+Year 3,1st Term,8,Agricultural Science,Raising of seedlings in the nursery,7-8
+Year 3,1st Term,9,Agricultural Science,Materials needed for growing crops,7-8
+Year 4,1st Term,1,Agricultural Science,"Classification of crops -- cereals , legumes, beverages, tuber crops, fiber crops, ornamental, oil, root, vegetable",8-9
+Year 4,1st Term,2,Agricultural Science,"Crop propagation -- meaning, types and importance",8-9
+Year 4,1st Term,3,Agricultural Science,Planting activities : pre-planting operation,8-9
+Year 4,1st Term,4,Agricultural Science,Planting activities: planting operation,8-9
+Year 4,1st Term,5,Agricultural Science,Planting activities: post--planting operation,8-9
+Year 4,1st Term,6,Agricultural Science,"Farm record: meaning, types and importance",8-9
+Year 4,1st Term,7,Agricultural Science,"Farm product (food crops, cash crops and animal products), uses of farm products",8-9
+Year 4,1st Term,8,Agricultural Science,"Silviculture : meaning, types and importance",8-9
+Year 4,1st Term,9,Agricultural Science,"Bee farming: meaning, steps involved and importance",8-9
+Year 5,1st Term,1,Agricultural Science,Origin of farming,9-10
+Year 5,1st Term,2,Agricultural Science,Relevance of agriculture to national development,9-10
+Year 5,1st Term,3,Agricultural Science,"Agricultural mechanization: meaning, types of machines and importance",9-10
+Year 5,1st Term,4,Agricultural Science,"Farm produce: meaning, processes, preservations and reasons for preservations",9-10
+Year 5,1st Term,5,Agricultural Science,"Crop diseases: meaning, examples and effects",9-10
+Year 5,1st Term,6,Agricultural Science,"Animal diseases: meaning, examples and effects",9-10
+Year 5,1st Term,7,Agricultural Science,"Soil formation: meaning, agents and processes",9-10
+Year 5,1st Term,8,Agricultural Science,Classification of farm animals ( ruminant and non-ruminant animals),9-10
+Year 5,1st Term,9,Agricultural Science,"Agricultural resources ( renewable natural resources): meaning, types and importance",9-10
+Year 1,1st Term,1,Yoruba,"Mo mi nmo o IKINNI: igba ninu aro, osan, irole ati ale",5-6
+Year 1,1st Term,2,Yoruba,"ASA: (I) ikinni ati idahun ojo (II) ikinni ni oniruru ise, bi apeere, agbe, awoka abbl",5-6
+Year 1,1st Term,3,Yoruba,"ALIFABEETI: kika alifabetti : A-Y ALIFABEETI: siseda alifabetti Yoruba ati kiko won. Bi apeere; A- aja, B- bata, D- doje E-eye abbl",5-6
+Year 1,1st Term,4,Yoruba,ONKA YORUBA: kika onka Yoruba lati ikinni -- ikewa (1) Kini- onka (2) Lilo - onka (3) Kika -onka (4) Sise idamo figo onka,5-6
+Year 1,1st Term,5,Yoruba,"MIMO EYA ARA ENI : kika awon eya ara wa - Kiko Orin nipa eya ara wa bi apeere, oju, eti, imu abbl",5-6
+Year 1,1st Term,6,Yoruba,"IMOTOTO ARA ENI: (1) Itoju ara eni, ohun elo fun itoju ara eni (2) Ewu ti I was ninu aitoju ara eni",5-6
+Year 1,1st Term,7,Yoruba,"ORIN IDARAYA: bi apeere Awa soja kekere, ja itana ton -- tan, eye meta tolongo waye abbl",5-6
+Year 1,1st Term,8,Yoruba,ISORONGBESI: (1) Ibeere lati odo akeko si oluko (2) Ibeere larin akeko si ara won,5-6
+Year 1,1st Term,9,Yoruba,IWA RERE: kinni anpe ni iwa rere II. Bawo ni asele do omoluabi mo,5-6
+Year 2,1st Term,1,Yoruba,Itesiwaju lori kika alifabeeti Yoruba - Kiko alifabeeti Yoruba si ara patako ikowe - Sise afihan alifabeeti ti o je faweli - Kiko konsonanti si oju patako,6-7
+Year 2,1st Term,2,Yoruba,Itesiwaju lori kika alifabeeti Yoruba - Iyato alifabeeti ede oyinbo ati ede yoruba ABC ni a n pe ni alifabeeti ede oyinbo nigba ti ABD je alifabeeti ti ede yoruba abbl - Onka yoruba : Ookanlelogun de ogbon (21-30),6-7
+Year 2,1st Term,3,Yoruba,"Imototo ayika - Itoju Ile ati ayika : riro ojo egbe Ile ati ayika Ile - Ewu to wa ninu aitoju ayika wa - Yiya aworan ohun ti o wa ni ayika kilassi ati ayika Ile iwe, ayika igba lejo, iyara idana, iyara ibusun - Orin ati ewi to jemo imototo bi apeere imototo lo le segun arun gbogbo abbl",6-7
+Year 2,1st Term,4,Yoruba,"Itesiwaju lori di daruko nkan - Ile- television, redio abbl - Ile eko- efun, aga abbl - Opopona oja- moto, eniyan abbl - Oja- isu, ata",6-7
+Year 2,1st Term,5,Yoruba,"Iro ede ( Ami ohun) - Kinni ami ohun - Orisi ami ohun Ohun aarin ( akii fihan) Ohun oke Ohun isale Itesiwaju lori iro ede ( Ami ohun) - Faweli ati orisirisi ami ohun kookan lori faweli. Bi apeere à, a, á, e, ē, é abbl - Ami ohun lori oro onisilebu kan bi apeere bà, ba abbl - Ami ohun lori oro onisilebu, bi apeere okó, okó, òkò abbl",6-7
+Year 2,1st Term,6,Yoruba,"Kika silebu - Alaye ohun ti silebu je ( Ege , oro) - Gige awon oro onisilebu bi apeere Bàbá- bá/bá, Bàtá -- bà/ta abbl",6-7
+Year 2,1st Term,7,Yoruba,"Ere osupa - Itan siso bi apeere boju boju abbl - Orin eremode - Eko ti a ri ko Ni imo -- kikun nipa ayika won Mo Orin ko, mo oro Orin ati kika won",6-7
+Year 2,1st Term,8,Yoruba,Iwe kika - Kika iwe asayan - Ayoka ti imo re ko ju ti ojo -- ori akekoo lo - Ewi : ise loogun ise,6-7
+Year 2,1st Term,9,Yoruba,Aayan ogbufo - Kinni aayan ogbufo - Titumo awon oro bi apeere Come -- wa House -- Ile Dog -- aja Food -- ounje Stick -- igi,6-7
+Year 3,1st Term,1,Yoruba,Itan awon akoni Ile yoruba laye atijo ati ode oni - Oruka awon akoni agbegbe akokoo ni aye atijo ati ni ode oni - Akitiyan awon akoni to ati daruko,7-8
+Year 3,1st Term,2,Yoruba,Onka Ookanlelogbon de ogoji (31-40 - Onka Yoruba Ookanlelogbon de ogoji - Aropo/ ayokuro awon onka kan lati fun wa ni onka miran - Titoka si awon oro to se pataki fun onka ( le ati din),7-8
+Year 3,1st Term,3,Yoruba,"Ere: onitan keekeeke - Kika iwe ere- onise - Sise ere-onise - Ijiroro lori eko ti ari ko ati eda Inu itan - Iwe kika, alawiye iwe keta",7-8
+Year 3,1st Term,4,Yoruba,"Orin omode siwaju si - Awon Orin ati eko ti won nko was bi: ""kin n o fole se laye to mo wa"", "" imototo lo le segun arun gbogbo "", ""we ki o mo, ge eekana re , jeun to dara --"" Owe siwaju si - Owe ati pataki re - Titumo owe ati lilo lori bi "" agboju le Ogun fi ara re fosi ta"", owo omode ko to pepe, ta gbalagba ko wo keregbe"", ""agba kii wa Loja Kori omo tuntun wo""",7-8
+Year 3,1st Term,5,Yoruba,"Apeko awon oro ledee yoruba - Kiko Ori Yoruba keekeeke bi -- aga, tabili abbl - Iro ohun : d, r, m - Silebu yoruba",7-8
+Year 3,1st Term,6,Yoruba,"Aso wiwo - Kinni aso wiwo - Apeere awon aso ti okunrin ati apeere awon aso obinrin - Gbolohun keekeeke nipa aso wiwo bi, mode fila, mo wo sokoto abbl",7-8
+Year 3,1st Term,7,Yoruba,"Oro gbolohun - Oro oruko, apeere, itumo, ati idamo oro oruko - Oro aropo oruko - Oro ise, Oro apejuwe, oro atokun, oro asopo",7-8
+Year 3,1st Term,8,Yoruba,Ounje Ile yoruba - Itesiwaju awon ire okó ati ounje ti anfi won se,7-8
+Year 3,1st Term,9,Yoruba,Asa ibagbepo,7-8
+Year 4,1st Term,1,Yoruba,Isomoloruko: (1) Awon ohun elo isomoloruko (2) Isomoloruko ni Ile yoruba,8-9
+Year 4,1st Term,2,Yoruba,Onka: ogorun-un de igba ( 100-200),8-9
+Year 4,1st Term,3,Yoruba,Aroso - Ero komputa eta sise nibi ? - Kinni ero komputa - Kin ni iwulo ero komputa,8-9
+Year 4,1st Term,4,Yoruba,Leta Kiko - Oriki leta kiko - Orisirisi leta,8-9
+Year 4,1st Term,5,Yoruba,"Ilu , Orin ati ijo ibile Yoruba (apa kin-in-ni) ati ilu, Orin ati ijo ibile Yoruba (apa keji)",8-9
+Year 4,1st Term,6,Yoruba,"Aforo I: Pataki, eko fun omode ati Aforo II: kini n o fele se",8-9
+Year 4,1st Term,7,Yoruba,Oriki orile: areas aagberi ati oni koyi,8-9
+Year 4,1st Term,8,Yoruba,Oruko abiso ati oruka amutorunwa,8-9
+Year 4,1st Term,9,Yoruba,Mimo aago- wakati abi iseju atise sise lori aago -- aago melo,8-9
+Year 5,1st Term,1,Yoruba,"Faweli, ibi ti afi mi ohun si",9-10
+Year 5,1st Term,2,Yoruba,Ami ohun (orisii ami ti o wa) ati fifi ami si ori awon oro,9-10
+Year 5,1st Term,3,Yoruba,"Ere onise : Oogun idanwo ( Ayo -- tita, Arin -- tita, okoto - tita)",9-10
+Year 5,1st Term,4,Yoruba,"Itesiwaju lori akanlo -- ede, owe ati ewa ede Yoruba",9-10
+Year 5,1st Term,5,Yoruba,Ero -- ibara eni soro - Ero ibara eni soro ; alagbeka G.S.M,9-10
+Year 5,1st Term,6,Yoruba,Itan oloro geere ati onka,9-10
+Year 5,1st Term,7,Yoruba,"Aroko "" Emi"" Ikini: onise owo",9-10
+Year 5,1st Term,8,Yoruba,Girama: Oro aropo oruko - Eje orile -- ede Naijiria,9-10
+Year 5,1st Term,9,Yoruba,Eko nipa iwa omoluabi: igbeyin awon olosa 1 - Eko nipa iwa omoluabi: igbeyin awon olosa 2,9-10
+Year 1,1st Term,1,Citizenship,"Civic education: meaning, importance and roles in national development",5-6
+Year 1,1st Term,2,Citizenship,Citizenship Education: meaning of citizen and citizenship and ways one can be a citizen,5-6
+Year 1,1st Term,3,Citizenship,Civic duties: duties and responsibilities of citizens,5-6
+Year 1,1st Term,4,Citizenship,Fundamental rights of citizens,5-6
+Year 1,1st Term,5,Citizenship,"Law: meaning, types and importance",5-6
+Year 1,1st Term,6,Citizenship,"Tax: meaning, types and importance",5-6
+Year 1,1st Term,7,Citizenship,Family ( responsibilities and duties of members of the family),5-6
+Year 1,1st Term,8,Citizenship,Dealing with strangers: who is a stranger? How to deal with strangers,5-6
+Year 1,1st Term,9,Citizenship,"Community: meaning, types, rules and cooperation in the community",5-6
+Year 2,1st Term,1,Citizenship,"Civic education: meaning, components and importance",6-7
+Year 2,1st Term,2,Citizenship,"Dimensions of civic education: meaning, exploring the different dimensions",6-7
+Year 2,1st Term,3,Citizenship,"Cultural dimension of civic education: meaning of culture, characteristics of culture, tribes in Nigeria",6-7
+Year 2,1st Term,4,Citizenship,"Political and legal dimensions of civic education: levels of government, arms of government",6-7
+Year 2,1st Term,5,Citizenship,"Nationality: meaning, countries and their nationality",6-7
+Year 2,1st Term,6,Citizenship,"Patriotism: meaning, who is a patriot? Reasons for patriotism",6-7
+Year 2,1st Term,7,Citizenship,Fundamental human rights,6-7
+Year 2,1st Term,8,Citizenship,"Democratic practice : meaning of democracy, current political parties in Nigeria, role of political parties",6-7
+Year 2,1st Term,9,Citizenship,Rules and regulations in the school,6-7
+Year 3,1st Term,1,Citizenship,"Governance: meaning, characteristics of good governance and importance",7-8
+Year 3,1st Term,2,Citizenship,"Government: meaning, arms of government ( components and their functions)",7-8
+Year 3,1st Term,3,Citizenship,Government: levels of government ( components and their functions,7-8
+Year 3,1st Term,4,Citizenship,"Government: forms of government -- democracy, monarchy, oligarchy, bureaucracy, theocracy, aristocracy etc",7-8
+Year 3,1st Term,5,Citizenship,Democracy and democratic countries: meaning and examples,7-8
+Year 3,1st Term,6,Citizenship,"National values: meaning of values, meaning of national values, examples of national values, the need to imbibe values in the society",7-8
+Year 3,1st Term,7,Citizenship,"Constituted authority: meaning, types and respect for constituted authority",7-8
+Year 3,1st Term,8,Citizenship,"Communities in Nigeria: meaning, types and roles of community members",7-8
+Year 3,1st Term,9,Citizenship,"Peaceful coexistence: meaning, reasons and importance",7-8
+Year 4,1st Term,1,Citizenship,"Constitution: meaning, types and importance",8-9
+Year 4,1st Term,2,Citizenship,"Nation: meaning, characteristics, how to build a nation, and importance of nation building",8-9
+Year 4,1st Term,3,Citizenship,"Cultural diversity: meaning, how to develop right attitude to cultural diversity and importance",8-9
+Year 4,1st Term,4,Citizenship,"Loyalty: meaning of loyalty and disloyalty, how to show loyalty to the nation, consequences of disloyalty",8-9
+Year 4,1st Term,5,Citizenship,"Leadership: meaning, types, levels and qualities of a good leader",8-9
+Year 4,1st Term,6,Citizenship,System of government ( presidential and parliamentary system of government),8-9
+Year 4,1st Term,7,Citizenship,Building values and morals,8-9
+Year 4,1st Term,8,Citizenship,"National identity: meaning, elements and importance",8-9
+Year 4,1st Term,9,Citizenship,Roles of individuals in the society,8-9
+Year 5,1st Term,1,Citizenship,"Election: meaning, types, major terms used in electoral processes and importance",9-10
+Year 5,1st Term,2,Citizenship,"Nationalism : meaning, ways of promoting nationalism and some nationalist in Nigeria",9-10
+Year 5,1st Term,3,Citizenship,"National honors and award: meaning, types, reasons and people",9-10
+Year 5,1st Term,4,Citizenship,Human rights activists: meaning of human rights activists in Nigeria,9-10
+Year 5,1st Term,5,Citizenship,"Pressure groups : meaning, ways of promoting nationalism, some nationalist in Nigeria",9-10
+Year 5,1st Term,6,Citizenship,Nigeria's foreign policy and international relations,9-10
+Year 5,1st Term,7,Citizenship,"The united nation and the common wealth of nations: members states, aims, objectives and functions",9-10
+Year 5,1st Term,8,Citizenship,"OPEC and AU: meaning, members state, aims, objectives and functions",9-10
+Year 5,1st Term,9,Citizenship,International conflicts and ECOWAS ( case study of Niger republic),9-10
+Year 1,1st Term,1,Physical and Health Education,P- what is physical education H- Parts of the body and functions,5-6
+Year 1,1st Term,2,Physical and Health Education,P- Aims and objectives of physical education H- Care of the body: part of the body and how to care for the body,5-6
+Year 1,1st Term,3,Physical and Health Education,P- Athletics : meaning and examples H- care of the teeth: meaning and types of teeth,5-6
+Year 1,1st Term,4,Physical and Health Education,P- Athletics: benefits of athletics H- Care of the eye,5-6
+Year 1,1st Term,5,Physical and Health Education,P- Athletics: track event H- care of the ears: meaning and parts of the ears,5-6
+Year 1,1st Term,6,Physical and Health Education,"P- sprints and types of sprint( 50 meters, 100 meters) H- Care of clothing",5-6
+Year 1,1st Term,7,Physical and Health Education,P- phases and features of sprints race H- care of the classroom,5-6
+Year 1,1st Term,8,Physical and Health Education,P- rules guiding sprint race H- care of the school environment,5-6
+Year 1,1st Term,9,Physical and Health Education,P- standing broad jump H-Care of the toilet,5-6
+Year 2,1st Term,1,Physical and Health Education,P- starting a race H- Importance of a clean body,6-7
+Year 2,1st Term,2,Physical and Health Education,P- finishing a race H- Care of our surroundings,6-7
+Year 2,1st Term,3,Physical and Health Education,"P- athletics: meaning of athletics, meaning of short distance race, benefit of running H- Care if the face, hands and body",6-7
+Year 2,1st Term,4,Physical and Health Education,P- field event : broad jump H- Table manners,6-7
+Year 2,1st Term,5,Physical and Health Education,P- Jumping distance H -refuse disposal,6-7
+Year 2,1st Term,6,Physical and Health Education,P- fill in the basket H-Good and bad habit,6-7
+Year 2,1st Term,7,Physical and Health Education,"P- fill in the bottles with water H- Condition that requires first aid (bleeding, fainting, bruises, heat and exhaustion)",6-7
+Year 2,1st Term,8,Physical and Health Education,"P- shuttle relay H- Basic first aid procedures (cleaning a wound, applying bandage and plaster)",6-7
+Year 2,1st Term,9,Physical and Health Education,P- cycling in the air H- Safety rules in games,6-7
+Year 3,1st Term,1,Physical and Health Education,"P- Locomotor movements: meaning, types ( walking, running, skipping, crawling and galloping) H- care of the body",7-8
+Year 3,1st Term,2,Physical and Health Education,"P- Locomotor movements: skills involved in sliding, jumping and leaping, hopping H- care of the hair",7-8
+Year 3,1st Term,3,Physical and Health Education,"P- non Locomotor movements: meaning and types ( stretching, bending, twisting, swinging, pulling and pushing) H- Skin diseases",7-8
+Year 3,1st Term,4,Physical and Health Education,P- non Locomotor movements: pulling and pushing H- Personal health,7-8
+Year 3,1st Term,5,Physical and Health Education,"P- sprints and types of sprint (100 metres, 200 metres, 400 metres) sprints and techniques (take off, running, arm action and finish) H- Exercise, rest and sleep: meaning and importance",7-8
+Year 3,1st Term,6,Physical and Health Education,"P- techniques in running -- acceleration , coast , the finish H- growth: meaning, foods that makes us grow properly",7-8
+Year 3,1st Term,7,Physical and Health Education,"P- field event: high jump: stages of high jump (run off, take off, clearing the cross bar, landing and recovery) H- Food and nutrition",7-8
+Year 3,1st Term,8,Physical and Health Education,P- field event: long jump H- care of our food,7-8
+Year 3,1st Term,9,Physical and Health Education,P- relay race H- care of our clothes,7-8
+Year 4,1st Term,1,Physical and Health Education,P- starting and finishing position -100 meter H- requirements for healthy loving -- exercise and recreation,8-9
+Year 4,1st Term,2,Physical and Health Education,P- physical fitness: meaning and components H- posture: meaning and importance of good posture,8-9
+Year 4,1st Term,3,Physical and Health Education,P- relay race: baton exchange (visual method) H-postural defect: meaning and factors responsible,8-9
+Year 4,1st Term,4,Physical and Health Education,P- relay race: baton exchange ( non- visual method) H- Sickness associated with various season,8-9
+Year 4,1st Term,5,Physical and Health Education,P- triple jump H- Refuse disposal,8-9
+Year 4,1st Term,6,Physical and Health Education,"P- volleyball skills: under arm service (serving, passing scoring) H- How to sleep or rules for sleeping",8-9
+Year 4,1st Term,7,Physical and Health Education,P- track event: hurdles H- Body recreation during sleep,8-9
+Year 4,1st Term,8,Physical and Health Education,"P- field event: javelin H- Drug education: meaning, examples, importance and ways of taking drugs (through mouth, rubbing on skin, injecting and inhaling)",8-9
+Year 4,1st Term,9,Physical and Health Education,"P- field event: short put H- diseases: meaning, types, examples, signs and symptoms",8-9
+Year 5,1st Term,1,Physical and Health Education,"P- swimming: meaning, types of strokes and skills H- Public health: waste disposal, types of waste, method and importance",9-10
+Year 5,1st Term,2,Physical and Health Education,P- field events: discus H- Vision -- eye health: meaning and importance of vision and care of the eye,9-10
+Year 5,1st Term,3,Physical and Health Education,"P- football: facilities, techniques and equipment of football H- Environmental health: meaning and importance",9-10
+Year 5,1st Term,4,Physical and Health Education,P- football: officiating rules and regulations H- non -- communicable diseases: prevention and control,9-10
+Year 5,1st Term,5,Physical and Health Education,"P- volleyball: facilities and techniques and equipment H- Tooth health and dentition: structure of the tooth, dental problems and prevention",9-10
+Year 5,1st Term,6,Physical and Health Education,"P- baseball: facilities and techniques H- medicine: meaning, uses, features of fake medicine",9-10
+Year 5,1st Term,7,Physical and Health Education,P- basketball: facilities and equipment H- Communicable diseases: prevention and control,9-10
+Year 5,1st Term,8,Physical and Health Education,"P- indoor and outdoor games: meaning, types and importance H- Personal hygiene: bathing procedure",9-10
+Year 5,1st Term,9,Physical and Health Education,"P- indigenous games: meaning, types and importance H- Careers in health education",9-10
+Year 1,1st Term,1,Home Economics,"The human body: meaning, identifying the body parts and their functions",5-6
+Year 1,1st Term,2,Home Economics,"Personal hygiene: meaning, ways and importance",5-6
+Year 1,1st Term,3,Home Economics,"Household equipments: meaning, examples and simple ways of taking care of household equipments",5-6
+Year 1,1st Term,4,Home Economics,"Exercise: meaning, examples and importance",5-6
+Year 1,1st Term,5,Home Economics,Rest and sleep: meaning and importance,5-6
+Year 1,1st Term,6,Home Economics,"Rooms in the house: meaning, types and functions",5-6
+Year 1,1st Term,7,Home Economics,Ventilations in our homes: meaning and importance,5-6
+Year 1,1st Term,8,Home Economics,Food and its functions,5-6
+Year 1,1st Term,9,Home Economics,Practical ( table setting),5-6
+Year 2,1st Term,1,Home Economics,Personal grooming: meaning and identification of body parts,6-7
+Year 2,1st Term,2,Home Economics,"Personal grooming: care of the body, hand and feet",6-7
+Year 2,1st Term,3,Home Economics,Personal grooming: care of the mouth,6-7
+Year 2,1st Term,4,Home Economics,Exercise: exercise equipments and dangers of not exercising,6-7
+Year 2,1st Term,5,Home Economics,"Clothing: meaning, types and reasons for wearing clothe",6-7
+Year 2,1st Term,6,Home Economics,Balanced diet: meaning and importance,6-7
+Year 2,1st Term,7,Home Economics,"Courtesy and etiquettes: meaning, examples and ways",6-7
+Year 2,1st Term,8,Home Economics,Personal health rules ( rules for good health),6-7
+Year 2,1st Term,9,Home Economics,Practical ( physical exercise),6-7
+Year 3,1st Term,1,Home Economics,"Home Economics: meaning, scopes, importance",7-8
+Year 3,1st Term,2,Home Economics,"Appearance management: meaning, identification and functions of the body",7-8
+Year 3,1st Term,3,Home Economics,"Care of body parts: skin, hair and nose",7-8
+Year 3,1st Term,4,Home Economics,"Cosmetics: meaning, examples, uses and precautions on the use of cosmetics",7-8
+Year 3,1st Term,5,Home Economics,"Deodorants and anti perspirants : meaning, examples and importance",7-8
+Year 3,1st Term,6,Home Economics,"Kitchen: meaning, types, rules and importance",7-8
+Year 3,1st Term,7,Home Economics,Rest and Sleep: Health benefits of rest and sleep,7-8
+Year 3,1st Term,8,Home Economics,House care: needs for daily cleaning and steps in house caring,7-8
+Year 3,1st Term,9,Home Economics,Practical (bead craft),7-8
+Year 4,1st Term,1,Home Economics,"Meal and meal planning: meaning, classes and importance",8-9
+Year 4,1st Term,2,Home Economics,"Cleaning agents: meaning, types and uses",8-9
+Year 4,1st Term,3,Home Economics,"Home surfaces: meaning, types and cleaning",8-9
+Year 4,1st Term,4,Home Economics,"Personal belongings: meaning, examples and care",8-9
+Year 4,1st Term,5,Home Economics,"Furniture: meaning, examples and care",8-9
+Year 4,1st Term,6,Home Economics,"Simple sewing tools: meaning, classification and functions",8-9
+Year 4,1st Term,7,Home Economics,Food classification and functions,8-9
+Year 4,1st Term,8,Home Economics,"Fruits and fruit drinks: meaning, health benefits and preparation",8-9
+Year 4,1st Term,9,Home Economics,"Practical ( making of simple household article,)",8-9
+Year 5,1st Term,1,Home Economics,"Home accidents: meaning, examples, causes and preventive measures",9-10
+Year 5,1st Term,2,Home Economics,"Personal and family resources: meaning, examples and uses",9-10
+Year 5,1st Term,3,Home Economics,"Homemade polish: meaning, ingredients, procedure, safety tips and benefits",9-10
+Year 5,1st Term,4,Home Economics,"Special dishes and drinks in our locality: meaning, examples and reasons for preparation",9-10
+Year 5,1st Term,5,Home Economics,Careers in home economics,9-10
+Year 5,1st Term,6,Home Economics,"Consumer education: meaning, who is a consumer? Factors that influence the choice of consumer, importance of consumer education",9-10
+Year 5,1st Term,7,Home Economics,"Good eating habits: meaning, ways of practicing and importance",9-10
+Year 5,1st Term,8,Home Economics,"Homemade cleaning agents: meaning, types and uses",9-10
+Year 5,1st Term,9,Home Economics,Practical ( liquid soap production),9-10
+Year 1,1st Term,1,Basic Science,"Exploring the environment: things in the classroom, schools and home",5-6
+Year 1,1st Term,2,Basic Science,"Sense organs: meaning, types and functions",5-6
+Year 1,1st Term,3,Basic Science,"Water: meaning, sources and uses",5-6
+Year 1,1st Term,4,Basic Science,Living and non-living: Definition and examples (Introduction,5-6
+Year 1,1st Term,5,Basic Science,"Soil: meaning, types, uses and importance",5-6
+Year 1,1st Term,6,Basic Science,"Energy: meaning, sources, uses",5-6
+Year 1,1st Term,7,Basic Science,"Colors: meaning, types and uses Rainbow: meaning, colors of the rainbow Road traffic, colours of object, road marking",5-6
+Year 1,1st Term,8,Basic Science,"Air: meaning, properties and importance",5-6
+Year 1,1st Term,9,Basic Science,"Simple machines: meaning, types and functions",5-6
+Year 2,1st Term,1,Basic Science,"Soil: meaning, types and importance of soil to plants",6-7
+Year 2,1st Term,2,Basic Science,"Erosion and flood: meaning, types and effects",6-7
+Year 2,1st Term,3,Basic Science,"Weed : meaning, types and effects",6-7
+Year 2,1st Term,4,Basic Science,"Plants: features, uses of plants",6-7
+Year 2,1st Term,5,Basic Science,"Air pollution: meaning, effects and prevention",6-7
+Year 2,1st Term,6,Basic Science,Diseases: (Air and water borne diseases),6-7
+Year 2,1st Term,7,Basic Science,"Safety in our environment: Meaning, ways of keeping safe at home and school, simple safety, features, devices and rules",6-7
+Year 2,1st Term,8,Basic Science,"Nocturnal animals and predators: meaning, features and examples",6-7
+Year 2,1st Term,9,Basic Science,"Water quality: Substance that contaminate, common uses of water and water purification",6-7
+Year 3,1st Term,1,Basic Science,"Changes in nature: meaning, types ( with examples)",7-8
+Year 3,1st Term,2,Basic Science,"Air in motion: meaning, effects and importance",7-8
+Year 3,1st Term,3,Basic Science,Life cycle of plants and their features,7-8
+Year 3,1st Term,4,Basic Science,Life cycle of animals and their features,7-8
+Year 3,1st Term,5,Basic Science,Metamorphosis in insects : complete and incomplete,7-8
+Year 3,1st Term,6,Basic Science,"Light energy: meaning, sources, uses and reflection",7-8
+Year 3,1st Term,7,Basic Science,"Measurement of time, Instruments and units of measurement",7-8
+Year 3,1st Term,8,Basic Science,"Ecosystem: meaning, food chain, food web and relationship in ecosystem",7-8
+Year 3,1st Term,9,Basic Science,"Pollution: meaning, types, effects and control, pollutants and sources",7-8
+Year 4,1st Term,1,Basic Science,"Environmental changes: meaning, causes, effects and control of erosion",8-9
+Year 4,1st Term,2,Basic Science,"Waste and waste disposal: meaning, types, method of waste disposal and recycling",8-9
+Year 4,1st Term,3,Basic Science,"Environmental quality: meaning, ways of maintaining healthy environment",8-9
+Year 4,1st Term,4,Basic Science,"Balanced diet: meaning, classes of food, importance and diet related dishes",8-9
+Year 4,1st Term,5,Basic Science,Changes in nature: Types; temporal and permanent changes,8-9
+Year 4,1st Term,6,Basic Science,"Our weather: Meaning, factors affecting weather, weather instruments, weather symbols and records",8-9
+Year 4,1st Term,7,Basic Science,"Respiratory system: meaning, organs, functions of the organs and care",8-9
+Year 4,1st Term,8,Basic Science,"Excretory system: meaning, organs, functions of the organs and care",8-9
+Year 4,1st Term,9,Basic Science,"Filtration: meaning, mixture, solute and solvent",8-9
+Year 5,1st Term,1,Basic Science,"Sense organs: meaning, examples, functions and care",9-10
+Year 5,1st Term,2,Basic Science,"Erosion: meaning, types, causes and effects and control",9-10
+Year 5,1st Term,3,Basic Science,"Recycling: meaning, the ways of recycling and importance",9-10
+Year 5,1st Term,4,Basic Science,"The human body ( skeleton): meaning, types and functions of bone",9-10
+Year 5,1st Term,5,Basic Science,"The human body (skeleton) : major bones of human body, types and functions of joint",9-10
+Year 5,1st Term,6,Basic Science,"Reproduction in plants: meaning, types, process, agents, pollination and fertilization",9-10
+Year 5,1st Term,7,Basic Science,"Rocks: meaning, identification, types, uses and major land mark rocks in Nigeria",9-10
+Year 5,1st Term,8,Basic Science,"Acid and bases: meaning, litmus paper, properties and uses",9-10
+Year 5,1st Term,9,Basic Science,"Salts: meaning, types and uses",9-10
+Year 1,1st Term,1,Computer Studies,Basic fact about computer: meaning and types,5-6
+Year 1,1st Term,2,Computer Studies,Uses of a computer,5-6
+Year 1,1st Term,3,Computer Studies,Parts of computer,5-6
+Year 1,1st Term,4,Computer Studies,Care of each parts of a computer,5-6
+Year 1,1st Term,5,Computer Studies,The keyboard: features and uses,5-6
+Year 1,1st Term,6,Computer Studies,The mouse: features and uses,5-6
+Year 1,1st Term,7,Computer Studies,The monitor: features and uses,5-6
+Year 1,1st Term,8,Computer Studies,"Input and output devices: meaning, examples and identification",5-6
+Year 1,1st Term,9,Computer Studies,Information technology: meaning and importance,5-6
+Year 2,1st Term,1,Computer Studies,History of computer: ( how computer came into existence),6-7
+Year 2,1st Term,2,Computer Studies,"Early counting devices ( fingers, pebbles, cowries, stones, sticks, toes e.t.c)",6-7
+Year 2,1st Term,3,Computer Studies,"Later development of computer: Abacus, calculator",6-7
+Year 2,1st Term,4,Computer Studies,"Input devices: ( keyboard- description, types, uses, functions of special keys)",6-7
+Year 2,1st Term,5,Computer Studies,"Input devices:( mouse- description, functions, practical use of mouse)",6-7
+Year 2,1st Term,6,Computer Studies,"Output devices: (printer- description , types and uses",6-7
+Year 2,1st Term,7,Computer Studies,"Output devices: ( monitor -- description , types and uses)",6-7
+Year 2,1st Term,8,Computer Studies,"Digital computer: meaning, origin and types",6-7
+Year 2,1st Term,9,Computer Studies,"Introduction to machine codes: meaning of binary digit, understanding decimal numbers",6-7
+Year 3,1st Term,1,Computer Studies,Generation of computer,7-8
+Year 3,1st Term,2,Computer Studies,"Data and information: meaning, relationships between data and information",7-8
+Year 3,1st Term,3,Computer Studies,"Data processing: meaning, steps involved in data processing, data processing, information as end of results of data processing",7-8
+Year 3,1st Term,4,Computer Studies,"Database: meaning, types and importance",7-8
+Year 3,1st Term,5,Computer Studies,Computer hardware: meaning and examples,7-8
+Year 3,1st Term,6,Computer Studies,"Hardware components: meaning, classes - input and output devices",7-8
+Year 3,1st Term,7,Computer Studies,Converting soft copy data into digital data ( scanner as an input devices),7-8
+Year 3,1st Term,8,Computer Studies,Computer memory: RAM and ROM,7-8
+Year 3,1st Term,9,Computer Studies,Microphone and the digital camera as an input devices,7-8
+Year 4,1st Term,1,Computer Studies,"Computer in our society: meaning, careers and advantages",8-9
+Year 4,1st Term,2,Computer Studies,Computer system: meaning and components of computer system,8-9
+Year 4,1st Term,3,Computer Studies,Classification of computer: classification by sizes and functions,8-9
+Year 4,1st Term,4,Computer Studies,Word processing,8-9
+Year 4,1st Term,5,Computer Studies,Windows,8-9
+Year 4,1st Term,6,Computer Studies,"Computer games: meaning, types and uses",8-9
+Year 4,1st Term,7,Computer Studies,"Introduction to social media: meaning, types and importance",8-9
+Year 4,1st Term,8,Computer Studies,"Introduction to programming language: meaning, types and uses",8-9
+Year 4,1st Term,9,Computer Studies,"Search engines: meaning, types and uses",8-9
+Year 5,1st Term,1,Computer Studies,"Microsoft word: meaning, features and navigation",9-10
+Year 5,1st Term,2,Computer Studies,"Word processing skills: editing (meaning, steps), saving(meaning, steps), retrieving ( meaning, steps)",9-10
+Year 5,1st Term,3,Computer Studies,Introduction to typing ( practical),9-10
+Year 5,1st Term,4,Computer Studies,"Computer network: meaning, types, functions, advantages and disadvantages",9-10
+Year 5,1st Term,5,Computer Studies,"Internet: meaning, types, uses and internet browser",9-10
+Year 5,1st Term,6,Computer Studies,Computer misuse/abuse,9-10
+Year 5,1st Term,7,Computer Studies,Care of computer,9-10
+Year 5,1st Term,8,Computer Studies,Storage devices,9-10
+Year 5,1st Term,9,Computer Studies,Artificial intelligence,9-10

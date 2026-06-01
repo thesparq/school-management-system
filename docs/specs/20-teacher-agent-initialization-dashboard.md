@@ -2,13 +2,15 @@
 
 ## Goal
 
-Implement a durable Teacher Agent that stores assigned class-subject pairs (queried from Admin Agent), and a teacher dashboard at `/` showing "My Classes" cards. Teachers click a class → subjects → terms → lessons. Add an admin UI in the teacher users page to assign class-subject pairs (fetched from `has_subject` edges) using a search+badge pattern. Lesson detail view deferred to Unit 21.
+Implement a durable Teacher Agent that stores assigned class-subject pairs as a cache (rebuilt from the `teacher_assignment` DB table), and a teacher dashboard at `/` showing "My Classes" cards. Teachers click a class → subjects → terms → lessons. Add an admin UI in the teacher users page to assign class-subject pairs using a search+badge pattern, persisting to the `teacher_assignment` SurrealDB table. Lesson detail view deferred to Unit 21.
+
+**Architecture context:** This unit follows the DB-Backed Facts pattern (see `docs/architecture.md` Rules 1–10). Teacher assignments and user init status are stored in SurrealDB tables (`teacher_assignment`, `user_profile`), not in agent durable state. Agent struct fields hold only cached/derived data.
 
 ## Design
 
 ### Teacher Agent — Per-Teacher Durable Agent
 
-Each teacher gets their own durable agent instance identified by `teacher_id` in the constructor. The Teacher Agent stores its assigned class-subject pairs, grouped by class, in durable memory.
+Each teacher gets their own durable agent instance identified by `teacher_id` in the constructor. The Teacher Agent stores its assigned class-subject pairs as a **cache** (`class_groups`), rebuilt from the `teacher_assignment` DB table on init and invalidated by admin changes.
 
 ```moonbit
 #derive.agent
@@ -21,11 +23,13 @@ struct TeacherAgent {
 
 **State fields:**
 
-| Field | Type | Purpose |
-|---|---|---|
-| `config` | `@config.Config[SurrealConfig]` | SurrealDB connection (auto-loaded from env) |
-| `teacher_id` | `String` | Agent identity — matches Authentik UUID |
-| `class_groups` | `Map[String, TeacherClassGroup]` | Class→subjects, keyed by `class_level_id` |
+| Field | Type | Purpose | Cache Strategy |
+|---|---|---|---|
+| `config` | `@config.Config[SurrealConfig]` | SurrealDB connection (auto-loaded from env) | — |
+| `teacher_id` | `String` | Agent identity — matches Authentik UUID | — |
+| `class_groups` | `Map[String, TeacherClassGroup]` | Class→subjects, keyed by `class_level_id` | Push Invalidation (Rule 4A) |
+
+**No entity data is stored in agent durable state.** The `teacher_assignment` table in SurrealDB is the single source of truth. The `class_groups` cache is rebuilt via `trigger_initialize()` which queries the DB directly, not the Admin Agent.
 
 ### Types
 
@@ -51,18 +55,17 @@ struct TeacherClassGroup {
 
 ### Admin Agent Additions
 
-The Admin Agent gains a `teacher_assignments` field and four new methods:
+Following Rule 1 (Two Layers, Clear Separation), the Admin Agent no longer holds `teacher_assignments` or `initialized_users` as struct fields. These are stored in SurrealDB tables (`teacher_assignment`, `user_profile`). The Admin Agent gains three new methods that read/write the DB:
 
 | Field / Method | Signature | Purpose |
 |---|---|---|
-| `teacher_assignments` | `Map[String, Array[TeacherSubjectPair]]` | Stores assigned class-subject pairs per teacher |
 | `get_available_class_subjects()` | `-> Array[TeacherSubjectPair]` | Queries active `has_subject` edges from SurrealDB |
-| `set_teacher_subjects(teacher_id, pairs)` | `-> Result[String, String]` | Stores assignments, fire-and-forgets Teacher Agent init |
-| `get_teacher_subjects(teacher_id)` | `-> Array[TeacherSubjectPair]` | Returns stored assignments (or `[]`) |
+| `set_teacher_subjects(teacher_id, pairs)` | `-> Result[String, String]` | Writes to `teacher_assignment` table (upsert + soft-delete), fire-and-forgets Teacher Agent cache invalidation |
+| `get_teacher_subjects(teacher_id)` | `-> Array[TeacherSubjectPair]` | Queries `teacher_assignment` table from SurrealDB (or `[]`) |
 
-### Data Source for Assignments
+### Data Sources
 
-Admin Agent queries SurrealDB `has_subject` edges (active only) to get all available class-subject pairs. Each active edge produces one `TeacherSubjectPair`:
+**Available pairs (class+subject combos):** Admin Agent queries SurrealDB `has_subject` edges (active only). Each active edge produces one `TeacherSubjectPair`:
 
 ```sql
 SELECT in.id AS class_level_id,
@@ -73,6 +76,34 @@ SELECT in.id AS class_level_id,
 FROM has_subject
 WHERE active = true
 ORDER BY in.name ASC, out.name ASC
+```
+
+**Teacher's assigned pairs (from `teacher_assignment` table):** Admin Agent queries the `teacher_assignment` table joined with `class_levels` and `subjects` via dot-traversal:
+
+```sql
+SELECT in.id AS class_level_id,
+       in.name AS class_level_name,
+       out.id AS subject_id,
+       out.name AS subject_name,
+       out.code AS subject_code
+FROM has_subject
+WHERE active = true
+ORDER BY in.name ASC, out.name ASC
+```
+
+**Teacher's assigned teacher_assignment query:**
+
+```sql
+SELECT class_level_id, subject_id,
+       cl.name AS class_level_name,
+       s.name AS subject_name,
+       s.code AS subject_code
+FROM teacher_assignment ta
+LEFT JOIN class_levels cl ON cl.id = ta.class_level_id
+LEFT JOIN subjects s ON s.id = ta.subject_id
+WHERE ta.teacher_id = $teacher_id
+  AND ta.deleted_at IS NONE
+ORDER BY cl.name ASC, s.name ASC
 ```
 
 ### Route Structure
@@ -117,23 +148,25 @@ Each pair displays as `{Class} — {Subject}` in badges. Search filters across b
 ### Data Flow
 
 **Teacher initialization:**
-1. Admin clicks "Initialize" on teacher user → Admin Agent stores init record
-2. Admin Agent fires `TeacherAgentClient::scoped(teacher_id, ...).trigger_initialize()` (fire-and-forget)
-3. `trigger_initialize` calls `AdminAgent.get_teacher_subjects(teacher_id)`
-4. Teacher Agent receives assignments, groups by `class_level_id`, stores in `self.class_groups`
+1. Admin clicks "Initialize" on teacher user → Admin Agent writes to `user_profile` table (upsert)
+2. Admin Agent fires `TeacherAgentClient::scoped(teacher_id, ...).trigger_initialize()` (fire-and-forget) inside `with_atomic_operation`
+3. `trigger_initialize` queries `teacher_assignment` table from SurrealDB directly via `surreal_query`
+4. Teacher Agent receives assignments, groups by `class_level_id`, stores in `self.class_groups` (cache)
 5. If no assignments exist yet, `class_groups` remains empty — teacher sees "No subjects assigned"
 
 **Assignment save flow:**
 1. Admin modifies class-subject pairs in Manage panel, clicks "Save"
 2. `POST /api/admin/teacher/subjects` → SvelteKit proxy → Gateway → `AdminAgent.set_teacher_subjects`
-3. Admin Agent stores pairs, fire-and-forgets `TeacherAgentClient::scoped(teacher_id, ...).trigger_initialize()`
-4. Teacher Agent re-fetches and rebuilds its `class_groups`
+3. Admin Agent computes diff, writes upserts + soft-deletes to `teacher_assignment` table
+4. Admin Agent fire-and-forgets `TeacherAgentClient::scoped(teacher_id, ...).trigger_initialize()` inside `with_atomic_operation`
+5. Teacher Agent re-fetches from DB and rebuilds its `class_groups` cache
 
 **Dashboard load:**
 1. Teacher visits `/` → `+page.server.ts` calls `proxyToGateway('/gateway/teacher/classes', userId)`
-2. Gateway checks init → `TeacherAgentClient::scoped(user_id, ...).get_my_classes()`
-3. Teacher Agent returns `Array[TeacherClassGroup]` from durable state
-4. Page renders "My Classes" card grid
+2. Gateway checks init → queries `user_profile` table (via AdminAgent RPC → `surreal_query`)
+3. Gateway calls `TeacherAgentClient::scoped(user_id, ...).get_my_classes()`
+4. Teacher Agent returns `Array[TeacherClassGroup]` from cache (or empty)
+5. Page renders "My Classes" card grid
 
 **Term/lesson browsing:**
 1. Teacher clicks class → `/my-classes/[classId]/[subjectId]/` calls `/api/teacher/terms`
@@ -169,14 +202,165 @@ GET /api/teacher/classes                      GET /gateway/teacher/classes      
 GET /api/teacher/terms                        GET /gateway/teacher/terms                      TeacherAgent.get_terms()
 GET /api/teacher/lessons                      GET /gateway/teacher/lessons                    TeacherAgent.get_lessons()
 GET /api/admin/class-subjects                 GET /gateway/admin/class-subjects               AdminAgent.get_available_class_subjects()
+GET /api/admin/teacher/{uuid}/subjects        GET /gateway/admin/teacher/{uuid}/subjects      AdminAgent.get_teacher_subjects()
 POST /api/admin/teacher/subjects              POST /gateway/admin/teacher/subjects            AdminAgent.set_teacher_subjects()
+```
+
+---
+
+## Implementation Phases
+
+### Phase 1: Schema Migration + SurrealDB Client
+**Files:** `docs/migration_v2.surql` (new), `agents/app-agents/surreal_client.mbt`
+
+Create two new SurrealDB tables and add a retry wrapper for the `@json.parse` first-call bug.
+
+**`docs/migration_v2.surql`:**
+
+```surql
+-- SCHEMAFULL definition for user_profile table
+-- Replaces AdminAgent.initialized_users map + StudentAgent.profile
+DEFINE TABLE IF NOT EXISTS user_profile SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS auth_id ON user_profile TYPE string;
+DEFINE FIELD IF NOT EXISTS role ON user_profile TYPE string
+  ASSERT $value IN ["admin", "teacher", "student"];
+DEFINE FIELD IF NOT EXISTS class_level ON user_profile TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS created_at ON user_profile TYPE datetime;
+DEFINE FIELD IF NOT EXISTS updated_at ON user_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS deleted_at ON user_profile TYPE option<datetime>;
+
+DEFINE INDEX IF NOT EXISTS idx_user_profile_auth_id ON user_profile COLUMNS auth_id UNIQUE;
+
+-- SCHEMAFULL definition for teacher_assignment table
+-- Replaces AdminAgent.teacher_assignments map
+DEFINE TABLE IF NOT EXISTS teacher_assignment SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS teacher_id ON teacher_assignment TYPE string;
+DEFINE FIELD IF NOT EXISTS class_level_id ON teacher_assignment TYPE string;
+DEFINE FIELD IF NOT EXISTS subject_id ON teacher_assignment TYPE string;
+DEFINE FIELD IF NOT EXISTS assigned_at ON teacher_assignment TYPE datetime;
+DEFINE FIELD IF NOT EXISTS deleted_at ON teacher_assignment TYPE option<datetime>;
+
+DEFINE INDEX IF NOT EXISTS idx_ta_teacher_cl_subj
+  ON teacher_assignment COLUMNS teacher_id, class_level_id, subject_id UNIQUE;
+```
+
+**`surreal_query_retry()` in `surreal_client.mbt`:**
+
+Add a wrapper that retries once on empty result or parse failure, replacing the ad-hoc retries scattered across agent methods:
+
+```moonbit
+///|
+/// Wraps surreal_query with one retry on empty/failed parse.
+/// Fixes the @json.parse first-call bug where structurally-valid
+/// garbage is returned on the first WASM invocation.
+pub fn surreal_query_retry(
+  config : @config.Config[SurrealConfig],
+  sql : String,
+  bindings : Map[String, @json.JsonValue]?,
+) -> Result[Array[@json.JsonValue], String] {
+  let raw = match bindings {
+    Some(b) => surreal_query(config, sql, bindings=b)
+    None => surreal_query(config, sql)
+  }
+  let raw = match raw {
+    Ok(body) => body
+    Err(e) => return Err(e)
+  }
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => {
+      // Retry once — @json.parse first-call bug
+      let raw2 = match bindings {
+        Some(b) => surreal_query(config, sql, bindings=b)
+        None => surreal_query(config, sql)
+      }
+      match raw2 {
+        Ok(body) => match parse_result_array(body) {
+          Ok(arr) => arr
+          Err(e) => return Err("parse failed after retry: " + e)
+        }
+        Err(e) => return Err("surreal_query failed after retry: " + e)
+      }
+    }
+  }
+  // If result_arr has one element with status="OK" and result is array, unwrap it
+  // (SurrealDB wraps multi-statement results)
+  Ok(result_arr)
+}
+```
+
+### Phase 2: Admin Agent Refactor
+**Files:** `agents/app-agents/admin_agent.mbt`
+
+Remove `initialized_users` and `teacher_assignments` struct fields. All entity reads/writes go to SurrealDB. Use `with_atomic_operation` for atomic DB-write + fan-out (Rule 2). All writes use upsert semantics (Rule 2 idempotency).
+
+See the code in [Section 2](#2-admin-agent-8212-teacher-assignments-and-class-subject-pairs) below.
+
+### Phase 3: Teacher Agent Refactor
+**Files:** `agents/app-agents/teacher_agent.mbt`
+
+`trigger_initialize` reads from `teacher_assignment` table directly via `surreal_query_retry()` (no RPC to AdminAgent). `class_groups` is a Push-Invalidation cache (Rule 4A). Add `invalidate_cache()` method that clears `class_groups` for when AdminAgent signals a change.
+
+See the code in [Section 1](#1-teacher-agent-8212-types-and-struct) below.
+
+### Phase 4: Student Agent Profile → DB
+**Files:** `agents/app-agents/student_agent.mbt`
+
+Remove `profile` field from struct and constructor. `initialize()` writes to `user_profile` table via upsert. Keep all TTL caches (`subject_cache`, `terms_cache`, `lessons_cache`, `edge_cache`, `lesson_cache`) unchanged — they follow Rule 4B.
+
+See the code in [Section 4](#4-student-agent-8212-profile-moved-to-db) below.
+
+### Phase 5: Gateway Agent Endpoints
+**Files:** `agents/app-agents/gateway_agent.mbt`
+
+Add `GET /admin/teacher/{uuid}/subjects` endpoint. Adjust `set_teacher_subjects_admin` to parse ID-only payloads (`{class_level_id, subject_id}` without names — backend joins names from DB).
+
+See the code in [Section 3](#3-gateway-endpoints) below.
+
+### Phase 6: Frontend
+**Files:** Multiple SvelteKit files and `UserTable.svelte`
+
+- New proxy route for `GET /api/admin/teacher/[uuid]/subjects`
+- Filter combobox suggestions against already-assigned pairs (exclude by matching both IDs)
+- Disable subject assignment section for uninitialized teachers
+- Save sends `{class_level_id, subject_id}` only
+
+See the code in [Sections 4–11](#4-sveltekit-proxy-routes) below.
+
+### Phase 7: Build & Deploy
+**Files:** CI/manual build steps
+
+```bash
+# 1. Run schema migration
+surreal sql --endpoint http://localhost:8000 --namespace school --db school \
+  --file docs/migration_v2.surql
+
+# 2. Build and deploy agents
+cd agents
+moon info && moon fmt
+moon check --target wasm
+golem build
+golem deploy --reset -Y
+
+# 3. Re-init admin (user_profile table is new, previous init was in agent state)
+golem agent invoke 'GatewayAgent()' initialize_admin ...
+
+# 4. Build frontend
+cd ../frontend
+npx svelte-kit sync
+pnpm build
+pnpm check
 ```
 
 ---
 
 ## Implementation
 
-### 1. Teacher Agent — Types and Struct
+### [Phase 3] 1. Teacher Agent — Types and Struct
 
 Rewrite `agents/app-agents/teacher_agent.mbt` entirely:
 
@@ -204,6 +388,8 @@ struct TeacherClassGroup {
 ///|
 /// Durable per-teacher agent.
 /// Identified by teacher_id — one instance per teacher.
+/// Entity data lives in SurrealDB (teacher_assignment table).
+/// class_groups is a Push-Invalidation cache (Rule 4A).
 #derive.agent
 struct TeacherAgent {
   config : @config.Config[SurrealConfig]
@@ -220,30 +406,57 @@ fn TeacherAgent::new(
 }
 
 ///|
-/// Fetches assigned class-subject pairs from Admin Agent,
-/// groups them by class_level_id, and stores in durable state.
+/// (Re)builds the class_groups cache from the teacher_assignment table.
+/// Called by AdminAgent after assignments change (fire-and-forget RPC).
+/// Queries SurrealDB directly — no RPC to AdminAgent needed.
 pub fn TeacherAgent::trigger_initialize(self : Self) -> String {
-  let pairs = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.get_teacher_subjects(self.teacher_id)
-  }) catch {
-    _ => return "ERROR: admin unreachable"
+  let sql = "SELECT class_level_id, subject_id, " +
+    "cl.name AS class_level_name, " +
+    "s.name AS subject_name, s.code AS subject_code " +
+    "FROM teacher_assignment ta " +
+    "LEFT JOIN class_levels cl ON cl.id = ta.class_level_id " +
+    "LEFT JOIN subjects s ON s.id = ta.subject_id " +
+    "WHERE ta.teacher_id = $teacher_id AND ta.deleted_at IS NONE " +
+    "ORDER BY cl.name ASC, s.name ASC"
+
+  let raw = match surreal_query(self.config, sql, bindings={
+    "teacher_id": self.teacher_id,
+  }) {
+    Ok(body) => body
+    Err(e) => return "ERROR: " + e
+  }
+
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => return "ERROR: parse failed"
   }
 
   let groups : Map[String, TeacherClassGroup] = Map::new()
-  for pair in pairs {
-    let gid = pair.class_level_id
-    match groups.get(gid) {
-      Some(g) => {
-        g.subjects.push(pair)
-        groups.set(gid, g)
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") { Some(String(s)) => s; _ => continue }
+        let class_level_name = match obj.get("class_level_name") { Some(String(s)) => s; _ => continue }
+        let subject_id = match obj.get("subject_id") { Some(String(s)) => s; _ => continue }
+        let subject_name = match obj.get("subject_name") { Some(String(s)) => s; _ => continue }
+        let subject_code = match obj.get("subject_code") { Some(String(s)) => Some(s); _ => None }
+
+        let pair = TeacherSubjectPair::{ class_level_id, class_level_name, subject_id, subject_name, subject_code }
+        match groups.get(class_level_id) {
+          Some(g) => {
+            g.subjects.push(pair)
+            groups.set(class_level_id, g)
+          }
+          None => {
+            groups.set(class_level_id, TeacherClassGroup::{
+              class_level_id,
+              class_level_name,
+              subjects: [pair],
+            })
+          }
+        }
       }
-      None => {
-        groups.set(gid, TeacherClassGroup::{
-          class_level_id: gid,
-          class_level_name: pair.class_level_name,
-          subjects: [pair],
-        })
-      }
+      _ => ()
     }
   }
   self.class_groups = groups
@@ -340,18 +553,242 @@ pub fn TeacherAgent::get_lessons(
 fn main {}
 ```
 
-### 2. Admin Agent — Teacher Assignments and Class-Subject Pairs
+### [Phase 2] 2. Admin Agent — Teacher Assignments and Class-Subject Pairs
 
-Add to `agents/app-agents/admin_agent.mbt`:
+Update `agents/app-agents/admin_agent.mbt`:
 
-**Update struct — add `teacher_assignments` field:**
+**Update struct — remove `initialized_users` and `teacher_assignments`:**
+
+Following Rule 1, these are now stored in SurrealDB tables.
 
 ```moonbit
 #derive.agent
 struct AdminAgent {
-  initialized_users : Map[String, UserInitialization]
   config : @config.Config[SurrealConfig]
-  mut teacher_assignments : Map[String, Array[TeacherSubjectPair]]
+}
+```
+
+**Update constructor:**
+
+```moonbit
+fn AdminAgent::new(config : @config.Config[SurrealConfig]) -> AdminAgent {
+  { config }
+}
+```
+
+**Add `get_available_class_subjects`:**
+
+```moonbit
+///|
+/// Returns all active class-subject pairs from has_subject edges.
+pub fn AdminAgent::get_available_class_subjects(self : Self) -> Array[TeacherSubjectPair] {
+  let sql = "SELECT in.id AS class_level_id, " +
+    "in.name AS class_level_name, " +
+    "out.id AS subject_id, out.name AS subject_name, " +
+    "out.code AS subject_code " +
+    "FROM has_subject WHERE active = true " +
+    "ORDER BY in.name ASC, out.name ASC"
+  let raw = match surreal_query(self.config, sql) {
+    Ok(body) => body
+    Err(_) => return []
+  }
+
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => return []
+  }
+
+  let pairs : Array[TeacherSubjectPair] = []
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") { Some(String(s)) => s; _ => continue }
+        let class_level_name = match obj.get("class_level_name") { Some(String(s)) => s; _ => continue }
+        let subject_id = match obj.get("subject_id") { Some(String(s)) => s; _ => continue }
+        let subject_name = match obj.get("subject_name") { Some(String(s)) => s; _ => continue }
+        let subject_code = match obj.get("subject_code") { Some(String(s)) => Some(s); _ => None }
+        pairs.push(TeacherSubjectPair::{
+          class_level_id, class_level_name,
+          subject_id, subject_name, subject_code,
+        })
+      }
+      _ => ()
+    }
+  }
+  pairs
+}
+```
+
+**Add `set_teacher_subjects`:**
+
+Uses SurrealDB write + fire-and-forget RPC inside `with_atomic_operation` (Rule 2). The DB write is idempotent via soft-delete + upsert pattern: existing records are soft-deleted, new ones inserted.
+
+```moonbit
+///|
+/// Writes teacher's assigned class-subject pairs to the teacher_assignment
+/// table (soft-delete + insert), then triggers Teacher Agent cache
+/// rebuild via fire-and-forget RPC inside with_atomic_operation.
+pub fn AdminAgent::set_teacher_subjects(
+  self : Self,
+  teacher_id : String,
+  pairs : Array[TeacherSubjectPair],
+) -> Result[String, String] {
+  // Build SurrealQL queries for upsert+soft-delete
+  // Phase 1: soft-delete all existing assignments for this teacher
+  let del_sql = "UPDATE teacher_assignment SET deleted_at = time::now() " +
+    "WHERE teacher_id = $teacher_id AND deleted_at IS NONE"
+
+  // Phase 2: insert new assignments
+  let ins_parts : Array[String] = []
+  for pair in pairs {
+    let cls_id = pair.class_level_id
+    let subj_id = pair.subject_id
+    ins_parts.push(
+      "( $teacher_id, '" + cls_id + "', '" + subj_id + "', time::now() )"
+    )
+  }
+  let ins_sql = "INSERT INTO teacher_assignment (teacher_id, class_level_id, subject_id, assigned_at) " +
+    "VALUES " + ins_parts.join(",") + " " +
+    "ON DUPLICATE KEY UPDATE deleted_at = NONE, assigned_at = time::now()"
+
+  // Execute with atomic operation to ensure DB write + RPC are replayed together on crash
+  @golem.with_atomic_operation(fn() {
+    // Soft-delete existing
+    let _ = surreal_query(self.config, del_sql, bindings={ "teacher_id": teacher_id })
+    // Insert new
+    if ins_parts.length() > 0 {
+      let _ = surreal_query(self.config, ins_sql)
+    }
+    // Fire TeacherAgent cache rebuild
+    let _ = TeacherAgentClient::scoped(teacher_id, fn(
+      client,
+    ) raise @common.AgentError {
+      client.trigger_initialize()
+    }) catch {
+      _ => ()
+    }
+  })
+
+  Ok("ok")
+}
+```
+
+**Add `get_teacher_subjects`:**
+
+```moonbit
+///|
+/// Queries the teacher_assignment table for a teacher's assigned pairs.
+/// Returns [] if no assignments found.
+pub fn AdminAgent::get_teacher_subjects(
+  self : Self,
+  teacher_id : String,
+) -> Array[TeacherSubjectPair] {
+  let sql = "SELECT ta.class_level_id, ta.subject_id, " +
+    "cl.name AS class_level_name, " +
+    "s.name AS subject_name, s.code AS subject_code " +
+    "FROM teacher_assignment ta " +
+    "LEFT JOIN class_levels cl ON cl.id = ta.class_level_id " +
+    "LEFT JOIN subjects s ON s.id = ta.subject_id " +
+    "WHERE ta.teacher_id = $teacher_id AND ta.deleted_at IS NONE " +
+    "ORDER BY cl.name ASC, s.name ASC"
+
+  let raw = match surreal_query(self.config, sql, bindings={ "teacher_id": teacher_id }) {
+    Ok(body) => body
+    Err(_) => return []
+  }
+
+  let result_arr = match parse_result_array(raw) {
+    Ok(arr) => arr
+    Err(_) => return []
+  }
+
+  let pairs : Array[TeacherSubjectPair] = []
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") { Some(String(s)) => s; _ => continue }
+        let class_level_name = match obj.get("class_level_name") { Some(String(s)) => s; _ => continue }
+        let subject_id = match obj.get("subject_id") { Some(String(s)) => s; _ => continue }
+        let subject_name = match obj.get("subject_name") { Some(String(s)) => s; _ => continue }
+        let subject_code = match obj.get("subject_code") { Some(String(s)) => Some(s); _ => None }
+        pairs.push(TeacherSubjectPair::{
+          class_level_id, class_level_name,
+          subject_id, subject_name, subject_code,
+        })
+      }
+      _ => ()
+    }
+  }
+  pairs
+}
+```
+
+**Update `initialize_user` — write to `user_profile` table + fire TeacherAgent init for teachers:**
+
+```moonbit
+///|
+/// Records user initialization in user_profile table and fires
+/// TeacherAgent cache rebuild if role is "teacher".
+pub fn AdminAgent::initialize_user(
+  self : Self,
+  user_id : String,
+  role : String,
+  class_level : String?,
+) -> Result[String, String] {
+  let sql = "INSERT INTO user_profile (auth_id, role, class_level, created_at) " +
+    "VALUES ($auth_id, $role, $class_level, time::now()) " +
+    "ON DUPLICATE KEY UPDATE role = $role, class_level = $class_level, updated_at = time::now()"
+
+  let _ = surreal_query(self.config, sql, bindings={
+    "auth_id": user_id,
+    "role": role,
+    "class_level": class_level,
+  })
+
+  if role == "teacher" {
+    let _ = TeacherAgentClient::scoped(user_id, fn(
+      client,
+    ) raise @common.AgentError {
+      client.trigger_initialize()
+    }) catch {
+      _ => ()
+    }
+  }
+
+  Ok("ok")
+}
+```
+
+**Add `is_user_initialized` — queries `user_profile` table:**
+
+```moonbit
+///|
+/// Checks if a user has a record in the user_profile table.
+pub fn AdminAgent::is_user_initialized(
+  self : Self,
+  user_id : String,
+) -> Bool {
+  let sql = "SELECT count() AS cnt FROM user_profile " +
+    "WHERE auth_id = $auth_id AND deleted_at IS NONE"
+  let raw = match surreal_query(self.config, sql, bindings={ "auth_id": user_id }) {
+    Ok(body) => body
+    Err(_) => return false
+  }
+  // Parse count — if cnt > 0, user is initialized
+  match parse_result_array(raw) {
+    Ok(arr) => {
+      match arr[0] {
+        Object(obj) => {
+          match obj.get("cnt") {
+            Some(Number(d, ..)) => d.to_int() > 0
+            _ => false
+          }
+        }
+        _ => false
+      }
+    }
+    Err(_) => false
+  }
 }
 ```
 
@@ -462,7 +899,7 @@ if role == "teacher" {
 }
 ```
 
-### 3. Gateway Endpoints
+### [Phase 5] 3. Gateway Endpoints
 
 Add to `agents/app-agents/gateway_agent.mbt`:
 
@@ -601,11 +1038,38 @@ pub fn GatewayAgent::list_class_subjects(
 }
 ```
 
+**Admin — get teacher subjects (current pairs for a specific teacher):**
+
+```moonbit
+///|
+/// Returns the currently assigned class-subject pairs for a teacher.
+/// Requires valid X-Golem-Auth-Key header.
+#derive.endpoint(get="/admin/teacher/{target_teacher_id}/subjects?user_id={admin_user_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn GatewayAgent::get_teacher_subjects_admin(
+  self : Self,
+  incoming_key : String,
+  admin_user_id : String,
+  target_teacher_id : String,
+) -> Result[Array[TeacherSubjectPair], String] {
+  match self.check_auth(incoming_key) {
+    Some(msg) => return Err(msg)
+    None => ()
+  }
+  AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
+    admin.get_teacher_subjects(target_teacher_id)
+  }) catch {
+    _ => Err("admin unreachable")
+  }
+}
+```
+
 **Admin — set teacher subjects:**
 
 ```moonbit
 ///|
-/// Body: JSON array of TeacherSubjectPair
+/// Body: JSON array of { class_level_id, subject_id } (ID-only payload,
+/// no names needed — backend joins names from DB).
 /// Requires valid X-Golem-Auth-Key header.
 #derive.endpoint(post="/admin/teacher/subjects?user_id={admin_user_id}&target_teacher_id={target_teacher_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
@@ -623,8 +1087,7 @@ pub fn GatewayAgent::set_teacher_subjects_admin(
   }
 
   let pairs : Array[TeacherSubjectPair] = []
-  // Parse pairs_json using @json.parse and extract array of TeacherSubjectPair
-  // ... JSON parsing logic to convert pairs_json → Array[TeacherSubjectPair]
+  // ID-only payload: frontend sends { class_level_id, subject_id } only
   let val = @json.parse(pairs_json) catch { _ => return Err("invalid JSON body") }
   match val {
     Array(arr) => {
@@ -632,11 +1095,12 @@ pub fn GatewayAgent::set_teacher_subjects_admin(
         match item {
           Object(obj) => {
             let class_level_id = match obj.get("class_level_id") { Some(String(s)) => s; _ => continue }
-            let class_level_name = match obj.get("class_level_name") { Some(String(s)) => s; _ => continue }
             let subject_id = match obj.get("subject_id") { Some(String(s)) => s; _ => continue }
-            let subject_name = match obj.get("subject_name") { Some(String(s)) => s; _ => continue }
-            let subject_code = match obj.get("subject_code") { Some(String(s)) => Some(s); _ => None }
-            pairs.push(TeacherSubjectPair::{ class_level_id, class_level_name, subject_id, subject_name, subject_code })
+            // Names will be resolved by AdminAgent via DB join
+            pairs.push(TeacherSubjectPair::{
+              class_level_id, class_level_name: "",
+              subject_id, subject_name: "", subject_code: None,
+            })
           }
           _ => ()
         }
@@ -653,7 +1117,70 @@ pub fn GatewayAgent::set_teacher_subjects_admin(
 }
 ```
 
-### 4. SvelteKit Proxy Routes
+### [Phase 4] 4. Student Agent — Profile Moved to DB
+
+**Update `agents/app-agents/student_agent.mbt`:**
+
+Remove `profile` field from struct — it moves to the `user_profile` table:
+
+```moonbit
+#derive.agent
+struct StudentAgent {
+  config : @config.Config[SurrealConfig]
+  student_id : String
+  // profile removed — now in user_profile table (Rule 1)
+  mut subject_cache : SubjectCache?
+  mut terms_cache : Map[String, TermCacheEntry]
+  mut lessons_cache : Map[String, LessonCacheEntry]
+  mut edge_cache : Map[String, EdgeCacheEntry]
+  mut lesson_cache : Map[String, LessonContentCache]
+}
+```
+
+**Update constructor:**
+
+```moonbit
+fn StudentAgent::new(
+  student_id : String,
+  config : @config.Config[SurrealConfig],
+) -> StudentAgent {
+  {
+    config,
+    student_id,
+    subject_cache: None,
+    terms_cache: Map::new(),
+    lessons_cache: Map::new(),
+    edge_cache: Map::new(),
+    lesson_cache: Map::new(),
+  }
+}
+```
+
+**Rewrite `initialize` to write to `user_profile` table:**
+
+```moonbit
+///|
+/// Records student initialization in user_profile table.
+/// Writes own profile via upsert (idempotent — Rule 2).
+pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
+  let sql = "INSERT INTO user_profile (auth_id, role, class_level, created_at) " +
+    "VALUES ($auth_id, 'student', $class_level, time::now()) " +
+    "ON DUPLICATE KEY UPDATE class_level = $class_level, updated_at = time::now(), " +
+    "  deleted_at = NONE"
+
+  match surreal_query_retry(self.config, sql, Some({
+    "auth_id": String(self.student_id),
+    "class_level": String(class_level),
+  })) {
+    Ok(_) => "OK"
+    Err(e) => "ERROR: " + e
+  }
+}
+```
+
+Note: `class_level` parameter is now the SurrealDB record ID string (e.g. `"class_levels:jss_3"`), not a `StudentProfile` struct. All TTL caches remain unchanged — they are in-progress/session data (Rule 1 test: if the agent is deleted, the school doesn't care about cached values).
+
+### [Phase 6] 5. SvelteKit Proxy Routes
 
 **`frontend/src/routes/api/teacher/classes/+server.ts`:**
 
@@ -778,7 +1305,7 @@ export const POST: RequestHandler = async (event) => {
 };
 ```
 
-### 5. Frontend Types
+### [Phase 6] 6. Frontend Types
 
 Add to `frontend/src/lib/types.ts`:
 
@@ -798,7 +1325,7 @@ export interface TeacherClassGroup {
 }
 ```
 
-### 6. Teacher Dashboard — Root Page
+### [Phase 6] 7. Teacher Dashboard — Root Page
 
 **Update `frontend/src/routes/+page.server.ts`:**
 
@@ -880,7 +1407,7 @@ Add a teacher section between the student subjects section and the generic dashb
   </div>
 ```
 
-### 7. `/my-classes/[classId]/` Route — Subject List
+### [Phase 6] 8. `/my-classes/[classId]/` Route — Subject List
 
 **`frontend/src/routes/my-classes/[classId]/+page.server.ts`:**
 
@@ -935,7 +1462,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 
 Visually identical to student subject card page. Heading shows class name. Subject cards link to `/my-classes/[classId]/[subjectId]`. Skeleton/empty/error states matching existing patterns.
 
-### 8. `/my-classes/[classId]/[subjectId]/` Route — Terms
+### [Phase 6] 9. `/my-classes/[classId]/[subjectId]/` Route — Terms
 
 **Server load:** Calls `/api/teacher/terms`, returns `Array<TermInfo>`.
 
@@ -943,13 +1470,13 @@ Finds the subject name from the class group data (fetched via `/api/teacher/clas
 
 **Page:** Identical visual pattern to `/lms/[subjectId]/`. Term cards link to `/my-classes/[classId]/[subjectId]/[termId]/`.
 
-### 9. `/my-classes/[classId]/[subjectId]/[termId]/` Route — Lesson List
+### [Phase 6] 10. `/my-classes/[classId]/[subjectId]/[termId]/` Route — Lesson List
 
 **Server load:** Calls `/api/teacher/lessons?class_level_id=...&subject_id=...&term_id=...`, returns `Array<LessonInfo>`.
 
 **Page:** Identical visual pattern to `/lms/[subjectId]/[termId]/`. Lesson cards link to existing `/lms/[subjectId]/[termId]/[lessonId]` (student lesson detail — reused for now; Unit 21 adds teacher-specific view).
 
-### 10. Admin UI — Teacher Assignment Panel
+### [Phase 6] 11. Admin UI — Teacher Assignment Panel
 
 **Update `UserTable.svelte`:**
 
@@ -1128,7 +1655,7 @@ let filteredSubjectSuggestions = $derived.by(() => {
 {/if}
 ```
 
-### 11. Sidebar — "My Classes" Nav Item
+### [Phase 6] 12. Sidebar — "My Classes" Nav Item
 
 In `frontend/src/routes/+layout.svelte`, after the LMS nav item in the Navigation group:
 
@@ -1144,30 +1671,22 @@ In `frontend/src/routes/+layout.svelte`, after the LMS nav item in the Navigatio
 {/if}
 ```
 
-### 12. Build and Deploy
+### [Phase 7] 13. Build and Deploy
 
-```bash
-cd agents
-moon info && moon fmt
-moon check --target wasm
-golem build
-golem deploy --reset -Y
-
-cd ../frontend
-npx svelte-kit sync
-pnpm build
-pnpm check
-```
+Follow the steps documented in [Phase 7](#phase-7-build--deploy) above:
 
 ---
 
 ## Files Changed
 
 | File | Change |
-|---|---|
-| `agents/app-agents/teacher_agent.mbt` | Rewrite — add types, struct, initialize, get_my_classes, get_terms, get_lessons |
-| `agents/app-agents/admin_agent.mbt` | Add `teacher_assignments` field, 4 new methods, update constructor and initialize_user |
-| `agents/app-agents/gateway_agent.mbt` | Add 5 new endpoints |
+|---|---|---|
+| `docs/migration_v2.surql` | **New** — schema migration: create `user_profile` and `teacher_assignment` tables with unique indexes and soft-delete |
+| `agents/app-agents/surreal_client.mbt` | Add `surreal_query_retry()` wrapper for @json.parse first-call bug |
+| `agents/app-agents/teacher_agent.mbt` | Rewrite — trigger_initialize queries DB directly, class_groups is a Push-Invalidation cache |
+| `agents/app-agents/admin_agent.mbt` | Remove `initialized_users`, `teacher_assignments` fields; add DB-backed methods (set_teacher_subjects, get_teacher_subjects, is_user_initialized, initialize_user) |
+| `agents/app-agents/student_agent.mbt` | Remove `profile` field; `initialize()` writes to `user_profile` table |
+| `agents/app-agents/gateway_agent.mbt` | Add 6 endpoints (including GET teacher/{uuid}/subjects); set_teacher_subjects_admin uses ID-only payload parsing |
 | `frontend/src/lib/types.ts` | Add `TeacherSubjectPair`, `TeacherClassGroup` |
 | `frontend/src/routes/+page.server.ts` | Add teacher class fetching |
 | `frontend/src/routes/+page.svelte` | Add "My Classes" teacher section |
@@ -1185,36 +1704,58 @@ pnpm check
 | `frontend/src/routes/api/admin/teacher/subjects/+server.ts` | **New** — proxy |
 | `frontend/src/routes/api/admin/teacher/[uuid]/subjects/+server.ts` | **New** — proxy (GET teacher's current pairs) |
 | `frontend/src/routes/admin/users/UserTable.svelte` | Add Class Subjects section for teachers |
-| `docs/progress-tracker.md` | Mark Unit 20 as completed |
+| `docs/architecture.md` | Update — add Rules 1-10, new DB tables, revised agent state tables |
+| `docs/code-standards.md` | Update — DB-backed facts section |
+| `docs/progress-tracker.md` | Update — move Unit 20 to In Progress with 7-phase breakdown |
+| `docs/specs/00-build-plan.md` | Update — rewrite Unit 20 for DB-backed architecture, update Units 21-26 references |
 
 ---
 
 ## Dependencies
 
-None. No new npm packages or shadcn-svelte components needed.
+- SurrealDB instance with existing `has_subject`, `class_levels`, `subjects`, `lessons` tables (from Units 9/HF-01)
+- Golem agents deployed with previous component version
+- No new npm packages or shadcn-svelte components needed
 
 ---
 
 ## Verification Checklist
+
+### DB Schema (`migration_v2.surql`)
+- [ ] `migration_v2.surql` applies without errors on dev SurrealDB
+- [ ] `user_profile` table exists with `auth_id`, `role`, `class_level`, `created_at`, `updated_at`, `deleted_at`
+- [ ] `teacher_assignment` table exists with `teacher_id`, `class_level_id`, `subject_id`, `assigned_at`, `deleted_at`
+- [ ] Unique index on `teacher_assignment(teacher_id, class_level_id, subject_id)` works
+- [ ] Unique index on `user_profile(auth_id)` works
+- [ ] Soft deletes filter correctly: `SELECT ... WHERE deleted_at IS NONE`
+
+### Agent Layer — Student Agent
+- [ ] `StudentAgent` struct has no `profile` field
+- [ ] `StudentAgent::new()` has no profile field in constructor
+- [ ] `initialize("class_levels:jss_3")` upserts row into `user_profile` table
+- [ ] Existing TTL caches unchanged after initialization
+- [ ] All previous student queries (`get_subjects`, `get_terms`, `get_lessons`, `get_lesson`) still work
 
 ### Agent Layer — Teacher Agent
 - [ ] `moon check --target wasm` succeeds (zero errors)
 - [ ] `golem build` succeeds
 - [ ] `moon info && moon fmt` runs clean in `agents/`
 - [ ] `TeacherAgent::new()` initializes `class_groups` as empty map
-- [ ] `trigger_initialize()` fetches from Admin Agent, groups by `class_level_id`
+- [ ] `trigger_initialize()` queries `teacher_assignment` table directly via `surreal_query`
 - [ ] `get_my_classes()` returns `Array[TeacherClassGroup]` after init, `[]` before
 - [ ] `get_terms()` returns all active terms (same as student)
 - [ ] `get_lessons("class_levels:jss_1", "subjects:basic_science", "terms:first")` returns filtered lessons
 - [ ] Two different teacher agents maintain independent state
 
 ### Agent Layer — Admin Agent
-- [ ] `AdminAgent::new(config)` initializes `teacher_assignments` as empty map
+- [ ] `AdminAgent::new(config)` has no `teacher_assignments` or `initialized_users` fields
 - [ ] `get_available_class_subjects()` returns pairs from active `has_subject` edges
-- [ ] `set_teacher_subjects("t1", pairs)` stores and fires TeacherAgent init via RPC
-- [ ] `get_teacher_subjects("t1")` returns stored pairs, `[]` for unassigned teacher
-- [ ] `initialize_user("t1", "teacher", None)` fires `TeacherAgentClient::scoped(t1, ...)` with `trigger_initialize`
-- [ ] `initialize_user("u1", "student", Some("JSS 1"))` does NOT fire TeacherAgent init (unchanged student path)
+- [ ] `set_teacher_subjects("t1", pairs)` writes to `teacher_assignment` table (soft-delete + insert inside `with_atomic_operation`)
+- [ ] `set_teacher_subjects("t1", pairs)` fires `TeacherAgentClient::scoped(t1, ...).trigger_initialize()` inside `with_atomic_operation`
+- [ ] `get_teacher_subjects("t1")` queries `teacher_assignment` table, returns pairs, `[]` for unassigned teacher
+- [ ] `is_user_initialized("t1")` queries `user_profile` table, returns `Bool`
+- [ ] `initialize_user("t1", "teacher", None)` upserts into `user_profile` table
+- [ ] `initialize_user("u1", "student", Some("class_levels:jss_1"))` upserts into `user_profile` table, does NOT fire TeacherAgent init
 
 ### Agent Layer — Gateway
 - [ ] `/gateway/teacher/classes` returns `Ok([...])` for initialized teacher
@@ -1264,6 +1805,11 @@ None. No new npm packages or shadcn-svelte components needed.
 - [ ] Save triggers `TeacherAgent.trigger_initialize` (teacher sees changes on next page load)
 - [ ] Loading state on save button
 - [ ] Error state if save fails
+
+### SurrealDB Client
+- [ ] `surreal_query_retry()` returns `Ok([...])` on first successful call
+- [ ] `surreal_query_retry()` retries once on empty/failed parse, succeeds on retry
+- [ ] Existing `surreal_query()` callers still work (no breaking signature change)
 
 ### Regression
 - [ ] Student dashboard subject cards unchanged

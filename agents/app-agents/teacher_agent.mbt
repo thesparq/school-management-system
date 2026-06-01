@@ -37,32 +37,78 @@ fn TeacherAgent::new(
 }
 
 ///|
-/// Fetches assigned class-subject pairs from Admin Agent,
-/// groups them by class_level_id, and stores in durable state.
+/// Fetches assigned class-subject pairs from teacher_assignment table
+/// via direct SurrealDB query, groups them by class_level_id,
+/// and stores in durable state.
 pub fn TeacherAgent::trigger_initialize(self : Self) -> String {
-  let pairs = AdminAgentClient::scoped(fn(admin) raise @common.AgentError {
-    admin.get_teacher_subjects(self.teacher_id)
-  }) catch {
-    _ => return "ERROR: admin unreachable"
+  let sql = "SELECT teacher_id, class_level_id, subject_id, " +
+    "(SELECT VALUE name FROM class_levels WHERE id = type::thing(\"class_levels\", class_level_id))[0] AS class_level_name, " +
+    "(SELECT VALUE name FROM subjects WHERE id = type::thing(\"subjects\", subject_id))[0] AS subject_name, " +
+    "(SELECT VALUE code FROM subjects WHERE id = type::thing(\"subjects\", subject_id))[0] AS subject_code " +
+    "FROM teacher_assignment WHERE teacher_id = '" +
+    escape_surreal_string(self.teacher_id) +
+    "' AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC"
+  let result_arr = match surreal_query_retry(self.config, sql, None) {
+    Ok(arr) => arr
+    Err(_) => return "ERROR: db query failed"
   }
-
   let groups : Map[String, TeacherClassGroup] = Map::new()
-  for pair in pairs {
-    let gid = pair.class_level_id
-    match groups.get(gid) {
-      Some(g) => {
-        g.subjects.push(pair)
-        groups.set(gid, g)
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let class_level_name = match obj.get("class_level_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_id = match obj.get("subject_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_name = match obj.get("subject_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_code = match obj.get("subject_code") {
+          Some(String(s)) => Some(s)
+          _ => None
+        }
+        let gid = class_level_id
+        let pair = TeacherSubjectPair::{
+          class_level_id,
+          class_level_name,
+          subject_id,
+          subject_name,
+          subject_code,
+        }
+        match groups.get(gid) {
+          Some(g) => {
+            g.subjects.push(pair)
+            groups.set(gid, g)
+          }
+          None =>
+            groups.set(gid, TeacherClassGroup::{
+              class_level_id: gid,
+              class_level_name,
+              subjects: [pair],
+            })
+        }
       }
-      None =>
-        groups.set(gid, TeacherClassGroup::{
-          class_level_id: gid,
-          class_level_name: pair.class_level_name,
-          subjects: [pair],
-        })
+      _ => ()
     }
   }
   self.class_groups = groups
+  "OK"
+}
+
+///|
+/// Clears the cached class groups. Next call to trigger_initialize()
+/// will re-fetch from the database.
+pub fn TeacherAgent::invalidate_cache(self : Self) -> String {
+  self.class_groups = Map::new()
   "OK"
 }
 

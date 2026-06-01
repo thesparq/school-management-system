@@ -15,6 +15,8 @@ pub fn cabi_realloc(Int, Int, Int, Int) -> Int
 
 pub fn surreal_query(@config.Config[SurrealConfig], String, bindings? : Map[String, String]) -> Result[String, String]
 
+pub fn surreal_query_retry(@config.Config[SurrealConfig], String, Map[String, String]?) -> Result[Array[Json], String]
+
 pub fn wasmExportDiscoverAgentTypes() -> Int
 
 pub fn wasmExportDiscoverAgentTypesPostReturn(Int) -> Unit
@@ -277,6 +279,7 @@ type TeacherAgent
 pub fn TeacherAgent::get_lessons(Self, String, String, String) -> Array[LessonInfo]
 pub fn TeacherAgent::get_my_classes(Self) -> Array[TeacherClassGroup]
 pub fn TeacherAgent::get_terms(Self) -> Array[TermInfo]
+pub fn TeacherAgent::invalidate_cache(Self) -> String
 pub fn TeacherAgent::test_db(Self) -> String
 pub fn TeacherAgent::trigger_initialize(Self) -> String
 
@@ -290,16 +293,19 @@ pub fn TeacherAgentClient::get_lessons(Self, String, String, String) -> Array[Le
 pub fn TeacherAgentClient::get_my_classes(Self) -> Array[TeacherClassGroup] raise @common.AgentError
 pub fn TeacherAgentClient::get_phantom(String, @types.Uuid) -> Self raise @common.AgentError
 pub fn TeacherAgentClient::get_terms(Self) -> Array[TermInfo] raise @common.AgentError
+pub fn TeacherAgentClient::invalidate_cache(Self) -> String raise @common.AgentError
 pub fn TeacherAgentClient::new_phantom(String) -> Self raise @common.AgentError
 pub fn TeacherAgentClient::phantom_id(Self) -> @types.Uuid?
 pub fn TeacherAgentClient::schedule_cancelable_get_lessons(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_get_my_classes(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn TeacherAgentClient::schedule_cancelable_get_terms(Self, @wallClock.Datetime) -> @host.CancellationToken
+pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn TeacherAgentClient::schedule_cancelable_test_db(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn TeacherAgentClient::schedule_cancelable_trigger_initialize(Self, @wallClock.Datetime) -> @host.CancellationToken
 pub fn TeacherAgentClient::schedule_get_lessons(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_my_classes(Self, @wallClock.Datetime) -> Unit
 pub fn TeacherAgentClient::schedule_get_terms(Self, @wallClock.Datetime) -> Unit
+pub fn TeacherAgentClient::schedule_invalidate_cache(Self, @wallClock.Datetime) -> Unit
 pub fn TeacherAgentClient::schedule_test_db(Self, @wallClock.Datetime) -> Unit
 pub fn TeacherAgentClient::schedule_trigger_initialize(Self, @wallClock.Datetime) -> Unit
 pub fn[T] TeacherAgentClient::scoped(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
@@ -310,6 +316,7 @@ pub fn TeacherAgentClient::trigger_get_lessons(Self, String, String, String) -> 
 pub fn TeacherAgentClient::trigger_get_my_classes(Self) -> Unit
 pub fn TeacherAgentClient::trigger_get_terms(Self) -> Unit
 pub fn TeacherAgentClient::trigger_initialize(Self) -> String raise @common.AgentError
+pub fn TeacherAgentClient::trigger_invalidate_cache(Self) -> Unit
 pub fn TeacherAgentClient::trigger_test_db(Self) -> Unit
 pub fn TeacherAgentClient::trigger_trigger_initialize(Self) -> Unit
 

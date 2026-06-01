@@ -91,7 +91,6 @@ const CACHE_TTL : UInt64 = 600
 struct StudentAgent {
   config : @config.Config[SurrealConfig]
   student_id : String
-  mut profile : StudentProfile?
   mut subject_cache : SubjectCache?
   terms_cache : Map[String, TermCacheEntry]
   lessons_cache : Map[String, LessonCacheEntry]
@@ -107,7 +106,6 @@ fn StudentAgent::new(
   {
     config,
     student_id,
-    profile: None,
     subject_cache: None,
     terms_cache: Map::new(),
     lessons_cache: Map::new(),
@@ -151,11 +149,11 @@ pub fn StudentAgent::test_db(self : Self) -> String {
 }
 
 ///|
-/// Initializes this student's profile and fetches subjects from SurrealDB.
-/// Idempotent — calling again with the same class_level is a no-op update.
+/// Initializes this student's subject cache from SurrealDB.
+/// Idempotent — calling again refreshes the cache.
+/// NOTE: user_profile row is created by AdminAgent.initialize_user()
+/// before this method is called.
 pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
-  self.profile = Some(StudentProfile::{ class_level, })
-
   let subj_sql = "SELECT id AS edge_id, out.id AS id, out.name AS name, out.code AS code " +
     "FROM has_subject " +
     "WHERE in.name = $class_level AND active = true " +
@@ -217,6 +215,26 @@ pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
 }
 
 ///|
+/// Returns this student's class_level from user_profile table.
+fn StudentAgent::get_class_level(self : Self) -> String? {
+  let sql = "SELECT VALUE class_level FROM user_profile WHERE auth_id = '" +
+    escape_surreal_string(self.student_id) +
+    "' AND deleted_at IS NONE LIMIT 1"
+  match surreal_query_retry(self.config, sql, None) {
+    Ok(arr) =>
+      if arr.length() > 0 {
+        match arr[0] {
+          String(s) => Some(s)
+          _ => None
+        }
+      } else {
+        None
+      }
+    Err(_) => None
+  }
+}
+
+///|
 pub fn StudentAgent::get_subjects(self : Self) -> Array[SubjectInfo] {
   let now = @wallClock.now().seconds
   let cached = self.subject_cache
@@ -225,8 +243,8 @@ pub fn StudentAgent::get_subjects(self : Self) -> Array[SubjectInfo] {
     _ => ()
   }
 
-  let cl = match self.profile {
-    Some(p) => p.class_level
+  let cl = match self.get_class_level() {
+    Some(cl) => cl
     None => return []
   }
 
@@ -301,8 +319,8 @@ pub fn StudentAgent::get_subjects(self : Self) -> Array[SubjectInfo] {
 ///|
 pub fn StudentAgent::get_terms(self : Self) -> Array[TermInfo] {
   let now = @wallClock.now().seconds
-  let cl = match self.profile {
-    Some(p) => p.class_level
+  let cl = match self.get_class_level() {
+    Some(cl) => cl
     None => return []
   }
 
@@ -398,8 +416,8 @@ pub fn StudentAgent::get_lessons(
     _ => ()
   }
 
-  let cl = match self.profile {
-    Some(p) => p.class_level
+  let cl = match self.get_class_level() {
+    Some(cl) => cl
     None => return []
   }
 

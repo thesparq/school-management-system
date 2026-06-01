@@ -1,0 +1,301 @@
+class,term,week,subject,topic,agegroup,context,generated
+Year 1,Summer Term,7,Citizenship,"How to respect God and why",5-6,"",true
+Year 1,Summer Term,8,Citizenship,"My role as a citizen -- community , school, home",5-6,"",true
+Year 1,Summer Term,9,Citizenship,"My neighborhood and my neighbors",5-6,"",true
+Year 1,Calvary Term,1,Computer Studies,"Printer: meaning, types and uses",5-6,"",true
+Year 1,Calvary Term,2,Computer Studies,"ICT : meaning, ICT devices around us",5-6,"",true
+Year 1,Calvary Term,3,Computer Studies,"ICT: how ICT shapes our lives/importance of ICT",5-6,"",true
+Year 1,Calvary Term,4,Computer Studies,"ICT: introducing robots as a mode in ICT devices",5-6,"",true
+Year 1,Calvary Term,5,Computer Studies,"GSM phone: meaning, parts and understanding what a SIM card does for mobile phone",5-6,"",true
+Year 1,Calvary Term,6,Computer Studies,"GSM phone: uses of GSM phones",5-6,"",true
+Year 1,Calvary Term,7,Computer Studies,"Mobile network operators: meaning, mobile network operators within and around",5-6,"",true
+Year 1,Calvary Term,8,Computer Studies,"Mobile network operators: the work of mobile network operators",5-6,"",true
+Year 1,Calvary Term,9,Computer Studies,"Computer etiquette",5-6,"",true
+Year 1,Summer Term,1,Computer Studies,"Common devices -- laptop , tab calculator, wrist watch, palmtop and phones",5-6,"",true
+Year 1,Summer Term,2,Computer Studies,"Smart phones -- meaning , parts, uses,( how smart are smart phones)",5-6,"",true
+Year 1,Summer Term,3,Computer Studies,"Part of a mobile phone: examples and how it works",5-6,"",true
+Year 1,Summer Term,4,Computer Studies,"How mouthpiece and earpiece works",5-6,"",true
+Year 1,Summer Term,5,Computer Studies,"Basic steps in using a Computer Studies -- meaning of booting, how to switch/turn on a Computer Studies",5-6,"",true
+Year 1,Summer Term,6,Computer Studies,"Common IT devices -- fax my, printer, scanner, light pen",5-6,"",true
+Year 1,Summer Term,7,Computer Studies,"Radio and television: meaning, uses, types and how it operates",5-6,"",true
+Year 1,Summer Term,8,Computer Studies,"Liquid dispenser -- water dispenser, fuel pumps",5-6,"",true
+Year 1,Summer Term,9,Computer Studies,"A. T. M",5-6,"",true
+Year 1,Calvary Term,1,Cultural and Creative Arts,"Drawing and painting: definition, drawing of craft work, drawing of things around us",5-6,"",true
+Year 1,Calvary Term,2,Cultural and Creative Arts,"Printing ( leaf , yam, potatoes)",5-6,"",true
+Year 1,Calvary Term,3,Cultural and Creative Arts,"Valentine's day decorations ( meaning of valentine day)",5-6,"",true
+Year 1,Calvary Term,4,Cultural and Creative Arts,"Mother's day decorations (meaning of mother's day)",5-6,"",true
+Year 1,Calvary Term,5,Cultural and Creative Arts,"Collage( meaning, using different color paper( shapes)",5-6,"",true
+Year 1,Calvary Term,6,Cultural and Creative Arts,"Easter decorations ( meaning of Easter celebration)",5-6,"",true
+Year 1,Calvary Term,7,Cultural and Creative Arts,"Traditional song/folk song( introduction to Nigeria folksongs, uses and functions of Nigerian traditional music: joy relaxation e.t.c",5-6,"",true
+Year 1,Calvary Term,8,Cultural and Creative Arts,"Traditional dance( meaning, functions, types)",5-6,"",true
+Year 1,Calvary Term,9,Cultural and Creative Arts,"Beads decorations ( practical)",5-6,"",true
+Year 1,Summer Term,1,Cultural and Creative Arts,"Introduction to story telling: meaning, making up a story i.e folktale, role play",5-6,"",true
+Year 1,Summer Term,2,Cultural and Creative Arts,"Ceremonies: meaning, types and importance",5-6,"",true
+Year 1,Summer Term,3,Cultural and Creative Arts,"National art and cultural festivals: egungun festivals in Oyo state, Abuja carnival, dancers in Anambra state, Eyo masquerade in Lagos",5-6,"",true
+Year 1,Summer Term,4,Cultural and Creative Arts,"Drawing and painting festivals and carnival",5-6,"",true
+Year 1,Summer Term,5,Cultural and Creative Arts,"Modelling- simple objects meaning, types and examples",5-6,"",true
+Year 1,Summer Term,6,Cultural and Creative Arts,"Mosaic: meaning, types and importance",5-6,"",true
+Year 1,Summer Term,7,Cultural and Creative Arts,"Origami",5-6,"",true
+Year 1,Summer Term,8,Cultural and Creative Arts,"End of the session class decorations",5-6,"",true
+Year 1,Summer Term,9,Cultural and Creative Arts,"End of the session class decorations",5-6,"",true
+Year 1,Calvary Term,1,Geography,"Rivers in Africa",5-6,"",true
+Year 1,Calvary Term,2,Geography,"A map -- meaning of a map, functions of a map",5-6,"",true
+Year 1,Calvary Term,3,Geography,"Mapping with colors -- our school, our home",5-6,"",true
+Year 1,Calvary Term,4,Geography,"Natural resources -- meaning , natural resources found in Oyo state",5-6,"",true
+Year 1,Calvary Term,5,Geography,"Land -- meaning of land, uses and benefits",5-6,"",true
+Year 1,Calvary Term,6,Geography,"The air -- meaning , constituents and uses",5-6,"",true
+Year 1,Calvary Term,7,Geography,"West African countries and capitals",5-6,"",true
+Year 1,Calvary Term,8,Geography,"Natural resources in Oyo",5-6,"",true
+Year 1,Calvary Term,9,Geography,"Rock -- meaning and types",5-6,"",true
+Year 1,Summer Term,1,Geography,"Environment -- meaning , beautifying and importance",5-6,"",true
+Year 1,Summer Term,2,Geography,"Weather -- meaning , types/seasons, effects of each weather",5-6,"",true
+Year 1,Summer Term,3,Geography,"Countries and their weather",5-6,"",true
+Year 1,Summer Term,4,Geography,"Pollution ( water, air, land ): meaning, types",5-6,"",true
+Year 1,Summer Term,5,Geography,"Bush burning: meaning, advantages and disadvantages",5-6,"",true
+Year 1,Summer Term,6,Geography,"Flood -- meaning , causes, effects and solutions",5-6,"",true
+Year 1,Summer Term,7,Geography,"African countries and their capitals",5-6,"",true
+Year 1,Summer Term,8,Geography,"Seasons around the world",5-6,"",true
+Year 1,Summer Term,9,Geography,"Notable dates around the world",5-6,"",true
+Year 1,Calvary Term,1,History,"Neighborhood: my neighbor at home and at school",5-6,"",true
+Year 1,Calvary Term,2,History,"Important places in the community: school, market and at school",5-6,"",true
+Year 1,Calvary Term,3,History,"Community leaders: meaning, roles and respect for community leaders",5-6,"",true
+Year 1,Calvary Term,4,History,"National symbols: coat of arms, national flag and national pledge",5-6,"",true
+Year 1,Calvary Term,5,History,"First election in Nigeria",5-6,"",true
+Year 1,Calvary Term,6,History,"Christian missionaries in Nigeria",5-6,"",true
+Year 1,Calvary Term,7,History,"Slave trade in Nigeria",5-6,"",true
+Year 1,Calvary Term,8,History,"Bishop Samuel Ajayi Crowther",5-6,"",true
+Year 1,Calvary Term,9,History,"Mother Teresa, David Livingstone",5-6,"",true
+Year 1,Summer Term,1,History,"Nigeria before independence ( colonial era)",5-6,"",true
+Year 1,Summer Term,2,History,"Heroes and heroines: differences, qualities, names",5-6,"",true
+Year 1,Summer Term,3,History,"Achievements of heroes and heroines: Abraham Lincoln, Alvan Ikoku, Martin Luther king, Ben Carson and Mark Zuckerberg",5-6,"",true
+Year 1,Summer Term,4,History,"Traditional rulers : meaning, history and importance",5-6,"",true
+Year 1,Summer Term,5,History,"Festivals: definition, examples",5-6,"",true
+Year 1,Summer Term,6,History,"History of local government in Nigeria: year it started number of local government in Oyo state and Nigeria",5-6,"",true
+Year 1,Summer Term,7,History,"History of Oyo state",5-6,"",true
+Year 1,Summer Term,8,History,"History of Ogbomoso land",5-6,"",true
+Year 1,Summer Term,9,History,"My origin",5-6,"",true
+Year 1,Calvary Term,1,Home Economics,"Keeping healthy environment",5-6,"",true
+Year 1,Calvary Term,2,Home Economics,"Obesity: meaning, identification and how to avoid obesity",5-6,"",true
+Year 1,Calvary Term,3,Home Economics,"Foot wears: meaning, importance and maintenance",5-6,"",true
+Year 1,Calvary Term,4,Home Economics,"Eating habits: meaning, importance, how to have a good eating habits",5-6,"",true
+Year 1,Calvary Term,5,Home Economics,"Foods: classification based on the time of the day: meaning, importance and examples",5-6,"",true
+Year 1,Calvary Term,6,Home Economics,"Kitchen etiquette: meaning, do's and don't in the kitchen and importance",5-6,"",true
+Year 1,Calvary Term,7,Home Economics,"Cleaning: meaning, procedures for cleaning dishes before and after use and importance",5-6,"",true
+Year 1,Calvary Term,8,Home Economics,"Home garden: meaning, importance and how to keep home garden",5-6,"",true
+Year 1,Calvary Term,9,Home Economics,"Practical: showing going eating habits during breakfast",5-6,"",true
+Year 1,Summer Term,1,Home Economics,"Food and fruits for health: meaning, food and fruits in our locality, reasons for eating food for energy activity",5-6,"",true
+Year 1,Summer Term,2,Home Economics,"Classes of food",5-6,"",true
+Year 1,Summer Term,3,Home Economics,"The immune system: the ultimate body protection, pathogens as major invaders that attack the body, the castle wall",5-6,"",true
+Year 1,Summer Term,4,Home Economics,"Food safety: meaning, method / ways of preserving our food, importance of food preservation",5-6,"",true
+Year 1,Summer Term,5,Home Economics,"The home and its surroundings: meaning of home, tools and materials used for cleaning",5-6,"",true
+Year 1,Summer Term,6,Home Economics,"Practical ways of cleaning the homes and surrounding: maintenance of tools used for cleaning",5-6,"",true
+Year 1,Summer Term,7,Home Economics,"Toilet: meaning, types and items found in the toilet",5-6,"",true
+Year 1,Summer Term,8,Home Economics,"Toilet hygiene: practical ways of cleaning the toilet",5-6,"",true
+Year 1,Summer Term,9,Home Economics,"Home beautification: meaning, uses of natural and artificial flowers for beautification",5-6,"",true
+Year 1,Calvary Term,1,Literacy,"Present tense and past tense",5-6,"",true
+Year 1,Calvary Term,2,Literacy,"Future tense",5-6,"",true
+Year 1,Calvary Term,3,Literacy,"Use of capital letters",5-6,"",true
+Year 1,Calvary Term,4,Literacy,"Verbs -- meaning , examples",5-6,"",true
+Year 1,Calvary Term,5,Literacy,"Preposition -- meaning , examples and uses",5-6,"",true
+Year 1,Calvary Term,6,Literacy,"Using the possessive pronouns -- I, your, our",5-6,"",true
+Year 1,Calvary Term,7,Literacy,"Compound words",5-6,"",true
+Year 1,Calvary Term,8,Literacy,"Conjugating verbs",5-6,"",true
+Year 1,Calvary Term,9,Literacy,"The use of abbreviation",5-6,"",true
+Year 1,Summer Term,1,Literacy,"Alphabetical order",5-6,"",true
+Year 1,Summer Term,2,Literacy,"Parts of speech",5-6,"",true
+Year 1,Summer Term,3,Literacy,"Verb tenses",5-6,"",true
+Year 1,Summer Term,4,Literacy,"Adjectives",5-6,"",true
+Year 1,Summer Term,5,Literacy,"Adverbs",5-6,"",true
+Year 1,Summer Term,6,Literacy,"Synonyms",5-6,"",true
+Year 1,Summer Term,7,Literacy,"Antonyms",5-6,"",true
+Year 1,Summer Term,8,Literacy,"Plural",5-6,"",true
+Year 1,Summer Term,9,Literacy,"Speech marks",5-6,"",true
+Year 1,Calvary Term,1,Moral Instructions,"Fairness",5-6,"",true
+Year 1,Calvary Term,2,Moral Instructions,"Hard work",5-6,"",true
+Year 1,Calvary Term,3,Moral Instructions,"Tolerance",5-6,"",true
+Year 1,Calvary Term,4,Moral Instructions,"Cooperation",5-6,"",true
+Year 1,Calvary Term,5,Moral Instructions,"Love",5-6,"",true
+Year 1,Calvary Term,6,Moral Instructions,"Endurance",5-6,"",true
+Year 1,Calvary Term,7,Moral Instructions,"Self -- discipline",5-6,"",true
+Year 1,Calvary Term,8,Moral Instructions,"Adaptability",5-6,"",true
+Year 1,Calvary Term,9,Moral Instructions,"Giving",5-6,"",true
+Year 1,Summer Term,1,Moral Instructions,"Honesty",5-6,"",true
+Year 1,Summer Term,2,Moral Instructions,"Kindness",5-6,"",true
+Year 1,Summer Term,3,Moral Instructions,"My duties at home",5-6,"",true
+Year 1,Summer Term,4,Moral Instructions,"Obedience to parents and elders",5-6,"",true
+Year 1,Summer Term,5,Moral Instructions,"Patience",5-6,"",true
+Year 1,Summer Term,6,Moral Instructions,"Taking turns",5-6,"",true
+Year 1,Summer Term,7,Moral Instructions,"My duties at school",5-6,"",true
+Year 1,Summer Term,8,Moral Instructions,"Obeying school rules and instructions from my teacher",5-6,"",true
+Year 1,Calvary Term,1,Numeracy,"2 dimensional and 3D shapes: Identification of 2D and 3D shapes (e.g cylinder, square, circle, triangle, rectangle, sphere, cone) and drawing of 2D and 3D shapes",5-6,"",true
+Year 1,Calvary Term,2,Numeracy,"Money: What is money? Currencies of different countries, recognition of Nigerian currency",5-6,"",true
+Year 1,Calvary Term,3,Numeracy,"Money: Changing units of money ( i.e two 100k=#1, two 5k pieces = 10k e.t.c), the concept of change",5-6,"",true
+Year 1,Calvary Term,4,Numeracy,"Time: Introduction of time using clock showing the hands of clock ( hours, minutes & seconds), reading clock to the hour & half an hour",5-6,"",true
+Year 1,Calvary Term,5,Numeracy,"Time: Drawing clock, indicating on drawn clocks given time, days of the week",5-6,"",true
+Year 1,Calvary Term,6,Numeracy,"Capacity: Amount in liquids ( meaning of capacity, identify objects used for measuring capacity, naming objects used for measuring capacity",5-6,"",true
+Year 1,Calvary Term,7,Numeracy,"Capacity: Ordering of containers base on their capacities",5-6,"",true
+Year 1,Calvary Term,8,Numeracy,"Weight: Meaning, introducing the idea of weight ( e.g heavy or light), unit of weight ( e.g kilograms & grams)",5-6,"",true
+Year 1,Calvary Term,9,Numeracy,"Weight: Measurements of weight, ordering of weight",5-6,"",true
+Year 1,Summer Term,1,Numeracy,"Addition and subtraction of number line",5-6,"",true
+Year 1,Summer Term,2,Numeracy,"Addition and subtraction of number line",5-6,"",true
+Year 1,Summer Term,3,Numeracy,"Concept of measurements",5-6,"",true
+Year 1,Summer Term,4,Numeracy,"Concept of measurements",5-6,"",true
+Year 1,Summer Term,5,Numeracy,"2 & 3 dimensional shapes",5-6,"",true
+Year 1,Summer Term,6,Numeracy,"Time",5-6,"",true
+Year 1,Summer Term,7,Numeracy,"Odd & even numbers",5-6,"",true
+Year 1,Summer Term,8,Numeracy,"Greater than > & less than<",5-6,"",true
+Year 1,Summer Term,9,Numeracy,"Fraction",5-6,"",true
+Year 1,Calvary Term,1,Physical and Health Education,"P- local games: do as I do, clap over your head, who is in the garden H- personal hygiene: general body cleanliness",5-6,"",true
+Year 1,Calvary Term,2,Physical and Health Education,"P- basic skills in basketball H- personal hygiene -- teeth brushing",5-6,"",true
+Year 1,Calvary Term,3,Physical and Health Education,"P- safety rules in basketball games H- care of the nails and hair",5-6,"",true
+Year 1,Calvary Term,4,Physical and Health Education,"P- basic skills in swimming H-Benefits of cleanliness",5-6,"",true
+Year 1,Calvary Term,5,Physical and Health Education,"P- Safety rules in swimming H- Sense organs",5-6,"",true
+Year 1,Calvary Term,6,Physical and Health Education,"P: basic skills in volleyball H: Fracture: Meaning, types, prevention",5-6,"",true
+Year 1,Calvary Term,7,Physical and Health Education,"P- Safety rules in volleyball H- balance diet",5-6,"",true
+Year 1,Calvary Term,8,Physical and Health Education,"P- basic movements: moving our body parts H-Immunization: meaning, importance",5-6,"",true
+Year 1,Calvary Term,9,Physical and Health Education,"P- Safety rules for basic movements H- air pollution: meaning, effects",5-6,"",true
+Year 1,Summer Term,1,Physical and Health Education,"P -- fundamental dancing steps H -- road accident and causes",5-6,"",true
+Year 1,Summer Term,2,Physical and Health Education,"P -- dodging H - fire accident and causes",5-6,"",true
+Year 1,Summer Term,3,Physical and Health Education,"P -- throwing a catching of ball H -- accident at home",5-6,"",true
+Year 1,Summer Term,4,Physical and Health Education,"P -- bouncing a kicking of ball H -- water accident",5-6,"",true
+Year 1,Summer Term,5,Physical and Health Education,"P -- swimming H -- first aid and its contents",5-6,"",true
+Year 1,Summer Term,6,Physical and Health Education,"P- bean -- bag race H -- Qualities of a first aider",5-6,"",true
+Year 1,Summer Term,7,Physical and Health Education,"P- pocking of imaginary objects H- the sense",5-6,"",true
+Year 1,Summer Term,8,Physical and Health Education,"P- hopping in and out of hoops H- functions of parts of the body",5-6,"",true
+Year 1,Summer Term,9,Physical and Health Education,"P- throwing and catching H- revision",5-6,"",true
+Year 1,Calvary Term,1,Social Studies,"Sanitation ( meaning and method, ways to keep our environment clean, proper disposal of waste, toilet facilities",5-6,"",true
+Year 1,Calvary Term,2,Social Studies,"Home sanitation ( functions of home cleaning tools e.g broom, hoe, brush, cutlass, mop, parker, rake e.t.c)",5-6,"",true
+Year 1,Calvary Term,3,Social Studies,"Accident ( meaning, types, causes and prevention)",5-6,"",true
+Year 1,Calvary Term,4,Social Studies,"Home accidents ( definition, causes of home accidents, prevention)",5-6,"",true
+Year 1,Calvary Term,5,Social Studies,"Home appliances ( meaning, types of home appliances, uses and care)",5-6,"",true
+Year 1,Calvary Term,6,Social Studies,"Drugs awareness ( meaning of drugs, categories of good and bad drugs)",5-6,"",true
+Year 1,Calvary Term,7,Social Studies,"Overdose ( meaning, effects and prevention)",5-6,"",true
+Year 1,Calvary Term,8,Social Studies,"Illness ( meaning, causes and prevention)",5-6,"",true
+Year 1,Calvary Term,9,Social Studies,"Water ( sources of water, uses and storage)",5-6,"",true
+Year 1,Summer Term,1,Social Studies,"Food -- meaning , our cultural food, risk factors in food",5-6,"",true
+Year 1,Summer Term,2,Social Studies,"Good eating habits and how to keep food safe",5-6,"",true
+Year 1,Summer Term,3,Social Studies,"Harmful substances and how to avoid taking them",5-6,"",true
+Year 1,Summer Term,4,Social Studies,"Safety rules within the community",5-6,"",true
+Year 1,Summer Term,5,Social Studies,"Concept of security -- meaning , major security agencies in Nigeria and their functions",5-6,"",true
+Year 1,Summer Term,6,Social Studies,"Sources of danger and insecurity -- road accident, fire outbreak, kidnapping, relationship with strangers",5-6,"",true
+Year 1,Summer Term,7,Social Studies,"Addiction, drug addiction and addictive behaviors in children -- solutions to addiction",5-6,"",true
+Year 1,Summer Term,8,Social Studies,"Water -- sources and uses of water",5-6,"",true
+Year 1,Summer Term,9,Social Studies,"Savings -- meaning , things that can be save, where do we save? Importance of saving",5-6,"",true
+Year 1,Calvary Term,1,Vocational Studies,"Classroom: meaning, things that can be found in classroom, classroom rules and manners",5-6,"",true
+Year 1,Calvary Term,2,Vocational Studies,"Profession: meaning, different professions",5-6,"",true
+Year 1,Calvary Term,3,Vocational Studies,"Occupation: meaning, different occupation",5-6,"",true
+Year 1,Calvary Term,4,Vocational Studies,"Tools: meaning, types, importance of tools",5-6,"",true
+Year 1,Calvary Term,5,Vocational Studies,"The light : meaning, sources of light",5-6,"",true
+Year 1,Calvary Term,6,Vocational Studies,"Transport: meaning, different modes of transport",5-6,"",true
+Year 1,Calvary Term,7,Vocational Studies,"Blacksmith: meaning, tools used in blacksmith",5-6,"",true
+Year 1,Calvary Term,8,Vocational Studies,"Vocations in homes management e.g gardener, cleaners, cook/chef, laundry men e.t.c",5-6,"",true
+Year 1,Calvary Term,9,Vocational Studies,"Animal farmers, rearers and sellers: meaning, roles and importance",5-6,"",true
+Year 1,Summer Term,1,Vocational Studies,"Preservation of food: meaning, method and importance",5-6,"",true
+Year 1,Summer Term,2,Vocational Studies,"Changing raw materials into finished product: meaning, examples of raw materials and it's finished product in a tabular forms",5-6,"",true
+Year 1,Summer Term,3,Vocational Studies,"Local instruments that produces sound : meaning, examples, gathering and cutting of local instruments",5-6,"",true
+Year 1,Summer Term,4,Vocational Studies,"Things found in the classroom: Meaning, examples and uses",5-6,"",true
+Year 1,Summer Term,5,Vocational Studies,"Measurements: meaning, types, instruments and importance",5-6,"",true
+Year 1,Summer Term,6,Vocational Studies,"Energy: meaning, types, ways of generating energy",5-6,"",true
+Year 1,Summer Term,7,Vocational Studies,"Energy: practical ways of generating energy and importance",5-6,"",true
+Year 1,Summer Term,8,Vocational Studies,"Vocation: meaning, types and importance",5-6,"",true
+Year 1,Summer Term,9,Vocational Studies,"Vocational instruments",5-6,"",true
+Year 1,Calvary Term,1,Yoruba Language,"Onka yoruba: ookanla de Ogun (11-20)",5-6,"",true
+Year 1,Calvary Term,2,Yoruba Language,"Sise nnkan",5-6,"",true
+Year 1,Calvary Term,3,Yoruba Language,"Dida awon nnkan Inu kilassi mo ati ayika",5-6,"",true
+Year 1,Calvary Term,4,Yoruba Language,"Ojo Inu ose",5-6,"",true
+Year 1,Calvary Term,5,Yoruba Language,"Faweli akosori ( a e e i o o u)",5-6,"",true
+Year 1,Calvary Term,6,Yoruba Language,"Fifi faweli akosori pinle oro",5-6,"",true
+Year 1,Calvary Term,7,Yoruba Language,"Yiya aworan awon oro ti a fi faweli akosori pinle",5-6,"",true
+Year 1,Calvary Term,8,Yoruba Language,"Akosori : ise agbe",5-6,"",true
+Year 1,Calvary Term,9,Yoruba Language,"Orin: iya ni wura",5-6,"",true
+Year 2,Calvary Term,1,Agricultural Science,"Classification of crops: meaning, classes",6-7,"",true
+Year 2,Calvary Term,2,Agricultural Science,"Tuber crops: meaning, examples and uses",6-7,"",true
+Year 2,Calvary Term,3,Agricultural Science,"Fruit crops: meaning, examples, uses",6-7,"",true
+Year 2,Calvary Term,4,Agricultural Science,"Vegetable crops: meaning, examples and uses",6-7,"",true
+Year 2,Calvary Term,5,Agricultural Science,"Crop propagation: meaning, materials, the place of seeding crop propagation, practical experiments of planting seed",6-7,"",true
+Year 2,Calvary Term,6,Agricultural Science,"Classification of food, energy giving food and body building food: meaning, sources and functions",6-7,"",true
+Year 2,Calvary Term,7,Agricultural Science,"Classification of food: vitamin, minerals, fat and oil and water: Meaning, sources and functions",6-7,"",true
+Year 2,Calvary Term,8,Agricultural Science,"Farm tools and equipment: meaning, classification, examples and uses",6-7,"",true
+Year 2,Calvary Term,9,Agricultural Science,"Maintenance of farm tools",6-7,"",true
+Year 2,Summer Term,1,Agricultural Science,"Ornamental crops: meaning, stages in raising ornamental crops, plants nursery, acts of transplanting",6-7,"",true
+Year 2,Summer Term,2,Agricultural Science,"Food processing: meaning, stages of food processing, importance of food processing",6-7,"",true
+Year 2,Summer Term,3,Agricultural Science,"Life cycle of plants: meaning of life cycle, different life cycle of plants, their meaning and time",6-7,"",true
+Year 2,Summer Term,4,Agricultural Science,"Farm insects- definition of farm insect, examples of useful farm insect ( butterflies, bees, termites, praying mantis), usefulness of insects",6-7,"",true
+Year 2,Summer Term,5,Agricultural Science,"Rodents -- meaning and description of rodent, examples of rodents",6-7,"",true
+Year 2,Summer Term,6,Agricultural Science,"Method of controlling rodents: shooting, trapping, poisoning, proper storage",6-7,"",true
+Year 2,Summer Term,7,Agricultural Science,"Farmer's friend ( earthworm): meaning of farmer's friend, usefulness of farmer's friend",6-7,"",true
+Year 2,Summer Term,8,Agricultural Science,"Harmful insects: definition and examples",6-7,"",true
+Year 2,Summer Term,9,Agricultural Science,"Useful but harmful insects: examples of harmful insects e.g ants, bees, termites, damages caused by harmful insects",6-7,"",true
+Year 2,Calvary Term,1,Basic Science,"Measurements: meaning, types and instruments used in measurements",6-7,"",true
+Year 2,Calvary Term,2,Basic Science,"Measurements conversion: meter to kilometer, kilogram to gram and units of length",6-7,"",true
+Year 2,Calvary Term,3,Basic Science,"Plant reproduction",6-7,"",true
+Year 2,Calvary Term,4,Basic Science,"Pollination: meaning, types and importance",6-7,"",true
+Year 2,Calvary Term,5,Basic Science,"First twenty elements",6-7,"",true
+Year 2,Calvary Term,6,Basic Science,"Technology: meaning, forms and product of technology",6-7,"",true
+Year 2,Calvary Term,7,Basic Science,"Conversion of energy: meaning, examples and application of technology products that uses the conversion",6-7,"",true
+Year 2,Calvary Term,8,Basic Science,"Animals in the school compound Animals and road safetys",6-7,"",true
+Year 2,Calvary Term,9,Basic Science,"Weather: meaning, elements and instruments for measuring weather",6-7,"",true
+Year 2,Summer Term,1,Basic Science,"Electricity -- safety use of electricity",6-7,"",true
+Year 2,Summer Term,2,Basic Science,"Force -- push and pull",6-7,"",true
+Year 2,Summer Term,3,Basic Science,"Science of gravity: meaning, discovery of gravitational force and importance",6-7,"",true
+Year 2,Summer Term,4,Basic Science,"Human body -- meaning and parts",6-7,"",true
+Year 2,Summer Term,5,Basic Science,"Human body -- uses of body parts e.g brain, throat, nostrils, ankles and knees e.t.c",6-7,"",true
+Year 2,Summer Term,6,Basic Science,"Water -- water cycle, contamination and purification of water",6-7,"",true
+Year 2,Summer Term,7,Basic Science,"Mechanical gadgets -- meaning , examples and uses of simple machine",6-7,"",true
+Year 2,Summer Term,8,Basic Science,"Concept of pulley and lever",6-7,"",true
+Year 2,Summer Term,9,Basic Science,"Matter: meaning and forms , concept of mass and weight",6-7,"",true
+Year 2,Calvary Term,1,Christian Religious Knowledge,"The early life of Jesus: Luke 2:29-32, Matthew 2:13-23",6-7,"",true
+Year 2,Calvary Term,2,Christian Religious Knowledge,"Jesus preparation for his ministry: Matthew 3:13-17, John 1:25-52, Luke 4:1-13",6-7,"",true
+Year 2,Calvary Term,3,Christian Religious Knowledge,"Jesus teaches about God love: John 3:16, luke15:3-7",6-7,"",true
+Year 2,Calvary Term,4,Christian Religious Knowledge,"Jesus teaching on the kingdom of God -- Luke 8:4-15, Matthew 25:1-30",6-7,"",true
+Year 2,Calvary Term,5,Christian Religious Knowledge,"Jesus power over natural forces: Mark 4 : 35-42, John 6:5-14 and 2 :1-11",6-7,"",true
+Year 2,Calvary Term,6,Christian Religious Knowledge,"Jesus power over diseases and death: Peter mother's in-law, the paralyzed man, Jairus daughter, the widow son, Lazarus -- Matthew 8:14-17, Luke 5:17-26, john11:1-44",6-7,"",true
+Year 2,Calvary Term,7,Christian Religious Knowledge,"Jesus power over evil: what is evil, examples, results of evil, examples of evil people, king Herod e.t.c, results of evil; hellfire, death, punishment, sorrow",6-7,"",true
+Year 2,Calvary Term,8,Christian Religious Knowledge,"Identification of bad friends",6-7,"",true
+Year 2,Calvary Term,9,Christian Religious Knowledge,"Death and resurrection of Jesus",6-7,"",true
+Year 2,Summer Term,1,Christian Religious Knowledge,"Jesus teaches us how to behave -- Luke 16:19-31, 10:25-37, Matthew 21:28-31",6-7,"",true
+Year 2,Summer Term,2,Christian Religious Knowledge,"God creates everything ( the creation) -- Genesis 1:1-31, 2:2-11",6-7,"",true
+Year 2,Summer Term,3,Christian Religious Knowledge,"God creates nation ( the call of Abraham) -- Genesis 12:1-19, 17:1-8, 17:15-21",6-7,"",true
+Year 2,Summer Term,4,Christian Religious Knowledge,"The person of Jacob: the birth, relationship between Jacob and Esau, his dream at bethel , the sons of Jacob -- Gen 25:21-34, 28:10-22",6-7,"",true
+Year 2,Summer Term,5,Christian Religious Knowledge,"Joseph in Egypt: Joseph in prison -- Gen 37:1-38, 39:1-23, 41:39-46",6-7,"",true
+Year 2,Summer Term,6,Christian Religious Knowledge,"Joseph: his relationship with his family, his dreams -- Gen 37:1-38",6-7,"",true
+Year 2,Summer Term,7,Christian Religious Knowledge,"Moses the liberator -- Exodus 1:12-18, 2:1-22, 3:2-6",6-7,"",true
+Year 2,Summer Term,8,Christian Religious Knowledge,"Judges as leaders -- judges 4,5,6 and 7, 1samuel 7:7-16",6-7,"",true
+Year 2,Summer Term,9,Christian Religious Knowledge,"Saul and David as leaders in Israel -- 1 Samuel 10,15,16,17",6-7,"",true
+Year 2,Calvary Term,1,Citizenship,"National symbols: meaning, examples of national symbols",6-7,"",true
+Year 2,Calvary Term,2,Citizenship,"How to respect national symbols: respect for our currency, respect for the national anthem and pledge",6-7,"",true
+Year 2,Calvary Term,3,Citizenship,"Respect for elders in the society",6-7,"",true
+Year 2,Calvary Term,4,Citizenship,"Constituted authority: meaning, examples and functions",6-7,"",true
+Year 2,Calvary Term,5,Citizenship,"Buying and selling in the community: market days",6-7,"",true
+Year 2,Calvary Term,6,Citizenship,"Traditional leaders in our community and their roles",6-7,"",true
+Year 2,Calvary Term,7,Citizenship,"Foreigner in our community",6-7,"",true
+Year 2,Calvary Term,8,Citizenship,"GRA (Government Reserved Areas) : meaning and functions",6-7,"",true
+Year 2,Summer Term,1,Citizenship,"People in authority: identification of authority at home, identification in Johnethel school",6-7,"",true
+Year 2,Summer Term,2,Citizenship,"Respect for law and order in school, home and community",6-7,"",true
+Year 2,Summer Term,3,Citizenship,"Community leaders: traditional, religious, association",6-7,"",true
+Year 2,Summer Term,4,Citizenship,"Our local state government leaders",6-7,"",true
+Year 2,Summer Term,5,Citizenship,"Our national leaders : president, vice president, senate president, speaker house of representatives",6-7,"",true
+Year 2,Summer Term,6,Citizenship,"Law enforcement agency: police, traffic warden, OYRTMA, FRSC, VIO e.t.c",6-7,"",true
+Year 2,Summer Term,7,Citizenship,"National anthem: Nigeria first national anthem, Nigeria current national anthem",6-7,"",true
+Year 2,Summer Term,8,Citizenship,"The Nigeria coat of arms as a national symbols: meaning and importance",6-7,"",true
+Year 2,Summer Term,9,Citizenship,"Political parties: meaning, how they are formed, examples and problems created by bad political leaders",6-7,"",true
+Year 2,Calvary Term,1,Computer Studies,"Introduction to computers: learning how to turn the computer on and off, introduction to desktop, icons and their functions",6-7,"",true
+Year 2,Calvary Term,2,Computer Studies,"Basic computer skills: using the mouse ( clicking and dragging), typing simple words and sentences using the keyboard, understanding the functions of the enter and space bar keys",6-7,"",true
+Year 2,Calvary Term,3,Computer Studies,"Computer network: meaning, types and importance",6-7,"",true
+Year 2,Calvary Term,4,Computer Studies,"The introduction of internet as a computer network ( meaning and uses of internet)",6-7,"",true
+Year 2,Calvary Term,5,Computer Studies,"The internet: online safety rules for young learners, trusted websites for educational purposes",6-7,"",true
+Year 2,Calvary Term,6,Computer Studies,"Websites: meaning, components and types",6-7,"",true
+Year 2,Calvary Term,7,Computer Studies,"System unit: meaning and components",6-7,"",true
+Year 2,Calvary Term,8,Computer Studies,"The motherboard: unit of motherboard, functions of motherboard",6-7,"",true
+Year 2,Calvary Term,9,Computer Studies,"Control unit: identification of parts, uses of part",6-7,"",true
+Year 2,Summer Term,1,Computer Studies,"Storage devices in Computer Studies: meaning and why Computer Studies needs storage devices",6-7,"",true
+Year 2,Summer Term,2,Computer Studies,"Types of storage devices",6-7,"",true
+Year 2,Summer Term,3,Computer Studies,"The usefulness of storage devices in Computer Studies",6-7,"",true
+Year 2,Summer Term,4,Computer Studies,"System unit: meaning and components",6-7,"",true
+Year 2,Summer Term,5,Computer Studies,"C.P.U: meaning, parts and components",6-7,"",true
+Year 2,Summer Term,6,Computer Studies,"Disk drive: meaning, types and uses; do's and don't when using disk drive",6-7,"",true
+Year 2,Summer Term,7,Computer Studies,"Information technology: meaning and importance",6-7,"",true
+Year 2,Summer Term,8,Computer Studies,"Information technology devices -- types and uses of IT devices",6-7,"",true
+Year 2,Summer Term,9,Computer Studies,"Computer Studies abbreviation e.g WWW, http, RAM, ROM, CPU, GIGO, CD, DVD",6-7,"",true
+Year 2,Calvary Term,1,Cultural and Creative Arts,"Modelling ( meaning, media for modelling, importance)",6-7,"",true
+Year 2,Calvary Term,2,Cultural and Creative Arts,"Imaginative composition ( meaning and types of imaginative composition)",6-7,"",true

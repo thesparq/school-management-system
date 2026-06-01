@@ -188,3 +188,68 @@ pub fn surreal_query(
     Err("SurrealDB " + status.to_string() + ": " + bytes_to_str(bytes))
   }
 }
+
+///|
+/// Wraps surreal_query with one retry on empty/failed parse.
+/// Fixes the @json.parse first-call bug where structurally-valid
+/// garbage is returned on the first WASM invocation.
+pub fn surreal_query_retry(
+  config : @config.Config[SurrealConfig],
+  sql : String,
+  bindings : Map[String, String]?,
+) -> Result[Array[Json], String] {
+  let raw = match bindings {
+    Some(b) => surreal_query(config, sql, bindings=b)
+    None => surreal_query(config, sql)
+  }
+  let raw = match raw {
+    Ok(body) => body
+    Err(e) => return Err(e)
+  }
+  let result_arr = match _parse_surreal_result(raw) {
+    Ok(arr) => arr
+    Err(_) => {
+      let raw2 = match bindings {
+        Some(b) => surreal_query(config, sql, bindings=b)
+        None => surreal_query(config, sql)
+      }
+      match raw2 {
+        Ok(body) =>
+          match _parse_surreal_result(body) {
+            Ok(arr) => arr
+            Err(e) => return Err("parse failed after retry: " + e)
+          }
+        Err(e) => return Err(e)
+      }
+    }
+  }
+  Ok(result_arr)
+}
+
+///|
+/// Unwraps SurrealDB's standard JSON response envelope.
+/// Input: `[{"status":"OK","result":[...],"time":"..."}]`
+/// Output: the `result` array.
+fn _parse_surreal_result(raw : String) -> Result[Array[Json], String] {
+  let val = @json.parse(raw) catch { _ => return Err("parse response failed") }
+  match val {
+    Array(a) => {
+      if a.length() == 0 {
+        return Err("response empty")
+      }
+      match a[0] {
+        Object(obj) =>
+          match obj.get("result") {
+            Some(r) =>
+              match r {
+                Array(arr) => Ok(arr)
+                _ => Err("result not an array")
+              }
+            None => Err("result missing")
+          }
+        _ => Err("element not an object")
+      }
+    }
+    _ => Err("response not an array")
+  }
+}

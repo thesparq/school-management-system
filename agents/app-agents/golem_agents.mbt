@@ -825,7 +825,7 @@ fn init {
           },
           {
             name: "get_teacher_subjects_admin",
-            description: "Returns stored assignments for a teacher (admin only).  Reads from AdminAgent.teacher_assignments durable state.",
+            description: "Returns stored assignments for a teacher (admin only).  Reads from teacher_assignment table via AdminAgent.",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Get,
@@ -1016,7 +1016,22 @@ fn init {
         methods: [
           {
             name: "trigger_initialize",
-            description: "Fetches assigned class-subject pairs from Admin Agent,  groups them by class_level_id, and stores in durable state.",
+            description: "Fetches assigned class-subject pairs from teacher_assignment table  via direct SurrealDB query, groups them by class_level_id, and stores in durable state.",
+            http_endpoint: [],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "invalidate_cache",
+            description: "Clears the cached class groups. Next call to trigger_initialize()  will re-fetch from the database.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([]),
@@ -1174,7 +1189,7 @@ fn init {
           },
           {
             name: "initialize_user",
-            description: "Initializes a user by storing their initialization record in durable state.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail initialization). For teachers, fire-and-forget initializes the Teacher Agent.",
+            description: "Initializes a user by writing to user_profile table in SurrealDB.  For students with a class_level, fire-and-forget initializes the Student Agent (best-effort; does not fail initialization). For teachers, fire-and-forget initializes the Teacher Agent.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -1210,7 +1225,7 @@ fn init {
           },
           {
             name: "is_user_initialized",
-            description: "Checks whether a user has been initialized.  Returns false if not in registry, true otherwise. Admin users are always considered initialized — the Admin Agent singleton is ready from the moment it is created.",
+            description: "Checks whether a user has been initialized.  Queries user_profile table — returns false on error or no match. Admin users are always considered initialized — the Admin Agent singleton is ready from the moment it is created.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -1296,7 +1311,7 @@ fn init {
           },
           {
             name: "set_teacher_subjects",
-            description: "Stores a teacher's assigned class-subject pairs and triggers  Teacher Agent re-initialization via fire-and-forget RPC.",
+            description: "Stores a teacher's assigned class-subject pairs in the teacher_assignment  table (soft-deletes existing, inserts new), then triggers Teacher Agent re-initialization via fire-and-forget RPC.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -1328,7 +1343,7 @@ fn init {
           },
           {
             name: "get_teacher_subjects",
-            description: "Returns the stored assignments for a teacher, or [] if none.",
+            description: "Returns the stored assignments for a teacher, or [] if none.  Resolves class_level and subject names from their respective tables.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -1420,7 +1435,7 @@ fn init {
           },
           {
             name: "initialize",
-            description: "Initializes this student's profile and fetches subjects from SurrealDB.  Idempotent — calling again with the same class_level is a no-op update.",
+            description: "Initializes this student's subject cache from SurrealDB.  Idempotent — calling again refreshes the cache. NOTE: user_profile row is created by AdminAgent.initialize_user() before this method is called.",
             http_endpoint: [],
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
@@ -1822,6 +1837,16 @@ impl @agents.RawAgent for TeacherAgent with invoke(
           )
         }
         let result = self.trigger_initialize()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "invalidate_cache" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.invalidate_cache()
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "get_my_classes" => {

@@ -17,14 +17,12 @@ struct UserInitialization {
 /// and class rosters.
 #derive.agent
 struct AdminAgent {
-  initialized_users : Map[String, UserInitialization]
   config : @config.Config[SurrealConfig]
-  teacher_assignments : Map[String, Array[TeacherSubjectPair]]
 }
 
 ///|
 fn AdminAgent::new(config : @config.Config[SurrealConfig]) -> AdminAgent {
-  { initialized_users: Map::new(), config, teacher_assignments: Map::new() }
+  { config, }
 }
 
 ///|
@@ -34,7 +32,12 @@ pub fn AdminAgent::ping(self : Self) -> String {
 }
 
 ///|
-/// Initializes a user by storing their initialization record in durable state.
+fn escape_surreal_string(s : String) -> String {
+  s.replace(old="'", new="''")
+}
+
+///|
+/// Initializes a user by writing to user_profile table in SurrealDB.
 /// For students with a class_level, fire-and-forget initializes the
 /// Student Agent (best-effort; does not fail initialization).
 /// For teachers, fire-and-forget initializes the Teacher Agent.
@@ -47,30 +50,42 @@ pub fn AdminAgent::initialize_user(
   if !["admin", "teacher", "student"].contains(role) {
     return Err("invalid role: \{role}")
   }
-  let now = @wallClock.now()
-  let record = UserInitialization::{
-    user_id,
-    role,
-    class_level,
-    initialized_at: now.seconds,
+  let cl_insert = match class_level {
+    Some(cl) => "'" + escape_surreal_string(cl) + "'"
+    None => "NULL"
   }
-  self.initialized_users.set(user_id, record)
-
+  let sql = "INSERT INTO user_profile (auth_id, role, class_level, created_at) VALUES ('" +
+    escape_surreal_string(user_id) +
+    "', '" +
+    escape_surreal_string(role) +
+    "', " +
+    cl_insert +
+    ", time::now())"
+  match surreal_query(self.config, sql) {
+    Ok(_) => ()
+    Err(e) =>
+      if e.contains("Duplicate") ||
+        e.contains("unique") ||
+        e.contains("already exists") {
+        // already initialized — proceed
+      } else {
+        return Err(e)
+      }
+  }
   if role == "student" {
     match class_level {
       Some(cl) => {
         let _ = StudentAgentClient::scoped(user_id, fn(
           client,
         ) raise @common.AgentError {
-          client.trigger_initialize(cl)
+          client.initialize(cl)
         }) catch {
-          _ => ()
+          _ => "error"
         }
       }
       None => ()
     }
   }
-
   if role == "teacher" {
     let _ = TeacherAgentClient::scoped(user_id, fn(
       client,
@@ -80,17 +95,23 @@ pub fn AdminAgent::initialize_user(
       _ => "error"
     }
   }
-
   Ok("ok")
 }
 
 ///|
 /// Checks whether a user has been initialized.
-/// Returns false if not in registry, true otherwise.
+/// Queries user_profile table — returns false on error or no match.
 /// Admin users are always considered initialized — the Admin Agent
 /// singleton is ready from the moment it is created.
 pub fn AdminAgent::is_user_initialized(self : Self, user_id : String) -> Bool {
-  self.initialized_users.contains(user_id)
+  let sql = "SELECT auth_id FROM user_profile WHERE " +
+    "auth_id = '" +
+    escape_surreal_string(user_id) +
+    "' AND deleted_at IS NONE LIMIT 1"
+  match surreal_query_retry(self.config, sql, None) {
+    Ok(arr) => arr.length() > 0
+    Err(_) => false
+  }
 }
 
 ///|
@@ -103,10 +124,29 @@ pub fn AdminAgent::is_admin_initialized(self : Self) -> Bool {
 ///|
 /// Returns all initialized users as an array of (user_id, role) tuples.
 pub fn AdminAgent::get_all_initialized(self : Self) -> Array[(String, String)] {
-  self.initialized_users
-  .iter()
-  .map(fn(pair) { (pair.0, pair.1.role) })
-  .collect()
+  let sql = "SELECT auth_id, role FROM user_profile WHERE deleted_at IS NONE"
+  let result_arr = match surreal_query_retry(self.config, sql, None) {
+    Ok(arr) => arr
+    Err(_) => return []
+  }
+  let items : Array[(String, String)] = []
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let auth_id = match obj.get("auth_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let role = match obj.get("role") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        items.push((auth_id, role))
+      }
+      _ => ()
+    }
+  }
+  items
 }
 
 ///|
@@ -197,12 +237,19 @@ pub fn AdminAgent::get_available_class_subjects(
     Ok(body) => body
     Err(_) => return []
   }
-
   let result_arr = match parse_result_array(raw) {
     Ok(arr) => arr
-    Err(_) => return []
+    Err(_) => {
+      let raw2 = match surreal_query(self.config, sql) {
+        Ok(b) => b
+        Err(_) => return []
+      }
+      match parse_result_array(raw2) {
+        Ok(arr) => arr
+        Err(_) => return []
+      }
+    }
   }
-
   let pairs : Array[TeacherSubjectPair] = []
   for item in result_arr {
     match item {
@@ -239,37 +286,118 @@ pub fn AdminAgent::get_available_class_subjects(
     }
   }
   pairs
+  .mut_view()
+  .sort_by(fn(a, b) {
+    if a.class_level_name != b.class_level_name {
+      if a.class_level_name > b.class_level_name {
+        1
+      } else {
+        -1
+      }
+    } else if a.subject_name != b.subject_name {
+      if a.subject_name > b.subject_name {
+        1
+      } else {
+        -1
+      }
+    } else {
+      0
+    }
+  })
+  pairs
 }
 
 ///|
-/// Stores a teacher's assigned class-subject pairs and triggers
-/// Teacher Agent re-initialization via fire-and-forget RPC.
+/// Stores a teacher's assigned class-subject pairs in the teacher_assignment
+/// table (soft-deletes existing, inserts new), then triggers Teacher Agent
+/// re-initialization via fire-and-forget RPC.
 pub fn AdminAgent::set_teacher_subjects(
   self : Self,
   teacher_id : String,
   pairs : Array[TeacherSubjectPair],
 ) -> Result[String, String] {
-  self.teacher_assignments.set(teacher_id, pairs)
-
-  let _ = TeacherAgentClient::scoped(teacher_id, fn(
-    client,
-  ) raise @common.AgentError {
-    client.trigger_initialize()
-  }) catch {
-    _ => "error"
+  let sql = StringBuilder::new()
+  sql.write_string(
+    "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = '",
+  )
+  sql.write_string(escape_surreal_string(teacher_id))
+  sql.write_string("' AND deleted_at IS NONE;")
+  for pair in pairs {
+    sql.write_string("CREATE teacher_assignment CONTENT { teacher_id: '")
+    sql.write_string(escape_surreal_string(teacher_id))
+    sql.write_string("', class_level_id: '")
+    sql.write_string(escape_surreal_string(pair.class_level_id))
+    sql.write_string("', subject_id: '")
+    sql.write_string(escape_surreal_string(pair.subject_id))
+    sql.write_string("', assigned_at: time::now() };")
   }
-
-  Ok("ok")
+  match surreal_query_retry(self.config, sql.to_string(), None) {
+    Ok(_) => {
+      let _ = TeacherAgentClient::scoped(teacher_id, fn(
+        client,
+      ) raise @common.AgentError {
+        client.trigger_initialize()
+      }) catch {
+        _ => "error"
+      }
+      Ok("ok")
+    }
+    Err(e) => Err(e)
+  }
 }
 
 ///|
 /// Returns the stored assignments for a teacher, or [] if none.
+/// Resolves class_level and subject names from their respective tables.
 pub fn AdminAgent::get_teacher_subjects(
   self : Self,
   teacher_id : String,
 ) -> Array[TeacherSubjectPair] {
-  match self.teacher_assignments.get(teacher_id) {
-    Some(pairs) => pairs
-    None => []
+  let sql = "SELECT teacher_id, class_level_id, subject_id, " +
+    "(SELECT VALUE name FROM class_levels WHERE id = type::thing(\"class_levels\", class_level_id))[0] AS class_level_name, " +
+    "(SELECT VALUE name FROM subjects WHERE id = type::thing(\"subjects\", subject_id))[0] AS subject_name, " +
+    "(SELECT VALUE code FROM subjects WHERE id = type::thing(\"subjects\", subject_id))[0] AS subject_code " +
+    "FROM teacher_assignment WHERE teacher_id = '" +
+    escape_surreal_string(teacher_id) +
+    "' AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC"
+  let result_arr = match surreal_query_retry(self.config, sql, None) {
+    Ok(arr) => arr
+    Err(_) => return []
   }
+  let pairs : Array[TeacherSubjectPair] = []
+  for item in result_arr {
+    match item {
+      Object(obj) => {
+        let class_level_id = match obj.get("class_level_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let class_level_name = match obj.get("class_level_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_id = match obj.get("subject_id") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_name = match obj.get("subject_name") {
+          Some(String(s)) => s
+          _ => continue
+        }
+        let subject_code = match obj.get("subject_code") {
+          Some(String(s)) => Some(s)
+          _ => None
+        }
+        pairs.push(TeacherSubjectPair::{
+          class_level_id,
+          class_level_name,
+          subject_id,
+          subject_name,
+          subject_code,
+        })
+      }
+      _ => ()
+    }
+  }
+  pairs
 }

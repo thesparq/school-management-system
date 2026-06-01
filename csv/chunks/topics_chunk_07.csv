@@ -1,0 +1,301 @@
+class,term,week,subject,topic,agegroup,context,generated
+Year 5,Summer Term,8,Home Economics,"Cosmetics and deodorant: meaning, materials and importance",9-10,"",true
+Year 5,Summer Term,9,Home Economics,"Practical",9-10,"",true
+Year 5,Calvary Term,1,Literacy,"Complex sentences",9-10,"",true
+Year 5,Calvary Term,2,Literacy,"Phrasal verbs",9-10,"",true
+Year 5,Calvary Term,3,Literacy,"Pronouns- meaning, types and examples",9-10,"",true
+Year 5,Calvary Term,4,Literacy,"Noun phrase",9-10,"",true
+Year 5,Calvary Term,5,Literacy,"Expressing consequences or cause and effect with the use of 'so that'",9-10,"",true
+Year 5,Calvary Term,6,Literacy,"Letter writing",9-10,"",true
+Year 5,Calvary Term,7,Literacy,"Developing poetic skills -- creating rhyming words, writing poem with rhyming words",9-10,"",true
+Year 5,Calvary Term,8,Literacy,"Sentence building",9-10,"",true
+Year 5,Calvary Term,9,Literacy,"Contracting sentences",9-10,"",true
+Year 5,Summer Term,1,Literacy,"Punctuation",9-10,"",true
+Year 5,Summer Term,2,Literacy,"The use of comma's in complex sentences",9-10,"",true
+Year 5,Summer Term,3,Literacy,"Idiomatic expressions and proverbs",9-10,"",true
+Year 5,Summer Term,4,Literacy,"Synonyms and antonyms",9-10,"",true
+Year 5,Summer Term,5,Literacy,"Homonyms and homophones",9-10,"",true
+Year 5,Summer Term,6,Literacy,"Phrases and clauses",9-10,"",true
+Year 5,Summer Term,7,Literacy,"Connectives",9-10,"",true
+Year 5,Summer Term,8,Literacy,"Figure of speech",9-10,"",true
+Year 5,Summer Term,9,Literacy,"Essay writing",9-10,"",true
+Year 5,Calvary Term,1,Moral Instructions,"Time management",9-10,"",true
+Year 5,Calvary Term,2,Moral Instructions,"Chastity",9-10,"",true
+Year 5,Calvary Term,3,Moral Instructions,"Addiction",9-10,"",true
+Year 5,Calvary Term,4,Moral Instructions,"Emotional balance",9-10,"",true
+Year 5,Calvary Term,5,Moral Instructions,"Patriotism",9-10,"",true
+Year 5,Calvary Term,6,Moral Instructions,"Examination malpractices",9-10,"",true
+Year 5,Calvary Term,7,Moral Instructions,"Handling disappointment",9-10,"",true
+Year 5,Calvary Term,8,Moral Instructions,"Humility",9-10,"",true
+Year 5,Calvary Term,9,Moral Instructions,"Purposeful living",9-10,"",true
+Year 5,Summer Term,1,Moral Instructions,"The value of hard work ( 2 Thessalonians 3:6-15)",9-10,"",true
+Year 5,Summer Term,2,Moral Instructions,"Moderation (James 3:2-12)",9-10,"",true
+Year 5,Summer Term,3,Moral Instructions,"Moderation in dressing",9-10,"",true
+Year 5,Summer Term,4,Moral Instructions,"Lust",9-10,"",true
+Year 5,Summer Term,5,Moral Instructions,"Temptations",9-10,"",true
+Year 5,Summer Term,6,Moral Instructions,"Corruption",9-10,"",true
+Year 5,Summer Term,7,Moral Instructions,"Injustice",9-10,"",true
+Year 5,Summer Term,8,Moral Instructions,"Discipline",9-10,"",true
+Year 5,Summer Term,9,Moral Instructions,"Disciplinary measures in school",9-10,"",true
+Year 5,Calvary Term,1,Numeracy,"Order of operations (BODMAS): understanding BODMAS as a way ordering mathematical operations, solving problems using BODMAS",9-10,"",true
+Year 5,Calvary Term,2,Numeracy,"Indices (power): writing numbers in index from multiplying numbers using the index form (e.g 20× 63= ( 2²× 5) × (3² ×7)",9-10,"",true
+Year 5,Calvary Term,3,Numeracy,"Ratio and percentage: expressing a number as a % of another number, profit and loss percent ( finding profit & loss percentage in a given problem)",9-10,"",true
+Year 5,Calvary Term,4,Numeracy,"Open sentences: interpreting & solving word problems (e.g 60 oranges are divided equally in 3 baskets, how many are in one basket)",9-10,"",true
+Year 5,Calvary Term,5,Numeracy,"Money, population, economics and conversion of currencies: tax rates, rents, buying and selling of shares and dividends - Use of calculator in converting of currencies",9-10,"",true
+Year 5,Calvary Term,6,Numeracy,"Time: timing in minutes and seconds, reading timetables of journeys",9-10,"",true
+Year 5,Calvary Term,7,Numeracy,"Perimeter: meaning, perimeter of a rectangle, of regular and irregular shapes",9-10,"",true
+Year 5,Calvary Term,8,Numeracy,"Area: area of trapezium and other figures",9-10,"",true
+Year 5,Calvary Term,9,Numeracy,"Length: measuring lengths, angles and the use of Pythagoras rule",9-10,"",true
+Year 5,Summer Term,1,Numeracy,"Rate: speed, distance and time",9-10,"",true
+Year 5,Summer Term,2,Numeracy,"Taxes and rate -- income tax",9-10,"",true
+Year 5,Summer Term,3,Numeracy,"Capacity and weight : conversion, addition, subtraction, multiplication and division, word problems",9-10,"",true
+Year 5,Summer Term,4,Numeracy,"Algebra: factorization, four operation, forming simple equation, use of brackets, word problems",9-10,"",true
+Year 5,Summer Term,5,Numeracy,"Lines and angles: lines, triangles, mathematical problems on lines, ( opposite, corresponding angles) and angles",9-10,"",true
+Year 5,Summer Term,6,Numeracy,"Length and Pythagoras theorem",9-10,"",true
+Year 5,Summer Term,7,Numeracy,"Geometry: position, direction, motion, properties of plane and solid shapes",9-10,"",true
+Year 5,Summer Term,8,Numeracy,"Compound interest",9-10,"",true
+Year 5,Summer Term,9,Numeracy,"Number base: denary or decimal base, counting in base two, conversion from binary to decimal system, conversion from decimal to binary system. Addition and subtraction in base two",9-10,"",true
+Year 5,Calvary Term,1,Physical and Health Education,"P- hockey H- nutrition: meaning of nutrition, meaning of food, sources of nutrition",9-10,"",true
+Year 5,Calvary Term,2,Physical and Health Education,"P- recreation: meaning, importance, components of recreational activities H- nutritional deficiency: meaning, examples, prevention",9-10,"",true
+Year 5,Calvary Term,3,Physical and Health Education,"P- martial art : meaning, types and importance H- Heart diseases : meaning, examples and prevention",9-10,"",true
+Year 5,Calvary Term,4,Physical and Health Education,"P- judo rules and skills H- Respiratory diseases: meaning, examples and prevention",9-10,"",true
+Year 5,Calvary Term,5,Physical and Health Education,"P- introduction to direction: the significance of four cardinal point H- eye health: meaning of vision, importance of vision, care of the eyes",9-10,"",true
+Year 5,Calvary Term,6,Physical and Health Education,"P- sports facilities and equipment: examples, maintenance of sports facilities and equipment H- drug abuse: meaning, consequences of drug abuse on individuals, family and society",9-10,"",true
+Year 5,Calvary Term,7,Physical and Health Education,"P- track event: long distance races and relay race H- school health program: meaning, components and importance",9-10,"",true
+Year 5,Calvary Term,8,Physical and Health Education,"P- long jump -- basic skills, rules and regulations H- drug education: meaning of drugs, examples, importance of drug",9-10,"",true
+Year 5,Calvary Term,9,Physical and Health Education,"P- shuttle relay: meaning H- the immune system: meaning and functions",9-10,"",true
+Year 5,Summer Term,1,Physical and Health Education,"P- dodging H- agencies and organization of health",9-10,"",true
+Year 5,Summer Term,2,Physical and Health Education,"P- crab walk H- professional health worker and their importance to the community",9-10,"",true
+Year 5,Summer Term,3,Physical and Health Education,"P- cart wheels H- safety and precautionary measures against accident",9-10,"",true
+Year 5,Summer Term,4,Physical and Health Education,"P- press up H- smoking and its harmful effects",9-10,"",true
+Year 5,Summer Term,5,Physical and Health Education,"P- sit up H- wounds and its types",9-10,"",true
+Year 5,Summer Term,6,Physical and Health Education,"P- badminton skills -- long and short service, back hand, fore hand skills H -- sprain, signs and symptoms",9-10,"",true
+Year 5,Summer Term,7,Physical and Health Education,"P- table tennis- fore hand service H- strain and causes",9-10,"",true
+Year 5,Summer Term,8,Physical and Health Education,"P- table tennis- back hand service H- dislocation signs and symptoms of dislocation",9-10,"",true
+Year 5,Summer Term,9,Physical and Health Education,"P- singles and doubles in table tennis H- fracture and types of fracture",9-10,"",true
+Year 5,Calvary Term,1,Social Studies,"Interpersonal relationships ( concept of healthy boy-girl relationship, ways to maintain healthy boys-girls relationship",9-10,"",true
+Year 5,Calvary Term,2,Social Studies,"Pressure groups: meaning, importance of pressure group in the society",9-10,"",true
+Year 5,Calvary Term,3,Social Studies,"Religious differences: meaning and effects in the society",9-10,"",true
+Year 5,Calvary Term,4,Social Studies,"Ethnic groups: concepts of ethnic groups, understanding the meaning of lingua franca, types of ethnic groups",9-10,"",true
+Year 5,Calvary Term,5,Social Studies,"International conflicts: meaning, causes, resolutions",9-10,"",true
+Year 5,Calvary Term,6,Social Studies,"The united nations organization and its agencies",9-10,"",true
+Year 5,Calvary Term,7,Social Studies,"Responsible parenthood ( meaning, characteristics and effects of irresponsible parenthood",9-10,"",true
+Year 5,Calvary Term,8,Social Studies,"International exchanges",9-10,"",true
+Year 5,Calvary Term,9,Social Studies,"Natural resources: meaning, development of natural and utilization of natural resources",9-10,"",true
+Year 5,Summer Term,1,Social Studies,"Gender discrimination: meaning, forms, consequences and solutions",9-10,"",true
+Year 5,Summer Term,2,Social Studies,"Conflict: meaning, types, causes, consequences and resolution",9-10,"",true
+Year 5,Summer Term,3,Social Studies,"Peace education: cooperation, unity, peace and tolerance",9-10,"",true
+Year 5,Summer Term,4,Social Studies,"Population: how population relate to housing, concept of over/under population, population census",9-10,"",true
+Year 5,Summer Term,5,Social Studies,"Drug abuse and prevention: meaning, method, types and prevention",9-10,"",true
+Year 5,Summer Term,6,Social Studies,"Production: meaning, chains, factors, branches, division of labour",9-10,"",true
+Year 5,Summer Term,7,Social Studies,"Marriage: meaning, types, importance of good marriage and problems of bad marriage",9-10,"",true
+Year 5,Summer Term,8,Social Studies,"Natural water supply: meaning, sources and uses",9-10,"",true
+Year 5,Summer Term,9,Social Studies,"Import and export goods: locally made goods, foreign made goods, Nigeria import and export goods and countries from which Nigeria import goods",9-10,"",true
+Year 5,Calvary Term,1,Vocational Studies,"Architecture or architectural design: meaning and tools",9-10,"",true
+Year 5,Calvary Term,2,Vocational Studies,"Automobiles and automobile engineering: automobile, vulcanized, panel beater, car aligners e.t.c",9-10,"",true
+Year 5,Calvary Term,3,Vocational Studies,"Shapes and pattern making",9-10,"",true
+Year 5,Calvary Term,4,Vocational Studies,"Cement production: types of cement, materials required for cement production, process in cement production",9-10,"",true
+Year 5,Calvary Term,5,Vocational Studies,"Meteorologist: meaning and tools",9-10,"",true
+Year 5,Calvary Term,6,Vocational Studies,"Major occupation in different regions of Nigeria",9-10,"",true
+Year 5,Calvary Term,7,Vocational Studies,"Security education: meaning, agencies and importance",9-10,"",true
+Year 5,Calvary Term,8,Vocational Studies,"Workshop: meaning, tools, safety devices in work shoo",9-10,"",true
+Year 5,Calvary Term,9,Vocational Studies,"Teaching as a profession",9-10,"",true
+Year 5,Summer Term,1,Vocational Studies,"Wood work and joinery",9-10,"",true
+Year 5,Summer Term,2,Vocational Studies,"Science tools and equipment ( laboratory)",9-10,"",true
+Year 5,Summer Term,3,Vocational Studies,"Constructing tools and equipment ( building and road)",9-10,"",true
+Year 5,Summer Term,4,Vocational Studies,"Basic technical skills: Computer Studies and phone repair (tools)",9-10,"",true
+Year 5,Summer Term,5,Vocational Studies,"Software engineering",9-10,"",true
+Year 5,Summer Term,6,Vocational Studies,"Freelance broadcasting: meaning and forms",9-10,"",true
+Year 5,Summer Term,7,Vocational Studies,"Driving: meaning and skills in driving",9-10,"",true
+Year 5,Summer Term,8,Vocational Studies,"Mechatronics",9-10,"",true
+Year 5,Summer Term,9,Vocational Studies,"Practical",9-10,"",true
+Year 5,Calvary Term,1,Yoruba Language,"Awon ohun elo igbeyawo",9-10,"",true
+Year 5,Calvary Term,2,Yoruba Language,"Awon oba alaye Ile yoruba",9-10,"",true
+Year 5,Calvary Term,3,Yoruba Language,"Ounje: ifipanu ati ohun mimu",9-10,"",true
+Year 5,Calvary Term,4,Yoruba Language,"Awon oba ibara -- eni -- soro ibile ati ode oni",9-10,"",true
+Year 5,Calvary Term,5,Yoruba Language,"Gbolohun alakanpo",9-10,"",true
+Year 5,Calvary Term,6,Yoruba Language,"Ikini: onise owo",9-10,"",true
+Year 5,Calvary Term,7,Yoruba Language,"Ohun elo ise / irinse",9-10,"",true
+Year 5,Calvary Term,8,Yoruba Language,"Eje orile - ede Naijiria",9-10,"",true
+Year 5,Calvary Term,9,Yoruba Language,"Kika iwe itan aroso keekeeke",9-10,"",true
+Jss 1,Noel Term,1,Business Studies,"Introduction to Business Studies",10-11,"Understanding Business Studies as a subject that combines office practice, commerce, book-keeping, and keyboarding, learning its importance and various career opportunities in business fields like accounting, secretarial work, and entrepreneurship",false
+Jss 1,Noel Term,2,Business Studies,"The Office - Meaning and Types",10-11,"Defining an office as a place where administrative and clerical work is done, differentiating between small offices (few workers, simple operations) and large offices (many workers, complex operations with departments)",false
+Jss 1,Noel Term,3,Business Studies,"Functions of an Office",10-11,"Learning the main functions of an office including receiving and sending information, keeping records, processing documents, coordinating activities, and providing administrative support to an organization",false
+Jss 1,Noel Term,4,Business Studies,"Office Staff - Clerical Workers",10-11,"Understanding who clerical staff are (workers who perform office tasks like typing, filing, record-keeping), their functions, required qualities (accuracy, honesty, confidentiality), and importance of keeping office information confidential",false
+Jss 1,Noel Term,5,Business Studies,"Right Attitude to Work - Punctuality and Regularity",10-11,"Learning the meaning of punctuality (arriving on time) and regularity (consistent attendance), understanding attributes like commitment, promptness, consistency, and how these lead to rewards while absence leads to sanctions",false
+Jss 1,Noel Term,6,Business Studies,"Devotion to Duty",10-11,"Understanding devotion to duty as dedication and commitment to one's work responsibilities, learning how it affects productivity, development, and overall performance in school, work, and personal life",false
+Jss 1,Noel Term,7,Business Studies,"Departments in an Organization",10-11,"Identifying various departments in organizations including Administrative (general management), Purchasing (buying), Accounting (finances), Sales (selling), Personnel (human resources), Planning, and Transport departments, and their specific functions",false
+Jss 1,Noel Term,8,Business Studies,"Introduction to Commerce",10-11,"Understanding commerce as trade (buying and selling) plus aids to trade (activities that help trade happen), learning the importance of commerce and various commercial activities like banking, insurance, transport, and communication",false
+Jss 1,Noel Term,9,Business Studies,"Divisions of Commerce - Trade",10-11,"Learning that commerce is divided into trade and aids to trade, understanding home trade (within a country) subdivided into wholesale and retail, and foreign trade (between countries) including import and export",false
+Jss 1,Noel Term,10,Business Studies,"Production - Meaning and Types",10-11,"Understanding production as making goods or providing services, learning types: extractive industry (mining, farming), manufacturing industry (processing raw materials), construction industry (building), commerce (trade), and services",false
+Jss 1,Calvary Term,1,Business Studies,"Effects of Production on Environment and Society",10-11,"Understanding how production activities can affect the environment through pollution (air, water, noise), deforestation, and waste, and learning about responsible production practices to minimize negative environmental impact",false
+Jss 1,Calvary Term,2,Business Studies,"Factors of Production",10-11,"Learning the four factors needed for production: Land (natural resources), Labour (human effort), Capital (money and equipment), and Entrepreneur (organizer who takes risks), understanding their features and importance in business",false
+Jss 1,Calvary Term,3,Business Studies,"Types of Occupation",10-11,"Understanding occupation as work people do to earn a living, learning divisions: primary (farming, mining), industrial (manufacturing), commercial (trading), and services (teaching, healthcare), and factors affecting occupation choice",false
+Jss 1,Calvary Term,4,Business Studies,"Direct and Indirect Services",10-11,"Differentiating between direct services (personally given to individuals like hairdressing, teaching, medical care) and indirect services (benefit everyone like security, road maintenance, street lighting) with examples of each",false
+Jss 1,Calvary Term,5,Business Studies,"Honesty in Business - Truthfulness",10-11,"Understanding truthfulness as always telling the truth and being honest, learning attributes of truthfulness, factors that cause people to lie, rewards for being truthful, and consequences of dishonesty in business and life",false
+Jss 1,Calvary Term,6,Business Studies,"Honesty in Business - Fair Play",10-11,"Learning fair play as treating others justly and following rules, understanding attributes of fair play including honesty, respect, equality, and practicing fairness in business dealings, sports, and daily interactions",false
+Jss 1,Calvary Term,7,Business Studies,"Ethics in Sourcing Chemicals",10-11,"Understanding business ethics as moral principles guiding business conduct, learning proper ethics for sourcing chemicals including buying from licensed vendors, good handling techniques, proper distribution, and safe disposal to protect health and environment",false
+Jss 1,Calvary Term,8,Business Studies,"Entrepreneurship - Meaning and Examples",10-11,"Understanding entrepreneurship as starting and running one's own business, enterprise as a business venture, and self-employment as working for oneself, identifying successful entrepreneurs locally, in Nigeria, and internationally",false
+Jss 1,Calvary Term,9,Business Studies,"Importance of Entrepreneurship",10-11,"Learning why entrepreneurship is important including creating jobs, reducing unemployment, encouraging innovation, generating income, contributing to economic development, and providing independence and self-reliance",false
+Jss 1,Calvary Term,10,Business Studies,"Forms of Business Organization",10-11,"Understanding different types of business ownership: sole proprietorship (one owner), partnership (2-20 owners), limited liability companies (shareholders), and cooperative societies (members working together), with advantages and disadvantages of each",false
+Jss 1,Summer Term,1,Business Studies,"Consumer, Market and Society",10-11,"Defining consumer as anyone who buys and uses goods/services, market as where buyers and sellers meet, society as group of people living together, understanding the need for consumer education to make informed buying decisions",false
+Jss 1,Summer Term,2,Business Studies,"Importance and Consequences of Consumer Education",10-11,"Learning the importance of educating consumers about their rights, product quality, fair prices, and safe consumption, understanding negative consequences of lack of consumer education including exploitation, fraud, and harmful purchases",false
+Jss 1,Summer Term,3,Business Studies,"Need for Monitoring and Control of Chemicals",10-11,"Understanding the difference between chemicals suitable for use (safe, approved) and not suitable (dangerous, expired), learning why monitoring food, drugs, and chemicals is necessary to protect public health and safety",false
+Jss 1,Summer Term,4,Business Studies,"Introduction to Book-keeping",10-11,"Understanding book-keeping as systematic recording of business financial transactions, learning its importance (tracking income/expenses, making decisions, preventing fraud), qualities of book-keepers (accuracy, honesty, neatness), and common practices",false
+Jss 1,Summer Term,5,Business Studies,"Source Documents in Book-keeping",10-11,"Learning about source documents as original records of transactions including invoices (sales and purchase), receipts, cash register tapes, credit notes, debit notes, and cheques, understanding their uses and how to complete them",false
+Jss 1,Summer Term,6,Business Studies,"Journals - Books of Original Entry",10-11,"Understanding journals as books where transactions are first recorded from source documents, learning the correct form/format of a journal, different types of journals (sales, purchases, cash, general), and how to make journal entries",false
+Jss 1,Summer Term,7,Business Studies,"Double Entry Book-keeping System",10-11,"Learning the double entry principle where every transaction has two effects (debit and credit), understanding that for every debit entry there must be a corresponding credit entry, identifying which accounts to debit and credit",false
+Jss 1,Summer Term,8,Business Studies,"Ledgers and Classification of Accounts",10-11,"Understanding ledgers as books containing individual accounts, learning to post from journals to ledgers, and classifying accounts into real (assets), nominal (expenses/income), personal (people/businesses), and impersonal accounts",false
+Jss 1,Summer Term,9,Business Studies,"Introduction to Keyboarding",10-11,"Understanding keyboarding as the skill of using a keyboard (typewriter or computer) to input text, learning its importance for personal and business use, and practicing correct sitting posture for keyboarding (straight back, feet flat, arms relaxed)",false
+Jss 1,Summer Term,10,Business Studies,"Parts of Computer Keyboard and Basic Care",10-11,"Identifying parts of a computer keyboard (alphanumeric keys, function keys, navigation keys, numeric keypad), learning similarities between typewriter and computer keyboard, and understanding how to care for computers using dust covers, cleaning, and proper handling",false
+Jss 1,Noel Term,1,Christian Religious Studies,"The Creation Story: Days 1-3",10-11,"Biblical account of creation from Genesis 1; understanding how God created light, sky, land, seas, and vegetation in first three days",false
+Jss 1,Noel Term,2,Christian Religious Studies,"The Creation Story: Days 4-6",10-11,"Continuation of creation narrative; God creating sun, moon, stars, sea creatures, birds, land animals, and human beings",false
+Jss 1,Noel Term,3,Christian Religious Studies,"Purpose of Human Creation",10-11,"Understanding why God made human beings: to know Him, worship Him, and serve Him; humans as crown of God's creation",false
+Jss 1,Noel Term,4,Christian Religious Studies,"Creation of Adam and Eve",10-11,"Special account of how God formed Adam from dust and created Eve from Adam's rib (Genesis 2:7-25)",false
+Jss 1,Noel Term,5,Christian Religious Studies,"Marriage: Meaning and Purpose",10-11,"Understanding marriage as God's institution from Genesis 2:22-25; functions include companionship, procreation, responsibility",false
+Jss 1,Noel Term,6,Christian Religious Studies,"Types and Importance of Marriage",10-11,"Learning different types of marriage; importance of marriage in preventing STDs, HIV/AIDS through faithfulness",false
+Jss 1,Noel Term,7,Christian Religious Studies,"The First Human Disobedience",10-11,"Biblical account of Adam and Eve's sin in the Garden of Eden; the serpent's temptation and eating forbidden fruit (Genesis 3:1-19)",false
+Jss 1,Noel Term,8,Christian Religious Studies,"Consequences of Adam and Eve's Disobedience",10-11,"Understanding punishments: pain in childbirth, hard labor for food, death, broken relationship with God (Genesis 3:14-19)",false
+Jss 1,Noel Term,9,Christian Religious Studies,"Our Own Acts of Disobedience",10-11,"Recognizing disobedience as sin; identifying personal acts of disobedience against parents, teachers, and God",false
+Jss 1,Noel Term,10,Christian Religious Studies,"Disobedience Against National Laws",10-11,"Understanding consequences of breaking national laws; importance of obeying traffic rules, respecting public property, reciting national pledge",false
+Jss 1,Calvary Term,1,Christian Religious Studies,"Call to Repentance: King David",10-11,"Learning how King David repented after Nathan confronted him about Uriah's death; Psalm 51 as prayer of repentance (2 Samuel 12:7-13)",false
+Jss 1,Calvary Term,2,Christian Religious Studies,"Call to Repentance: Zaccheus",10-11,"Story of Zaccheus the tax collector who climbed sycamore tree, met Jesus, repented and restored stolen money (Luke 19:1-9)",false
+Jss 1,Calvary Term,3,Christian Religious Studies,"The Ninevites' Repentance",10-11,"Understanding how people of Nineveh repented when Jonah preached; God's mercy in sparing the city (Jonah 3:1-10)",false
+Jss 1,Calvary Term,4,Christian Religious Studies,"John the Baptist's Call to Repentance",10-11,"Learning about John the Baptist preaching repentance; demands for genuine repentance and changed behavior (Luke 3:1-14)",false
+Jss 1,Calvary Term,5,Christian Religious Studies,"Consequences of Lack of Repentance",10-11,"Understanding punishment that came upon Eli's family for refusing to repent of their sins (1 Samuel 3:18; 4:10-21)",false
+Jss 1,Calvary Term,6,Christian Religious Studies,"Abraham's Call and Obedience",10-11,"Narrating how God called Abraham to leave his country; Abraham's obedient response to God's call (Genesis 12:1-9)",false
+Jss 1,Calvary Term,7,Christian Religious Studies,"Blessings from Abraham's Obedience",10-11,"Understanding blessings Abraham received for obeying God: numerous descendants, land, becoming father of nations; birth of Isaac (Genesis 21:1-8)",false
+Jss 1,Calvary Term,8,Christian Religious Studies,"Abraham's Sacrifice of Isaac",10-11,"Dramatizing how Abraham demonstrated ultimate obedience by being willing to sacrifice Isaac; God providing a ram (Genesis 22:1-18)",false
+Jss 1,Calvary Term,9,Christian Religious Studies,"Joseph Sold into Egypt",10-11,"Learning about Joseph's brothers selling him into slavery; God's plan working through difficult circumstances (Genesis 37:12-36)",false
+Jss 1,Calvary Term,10,Christian Religious Studies,"Joseph's Service in Egypt",10-11,"Understanding how Joseph served faithfully in prison and Pharaoh's house; rising to become governor controlling grain stores (Genesis 41:37-57)",false
+Jss 1,Summer Term,1,Christian Religious Studies,"Ruth's Faithful Service",10-11,"Story of Ruth's loyalty and service to her mother-in-law Naomi; choosing to follow Naomi's God (Ruth 1:7-18)",false
+Jss 1,Summer Term,2,Christian Religious Studies,"Lessons from Service of Joseph and Ruth",10-11,"Identifying blessings from faithful service; understanding problems and rewards of serving God and others (1 Peter 2:18-25)",false
+Jss 1,Summer Term,3,Christian Religious Studies,"Types of Family",10-11,"Understanding nuclear family (parents and children) and extended family (including grandparents, uncles, aunts, cousins)",false
+Jss 1,Summer Term,4,Christian Religious Studies,"Family Members and Their Roles",10-11,"Identifying family members; understanding different roles in the family from Ephesians 6:1-9, Colossians 3:18-21",false
+Jss 1,Summer Term,5,Christian Religious Studies,"Drawing Family Tree",10-11,"Learning to draw family tree showing relationships; recognizing importance of maintaining good family name and reputation",false
+Jss 1,Summer Term,6,Christian Religious Studies,"Relationship in School",10-11,"Identifying school family: principals, teachers, prefects, friends; writing names of teachers and their subject areas",false
+Jss 1,Summer Term,7,Christian Religious Studies,"Choosing Good Friends",10-11,"Learning factors for choosing friends: common interests, age; studying friendship of David and Jonathan (1 Samuel 18:1-5)",false
+Jss 1,Summer Term,8,Christian Religious Studies,"Dangers of Bad Friendship",10-11,"Understanding evils of bad friendship: cultism, stealing, drug addiction, prostitution, laziness, truancy (Proverbs 1:10, 2 Thessalonians 3:6-13)",false
+Jss 1,Summer Term,9,Christian Religious Studies,"Relationship in the Community",10-11,"Identifying community leaders; ways of sustaining relationships: respecting elders, obeying laws, caring for the needy (Matthew 25:31-46)",false
+Jss 1,Summer Term,10,Christian Religious Studies,"Relationship in the Church",10-11,"Learning how to love Christian brothers and sisters; maintaining church relationships through love and respect (Romans 12:9-21, 1 Peter 3:8-13)",false
+Jss 1,Noel Term,1,Computer Studies,"Early Counting Devices",10-11,"Introduction to primitive counting methods used before modern computers including using fingers, toes, stones, sticks, pebbles, and cowries to count and represent numbers, understanding the limitations of these methods for large numbers",false
+Jss 1,Noel Term,2,Computer Studies,"Mechanical Counting and Calculating Devices",10-11,"Learning about early mechanical tools for counting and calculation including the abacus (ancient calculating tool with beads on rods), slide rule (mechanical calculator), and four-figure tables used for mathematical computations",false
+Jss 1,Noel Term,4,Computer Studies,"Electronic Counting Devices and Modern Computers",10-11,"Learning about Herman Hollerith's punch cards, John Von Neumann's stored-program concept, and the evolution to modern computers, understanding the contributions of inventors like Philip Emeagwali to computing development",false
+Jss 1,Noel Term,6,Computer Studies,"Generations of Computers - Third and Fourth",10-11,"Learning about the third generation (1960s-1970s) using integrated circuits (ICs) which were smaller and more efficient, and fourth generation (1970s-present) using microprocessors, leading to personal computers",false
+Jss 1,Noel Term,7,Computer Studies,"Fifth Generation Computers and Beyond",10-11,"Understanding current and future computers based on artificial intelligence (AI), parallel processing, and advanced technologies, learning how modern computers are becoming more intelligent and powerful",false
+Jss 1,Calvary Term,1,Computer Studies,"Computer Room Management - Environment",10-11,"Learning proper computer room/laboratory management including maintaining dust-free environment (using covers, regular cleaning), appropriate ventilation (for cooling equipment), and proper lighting systems to protect equipment and ensure comfort",false
+Jss 1,Calvary Term,6,Computer Studies,"Applications of IT - Timing and Control",10-11,"Understanding IT applications in timing and control systems including digital clocks, traffic lights, automated systems in homes and industries, security systems, and how computers help control various processes accurately",false
+Jss 1,Noel Term,1,English Language,"Reading for Maximum Retention and Recall",10-11,"Learning intensive reading strategies using the SQ3R method (Survey, Question, Read, Recite, Review) to preview passages, read carefully, recall salient points, and review for maximum understanding and retention of information on topics like diet, nutrition, and water safety",false
+Jss 1,Noel Term,2,English Language,"Reading for Main and Supporting Ideas",10-11,"Learning to identify the main idea (most important point) and supporting ideas (details that explain or prove the main idea) in passages, understanding how supporting ideas develop and strengthen the main point in paragraphs",false
+Jss 1,Noel Term,3,English Language,"Reading to Answer Specific Questions",10-11,"Developing comprehension skills by learning to answer different levels of questions: knowledge level (who, what, where, when), translation level (explain, describe), interpretation level (why, how), and projection level (predict, conclude, give opinion)",false
+Jss 1,Noel Term,4,English Language,"Reading to Understand Author's Mood",10-11,"Learning to identify the author's mood or attitude (anger, happiness, doubt, disappointment, suspicion, excitement) through careful reading of words and expressions, detecting hidden meanings, and understanding the author's presentation style (objective, biased, verbose, terse)",false
+Jss 1,Noel Term,5,English Language,"Reading to Interpret Diagrams, Maps and Sketches",10-11,"Developing skills to read and accurately interpret visual information like diagrams, maps, and sketches that accompany written text, understanding how spatial descriptions complement written material and making connections between text and visuals",false
+Jss 1,Noel Term,6,English Language,"Reading to Follow Directions",10-11,"Learning to follow written instructions and directions by identifying key directional words (left, right, east, west, northwards, southwards, upwards, towards), reading maps, and following step-by-step instructions accurately",false
+Jss 1,Noel Term,7,English Language,"Writing to Highlight Main and Supporting Ideas",10-11,"Learning to organize writing by identifying and jotting down main and supporting ideas from topics, arranging ideas in logical sequence (beginning, middle, end), and writing appropriate introductions and conclusions for essays and passages",false
+Jss 1,Noel Term,8,English Language,"Composition Writing - Narrative and Descriptive",10-11,"Understanding narrative writing (telling a story with characters, plot, setting) and descriptive writing (using sensory details to describe people, places, things), learning to write compositions with clear structure including introduction, body, and conclusion",false
+Jss 1,Noel Term,9,English Language,"Letter Writing - Formal and Informal Letters",10-11,"Learning the difference between formal letters (two addresses, formal salutation, specific format for official purposes) and informal letters (one address, casual tone for friends and family), understanding appropriate formats and when to use each type",false
+Jss 1,Noel Term,10,English Language,"Speeches - Production of Vowel and Consonant Sounds",10-11,"Learning to listen to and produce clear vowel sounds (a, e, i, o, u) and consonant sounds (t, g, k, l, p, s, etc.) correctly in words, sentences, and passages on topics like family, school, health, and safety",false
+Jss 1,Calvary Term,1,English Language,"Long and Short Vowel Sounds",10-11,"Distinguishing between and correctly pronouncing long vowels (as in sleep, port, leave) and short vowels (as in slip, pot, live), practicing minimal pairs to hear and produce the differences in context",false
+Jss 1,Calvary Term,2,English Language,"Consonant Sounds in Context",10-11,"Learning to identify and correctly produce consonant sounds in words and sentences, practicing pronunciation of sounds like /b/ vs /p/ (back/pack), /g/ vs /t/ (goat/toad), /r/ vs /l/ (road/load), /th/ vs /d/ (then/den)",false
+Jss 1,Calvary Term,3,English Language,"Consonant Clusters and Diphthongs",10-11,"Learning to pronounce consonant clusters (two or more consonants together like in desks, plants, school, string, splash) and diphthongs (two vowel sounds in one syllable like /ei/ in gate, /ou/ in go, /oi/ in oil)",false
+Jss 1,Calvary Term,4,English Language,"Word Boundaries, Compound Words and Phrases",10-11,"Understanding linking sounds at word boundaries (matter of, go away), recognizing compound words (blackboard, ice-cream, swimming pool), and learning common phrases (a company of friends, a basket of fruits, a team of players)",false
+Jss 1,Calvary Term,5,English Language,"Questions and Question Tags",10-11,"Learning to form and respond to question tags correctly (Teachers are punctual, aren't they? Yes, they are), understanding how question tags seek agreement or confirmation, and using appropriate intonation patterns",false
+Jss 1,Calvary Term,6,English Language,"Listening Comprehension - Main Ideas",10-11,"Developing listening skills to identify main ideas from speeches, stories, and passages on topics like family, school, health, safety, and social issues, learning to extract key information from what is heard",false
+Jss 1,Calvary Term,7,English Language,"Parts of Speech - Nouns, Verbs, Adjectives",10-11,"Understanding nouns (naming words for people, places, things), verbs (action or state words), and adjectives (describing words), learning to identify their features and functions in sentences, and making correct sentences using them",false
+Jss 1,Calvary Term,8,English Language,"Parts of Speech - Adverbs, Conjunctions, Prepositions",10-11,"Learning about adverbs (words that modify verbs, adjectives, or other adverbs), conjunctions (joining words like and, but, because), and prepositions (words showing relationships like in, on, at, under), and their functions in sentences",false
+Jss 1,Calvary Term,9,English Language,"Adverbials and Tenses",10-11,"Understanding adverbials (words or phrases that tell when, where, how, or why something happens) and tenses (present tense for current actions, past tense for completed actions, future tense for actions yet to happen)",false
+Jss 1,Calvary Term,10,English Language,"Active and Passive Verbs",10-11,"Learning the difference between active voice (subject performs the action: The boy kicked the ball) and passive voice (subject receives the action: The ball was kicked by the boy), and how to change sentences from active to passive",false
+Jss 1,Summer Term,1,English Language,"Introduction to Literature",10-11,"Understanding literature as creative writing including stories, poems, and plays that reflect culture and values, learning about two major categories: oral literature (folktales, songs, proverbs told by word of mouth) and written literature (books, novels, poems)",false
+Jss 1,Summer Term,2,English Language,"Folktales - Features and Themes",10-11,"Learning about African and non-African folktales with features like didactic lessons (teaching morals), entertainment, magical elements, and animal characters, identifying themes, retelling folktales, and understanding their cultural significance",false
+Jss 1,Summer Term,3,English Language,"Myths and Legends",10-11,"Understanding myths (traditional stories explaining natural phenomena or beliefs, often involving gods and supernatural beings) and legends (stories about historical or semi-historical people and events), identifying their features like magic, supernatural elements, and superstition",false
+Jss 1,Summer Term,4,English Language,"Prose - Types and Features",10-11,"Learning about prose as written or spoken language in ordinary form (not poetry), understanding narrative prose (telling a story) and descriptive prose (describing something), and identifying features like plot, characterization, setting, theme, and style",false
+Jss 1,Summer Term,5,English Language,"Poetry - Types and Features",10-11,"Understanding different types of poetry (epic, lyric, dramatic), learning about poetic language (concise, unique, elevated), recognizing rhythm and rhyme, explaining meanings of simple poems, and writing simple poems",false
+Jss 1,Summer Term,6,English Language,"Drama - Types and Features",10-11,"Learning about drama as stories performed on stage, understanding types (comedy - funny plays, tragedy - serious/sad plays), and identifying features like theme, stage, costumes, director, audience, and performance",false
+Jss 1,Summer Term,7,English Language,"Figures of Speech - Similes and Metaphors",10-11,"Understanding similes as comparisons using 'like' or 'as' (She is as red as a rose) and metaphors as direct comparisons without 'like' or 'as' (She is a red rose), learning to identify and create both in sentences and literature",false
+Jss 1,Summer Term,8,English Language,"Vocabulary Development Through Context",10-11,"Building vocabulary by learning to use context clues (surrounding words and sentences) to figure out meanings of unfamiliar words, understanding synonyms (words with similar meanings) and antonyms (words with opposite meanings)",false
+Jss 1,Summer Term,9,English Language,"Sentence Construction and Structure",10-11,"Learning to construct complete sentences with subject (who or what the sentence is about) and predicate (what the subject does or is), understanding basic sentence patterns, and using correct punctuation (capital letters, periods, question marks)",false
+Jss 1,Summer Term,10,English Language,"Summary Writing Skills",10-11,"Learning to write summaries by identifying main points in passages, removing unnecessary details, using own words to condense information, and writing brief coherent summaries that capture the essential meaning of longer texts",false
+Jss 1,Noel Term,1,General Mathematics,"Whole Numbers: Millions and Billions",10-11,"Learning to count, write, and read large numbers from 99,990 to 1,000,000 and up to 100,000,000; understanding place values",false
+Jss 1,Noel Term,2,General Mathematics,"Whole Numbers: Trillions",10-11,"Counting, writing, and reading numbers in trillions; applying large numbers to real-life situations like population, money",false
+Jss 1,Noel Term,3,General Mathematics,"Least Common Multiple (LCM)",10-11,"Finding common multiples of whole numbers; calculating LCM using factor method, multiple method, and index method",false
+Jss 1,Noel Term,4,General Mathematics,"Highest Common Factor (HCF)",10-11,"Identifying common factors of whole numbers; finding HCF using common factor and prime factor methods",false
+Jss 1,Noel Term,5,General Mathematics,"Difference Between LCM and HCF",10-11,"Understanding distinction between LCM and HCF; expressing numbers as products of prime factors; solving related problems",false
+Jss 1,Noel Term,6,General Mathematics,"Counting in Base 2 (Binary System)",10-11,"Learning to count in groups of twos using bundles; understanding binary number system basics",false
+Jss 1,Noel Term,7,General Mathematics,"Converting Base 10 to Binary Numbers",10-11,"Converting numbers 1-10 from base 10 to base 2 using bundles method; understanding place value in binary system",false
+Jss 1,Noel Term,8,General Mathematics,"Equivalent Fractions",10-11,"Identifying equivalent fractions like 1/2 = 2/4 = 4/8; using formula to find equivalent fractions; applying in sharing",false
+Jss 1,Noel Term,9,General Mathematics,"Ordering Fractions and Conversion",10-11,"Arranging fractions in ascending or descending order; converting fractions to decimals and vice versa",false
+Jss 1,Noel Term,10,General Mathematics,"Converting Fractions and Percentages",10-11,"Converting fractions to percentages and percentages to fractions; understanding percentage as part of hundred",false
+Jss 1,Calvary Term,1,General Mathematics,"Addition and Subtraction of Whole Numbers",10-11,"Adding and subtracting numbers up to 4 digits; stating place values of results; solving word problems",false
+Jss 1,Calvary Term,2,General Mathematics,"Directed Numbers Using Number Line",10-11,"Understanding positive and negative integers; using number line for addition and subtraction; real-life applications (temperature, banking)",false
+Jss 1,Calvary Term,3,General Mathematics,"Addition and Subtraction of Fractions",10-11,"Adding and subtracting fractions with same and different denominators; handling mixed numbers; solving word problems",false
+Jss 1,Calvary Term,4,General Mathematics,"Multiplication and Division of Fractions",10-11,"Multiplying and dividing fractions using diagrams and calculation; working with mixed numbers; solving word problems",false
+Jss 1,Calvary Term,5,General Mathematics,"Estimation of Dimensions and Distances",10-11,"Estimating lengths, widths, distances within school environment; developing sense of measurement without exact tools",false
+Jss 1,Calvary Term,6,General Mathematics,"Estimation of Capacity and Mass",10-11,"Estimating capacity of containers (milk tins, bottles); estimating mass of objects; applying estimation to daily life",false
+Jss 1,Calvary Term,7,General Mathematics,"Approximation in Basic Operations",10-11,"Approximating answers to addition, subtraction, multiplication, division; understanding when approximation is useful",false
+Jss 1,Calvary Term,8,General Mathematics,"Rounding Off Numbers",10-11,"Rounding numbers to nearest 10, 100, and 1000; applying approximation and rounding in everyday activities",false
+Jss 1,Calvary Term,9,General Mathematics,"Binary Operations: Addition and Subtraction",10-11,"Adding two or three 3-digit binary numbers; subtracting two 3-digit binary numbers in base 2 system",false
+Jss 1,Calvary Term,10,General Mathematics,"Binary Operations: Multiplication",10-11,"Multiplying two 2-digit binary numbers; understanding binary multiplication rules and procedures",false
+Jss 1,Summer Term,1,General Mathematics,"Open Sentences and Use of Symbols",10-11,"Solving open sentences with boxes representing unknowns; understanding relationship between addition/subtraction and multiplication/division",false
+Jss 1,Summer Term,2,General Mathematics,"Using Letters to Represent Symbols",10-11,"Replacing boxes with letters in open sentences; solving problems with two arithmetic operations; translating word problems",false
+Jss 1,Summer Term,3,General Mathematics,"Algebraic Expressions: Like and Unlike Terms",10-11,"Identifying like and unlike terms in algebraic expressions; understanding coefficients of positive and negative terms",false
+Jss 1,Summer Term,4,General Mathematics,"Simplification of Algebraic Expressions",10-11,"Collecting like terms; performing basic arithmetic operations on algebraic expressions; simplifying with brackets",false
+Jss 1,Summer Term,5,General Mathematics,"Simple Equations",10-11,"Translating word sentences into mathematical equations; solving simple equations like 5k + 7 = 22; cross-checking answers",false
+Jss 1,Summer Term,6,General Mathematics,"Plane Shapes: Perimeter",10-11,"Identifying properties of square, rectangle, triangle, parallelogram, trapezium, circle; finding perimeter using practical methods and formulas",false
+Jss 1,Summer Term,7,General Mathematics,"Plane Shapes: Area",10-11,"Finding area of regular shapes (squares, rectangles, parallelograms) using graph paper and formulas; real-life applications",false
+Jss 1,Summer Term,8,General Mathematics,"Three Dimensional Figures: Properties",10-11,"Identifying properties of cubes, cuboids, pyramids, cones, cylinders, spheres; counting faces, edges, vertices",false
+Jss 1,Summer Term,9,General Mathematics,"Volume of Cubes and Cuboids",10-11,"Deriving formulas for volume of cubes and cuboids; calculating volume using length × width × height",false
+Jss 1,Summer Term,10,General Mathematics,"Construction and Angles",10-11,"Constructing parallel and perpendicular lines, bisecting line segments; constructing 60° and 90° angles; measuring angles with protractor",false
+Jss 1,Noel Term,1,Home Economics,"Puberty: Meaning and Signs",10-11,"Understanding what puberty is; learning physical and emotional changes that occur during puberty in boys and girls",false
+Jss 1,Noel Term,2,Home Economics,"Adolescence: Meaning and Characteristics",10-11,"Understanding adolescence as the teenage years; learning about the transition from childhood to adulthood (ages 10-19)",false
+Jss 1,Noel Term,3,Home Economics,"Needs and Challenges of Adolescents",10-11,"Learning about adolescent needs: proper nutrition, hygiene, emotional support; understanding challenges faced during teenage years",false
+Jss 1,Noel Term,4,Home Economics,"Hygiene Guides for Adolescents",10-11,"Learning personal hygiene practices for adolescents: bathing regularly, using deodorants, managing menstruation, maintaining cleanliness",false
+Jss 1,Noel Term,5,Home Economics,"Sexually Transmitted Infections (STIs)",10-11,"Understanding what STIs are; learning causes, signs, symptoms, and prevention methods for sexually transmitted infections",false
+Jss 1,Noel Term,6,Home Economics,"HIV/AIDS: Meaning, Causes and Prevention",10-11,"Learning about HIV/AIDS: what it is, how it spreads, prevention methods, and importance of awareness",false
+Jss 1,Noel Term,7,Home Economics,"Fundamental Human Rights",10-11,"Understanding basic human rights: right to life, freedom of expression, right to education, right to dignity",false
+Jss 1,Noel Term,8,Home Economics,"Rights of the Child",10-11,"Learning specific rights children have: right to protection, care, education, play, name, nationality, and freedom from abuse",false
+Jss 1,Noel Term,9,Home Economics,"Family Needs: Meaning and Types",10-11,"Understanding what family needs are; learning basic needs: food, clothing, shelter, healthcare, education",false
+Jss 1,Noel Term,10,Home Economics,"Difference Between Needs and Wants",10-11,"Learning to distinguish between essential needs (must have) and wants (nice to have); prioritizing family needs",false
+Jss 1,Calvary Term,1,Home Economics,"Family Goals: Meaning and Examples",10-11,"Understanding what family goals are; learning short-term and long-term goals families set to improve their lives",false
+Jss 1,Calvary Term,2,Home Economics,"Family Standards: Meaning and Importance",10-11,"Understanding family standards as acceptable levels of living; learning how standards guide family decisions and behavior",false
+Jss 1,Calvary Term,3,Home Economics,"Relationship Among Needs, Goals and Standards",10-11,"Understanding how family needs, goals, and standards work together to guide family resource management and planning",false
+Jss 1,Calvary Term,4,Home Economics,"Family Resource Management",10-11,"Learning to manage family resources wisely using needs, goals, and standards; understanding importance of planning",false
+Jss 1,Calvary Term,5,Home Economics,"Simple Household Articles and Crafts",10-11,"Identifying household articles: aprons, caps, needlework bags, head rests, table mats, purses, bibs, napkins, handkerchiefs",false
+Jss 1,Calvary Term,6,Home Economics,"Tools and Materials for Household Articles",10-11,"Learning about sewing tools: needles, thread, scissors, measuring tape; materials: fabric, calico, baft cloth",false
+Jss 1,Calvary Term,7,Home Economics,"Construction of Simple Household Articles",10-11,"Learning steps to make simple items like aprons, caps, tray cloths, napkins, handkerchiefs; practicing basic sewing skills",false
+Jss 1,Calvary Term,8,Home Economics,"Making Income-Yielding Crafts",10-11,"Learning to produce crafts for sale: tie-dye fabrics, batik fabrics, embroidered items; understanding entrepreneurship",false
+Jss 1,Calvary Term,9,Home Economics,"Tie-Dye and Batik Fabric Production",10-11,"Learning tie-dye and batik techniques; understanding materials needed, dyeing process, and creating patterns on fabric",false
+Jss 1,Calvary Term,10,Home Economics,"Display and Sale of Household Articles",10-11,"Learning to display finished products attractively; understanding how to sell household articles and crafts for income",false
+Jss 1,Summer Term,1,Home Economics,"Types of Home-Made Cleaning Agents",10-11,"Understanding home-made cleaning agents: furniture polish, floor cleaner, glass cleaner, metal polish made from local materials",false
+Jss 1,Summer Term,2,Home Economics,"Uses and Preparation of Cleaning Agents",10-11,"Learning uses of different cleaning agents; preparing home-made polish using kerosene, turpentine, candle wax, palm oil",false
+Jss 1,Summer Term,3,Home Economics,"Using Home-Made Polish and Cleaners",10-11,"Practicing how to polish furniture and clean household items using prepared home-made cleaning agents",false
+Jss 1,Summer Term,4,Home Economics,"Types and Uses of Cosmetics",10-11,"Understanding cosmetics: pomade, cream, deodorants, perfumes; learning their uses for personal care and hygiene",false
+Jss 1,Summer Term,5,Home Economics,"Materials and Tools for Making Cosmetics",10-11,"Learning materials and tools needed to make pomade, cream, and deodorants; understanding safety in cosmetic production",false
+Jss 1,Summer Term,6,Home Economics,"Safety and Regulatory Control of Cosmetics",10-11,"Understanding importance of quality control; learning roles of NAFDAC and SON in regulating cosmetic products in Nigeria",false
+Jss 1,Summer Term,7,Home Economics,"Making Pomade, Cream and Deodorants",10-11,"Practicing production of cosmetics following proper procedures; displaying finished products safely",false
+Jss 1,Summer Term,8,Home Economics,"Healthy Feeding and Eating Practices",10-11,"Learning healthy practices: eating adequate diet, using seasonal foods, washing hands, chewing properly, avoiding overeating",false
+Jss 1,Summer Term,9,Home Economics,"Food Additives and Harmful Substances",10-11,"Understanding food additives (uses and misuses), food contaminants, harmful substances like banned additives, spoilt fruits, undercooked food",false
+Jss 1,Summer Term,10,Home Economics,"Drug Abuse and Effects on the Body",10-11,"Understanding what drug abuse is; learning harmful effects of drug abuse on physical and mental health",false
+Jss 1,Noel Term,1,Physical and Health Education,"Physical Fitness: Meaning and Components",10-11,"Understanding what physical fitness is; learning health-related components (cardiovascular endurance, muscular strength, flexibility, body composition)",false
+Jss 1,Noel Term,2,Physical and Health Education,"Performance-Related Components of Fitness",10-11,"Learning performance components: agility (changing direction), balance, coordination, power, reaction time, speed",false
+Jss 1,Noel Term,3,Physical and Health Education,"Characteristics of Physically Fit Person",10-11,"Identifying characteristics: good posture, healthy weight, strong muscles, good stamina, active lifestyle, positive attitude",false
+Jss 1,Noel Term,4,Physical and Health Education,"Importance of Physical Fitness",10-11,"Understanding benefits: improved health, disease prevention, better academic performance, stress relief, confidence building",false
+Jss 1,Noel Term,5,Physical and Health Education,"Exercises for Strength Development",10-11,"Learning and practicing exercises to develop muscular strength: push-ups, sit-ups, squats, resistance exercises",false
+Jss 1,Noel Term,6,Physical and Health Education,"Exercises for Endurance and Flexibility",10-11,"Practicing endurance exercises (running, jogging) and flexibility exercises (stretching, yoga poses) safely",false
+Jss 1,Noel Term,7,Physical and Health Education,"Safety Precautions During Exercise",10-11,"Learning safety measures: proper warm-up, correct form, hydration, recognizing warning signs, cooling down, appropriate clothing",false
+Jss 1,Noel Term,8,Physical and Health Education,"Recreation and Leisure: Meaning and Differences",10-11,"Understanding recreation (refreshing activities), leisure (free time), and dance (rhythmic body movement); learning their differences",false
+Jss 1,Noel Term,9,Physical and Health Education,"Components of Recreation and Dance",10-11,"Identifying components of recreation (active, passive) and dance (traditional, modern); learning types of recreational activities",false
+Jss 1,Noel Term,10,Physical and Health Education,"Benefits of Recreation and Dance",10-11,"Understanding benefits: refreshment of body and mind, fun, mental alertness, social and emotional stability, skill development",false
+Jss 1,Calvary Term,1,Physical and Health Education,"Athletics: Definition and Field Events",10-11,"Understanding athletics as track and field sports; learning about field events: shot put and discus throwing",false
+Jss 1,Calvary Term,2,Physical and Health Education,"Shot Put: Basic Skills and Techniques",10-11,"Learning shot put skills: grip (holding shot at neck), stance (side-on position), put (pushing motion), follow-through",false
+Jss 1,Calvary Term,3,Physical and Health Education,"Discus: Basic Skills and Techniques",10-11,"Learning discus skills: carriage (holding discus), stance (turning position), throw (releasing technique), follow-through",false
+Jss 1,Calvary Term,4,Physical and Health Education,"Rules and Safety in Shot Put and Discus",10-11,"Understanding rules governing shot put and discus; learning safety measures in throwing events; drawing sectors with dimensions",false
+Jss 1,Calvary Term,5,Physical and Health Education,"Ball Games: Soccer Skills and Techniques",10-11,"Learning soccer basics: dribbling, passing, shooting, heading, trapping; understanding team coordination and ball control",false
+Jss 1,Calvary Term,6,Physical and Health Education,"Ball Games: Volleyball Skills and Techniques",10-11,"Learning volleyball basics: serving, passing, setting, spiking, blocking; understanding court positions and rotations",false
+Jss 1,Calvary Term,7,Physical and Health Education,"Rules and Officials in Soccer and Volleyball",10-11,"Understanding rules governing soccer and volleyball; learning about officials (referee, linesmen, umpires) and their functions",false
+Jss 1,Calvary Term,8,Physical and Health Education,"Facilities, Equipment and Safety in Ball Games",10-11,"Identifying facilities (courts, pitches) and equipment (balls, nets, goals); learning safety measures and common injuries prevention",false
+Jss 1,Calvary Term,9,Physical and Health Education,"Contact Sports: Wrestling and Judo",10-11,"Understanding contact sports where opponents touch; learning basic skills in wrestling and judo; safety measures and protective gear",false
+Jss 1,Calvary Term,10,Physical and Health Education,"Non-Contact Sports: Gymnastics and Swimming",10-11,"Understanding non-contact sports without direct opponent touch; learning basic gymnastic movements and swimming strokes; safety precautions",false
+Jss 1,Summer Term,1,Physical and Health Education,"Determinants of Health",10-11,"Understanding three determinants: hereditary (genes from parents), environment (surroundings), lifestyle (habits and choices)",false
+Jss 1,Summer Term,2,Physical and Health Education,"Characteristics of a Healthy Person",10-11,"Identifying healthy person traits: good physical appearance, mental alertness, emotional stability, social well-being, disease-free",false
+Jss 1,Summer Term,3,Physical and Health Education,"Sewage and Refuse: Meaning and Disposal",10-11,"Understanding sewage (liquid waste) and refuse (solid waste); learning disposal methods: pit latrines, septic tanks, landfills, recycling",false
+Jss 1,Summer Term,4,Physical and Health Education,"Water Supply and Safe Water",10-11,"Learning sources of water: wells, boreholes, rivers, taps, rain; understanding qualities of safe water: clean, clear, odorless",false

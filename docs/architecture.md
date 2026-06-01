@@ -180,7 +180,7 @@ All agents are defined in the single `app:agents` component (`app-agents/`). The
 ### SurrealDB
 
 - **Accessed only by Golem agents** via HTTP using the `golemcloud/golem_sdk/http` package with HTTP Basic Auth.
-- Stores lesson content documents. No user state, no submissions, no grades.
+- Stores canonical entity data: user profiles (`user_profile`), teacher assignments (`teacher_assignment`), curriculum structure (`has_subject`), lesson content (`lessons`), and future assignment/submission/grade records.
 - Golem automatically persists all outgoing HTTP requests and responses in the agent's operation log. On replay, the response is read from the log rather than re-executing the network call, ensuring deterministic behaviour.
 
 ## Storage Model
@@ -208,6 +208,35 @@ Defines which subjects belong to which class as a native SurrealDB edge. Enables
 | `active` | `bool` | Default `true`. Toggle to hide a subject for a class. |
 
 Unique index on `COLUMNS in, out` prevents duplicate edges. Index on `in` accelerates dashboard query.
+
+**`user_profile` table (SCHEMAFULL, new):**
+
+Replaces `AdminAgent.initialized_users` and `StudentAgent.profile`. Single user metadata table for all roles.
+
+| Field | Type | Notes |
+|---|---|---|
+| `auth_id` | `string` | Authentik `sub` claim (UUID). Unique. |
+| `role` | `string` | `"admin"`, `"teacher"`, or `"student"` |
+| `class_level` | `option<string>` | Record ID (e.g. `"class_levels:jss_1"`). Only for students. |
+| `created_at` | `datetime` | When the user agent was initialized |
+| `updated_at` | `option<datetime>` | Last profile update |
+| `deleted_at` | `option<datetime>` | Soft-delete timestamp |
+
+Unique index on `auth_id` prevents duplicates.
+
+**`teacher_assignment` table (SCHEMAFULL, new):**
+
+Replaces `AdminAgent.teacher_assignments`. Maps teacher → class_level → subject. Supports multiple teachers per class-subject pair via separate rows.
+
+| Field | Type | Notes |
+|---|---|---|
+| `teacher_id` | `string` | Teacher's auth_id |
+| `class_level_id` | `string` | Record ID (e.g. `"class_levels:jss_1"`) |
+| `subject_id` | `string` | Record ID (e.g. `"subjects:basic_science"`) |
+| `assigned_at` | `datetime` | When this assignment was created |
+| `deleted_at` | `option<datetime>` | Soft-delete timestamp |
+
+Unique index on `(teacher_id, class_level_id, subject_id)` prevents duplicate assignments for the same teacher.
 
 **`lessons` table (SCHEMAFULL, renamed from `lesson_content`):**
 
@@ -259,36 +288,33 @@ Every durable agent stores its state in MoonBit struct fields. Golem's durable
 execution op‑log persists these fields across restarts and replays — no external
 database, no migration scripts. New fields are added with safe defaults.
 
+Following the **Two Layers, Clear Separation** principle (see Architecture Principles below), agent durable state is reserved for in-progress work and active session context. Completed facts and canonical entity data live in SurrealDB.
+
 **Admin Agent struct fields:**
 
-| Field | MoonBit Type | Purpose |
-| :--- | :--- | :--- |
-| `initialized_users` | `Map[String, UserInitialization]` | Master list of all initialized users and their role |
-| `teacher_assignments` | `Map[String, TeacherAssignment]` | Which teacher teaches which subject to which class |
-| `class_rosters` | `Map[String, String]` | Which class each student belongs to |
+| Field | MoonBit Type | Purpose | Storage |
+| :--- | :--- | :--- | :--- |
+| `config` | `@config.Config[SurrealConfig]` | Injected DB credentials | Secret |
+| *(removed)* | — | `initialized_users` → `user_profile` table | DB |
+| *(removed)* | — | `teacher_assignments` → `teacher_assignment` table | DB |
 
 **Student Agent struct fields:**
 
-| Field | MoonBit Type | Purpose |
-| :--- | :--- | :--- |
-| `profile` | `StudentProfile?` | Student's current class (`{ class_level: String }`) |
-| `subject_cache` | `SubjectCache?` | Cached subject list for the student's class (TTL 600s) |
-| `terms_cache` | `Map[String, TermCacheEntry]` | Cached terms per class level (TTL 600s) |
-| `lessons_cache` | `Map[String, LessonCacheEntry]` | Cached lessons per `subject_id\|term_id` key (TTL 600s) |
-| `edge_cache` | `Map[String, EdgeCacheEntry]` | Cached `has_subject` edge record IDs — pre-populated during init, enables trivial indexed lesson queries |
-| `assignments` | `Map[String, AssignmentConfig]` | Active and past assignment configs |
-| `submissions` | `Map[String, Submission]` | Student's submitted answers |
-| `grades` | `Map[String, GradeRecord]` | Grades and feedback received |
+| Field | MoonBit Type | Purpose | Strategy |
+| :--- | :--- | :--- | :--- |
+| *(removed)* | — | `profile` → `user_profile` table | DB |
+| `subject_cache` | `SubjectCache?` | Cached subject list (TTL 600s) | TTL cache (Rule 4B) |
+| `terms_cache` | `Map[String, TermCacheEntry]` | Cached terms per class level (TTL 600s) | TTL cache (Rule 4B) |
+| `lessons_cache` | `Map[String, LessonCacheEntry]` | Cached lessons per key (TTL 600s) | TTL cache (Rule 4B) |
+| `edge_cache` | `Map[String, EdgeCacheEntry]` | Cached `has_subject` edge IDs | Pre-populated on init |
+| `lesson_cache` | `Map[String, LessonContentCache]` | Cached full lesson content (TTL 600s) | TTL cache (Rule 4B) |
 
 **Teacher Agent struct fields:**
 
-| Field | MoonBit Type | Purpose |
-| :--- | :--- | :--- |
-| `my_classes` | `Map[String, ClassInfo]` | Classes and subjects the teacher is assigned to |
-| `rosters` | `Map[String, String]` | Students in each of the teacher's classes |
-| `assignments` | `Map[String, TeacherAssignment]` | Assignment definitions created by the teacher |
-| `submission_inbox` | `Map[String, InboxEntry]` | Projection of student submissions for grading |
-| `grading` | `Map[String, GradeRecord]` | Grading records pushed back to students |
+| Field | MoonBit Type | Purpose | Strategy |
+| :--- | :--- | :--- | :--- |
+| `class_groups` | `Map[String, TeacherClassGroup]` | Grouped class-subject cache | Push invalidation (Rule 4A) — cleared via `invalidate_cache()` RPC, re-reads from DB |
+| *(not yet moved)* | — | `rosters`, `assignments`, `submission_inbox`, `grading` | Still in agent state (future DB migration) |
 
 ### Agent Memory Cache
 
@@ -373,6 +399,77 @@ Agent forking is efficient because Golem forks from the latest snapshot — it d
 
 Subject lists, term lists, lesson content, and edge record IDs are cached in each agent's in-memory maps with a configurable TTL (default: 600 seconds). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB. No background refresh — the edge cache is pre-populated during initialization, so lesson queries never need graph traversal after init.
 
+## Architecture Principles
+
+### Rule 1: Two Layers, Clear Separation
+
+**SurrealDB owns facts. Agents own work in progress.**
+
+| Store in SurrealDB | Store in Agent Durable State |
+|---|---|
+| Any data a human admin would care about | In-progress job state (step N of M) |
+| Anything another agent needs to query | Current draft not yet committed |
+| Completed operation outputs | Active session context |
+| User profiles, assignments, enrollments | Retry counters, backoff state |
+| Grades, lessons, curriculum structure | In-progress quiz answers |
+
+**The test:** If this agent was deleted and recreated, would data be lost that the school cares about?
+- Yes → it belongs in SurrealDB
+- No → it can live in agent state
+
+### Rule 2: Group DB Write + Agent Notification as an Atomic Operation
+
+Use `with_atomic_operation` to wrap the DB write and the fan-out notification together.
+This ensures that if the agent crashes between the two, both are replayed together on recovery.
+
+### Rule 3: Every Agent Initialises from SurrealDB
+
+Every agent must have a `reconcile()`/`init()` function that rebuilds its state from SurrealDB.
+Agent recreation is never a crisis because entity data was never owned by the agent.
+
+### Rule 4: Three Cache Strategies — Choose Per Data Type
+
+Every cached field must have an explicit strategy:
+- **Strategy A: Push Invalidation (Strong Consistency)** — Writer sends targeted RPC to affected agents after the DB write. Use when staleness is unacceptable.
+- **Strategy B: TTL (Eventual Consistency)** — Agent re-queries after a time interval. Use when data changes rarely.
+- **Strategy C: No Cache (Always Fresh)** — Query SurrealDB on every access. Use when data must be maximally fresh.
+
+| Data Type | Strategy | Reason |
+|---|---|---|
+| Teacher assignment for a class | Push (A) | Admin action, immediate consistency |
+| Student class assignment | Push (A) | Admin action, affects student immediately |
+| Subject/Term/Lesson metadata | TTL (B) | Changes once per term |
+| Lesson content | TTL (B) | Large, occasional access |
+
+### Rule 5: Fan-Out via Parallel Durable RPC
+
+When a change affects multiple agents, query SurrealDB for affected IDs, construct worker IDs
+deterministically, fire parallel fire-and-forget calls. Discard the list after. Never store it.
+
+### Rule 6: Deterministic Worker IDs — No Registries
+
+Worker IDs are always constructed from entity IDs. Never store lists of agent IDs in other agents.
+Never use Golem's worker enumeration API in application logic.
+
+### Rule 7: RPC for Work, DB for Data
+
+Use agent-to-agent RPC to request computation or send notifications.
+Use SurrealDB directly to read entity data another agent wrote.
+
+### Rule 8: Identity (Authentik) + Profile (SurrealDB)
+
+Authentik owns authentication only. SurrealDB owns domain metadata.
+The bridge is the `sub` claim from the JWT token.
+
+### Rule 9: Soft Deletes Everywhere
+
+Never hard-delete records. Set `deleted_at`. All queries filter `deleted_at IS NONE`.
+
+### Rule 10: None is Valid State
+
+After a deletion and cache invalidation, the next cache miss returns `None` from SurrealDB.
+Design all data access to handle `None` gracefully — it means "does not currently exist."
+
 ## Invariants
 
 These rules must never be violated by any code change, refactor, or new feature.
@@ -381,15 +478,19 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 2. **No durable User Agent is created without an explicit admin initialization.** The Ephemeral Gateway Agent must always check `AdminAgent.is_user_initialized(user_id)` before forwarding a request to a User Agent. Implicit agent creation via Golem's default behaviour is blocked by the gatekeeper.
 
-3. **The Admin Agent is the single source of truth for user initialization status and class-subject-teacher relationships.** No other agent may independently decide that a user is initialized or that a teacher owns a subject. All such state flows from the Admin Agent via RPC pushes. Authentik activation/deactivation is handled separately by SvelteKit API routes and does not affect Golem state.
+3. **SurrealDB is the single source of truth for entity data.** User profiles, teacher assignments, and class rosters are stored in `user_profile` and `teacher_assignment` tables. Agent durable memory holds only ephemeral cache and in-progress work.
 
-4. **Every durable agent initialises its state fields on first invocation.** State is stored in agent struct fields and persists via Golem's durable execution op‑log. New fields are added with safe defaults; no schema migration script is needed.
+4. **Every durable agent writes its own profile to SurrealDB on initialization.** The Admin Agent fires RPC to create the User Agent; the User Agent writes its own `user_profile` record. The Admin Agent never writes profiles directly.
 
 5. **Assignment deadlines are enforced authoritatively by the Teacher Agent.** The Student Agent performs a local check for immediate user feedback, but the Teacher Agent's timestamp comparison on receipt is the final word. The Teacher Agent's clock is the authority.
 
 6. **Student-to-Teacher submission RPCs are sent directly, not routed through the Admin Agent or a central queue.** The Student Agent discovers the `teacher_id` via `AdminAgent.getTeacherFor(student_id, subject_id)` and caches it, then communicates directly with the Teacher Agent for all assignment operations.
 
-7. **All agent-to-agent RPCs that modify state must be idempotent or use exactly-once semantics.** Golem's RPC provides exactly-once delivery, but method implementations should be safe to retry (e.g., `addOrUpdateAssignment` uses upsert semantics, not blind insert).
+7. **All agent-to-agent RPCs that modify state must be idempotent or use exactly-once semantics.** Golem's RPC provides exactly-once delivery, but method implementations should be safe to retry (e.g., upsert semantics, not blind insert).
+
+8. **DB writes inside `with_atomic_operation` must be idempotent.** Because the block may replay on crash recovery, use upsert semantics (`ON DUPLICATE KEY UPDATE`, `UPDATE ... SET deleted_at`, etc.) — never plain inserts without duplicate checks.
+
+9. **All records use soft deletes.** Every entity table has a `deleted_at` field. All application queries filter `WHERE deleted_at IS NONE`.
 
 ## Communication Diagram
 
@@ -443,12 +544,13 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 | Pattern | Implementation |
 | :--- | :--- |
-| **Receptionist (Registry)** | Admin Agent holds all user initialization records, teacher-class-subject assignments, and class rosters. Agents discover each other by querying the Admin Agent via RPC. |
-| **Gatekeeper** | Ephemeral Gateway Agent prevents implicit user agent creation and blocks deactivated/suspended users before any request reaches a User Agent. |
+| **DB-Backed Facts** | User profiles, teacher assignments, and class rosters live in SurrealDB tables (`user_profile`, `teacher_assignment`). Agents read from DB directly; writes go through the orchestrating agent. |
+| **Cache with Explicit Strategy** | Every cached field uses one of three strategies: Push Invalidation (Rule 4A), TTL (Rule 4B), or No Cache (Rule 4C). Strategy is declared per data type. |
+| **Deterministic Worker IDs** | Worker IDs are computed from entity IDs (`"teacher-{auth_id}"`, `"student-{auth_id}"`). No agent holds a registry of other agents. |
+| **Gatekeeper** | Ephemeral Gateway Agent prevents implicit user agent creation and blocks requests before they reach a User Agent. Init check queries `user_profile` table via AdminAgent RPC. |
 | **Direct Actor Communication** | After discovery via the Admin Agent, Student Agents communicate directly with Teacher Agents for submissions and grading. |
-| **Projection (CQRS-lite)** | The Teacher Agent maintains a local inbox of student submissions, populated by direct RPC pushes from Student Agents. The Student Agent remains the owner of the submission; the Teacher Agent holds a read-only projection for grading. |
 | **Fire-and-Forget with Promises** | Long-running admin tasks (future) use fire-and-forget RPCs to ephemeral forked agents with a Promise handle for polling results. |
-| **Simple TTL Caching** | Agents cache subject lists, term lists, lesson metadata, and edge record IDs in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
+| **Simple TTL Caching** | Subject lists, term lists, lesson metadata, and edge record IDs are cached in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
 | **Dot-Traversal Queries** | SurrealQL uses dot-traversal (`class_subject.in.name = $class_level`) instead of nested `IN (SELECT ...)` subqueries. This lets the query planner leverage the `idx_cl_name` index on `class_levels(name)` for O(1) lookup. Applied in all subject and lesson queries. |
 | **Edge ID Pre-Population** | During student initialization, a single query returns both subject metadata and the `has_subject` edge record ID. The edge ID is cached per student (`edge_cache: Map[String, EdgeCacheEntry]`), enabling lesson queries to use the trivial indexed path `WHERE class_subject = $hs_id AND term = $term_id` — never the dot-traversal path after init. |
-| **Manual Snapshot-Based Updates** | Golem agent updates for breaking state changes use `save-snapshot`/`load-snapshot` with state rebuilt from snapshot data on first load of the new version. |
+| **Soft Deletes** | Every entity table has a `deleted_at` field. All queries filter `WHERE deleted_at IS NONE`. Hard deletes are never used. |

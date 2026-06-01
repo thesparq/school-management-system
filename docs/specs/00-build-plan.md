@@ -85,34 +85,35 @@
 *What it builds:* Frontend lesson page at `/lms/[subject]/[term]/[lesson]`. Renders content sections, key points, objectives, and assignment section (if any). Side navigation panel (hover to reveal section headings, click to scroll). Breadcrumb updated.  
 *Dependencies:* Unit 18 (lesson data available), Unit 17 (browsing flow).
 
-**20. Teacher Agent – Initialization & Dashboard**  
-*What it builds:* Teacher Agent with `initialize(teacherId)` – queries Admin Agent for assigned classes/subjects (stored during teacher activation) and stores in its durable state. Exposes `getMyClasses()`. Teacher dashboard: after login, teacher sees their classes, clicks into a class → subjects → terms → lessons. Reuses existing lesson list components; lesson detail view (next unit) will show all fields.  
-*Dependencies:* Unit 8 (activation sets teacher assignments), Unit 16 (lesson list components), Unit 17 (need full lesson view – see Unit 21).
+**20. Teacher Agent – Initialization & Dashboard (DB-Backed Architecture)**  
+*What it builds:* Architecture Rules 1-10 implementation (see `docs/architecture.md`). SurrealDB-backed `user_profile` and `teacher_assignment` tables replace agent durable state for entity data. Admin Agent refactored: `initialized_users`/`teacher_assignments` maps removed, all reads/writes go to DB tables. Teacher Agent `trigger_initialize` reads from `teacher_assignment` table directly (not AdminAgent RPC). `class_groups` becomes a Push-Invalidation cache (Rule 4A). Admin Agent uses `with_atomic_operation` for atomic DB-write + fan-out (Rule 2). Gateway endpoints for teacher subjects with ID-only payloads. Teacher dashboard with "My Classes" card grid, admin assignment UI with search+badge pattern filtering already-assigned pairs. 7 phases: Schema migration → SurrealDB client retry wrapper → AdminAgent → TeacherAgent → StudentAgent profile → GatewayAgent → Frontend (filtered dropdown, init guard, ID-only save).  
+*Branch:* `feat/20-teacher-db-backed-state`  
+*Dependencies:* Unit 19 (lesson content page), Unit 9 (SurrealDB connection).
 
 **21. Teacher Agent – Term & Lesson Toggle (with Normalised Term Table)**  
 
-*What it builds:* Teacher Agent methods `toggleTermActive(subjectId, termId, active)` and `toggleLessonActive(lessonId, active)`. These update the `active` flag on the `terms` or `lessons` table in SurrealDB and fire‑and‑forget push status changes to all Student Agents in the class. Student Agent method `updateLessonStatus(lessonId, active)` updates local cache. Teacher UI shows toggle switches that work end‑to‑end.  
-*Dependencies:* Unit 20 (Teacher Agent, roster), Unit 9 (normalised terms with active flag).
+*What it builds:* Teacher Agent methods `toggleTermActive(subjectId, termId, active)` and `toggleLessonActive(lessonId, active)`. These update the `active` flag on the `terms` or `lessons` table in SurrealDB and fire‑and‑forget push status changes to all Student Agents in the class (discovering students via `user_profile` table query). Student Agent method `updateLessonStatus(lessonId, active)` updates local cache. Teacher UI shows toggle switches that work end‑to‑end.  
+*Dependencies:* Unit 20 (Teacher Agent, class_groups cache), Unit 9 (normalised terms with active flag).
 
 **22. Teacher Assignment Creation**  
-*What it builds:* Teacher Agent method `configureAssignment(lessonId, selectedQuestionIds, deadline)`. Stores assignment definition in its durable state, then pushes to all students via `StudentAgent.addOrUpdateAssignment`. Teacher’s lesson detail page (built here) shows **all** lesson fields (full record) plus checkboxes for questions, deadline picker, and “Create Assignment” button.  
-*Dependencies:* Unit 20 (Teacher Agent, roster), Unit 17 (Student Agent can receive assignment config).
+*What it builds:* Teacher Agent method `configureAssignment(lessonId, selectedQuestionIds, deadline)`. Assignment definitions stored in a new SurrealDB table (not agent durable state — Rule 1). Pushes to students via `StudentAgent.addOrUpdateAssignment`. Teacher's lesson detail page shows **all** lesson fields plus checkboxes for questions, deadline picker, and "Create Assignment" button.  
+*Dependencies:* Unit 20 (Teacher Agent, class_groups cache), Unit 17 (Student Agent can receive assignment config).
 
 **23. Student Assignment Display**  
-*What it builds:* Student Agent serves the active assignment's questions when loading a lesson. Frontend lesson page now shows an "Assignment" section with MCQ radio buttons, theoretical text areas, and deadline countdown. No submission yet.  
-*Dependencies:* Unit 22 (assignment config exists in Student Agent), Unit 19 (lesson page).
+*What it builds:* Student Agent serves the active assignment's questions when loading a lesson (queried from DB-backed assignment table). Frontend lesson page now shows an "Assignment" section with MCQ radio buttons, theoretical text areas, and deadline countdown. No submission yet.  
+*Dependencies:* Unit 22 (assignment config in DB), Unit 19 (lesson page).
 
 **24. Student Assignment Submission**  
-*What it builds:* Student Agent method `submitAssignment(assignmentId, answers)`. Local deadline check, teacher discovery via Admin Agent, direct RPC to `TeacherAgent.receiveSubmission`. Teacher Agent inbox stores submission. Frontend: “Submit” button with confirmation.  
-*Dependencies:* Unit 22 (assignment visible), Unit 8 (Admin Agent receptionist).
+*What it builds:* Student Agent method `submitAssignment(assignmentId, answers)`. Local deadline check, teacher discovery via `user_profile`/`teacher_assignment` DB tables (not AdminAgent RPC — Rule 7), direct RPC to `TeacherAgent.receiveSubmission`. Teacher Agent inbox stores submission. Frontend: "Submit" button with confirmation.  
+*Dependencies:* Unit 22 (assignment visible), Unit 20 (DB-backed teacher_assignment table).
 
 **25. Teacher Grading**  
-*What it builds:* Teacher Agent inbox view, grading method `gradeSubmission` that stores grade and pushes to `StudentAgent.receiveGrade`. Student Agent stores grade and displays it on the assignment. Frontend: grading form in teacher's assignment page; grade view in student's lesson.  
+*What it builds:* Teacher Agent inbox view, grading method `gradeSubmission` that writes grade to a DB-backed grades table and pushes to `StudentAgent.receiveGrade`. Student Agent stores grade (cache) and displays it on the assignment. Frontend: grading form in teacher's assignment page; grade view in student's lesson.  
 *Dependencies:* Unit 24 (submissions exist), Unit 22 (assignment exists).
 
 **26. Admin Class & Teacher Management**  
-*What it builds:* Admin portal UI to assign teachers to classes/subjects (updates Admin Agent relationships and pushes to agents) and to move students between classes.  
-*Dependencies:* Unit 20 (Teacher Agent), Unit 10 (Student Agent), Unit 8 (admin portal).
+*What it builds:* Admin portal UI to assign teachers to classes/subjects (writes to `teacher_assignment` table, invalidates TeacherAgent caches) and to move students between classes (updates `user_profile.class_level`).  
+*Dependencies:* Unit 20 (DB-backed architecture), Unit 10 (Student Agent), Unit 8 (admin portal).
 
 **27. Polish – Loading, Error, Empty States, Stale Data Indicators & Dark Mode**  
 *What it builds:* Skeleton loaders and empty states on all data‑driven pages. Error boundaries with retry buttons. **Stale data indicators on every page that displays cached content** (lesson lists, lesson content, assignment views) with manual refresh buttons. Dark mode toggle in the navbar using `mode‑watcher`; all components respond to `dark:` variant. Responsive sidebar collapse on small screens.  

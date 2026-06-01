@@ -502,7 +502,7 @@ pub fn GatewayAgent::list_class_subjects(
 
 ///|
 /// Returns stored assignments for a teacher (admin only).
-/// Reads from AdminAgent.teacher_assignments durable state.
+/// Reads from teacher_assignment table via AdminAgent.
 #derive.endpoint(get="/admin/teacher/subjects-read?user_id={admin_user_id}&target_teacher_id={target_teacher_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn GatewayAgent::get_teacher_subjects_admin(
@@ -556,7 +556,7 @@ pub fn GatewayAgent::set_teacher_subjects_admin(
             }
             let class_level_name = match obj.get("class_level_name") {
               Some(String(s)) => s
-              _ => continue
+              _ => ""
             }
             let subject_id = match obj.get("subject_id") {
               Some(String(s)) => s
@@ -564,7 +564,7 @@ pub fn GatewayAgent::set_teacher_subjects_admin(
             }
             let subject_name = match obj.get("subject_name") {
               Some(String(s)) => s
-              _ => continue
+              _ => ""
             }
             let subject_code = match obj.get("subject_code") {
               Some(String(s)) => Some(s)

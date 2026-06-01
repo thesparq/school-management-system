@@ -1414,6 +1414,49 @@ pub fn TeacherAgentClient::schedule_cancelable_trigger_initialize(
 }
 
 ///|
+pub fn TeacherAgentClient::invalidate_cache(
+  self : TeacherAgentClient,
+) -> String raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn TeacherAgentClient::trigger_invalidate_cache(
+  self : TeacherAgentClient,
+) -> Unit {
+  self.client.invoke("invalidate_cache", @rpcTypes.DataValue::Tuple([]))
+}
+
+///|
+pub fn TeacherAgentClient::schedule_invalidate_cache(
+  self : TeacherAgentClient,
+  scheduled_at : @wallClock.Datetime,
+) -> Unit {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([]),
+  )
+}
+
+///|
+pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(
+  self : TeacherAgentClient,
+  scheduled_at : @wallClock.Datetime,
+) -> @agentHost.CancellationToken {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([]),
+  )
+}
+
+///|
 pub fn TeacherAgentClient::get_my_classes(
   self : TeacherAgentClient,
 ) -> Array[TeacherClassGroup] raise @common.AgentError {
