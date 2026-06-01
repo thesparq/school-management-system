@@ -2,40 +2,39 @@
 
 Update this file after every meaningful implementation change.
 
-## Most Recent Fix — User Init Persists to SurrealDB (Session 2026-06-01)
+## Completed
 
-**Root cause:** `initialize_user()` used `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` which executes on Surreal Cloud (v2.6.5) but returns a response format where `result` is not an array — `_parse_surreal_result` fails with "result not an array". Additionally, `StudentAgent.initialize()` redundantly wrote to `user_profile` instead of relying on AdminAgent's write.
+- **Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture)**
+  Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`).
+  
+  **Phases 1-6 implemented:**
+  - Schema (`user_profile`, `teacher_assignment` tables) + `surreal_query_retry()` wrapper
+  - Admin Agent refactor: `initialized_users`/`teacher_assignments` maps removed, all entity reads/writes to SurrealDB
+  - Teacher Agent refactor: `trigger_initialize` reads `teacher_assignment` table directly; `class_groups` is push-invalidation cache
+  - Student Agent profile → `user_profile` table: `profile` field removed, `get_class_level()` queries DB
+  - Gateway Agent endpoints: teacher classes/terms/lessons, admin class-subjects, admin get/set teacher subjects
+  - Frontend: teacher dashboard "My Classes" card grid, admin assignment UI (filtered combobox + badge pattern in Manage panel), `/my-classes/` routes, 6 proxy routes
+  
+  **Phase 7 (deploy, migrate DB, verify) deferred.** The GatewayAgent refactor (next unit) will supersede the HTTP endpoint topology. Verifying teacher-specific endpoints now would be rework.
+  
+  **Init persistence fix (this session):**
+  - Root cause: `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` returns non-array `result` on Surreal Cloud (v2.6.5), breaking `_parse_surreal_result`
+  - Fix: simple `INSERT INTO ... VALUES ...` + duplicate-key error check (treat as "already initialized")
+  - Removed redundant `user_profile` write from `StudentAgent.initialize()` — AdminAgent is single authority
+  - Fixed RPC method name typo: `trigger_initialize` → `initialize`
+  - **Verified:** `get_all_initialized` returns 3 persisted users; StudentAgent created via RPC; idempotent re-initialization returns `"OK"`
+  
+  **Known deviations from spec:**
+  - `with_atomic_operation` not used (Golem durability + retry is sufficient)
+  - `INSERT` + error check instead of `ON DUPLICATE KEY UPDATE` (SurrealDB 2.x compat)
+  - StudentAgent does NOT write `user_profile` during `initialize()` — AdminAgent is the sole authority
+  - Raw `surreal_query` used for init INSERT (not `surreal_query_retry`) since ON DUPLICATE KEY UPDATE returns non-array result
 
-**Key findings:**
-- Surreal Cloud runs **surrealdb-2.6.5** (confirmed via response header `surreal-version: surrealdb-2.6.5+20260324.8afd2ba`)
-- `CREATE ... CONTENT { ... } ON DUPLICATE KEY UPDATE` IS invalid syntax in 2.x (parse error)
-- `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` executes but response `result` field is not an array
-- Old WASM (revision 0) used in-memory `initialized_users` map — never hit SurrealDB, could not persist across restarts
+## Up Next
 
-**Fix applied:**
-1. Changed `admin_agent.mbt` SQL: removed `ON DUPLICATE KEY UPDATE`, use simple `INSERT INTO ... VALUES ...` + check error for duplicate key (treat as "already initialized")
-2. Changed from `surreal_query_retry` (which expects array result) to raw `surreal_query` (returns body string, no parse expectation)
-3. Removed redundant `user_profile` write from `StudentAgent.initialize()` — AdminAgent is single authority
-4. Fixed StudentAgent RPC method name: `trigger_initialize` → `initialize` (typo in AdminAgent)
+- **GatewayAgent removal refactor.** Eliminate GatewayAgent entirely — move `#derive.endpoint` annotations and auth to the respective agents (StudentAgent, TeacherAgent, AdminAgent). Each agent becomes its own HTTP endpoint. SvelteKit proxy routes target agent-specific endpoints. Frontend `golem.ts` updated or replaced. This will simplify the architecture significantly: fewer RPC hops, one less WASM artifact to deploy, clearer data flow.
 
-**Verification:**
-- `golem agent invoke GatewayAgent() initialize_admin` returns `"OK"`
-- `golem agent invoke AdminAgent() get_all_initialized` returns `[("st1", "student"), ("student-test-1", "student"), ("student-with-class", "student")]`
-- StudentAgent instance created for `student-with-class` (idempotent, `Idle`, revision 3)
-- StudentAgent `student_subjects` returns `Ok([])` (empty — no subjects assigned, but no errors)
-
-## In Progress
-
-- **Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture)** — All 7 phases complete.
-
-   **Phases:**
-   1. Schema + `surreal_query_retry()` wrapper — **Done**
-   2. AdminAgent refactor (remove maps, DB queries) — **Done**
-   3. TeacherAgent refactor (`trigger_initialize` from DB) — **Done**
-   4. StudentAgent profile → `user_profile` table — **Done**
-   5. GatewayAgent endpoints (ID-only payloads) — **Done**
-   6. Frontend (filtered combobox, init guard, ID-only save) — **Done**
-   7. Build, migrate DB, deploy, verify — **Done**
+  Design spec to be written as the first task of the next session.
 
 ## Completed
 

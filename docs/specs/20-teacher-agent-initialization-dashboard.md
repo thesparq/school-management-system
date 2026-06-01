@@ -1,5 +1,28 @@
 # Unit 20 — Teacher Agent: Initialization & Dashboard
 
+## Current Status — Closed
+
+**Code written, compiled, committed. Phase 7 (deploy/verify) deferred.**
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1. Schema + `surreal_query_retry()` wrapper | ✅ **Done** | `schema-v2.surql` (tables already exist in DB from HF-01), `surreal_client.mbt` retry wrapper |
+| 2. Admin Agent refactor — remove maps, DB queries | ✅ **Done** | `initialized_users`/`teacher_assignments` removed; all reads/writes go to SurrealDB |
+| 3. Teacher Agent refactor — `trigger_initialize` from DB | ✅ **Done** | Reads `teacher_assignment` directly; `class_groups` is push-invalidation cache |
+| 4. Student Agent profile → `user_profile` table | ✅ **Done** | `profile` field removed; `get_class_level()` queries DB; AdminAgent is single write authority |
+| 5. Gateway Agent endpoints (ID-only payloads) | ✅ **Done** | Teacher classes/terms/lessons, admin class-subjects, admin get/set teacher subjects |
+| 6. Frontend (filtered combobox, init guard, ID-only save) | ✅ **Done** | `UserTable.svelte` assignment UI, proxy routes, teacher dashboard sections |
+| 7. Build, deploy, verify | **⏭️ Deferred** | Superseded by GatewayAgent refactor (next unit). Verifying teacher-specific HTTP endpoints now would be rework. Init persistence **verified** — see progress-tracker. |
+
+**Deviations from original spec:**
+- `with_atomic_operation` not used for DB-write + fan-out (Golem durability + retry is sufficient)
+- `INSERT INTO user_profile ... VALUES ...` + error check instead of `ON DUPLICATE KEY UPDATE` (SurrealDB 2.x response format issue — see init fix)
+- `StudentAgent.initialize()` does NOT write `user_profile` — AdminAgent is single authority (spec said it would, but that was redundant)
+- `TeacherAgentClient::scoped` RPC uses `client.initialize(cl)` not `client.trigger_initialize(cl)` (typo in original code)
+- `surreal_query` raw body used for init INSERT (not `surreal_query_retry`) since ON DUPLICATE KEY UPDATE returns non-array result
+
+**Branch:** `feat/20-teacher-agent-init-dashboard`
+
 ## Goal
 
 Implement a durable Teacher Agent that stores assigned class-subject pairs as a cache (rebuilt from the `teacher_assignment` DB table), and a teacher dashboard at `/` showing "My Classes" cards. Teachers click a class → subjects → terms → lessons. Add an admin UI in the teacher users page to assign class-subject pairs using a search+badge pattern, persisting to the `teacher_assignment` SurrealDB table. Lesson detail view deferred to Unit 21.
