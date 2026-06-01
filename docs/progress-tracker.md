@@ -4,31 +4,25 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
-- **Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture)**
-  Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`).
+- **✅ Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture) — Complete**
+  Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`, `bbd06ca`). Init persistence to SurrealDB verified end-to-end. No known regressions.
   
-  **Phases 1-6 implemented:**
+  **What was built:**
   - Schema (`user_profile`, `teacher_assignment` tables) + `surreal_query_retry()` wrapper
   - Admin Agent refactor: `initialized_users`/`teacher_assignments` maps removed, all entity reads/writes to SurrealDB
   - Teacher Agent refactor: `trigger_initialize` reads `teacher_assignment` table directly; `class_groups` is push-invalidation cache
   - Student Agent profile → `user_profile` table: `profile` field removed, `get_class_level()` queries DB
   - Gateway Agent endpoints: teacher classes/terms/lessons, admin class-subjects, admin get/set teacher subjects
   - Frontend: teacher dashboard "My Classes" card grid, admin assignment UI (filtered combobox + badge pattern in Manage panel), `/my-classes/` routes, 6 proxy routes
-  
-  **Phase 7 (deploy, migrate DB, verify) deferred.** The GatewayAgent refactor (next unit) will supersede the HTTP endpoint topology. Verifying teacher-specific endpoints now would be rework.
-  
-  **Init persistence fix (this session):**
-  - Root cause: `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` returns non-array `result` on Surreal Cloud (v2.6.5), breaking `_parse_surreal_result`
-  - Fix: simple `INSERT INTO ... VALUES ...` + duplicate-key error check (treat as "already initialized")
-  - Removed redundant `user_profile` write from `StudentAgent.initialize()` — AdminAgent is single authority
-  - Fixed RPC method name typo: `trigger_initialize` → `initialize`
-  - **Verified:** `get_all_initialized` returns 3 persisted users; StudentAgent created via RPC; idempotent re-initialization returns `"OK"`
+  - **Init persistence fix:** Surreal Cloud (v2.6.5) returns non-array `result` for `INSERT ... ON DUPLICATE KEY UPDATE` — fixed with simple `INSERT` + duplicate-key error check. Removed redundant `user_profile` write from `StudentAgent.initialize()`. Fixed RPC method name typo: `trigger_initialize` → `initialize`. Verified: `get_all_initialized` returns 3 persisted users; StudentAgent created via RPC; idempotent re-initialization returns `"OK"`.
   
   **Known deviations from spec:**
   - `with_atomic_operation` not used (Golem durability + retry is sufficient)
   - `INSERT` + error check instead of `ON DUPLICATE KEY UPDATE` (SurrealDB 2.x compat)
   - StudentAgent does NOT write `user_profile` during `initialize()` — AdminAgent is the sole authority
   - Raw `surreal_query` used for init INSERT (not `surreal_query_retry`) since ON DUPLICATE KEY UPDATE returns non-array result
+  
+  **Note:** Much of this code will be rewritten in the next unit (GatewayAgent removal refactor). The DB-backed architecture and Agent Memory Cache patterns are the lasting contributions.
 
 ## Up Next
 
