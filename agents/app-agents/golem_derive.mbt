@@ -28,11 +28,11 @@ impl @schema.HasElementSchema for TeacherSubjectPair with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherSubjectPair with from_extractor(e) {
-  let class_level_id : String = @schema.extract_field(e, 0)
-  let class_level_name : String = @schema.extract_field(e, 1)
-  let subject_id : String = @schema.extract_field(e, 2)
-  let subject_name : String = @schema.extract_field(e, 3)
-  let subject_code : String? = @schema.extract_field(e, 4)
+  let class_level_id :String = @schema.extract_field(e, 0)
+  let class_level_name :String = @schema.extract_field(e, 1)
+  let subject_id :String = @schema.extract_field(e, 2)
+  let subject_name :String = @schema.extract_field(e, 3)
+  let subject_code :String? = @schema.extract_field(e, 4)
   { class_level_id, class_level_name, subject_id, subject_name, subject_code }
 }
 
@@ -74,9 +74,9 @@ impl @schema.HasElementSchema for TeacherClassGroup with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherClassGroup with from_extractor(e) {
-  let class_level_id : String = @schema.extract_field(e, 0)
-  let class_level_name : String = @schema.extract_field(e, 1)
-  let subjects : Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
+  let class_level_id :String = @schema.extract_field(e, 0)
+  let class_level_name :String = @schema.extract_field(e, 1)
+  let subjects :Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
   { class_level_id, class_level_name, subjects }
 }
 
@@ -118,10 +118,10 @@ impl @schema.HasElementSchema for UserInitialization with element_schema() {
 
 ///|
 impl @schema.FromExtractor for UserInitialization with from_extractor(e) {
-  let user_id : String = @schema.extract_field(e, 0)
-  let role : String = @schema.extract_field(e, 1)
-  let class_level : String? = @schema.extract_field(e, 2)
-  let initialized_at : UInt64 = @schema.extract_field(e, 3)
+  let user_id :String = @schema.extract_field(e, 0)
+  let role :String = @schema.extract_field(e, 1)
+  let class_level :String? = @schema.extract_field(e, 2)
+  let initialized_at :UInt64 = @schema.extract_field(e, 3)
   { user_id, role, class_level, initialized_at }
 }
 
@@ -160,9 +160,9 @@ impl @schema.HasElementSchema for SubjectInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SubjectInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let code : String? = @schema.extract_field(e, 2)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let code :String? = @schema.extract_field(e, 2)
   { id, name, code }
 }
 
@@ -192,7 +192,7 @@ impl @schema.HasElementSchema for StudentProfile with element_schema() {
 
 ///|
 impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
-  let class_level : String = @schema.extract_field(e, 0)
+  let class_level :String = @schema.extract_field(e, 0)
   { class_level, }
 }
 
@@ -230,10 +230,10 @@ impl @schema.HasElementSchema for TermInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let sort_order : Int = @schema.extract_field(e, 2)
-  let active : Bool = @schema.extract_field(e, 3)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let sort_order :Int = @schema.extract_field(e, 2)
+  let active :Bool = @schema.extract_field(e, 3)
   { id, name, sort_order, active }
 }
 
@@ -280,11 +280,11 @@ impl @schema.HasElementSchema for LessonInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let topic_title : String? = @schema.extract_field(e, 1)
-  let week : Int? = @schema.extract_field(e, 2)
-  let subject_name : String? = @schema.extract_field(e, 3)
-  let term_name : String? = @schema.extract_field(e, 4)
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week :Int? = @schema.extract_field(e, 2)
+  let subject_name :String? = @schema.extract_field(e, 3)
+  let term_name :String? = @schema.extract_field(e, 4)
   { id, topic_title, week, subject_name, term_name }
 }
 
@@ -322,8 +322,8 @@ impl @schema.HasElementSchema for SubjectCache with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SubjectCache with from_extractor(e) {
-  let subjects : Array[SubjectInfo] = @schema.extract_field(e, 0)
-  let fetched_at : UInt64 = @schema.extract_field(e, 1)
+  let subjects :Array[SubjectInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
   { subjects, fetched_at }
 }
 
@@ -358,8 +358,8 @@ impl @schema.HasElementSchema for TermCacheEntry with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermCacheEntry with from_extractor(e) {
-  let data : Array[TermInfo] = @schema.extract_field(e, 0)
-  let fetched_at : UInt64 = @schema.extract_field(e, 1)
+  let data :Array[TermInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
   { data, fetched_at }
 }
 
@@ -394,8 +394,8 @@ impl @schema.HasElementSchema for LessonCacheEntry with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonCacheEntry with from_extractor(e) {
-  let data : Array[LessonInfo] = @schema.extract_field(e, 0)
-  let fetched_at : UInt64 = @schema.extract_field(e, 1)
+  let data :Array[LessonInfo] = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
   { data, fetched_at }
 }
 
@@ -428,8 +428,8 @@ impl @schema.HasElementSchema for EdgeCacheEntry with element_schema() {
 
 ///|
 impl @schema.FromExtractor for EdgeCacheEntry with from_extractor(e) {
-  let edge_id : String = @schema.extract_field(e, 0)
-  let fetched_at : UInt64 = @schema.extract_field(e, 1)
+  let edge_id :String = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
   { edge_id, fetched_at }
 }
 
@@ -486,14 +486,14 @@ impl @schema.HasElementSchema for LessonContent with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonContent with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let topic_title : String? = @schema.extract_field(e, 1)
-  let week : Int? = @schema.extract_field(e, 2)
-  let subject_name : String? = @schema.extract_field(e, 3)
-  let term_name : String? = @schema.extract_field(e, 4)
-  let objectives : String? = @schema.extract_field(e, 5)
-  let content_sections : String? = @schema.extract_field(e, 6)
-  let key_points : String? = @schema.extract_field(e, 7)
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week :Int? = @schema.extract_field(e, 2)
+  let subject_name :String? = @schema.extract_field(e, 3)
+  let term_name :String? = @schema.extract_field(e, 4)
+  let objectives :String? = @schema.extract_field(e, 5)
+  let content_sections :String? = @schema.extract_field(e, 6)
+  let key_points :String? = @schema.extract_field(e, 7)
   {
     id,
     topic_title,
@@ -543,8 +543,8 @@ impl @schema.HasElementSchema for LessonContentCache with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonContentCache with from_extractor(e) {
-  let data : LessonContent = @schema.extract_field(e, 0)
-  let fetched_at : UInt64 = @schema.extract_field(e, 1)
+  let data :LessonContent = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
   { data, fetched_at }
 }
 
@@ -563,7 +563,7 @@ impl @schema.ToElementValue for LessonContentCache with to_element_value(self) {
 
 ///|
 impl @config.ConfigField for GatewayConfig with collect_entries(path) {
-  let entries : Array[@common.AgentConfigDeclaration] = []
+  let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()
   fp0.push("auth_key")
   entries.append(
@@ -579,7 +579,7 @@ impl @config.ConfigField for GatewayConfig with collect_entries(path) {
 impl @config.ConfigField for GatewayConfig with load(path) {
   let fp0 = path.copy()
   fp0.push("auth_key")
-  let auth_key : @config.Secret[String] = @config.load_field(
+  let auth_key :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp0,
   )
@@ -588,7 +588,7 @@ impl @config.ConfigField for GatewayConfig with load(path) {
 
 ///|
 impl @config.ConfigField for SurrealConfig with collect_entries(path) {
-  let entries : Array[@common.AgentConfigDeclaration] = []
+  let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()
   fp0.push("host")
   entries.append(
@@ -636,33 +636,34 @@ impl @config.ConfigField for SurrealConfig with collect_entries(path) {
 impl @config.ConfigField for SurrealConfig with load(path) {
   let fp0 = path.copy()
   fp0.push("host")
-  let host : @config.Secret[String] = @config.load_field(
+  let host :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp0,
   )
   let fp1 = path.copy()
   fp1.push("ns")
-  let ns : @config.Secret[String] = @config.load_field(
+  let ns :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp1,
   )
   let fp2 = path.copy()
   fp2.push("database")
-  let database : @config.Secret[String] = @config.load_field(
+  let database :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp2,
   )
   let fp3 = path.copy()
   fp3.push("username")
-  let username : @config.Secret[String] = @config.load_field(
+  let username :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp3,
   )
   let fp4 = path.copy()
   fp4.push("password")
-  let password : @config.Secret[String] = @config.load_field(
+  let password :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp4,
   )
   { host, ns, database, username, password }
 }
+
