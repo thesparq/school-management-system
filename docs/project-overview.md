@@ -49,6 +49,7 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
    - Admin can activate/deactivate users in Authentik (login permission) via dedicated API routes.  
    - Admin can manage password resets and group membership directly via Authentik API.  
    - Admin can assign teachers to classes/subjects; Admin Agent updates relationships and pushes rosters to affected agents.  
+   - Admin can manage session terms (e.g., "2024 Summer Term") through a Configuration panel — scoping teacher assignments, assessments, fees, and results to an academic period. Only one session term can be active at a time.  
    - Content management (AI generation/regeneration) available later.
 
 ## Features Breakdown
@@ -74,14 +75,18 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Golem initialization creates durable agent; Authentik activation/deactivation controls login permission.
 - Reset passwords and manage group membership via Authentik API.
 - Manage teacher‑class‑subject assignments; updates rosters in real time.
+- Session term management: create and activate session terms (session + academic term pairs) via Configuration panel.
 - (Future) AI content generation/regeneration.
 
 ### General Features
 - Light mode (default) with professional blue‑amber palette; optional dark mode toggle.
 - Responsive layout: collapsible sidebar, breadcrumb navigation.
+- Sidebar: Navigation group (LMS, My Classes), Configuration group (Session Terms — admin only), Users group (role-based tabs).
 - All data access via agents; SvelteKit never touches databases directly.
 - JWT‑based authentication, no server‑side sessions.
 - Agent durable memory (unified `caches` map per agent) for cached data; SurrealDB for canonical entity data.
+- Toast notifications for transient operation feedback (success, info, warning, error) with progress bar and pause-on-hover.
+- StatusCard component for page-level empty, error, and info states.
 
 ## In Scope (MVP)
 
@@ -96,7 +101,9 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Teacher grading and feedback pushed to student.
 - Admin user initialization, activation, deactivation, password reset, group management.
 - Class‑subject‑teacher assignment management.
-- Basic UI with dashboard, sidebar, breadcrumbs, loading/empty/error states.
+- Session term management for scoping assignments to academic periods.
+- Toast notification system for transient operation feedback.
+- Basic UI with dashboard, sidebar, breadcrumbs, loading/empty/error states (StatusCard component).
 - Multiple assignments per lesson, active until deadline/closure.
 
 ## Out of Scope (MVP)

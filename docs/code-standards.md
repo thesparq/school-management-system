@@ -200,9 +200,12 @@ school-management/
     │   ├── hooks.server.ts    # Auth and token validation
     │   ├── routes/
     │   │   ├── +layout.svelte # Root layout (sidebar, nav, breadcrumbs)
-    │   │   ├── +page.svelte   # Root page (LMS subjects for students, dashboard for admins)
+    │   │   ├── +page.svelte   # Root page (LMS subjects for students, My Classes for teachers, dashboard for admins)
     │   │   ├── lms/           # LMS routes (subjects → terms → lessons)
-    │   │   ├── admin/         # Admin routes (user management)
+    │   │   ├── admin/         # Admin routes (user management, configuration)
+    │   │   │   ├── users/
+    │   │   │   └── configuration/
+    │   │   │       └── session-terms/
     │   │   └── api/           # Proxy routes to Golem gateway
     │   └── lib/
     │       ├── components/    # shadcn-svelte components
@@ -217,3 +220,28 @@ school-management/
 - `frontend/src/routes/`: Follow SvelteKit conventions. Group routes by role inside `(auth)/`. Server endpoints go in `+page.server.ts` or `+server.ts` files. Client-side components belong in the `lib/` folder.
 - `frontend/src/lib/components/`: Each shadcn-svelte component lives in its own file. Custom composition components go here as well. No business logic.
 - `static/`: Assets like fonts and images. No generated content.
+
+## UI Feedback Conventions
+
+Choose the right feedback channel based on context:
+
+| Channel | When | Component |
+|---------|------|-----------|
+| **Toast** | Transient operation feedback (create/edit/delete/activate success or failure) | `addToast(variant, title, desc)` |
+| **StatusCard** | Persistent page-level state (empty data, error loading, not initialized, warnings) | `<StatusCard variant="error" ...>` |
+| **Inline error** | Form validation errors close to the input | `<p class="text-error-500">{error}</p>` |
+
+### Toast Usage
+
+```typescript
+import { addToast } from '$lib/stores/toast';
+
+addToast('success', 'User created', 'John Doe (jdoe)');
+addToast('error', 'Save failed', err.message);
+addToast('warning', 'Stale data', 'Refresh to see latest changes.');
+addToast('info', 'User activated', 'jdoe is now active.');
+```
+
+Four variants: `success` (green), `info` (blue), `warning` (amber), `error` (red). Default duration: 5000ms. Progress bar pauses on hover. Auto-dismiss on expiry or manual close.
+
+**Do NOT use** `alert()`, `confirm()`, or raw `window.alert` in production code. Use toast for all operational feedback.
