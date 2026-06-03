@@ -613,6 +613,270 @@ pub fn AdminAgentClient::schedule_cancelable_get_active_session_term(
 }
 
 ///|
+pub fn AdminAgentClient::get_terms(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_terms(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_terms(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_terms(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::get_session_terms(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "get_session_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_session_terms(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "get_session_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_session_terms(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_session_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_session_terms(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_session_terms",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::create_session_term(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "create_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_session_term(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "create_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_session_term(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "create_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_session_term(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "create_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::activate_session_term(
+  self : AdminAgentClient,
+  incoming_key : String,
+  session_term_id : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "activate_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(session_term_id),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_activate_session_term(
+  self : AdminAgentClient,
+  incoming_key : String,
+  session_term_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "activate_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(session_term_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_activate_session_term(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  session_term_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "activate_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(session_term_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_activate_session_term(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  session_term_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "activate_session_term",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(session_term_id),
+      ]),
+    )
+}
+
+///|
 pub fn AdminAgentClient::invalidate_cache(
   self : AdminAgentClient,
   incoming_key : String,

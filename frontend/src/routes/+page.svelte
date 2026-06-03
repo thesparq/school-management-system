@@ -6,8 +6,30 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { addToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
+
+	let lastTeacherError = $state('');
+	let lastSubjectError = $state('');
+
+	$effect(() => {
+		if (data.teacherClassesError && data.teacherClassesError !== lastTeacherError) {
+			lastTeacherError = data.teacherClassesError;
+			addToast('error', 'Failed to load classes', data.teacherClassesError);
+		}
+	});
+
+	$effect(() => {
+		if (data.subjectsError && data.subjectsError !== lastSubjectError) {
+			lastSubjectError = data.subjectsError;
+			if (data.subjectsErrorCode === 'NOT_INITIALIZED') {
+				addToast('warning', 'Account not initialized', data.subjectsError);
+			} else {
+				addToast('error', 'Failed to load subjects', data.subjectsError);
+			}
+		}
+	});
 
 	let pingResult = $state<string | null>(null);
 	let pingError = $state<string | null>(null);

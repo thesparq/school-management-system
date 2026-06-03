@@ -7,6 +7,7 @@
 	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage, BreadcrumbLink, BreadcrumbSeparator } from '$lib/components/ui/breadcrumb';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
 	import { page, navigating } from '$app/stores';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -125,6 +126,21 @@
 
 			{#if data.user.roles.includes('admin')}
 				<SidebarGroup>
+					<SidebarGroupLabel>Configuration</SidebarGroupLabel>
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/session-terms')}>
+								{#snippet child({ props })}
+									<a href="/admin/configuration/session-terms" {...props}>Session Terms</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
+				</SidebarGroup>
+			{/if}
+
+			{#if data.user.roles.includes('admin')}
+				<SidebarGroup>
 					<SidebarGroupLabel>Users</SidebarGroupLabel>
 					<SidebarMenu>
 						<SidebarMenuItem>
@@ -221,3 +237,4 @@
 		</main>
 	</SidebarInset>
 </SidebarProvider>
+<ToastContainer />

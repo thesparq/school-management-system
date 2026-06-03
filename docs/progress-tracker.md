@@ -4,9 +4,12 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- None. All hotfixes complete. Next unit: either **HF-04 (Session Term Management)** or **Unit 21 (Teacher Assignment/Term Toggle)**.
+- None.
 
 ## Completed
+
+- **✅ HF-04: Session Term Management (Admin Configuration) — Complete**
+  Added "Configuration" sidebar group above "Users" with "Session Terms" management page. Backend: 4 new AdminAgent endpoints (`GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`) with cache invalidation on create/activate. Frontend: 4 proxy routes, page server + component (table with session/term/active/created columns, create dialog with term dropdown + active checkbox, activate button with confirmation). Toast notification system: global `addToast()` store (success/info/warning/error variants), progress bar timer with pause-on-hover, fade-in/fade-out animations. Terms fetch is non-blocking with degraded text-input fallback. All CRUD toasts integrated across UserTable + session terms page.
 
 - **✅ HF-03: User CRUD — Error Handling, Saga Pattern & Config Refactor — Complete**
   Full rewrite of user CRUD layer with structured `AppError` types (7 codes), saga-pattern compensation (create/edit/delete/activate-deactivate with rollback). Reactive cache redesign: unified `caches : Map[String, CacheItem]` per agent, no negative caching, `get_class_level()` reactive gatekeeper, parent-child invalidation via backbone keys. Schema updated: `class_level` → `record<class_levels>`, `teacher_assignment` → `record<has_subject>` + `session_term`, DEFAULT time::now() on 3 tables. Frontend: `golem.ts` rewritten (structured error parsing without string matching), `mapErrorCodeToHttpStatus`, `StatusCard` component (info/warning/error) used uniformly across all routes. Teacher dashboard + full class→subject→term→lesson browsing flow working end-to-end. Assign-modal search ordered by match quality. Proxy routes use proper HTTP status codes. Dead code removed: `invalidated` field from CacheItem, `ensure_initialized()` from both agents, edge cache. Group names unified to singular (`"student"`, `"teacher"`) across Authentik, backend, and frontend. Context files synced.

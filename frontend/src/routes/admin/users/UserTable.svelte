@@ -22,6 +22,7 @@
 		DialogDescription
 	} from '$lib/components/ui/dialog';
 	import { onMount } from 'svelte';
+	import { addToast } from '$lib/stores/toast';
 
 	interface ClassLevel {
 		name: string;
@@ -79,7 +80,6 @@
 	let hasUsers = $derived(users.length > 0);
 
 	let authStates = $state<Record<number, string>>({});
-	let actionErrors = $state<Record<number, string>>({});
 	let classLevels = $state<ClassLevel[]>([]);
 	let classLevelsLoading = $state(true);
 
@@ -240,8 +240,9 @@
 			const body = await res.json();
 			if (!res.ok || body.error) throw new Error(body.error?.message || 'Save failed');
 			classAssignDialogOpen = false;
+			addToast('success', 'Assignments saved', 'Teacher assignments have been updated.');
 		} catch (err) {
-			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Save failed' };
+			addToast('error', 'Save failed', err instanceof Error ? err.message : 'Save failed');
 		} finally {
 			teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'idle' };
 		}
@@ -351,8 +352,10 @@
 				userObj.email = editForm.email;
 			}
 			editDialogOpen = false;
+			addToast('success', 'User updated', editForm.name || editForm.username);
 		} catch (err) {
 			editError = err instanceof Error ? err.message : 'Save failed';
+			addToast('error', 'Edit failed', err instanceof Error ? err.message : 'Save failed');
 		} finally {
 			editLoading = false;
 		}
@@ -362,7 +365,6 @@
 		const userObj = getUser(pk);
 		if (!userObj) return;
 		authStates = { ...authStates, [pk]: 'loading' };
-		actionErrors = { ...actionErrors, [pk]: '' };
 		try {
 			const res = await fetch(`/api/admin/users/${pk}/activate-authentik`, {
 				method: 'POST',
@@ -373,8 +375,9 @@
 				throw new Error(body.error?.message || 'Activation failed');
 			}
 			userObj.is_active = true;
+			addToast('info', 'User activated', userObj.name || userObj.username);
 		} catch (err) {
-			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Activation failed' };
+			addToast('error', 'Activation failed', err instanceof Error ? err.message : 'Activation failed');
 		} finally {
 			authStates = { ...authStates, [pk]: 'idle' };
 		}
@@ -384,7 +387,6 @@
 		const userObj = getUser(pk);
 		if (!userObj) return;
 		authStates = { ...authStates, [pk]: 'loading' };
-		actionErrors = { ...actionErrors, [pk]: '' };
 		try {
 			const res = await fetch(`/api/admin/users/${pk}/deactivate-authentik`, {
 				method: 'POST',
@@ -395,8 +397,9 @@
 				throw new Error(body.error?.message || 'Deactivation failed');
 			}
 			userObj.is_active = false;
+			addToast('info', 'User deactivated', userObj.name || userObj.username);
 		} catch (err) {
-			actionErrors = { ...actionErrors, [pk]: err instanceof Error ? err.message : 'Deactivation failed' };
+			addToast('error', 'Deactivation failed', err instanceof Error ? err.message : 'Deactivation failed');
 		} finally {
 			authStates = { ...authStates, [pk]: 'idle' };
 		}
@@ -428,9 +431,11 @@
 			}
 			users = [...users, body.data];
 			showCreateDialog = false;
+			addToast('success', 'User created', `${createForm.name} (${createForm.username})`);
 			createForm = { username: '', name: '', email: '', password: '', isActive: true, showPassword: false, role: '', classLevel: '' };
 		} catch (err) {
 			createError = err instanceof Error ? err.message : 'Create failed';
+			addToast('error', 'Create failed', err instanceof Error ? err.message : 'Create failed');
 		} finally {
 			createLoading = false;
 		}
@@ -452,9 +457,11 @@
 				throw new Error(body.error?.message || 'Delete failed');
 			}
 			users = users.filter(u => u.pk !== pk);
+			addToast('success', 'User deleted', deleteTarget.name);
 			deleteTarget = null;
 		} catch (err) {
 			deleteError = err instanceof Error ? err.message : 'Delete failed';
+			addToast('error', 'Delete failed', err instanceof Error ? err.message : 'Delete failed');
 		} finally {
 			deleteLoading = false;
 		}
