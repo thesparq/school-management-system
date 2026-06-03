@@ -1,4 +1,4 @@
-import { deactivateUser } from '$lib/server/authentik';
+import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
@@ -22,16 +22,17 @@ export const POST: RequestHandler = async (event) => {
 			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
-	try {
-		await deactivateUser(targetPk);
-		return new Response(
-			JSON.stringify({ data: { deactivated: true } }),
-			{ status: 200, headers: { 'content-type': 'application/json' } }
-		);
-	} catch (err) {
-		return new Response(
-			JSON.stringify({ error: { code: 'AUTHENTIK_ERROR', message: err instanceof Error ? err.message : 'Failed to deactivate user' } }),
-			{ status: 502, headers: { 'content-type': 'application/json' } }
-		);
+	const proxy = adminProxy(user);
+	const agentBody = JSON.stringify({ authentik_pk: targetPk, is_active: false });
+	const result = await proxy('/set-user-active', undefined, 'POST', { body_json: agentBody });
+	if (result.error) {
+		return new Response(JSON.stringify(result), {
+			status: mapErrorCodeToHttpStatus(result.error.code),
+			headers: { 'content-type': 'application/json' }
+		});
 	}
+	return new Response(
+		JSON.stringify({ data: { deactivated: true } }),
+		{ status: 200, headers: { 'content-type': 'application/json' } }
+	);
 };

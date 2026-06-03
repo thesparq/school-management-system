@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { page, navigating } from '$app/stores';
+	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 
@@ -55,6 +56,34 @@
 			isLoggingOut = false;
 		}
 	}
+
+	onMount(() => {
+		const origFetch = window.fetch.bind(window);
+		window.fetch = async (input, init) => {
+			const res = await origFetch(input, init);
+			if (res.status === 401) {
+				// Only intercept same-origin requests (not third-party APIs)
+				const reqUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : '';
+				const isSameOrigin = !reqUrl || new URL(reqUrl, window.location.origin).origin === window.location.origin;
+				if (isSameOrigin) {
+					try {
+						const body = await res.clone().json();
+						if (body?.error?.redirectUrl) {
+							document.cookie = 'oauth_redirect=' + encodeURIComponent(window.location.pathname) + '; path=/; max-age=300; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+							window.location.href = body.error.redirectUrl;
+							return new Promise<Response>(() => {});
+						}
+					} catch {
+						// Response body not JSON — not our structured 401, pass through
+					}
+				}
+			}
+			return res;
+		};
+		return () => {
+			window.fetch = origFetch;
+		};
+	});
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>

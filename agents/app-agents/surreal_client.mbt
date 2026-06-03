@@ -1,15 +1,12 @@
-//|
-/// Utility module for querying SurrealDB from Golem agents via WASI HTTP.
-/// Uses HTTP Basic Auth (username:password base64-encoded).
+///|
+/// SurrealDB HTTP client. Queries SurrealDB via the /sql endpoint
+/// using HTTP Basic Auth. Functions take SharedConfig and resolve
+/// SurrealDB credentials internally via resolve_surreal_cfg().
 
 ///|
-fn str_to_bytes(s : String) -> FixedArray[Byte] {
-  @utf8.encode(s).to_fixedarray()
-}
-
-///|
-fn bytes_to_str(bs : FixedArray[Byte]) -> String {
-  @utf8.decode_lossy(Bytes::from_array(bs).view())
+/// Escapes a string for safe use in SurrealQL single-quoted literals.
+pub fn escape_surreal_string(s : String) -> String {
+  s.replace(old="'", new="''")
 }
 
 ///|
@@ -40,61 +37,129 @@ fn url_encode(s : String) -> String {
 }
 
 ///|
-/// Shared SurrealDB connection config.
-/// All 5 fields are Golem secrets — set via secretDefaults locally,
-/// or via `golem secret create` in production.
-#derive.config
-pub(all) struct SurrealConfig {
-  host : @config.Secret[String]
-  ns : @config.Secret[String]
-  database : @config.Secret[String]
-  username : @config.Secret[String]
-  password : @config.Secret[String]
+fn parse_result_array(raw : String) -> Result[Array[Json], AppError] {
+  let val = @json.parse(raw) catch {
+    _ => return Err(
+      AppError::{ code: SurrealDBError, message: "Failed to parse SurrealDB response", detail: None },
+    )
+  }
+  match val {
+    Array(a) => {
+      if a.length() == 0 {
+        return Err(
+          AppError::{ code: SurrealDBError, message: "SurrealDB response empty", detail: None },
+        )
+      }
+      match a[0] {
+        Object(obj) =>
+          match obj.get("status") {
+            Some(String(s)) =>
+              if s == "ERR" {
+                let detail = match obj.get("detail") {
+                  Some(String(d)) => d
+                  _ =>
+                    match obj.get("message") {
+                      Some(String(m)) => m
+                      _ => raw
+                    }
+                }
+                Err(
+                  AppError::{ code: SurrealDBError, message: "SurrealDB: " + detail, detail: Some(raw) },
+                )
+              } else {
+                match obj.get("result") {
+                  Some(r) =>
+                    match r {
+                      Array(arr) => Ok(arr)
+                      _ => Err(
+                        AppError::{
+                          code: SurrealDBError,
+                          message: "SurrealDB result not an array",
+                          detail: None,
+                        },
+                      )
+                    }
+                  None =>
+                    Err(
+                      AppError::{
+                        code: SurrealDBError,
+                        message: "SurrealDB result missing",
+                        detail: None,
+                      },
+                    )
+                }
+              }
+            _ =>
+              match obj.get("result") {
+                Some(r) =>
+                  match r {
+                    Array(arr) => Ok(arr)
+                    _ => Err(
+                      AppError::{
+                        code: SurrealDBError,
+                        message: "SurrealDB result not an array",
+                        detail: None,
+                      },
+                    )
+                  }
+                None =>
+                  Err(
+                    AppError::{
+                      code: SurrealDBError,
+                      message: "SurrealDB result missing",
+                      detail: None,
+                    },
+                  )
+              }
+          }
+        _ =>
+          Err(
+            AppError::{
+              code: SurrealDBError,
+              message: "SurrealDB response element not an object",
+              detail: None,
+            },
+          )
+      }
+    }
+    _ =>
+      Err(
+        AppError::{
+          code: SurrealDBError,
+          message: "SurrealDB response not an array",
+          detail: None,
+        },
+      )
+  }
 }
 
 ///|
-/// Execute a SurrealQL statement against SurrealDB over HTTP Basic Auth.
-/// Takes the agent's injected config — resolves secrets internally.
-/// Optional bindings are passed as URL query params and referenced as $key in SQL.
-pub fn surreal_query(
-  config : @config.Config[SurrealConfig],
+fn surreal_query_internal(
+  config : SharedConfig,
   sql : String,
-  bindings? : Map[String, String],
-) -> Result[String, String] {
-  let host = config.value.host.get() catch {
-    _ => return Err("surreal host missing")
+  bindings : Map[String, String]?,
+) -> Result[(UInt, String), AppError] {
+  let cfg = match resolve_surreal_cfg(config) {
+    Ok(c) => c
+    Err(e) => return Err(e)
   }
-  let ns = config.value.ns.get() catch { _ => return Err("surreal ns missing") }
-  let db = config.value.database.get() catch {
-    _ => return Err("surreal database missing")
-  }
-  let user = config.value.username.get() catch {
-    _ => return Err("surreal username missing")
-  }
-  let pass = config.value.password.get() catch {
-    _ => return Err("surreal password missing")
-  }
+  let auth_bytes = @utf8.encode(cfg.username + ":" + cfg.password).to_fixedarray()
+  let auth_value = "Basic " + @base64.encode(Bytes::from_array(auth_bytes).view())
 
-  let auth_bytes = str_to_bytes(user + ":" + pass)
-  let auth_value = "Basic " +
-    @base64.encode(Bytes::from_array(auth_bytes).view())
-
-  let headers = match
-    @http_types.Fields::from_list([
-      ("Authorization", str_to_bytes(auth_value)),
-      ("Accept", str_to_bytes("application/json")),
-      ("Content-Type", str_to_bytes("text/plain")),
-      ("surreal-ns", str_to_bytes(ns)),
-      ("surreal-db", str_to_bytes(db)),
-    ]) {
+  let headers = match build_headers([
+    ("Authorization", auth_value),
+    ("Accept", "application/json"),
+    ("Content-Type", "text/plain"),
+    ("surreal-ns", cfg.ns),
+    ("surreal-db", cfg.database),
+  ]) {
     Ok(h) => h
-    Err(_) => return Err("build headers failed")
+    Err(_) =>
+      return Err(
+        AppError::{ code: InternalError, message: "Build SurrealDB headers failed", detail: None },
+      )
   }
 
-  let request = @http_types.OutgoingRequest::outgoing_request(headers)
-  let _ = request.set_method(@http_types.Post)
-  let _ = request.set_scheme(Some(@http_types.Https))
-  let _ = request.set_authority(Some(host))
   let path = match bindings {
     Some(b) => {
       let mut first = true
@@ -112,144 +177,143 @@ pub fn surreal_query(
     }
     None => "/sql"
   }
-  let _ = request.set_path_with_query(Some(path))
 
-  let body = match request.body() {
-    Ok(b) => b
-    Err(_) => return Err("request body already taken")
-  }
-
-  let output_stream = match body.write() {
-    Ok(s) => s
-    Err(_) => {
-      let _ = @http_types.OutgoingBody::finish(body, None)
-      return Err("body write stream failed")
-    }
-  }
-
-  match output_stream.blocking_write_and_flush(str_to_bytes(sql)) {
-    Ok(_) => ()
-    Err(_) => {
-      output_stream.drop()
-      let _ = @http_types.OutgoingBody::finish(body, None)
-      return Err("write body failed")
-    }
-  }
-  output_stream.drop()
-
-  match @http_types.OutgoingBody::finish(body, None) {
-    Ok(_) => ()
-    Err(_) => return Err("finish body failed")
-  }
-
-  let future_response = match @http.handle(request, None) {
-    Ok(f) => f
-    Err(_) => return Err("http handle failed")
-  }
-
-  let pollable = future_response.subscribe()
-  pollable.block()
-
-  let response = match future_response.get() {
-    Some(Ok(Ok(r))) => r
-    Some(Ok(Err(_))) => return Err("http response error")
-    Some(Err(_)) => return Err("response already consumed")
-    None => return Err("response not ready after poll")
-  }
-
-  let status = response.status()
-  let incoming_body = match response.consume() {
-    Ok(b) => b
-    Err(_) => return Err("consume body failed")
-  }
-
-  let stream = match incoming_body.stream() {
-    Ok(s) => s
-    Err(_) => {
-      let _ = @http_types.IncomingBody::finish(incoming_body)
-      return Err("incoming stream failed")
-    }
-  }
-
-  let bytes = match stream.blocking_read(1048576UL) {
-    Ok(b) => b
-    Err(_) => {
-      stream.drop()
-      let _ = @http_types.IncomingBody::finish(incoming_body)
-      return Err("read body failed")
-    }
-  }
-  stream.drop()
-  let _ = @http_types.IncomingBody::finish(incoming_body)
-
-  if status >= 200 && status < 300 {
-    Ok(bytes_to_str(bytes))
-  } else {
-    Err("SurrealDB " + status.to_string() + ": " + bytes_to_str(bytes))
+  let body_bytes = @utf8.encode(sql).to_fixedarray()
+  match http_request(
+    cfg.host,
+    @http_types.Post,
+    @http_types.Https,
+    path,
+    headers,
+    Some(body_bytes),
+  ) {
+    Ok((status, body)) => Ok((status, body))
+    Err(e) =>
+      Err(AppError::{ code: SurrealDBError, message: e, detail: None })
   }
 }
 
 ///|
-/// Wraps surreal_query with one retry on empty/failed parse.
-/// Fixes the @json.parse first-call bug where structurally-valid
-/// garbage is returned on the first WASM invocation.
-pub fn surreal_query_retry(
-  config : @config.Config[SurrealConfig],
+/// Execute a SurrealQL statement. Returns parsed result array.
+/// SurrealDB errors (status:"ERR") are returned as AppError::SurrealDBError.
+pub fn surreal_query(
+  config : SharedConfig,
   sql : String,
-  bindings : Map[String, String]?,
-) -> Result[Array[Json], String] {
-  let raw = match bindings {
-    Some(b) => surreal_query(config, sql, bindings=b)
-    None => surreal_query(config, sql)
-  }
-  let raw = match raw {
-    Ok(body) => body
+  bindings? : Map[String, String],
+) -> Result[Array[Json], AppError] {
+  let (status, body) = match surreal_query_internal(config, sql, bindings) {
+    Ok(r) => r
     Err(e) => return Err(e)
   }
-  let result_arr = match _parse_surreal_result(raw) {
-    Ok(arr) => arr
-    Err(_) => {
-      let raw2 = match bindings {
-        Some(b) => surreal_query(config, sql, bindings=b)
-        None => surreal_query(config, sql)
-      }
-      match raw2 {
-        Ok(body) =>
-          match _parse_surreal_result(body) {
-            Ok(arr) => arr
-            Err(e) => return Err("parse failed after retry: " + e)
-          }
-        Err(e) => return Err(e)
-      }
-    }
+  if status < 200 || status >= 300 {
+    return Err(
+      AppError::{
+        code: SurrealDBError,
+        message: "SurrealDB HTTP " + status.to_string(),
+        detail: Some(body),
+      },
+    )
   }
-  Ok(result_arr)
+  @logging.info("SurrealDB: " + sql)
+  @logging.info("SurrealDB: status=" + status.to_string() + " body_len=" + body.length().to_string())
+  parse_result_array(body)
 }
 
 ///|
-/// Unwraps SurrealDB's standard JSON response envelope.
-/// Input: `[{"status":"OK","result":[...],"time":"..."}]`
-/// Output: the `result` array.
-fn _parse_surreal_result(raw : String) -> Result[Array[Json], String] {
-  let val = @json.parse(raw) catch { _ => return Err("parse response failed") }
-  match val {
-    Array(a) => {
-      if a.length() == 0 {
-        return Err("response empty")
-      }
-      match a[0] {
-        Object(obj) =>
-          match obj.get("result") {
-            Some(r) =>
-              match r {
-                Array(arr) => Ok(arr)
-                _ => Err("result not an array")
-              }
-            None => Err("result missing")
+/// Save or update a user profile in SurrealDB.
+/// Resolves class_level name to a record ID via a separate query
+/// to produce a proper record<class_levels> reference.
+pub fn surreal_save_profile(
+  config : SharedConfig,
+  target_user_id : String,
+  role : String,
+  class_level : String?,
+) -> Result[Unit, AppError] {
+  if !["admin", "teacher", "student"].contains(role) {
+    return Err(
+      AppError::{
+        code: ValidationError,
+        message: "Invalid role: " + role,
+        detail: None,
+      },
+    )
+  }
+  let cl_record = match class_level {
+    Some(cl) => {
+      let lookup_sql = "SELECT VALUE id FROM class_levels WHERE name = '" +
+        escape_surreal_string(cl) +
+        "' LIMIT 1"
+      match surreal_query(config, lookup_sql) {
+        Ok(arr) =>
+          if arr.length() > 0 {
+            match arr[0] {
+              String(slug) => Some(slug)
+              _ => None
+            }
+          } else {
+            None
           }
-        _ => Err("element not an object")
+        Err(_) => None
       }
     }
-    _ => Err("response not an array")
+    None => None
+  }
+  let sql = match cl_record {
+    Some(slug) =>
+      "INSERT INTO user_profile (auth_id, role, class_level, created_at) VALUES ('" +
+      escape_surreal_string(target_user_id) +
+      "', '" +
+      escape_surreal_string(role) +
+      "', type::thing(\"class_levels\", " +
+      escape_surreal_string(slug) +
+      "), time::now()) " +
+      "ON DUPLICATE KEY UPDATE role='" +
+      escape_surreal_string(role) +
+      "', class_level=type::thing(\"class_levels\", " +
+      escape_surreal_string(slug) +
+      ")"
+    None =>
+      "INSERT INTO user_profile (auth_id, role, created_at) VALUES ('" +
+      escape_surreal_string(target_user_id) +
+      "', '" +
+      escape_surreal_string(role) +
+      "', time::now()) " +
+      "ON DUPLICATE KEY UPDATE role='" +
+      escape_surreal_string(role) +
+      "'"
+  }
+  match surreal_query(config, sql) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
+/// Soft-delete a user profile in SurrealDB (sets deleted_at).
+pub fn surreal_soft_delete_user(
+  config : SharedConfig,
+  target_user_id : String,
+) -> Result[Unit, AppError] {
+  let sql = "UPDATE user_profile SET deleted_at = time::now() WHERE auth_id = '" +
+    escape_surreal_string(target_user_id) +
+    "' AND deleted_at IS NONE"
+  match surreal_query(config, sql) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
+/// Undo a soft-delete (for compensation when delete fails downstream).
+pub fn surreal_undo_soft_delete(
+  config : SharedConfig,
+  target_user_id : String,
+) -> Result[Unit, AppError] {
+  let sql = "UPDATE user_profile SET deleted_at = NONE WHERE auth_id = '" +
+    escape_surreal_string(target_user_id) +
+    "'"
+  match surreal_query(config, sql) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
   }
 }

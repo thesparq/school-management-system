@@ -2,7 +2,7 @@
   import type { PageData } from './$types';
   import type { LessonContent, LessonObjective, LessonContentSection } from '$lib/types';
   import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
-  import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
+  import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { Skeleton } from '$lib/components/ui/skeleton';
   import { Badge } from '$lib/components/ui/badge';
   import { Separator } from '$lib/components/ui/separator';
@@ -118,13 +118,7 @@
     </div>
   {:then result}
     {#if result.lessonError}
-      <Alert variant="destructive">
-        <AlertTitle>Failed to load lesson</AlertTitle>
-        <AlertDescription>{result.lessonError}</AlertDescription>
-        <AlertAction>
-          <Button variant="outline" onclick={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId + '/' + $page.params.lessonId)}>Retry</Button>
-        </AlertAction>
-      </Alert>
+      <StatusCard variant="error" title="Failed to load lesson" description={result.lessonError} onRetry={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId + '/' + $page.params.lessonId)} />
     {:else}
       {@const lesson = result.lesson!}
       {@const objectives = parseJson<LessonObjective>(lesson.objectives, isLessonObjective)}

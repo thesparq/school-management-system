@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
-	import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
+	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -34,32 +34,7 @@
 	}
 </script>
 
-{#if data.initialized === false}
-	<div class="mx-auto max-w-lg py-16 text-center space-y-6">
-		<div class="rounded-full bg-warning-100 dark:bg-warning-900/20 mx-auto w-fit p-4">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-8 w-8 text-warning-600 dark:text-warning-400"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-				/>
-			</svg>
-		</div>
-		<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">
-			Account Not Initialized
-		</h1>
-		<p class="text-surface-700 dark:text-surface-400">
-			Your account has not yet been initialized. Please contact your school administrator.
-		</p>
-	</div>
-{:else if data.teacherClasses !== null}
+{#if data.teacherClasses !== null || data.teacherClassesError !== null}
 	<div class="mx-auto max-w-6xl space-y-6">
 		{#if $navigating && (!data.teacherClasses || data.teacherClasses.length === 0)}
 			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
@@ -69,30 +44,13 @@
 				{/each}
 			</div>
 		{:else if data.teacherClassesError}
-			<Alert variant="destructive">
-				<AlertTitle>Failed to load classes</AlertTitle>
-				<AlertDescription>{data.teacherClassesError}</AlertDescription>
-				<AlertAction>
-					<Button variant="outline" onclick={() => goto('/')}>Retry</Button>
-				</AlertAction>
-			</Alert>
-		{:else if data.teacherClasses.length === 0}
-			<div class="mx-auto max-w-lg py-16 text-center space-y-6">
-				<div class="rounded-full bg-secondary-100 dark:bg-secondary-900/20 mx-auto w-fit p-4">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" />
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01" />
-					</svg>
-				</div>
-				<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">No Classes Assigned</h1>
-				<p class="text-surface-700 dark:text-surface-400">
-					No classes have been assigned to you yet. Please contact your school administrator.
-				</p>
-			</div>
+			<StatusCard variant="error" title="Failed to load classes" description={data.teacherClassesError} onRetry={() => goto('/')} />
+		{:else if (!data.teacherClasses || data.teacherClasses.length === 0)}
+			<StatusCard variant="info" title="No Classes Assigned" description="No classes have been assigned to you yet. Please contact your school administrator." />
 		{:else}
 			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
 			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each data.teacherClasses as group (group.class_level_id)}
+				{#each (data.teacherClasses || []) as group (group.class_level_id)}
 					<a href="/my-classes/{group.class_level_id}">
 						<Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
 							<CardHeader>
@@ -120,36 +78,12 @@
 					<Skeleton class="h-28" />
 				{/each}
 			</div>
+		{:else if data.subjectsErrorCode === 'NOT_INITIALIZED'}
+			<StatusCard variant="info" title="Account Not Initialized" description={data.subjectsError ?? ''} />
 		{:else if data.subjectsError}
-			<Alert variant="destructive">
-				<AlertTitle>Failed to load subjects</AlertTitle>
-				<AlertDescription>{data.subjectsError}</AlertDescription>
-				<AlertAction>
-					<Button variant="outline" onclick={() => goto('/')}>Retry</Button>
-				</AlertAction>
-			</Alert>
+			<StatusCard variant="error" title="Failed to load subjects" description={data.subjectsError} onRetry={() => goto('/')} />
 		{:else if data.subjects && data.subjects.length === 0}
-			<div class="mx-auto max-w-lg py-16 text-center space-y-6">
-				<div class="rounded-full bg-secondary-100 dark:bg-secondary-900/20 mx-auto w-fit p-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8 text-secondary-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="10" />
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01" />
-					</svg>
-				</div>
-				<h1 class="text-2xl font-display font-bold text-surface-800 dark:text-surface-200">
-					No Subjects Assigned
-				</h1>
-				<p class="text-surface-700 dark:text-surface-400">
-					No subjects have been assigned to you yet. Please contact your school administrator.
-				</p>
-			</div>
+			<StatusCard variant="info" title="No Subjects Assigned" description="No subjects have been assigned to you yet. Please contact your school administrator." />
 		{:else if data.subjects && data.subjects.length > 0}
 			<div>
 				<h1 class="text-2xl font-display font-bold text-primary-700">Your Subjects</h1>
@@ -175,12 +109,8 @@
 {:else}
 	<div class="mx-auto max-w-4xl space-y-6">
 		<div>
-			<h1 class="text-2xl font-display font-bold text-primary-700">
-				Welcome, {data.user.name}
-			</h1>
-			<p class="mt-1 text-sm text-surface-700">
-				{data.user.roles[0] ?? 'User'} dashboard
-			</p>
+			<h1 class="text-2xl font-display font-bold text-primary-700">Dashboard</h1>
+			<p class="mt-1 text-sm text-surface-700">Welcome</p>
 		</div>
 
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

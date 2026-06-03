@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { adminProxy } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 
@@ -9,7 +9,8 @@ export const GET: RequestHandler = async (event) => {
 
   const uuid = event.params.uuid;
 
-  const result = await proxyToGateway('/gateway/admin/teacher/subjects-read', user.id, {
+  const proxy = adminProxy(user);
+  const result = await proxy('/teacher/subjects', {
     target_teacher_id: uuid
   });
 

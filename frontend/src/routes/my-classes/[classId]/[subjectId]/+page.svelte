@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
+  import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { Skeleton } from '$lib/components/ui/skeleton';
-  import { Button } from '$lib/components/ui/button';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
@@ -20,24 +19,9 @@
       {/each}
     </div>
   {:else if data.termsError}
-    <Alert variant="destructive">
-      <AlertTitle>Failed to load terms</AlertTitle>
-      <AlertDescription>{data.termsError}</AlertDescription>
-      <AlertAction>
-        <Button variant="outline" onclick={() => goto('/my-classes/' + $page.params.classId + '/' + $page.params.subjectId)}>Retry</Button>
-      </AlertAction>
-    </Alert>
+    <StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => goto('/my-classes/' + $page.params.classId + '/' + $page.params.subjectId)} />
   {:else if data.terms.length === 0}
-    <div class="mx-auto max-w-lg py-16 text-center space-y-6">
-      <div class="rounded-full bg-secondary-100 dark:bg-secondary-900/20 mx-auto w-fit p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01" />
-        </svg>
-      </div>
-      <h2 class="text-xl font-semibold text-surface-800">No Terms Available</h2>
-      <p class="text-surface-700">No terms are available for this subject yet.</p>
-    </div>
+    <StatusCard variant="info" title="No Terms Available" description="No terms are available for this subject yet." />
   {:else}
     <div class="flex gap-4 flex-wrap">
       {#each data.terms as term (term.id)}

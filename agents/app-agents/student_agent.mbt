@@ -35,34 +35,6 @@ struct LessonInfo {
 
 ///|
 #derive.golem_schema
-struct SubjectCache {
-  subjects : Array[SubjectInfo]
-  fetched_at : UInt64
-}
-
-///|
-#derive.golem_schema
-struct TermCacheEntry {
-  data : Array[TermInfo]
-  fetched_at : UInt64
-}
-
-///|
-#derive.golem_schema
-struct LessonCacheEntry {
-  data : Array[LessonInfo]
-  fetched_at : UInt64
-}
-
-///|
-#derive.golem_schema
-struct EdgeCacheEntry {
-  edge_id : String
-  fetched_at : UInt64
-}
-
-///|
-#derive.golem_schema
 struct LessonContent {
   id : String
   topic_title : String?
@@ -75,157 +47,69 @@ struct LessonContent {
 }
 
 ///|
-#derive.golem_schema
-struct LessonContentCache {
-  data : LessonContent
-  fetched_at : UInt64
-}
-
-///|
-const CACHE_TTL : UInt64 = 600
-
-///|
-/// Durable per-student agent.
-/// Identified by student_id — one instance per student.
 #derive.agent
+#derive.mount("/student/{student_id}")
 struct StudentAgent {
-  config : @config.Config[SurrealConfig]
   student_id : String
-  mut subject_cache : SubjectCache?
-  terms_cache : Map[String, TermCacheEntry]
-  lessons_cache : Map[String, LessonCacheEntry]
-  edge_cache : Map[String, EdgeCacheEntry]
-  lesson_cache : Map[String, LessonContentCache]
+  config : @config.Config[SharedConfig]
+  mut caches : Map[String, CacheItem]
 }
 
 ///|
 fn StudentAgent::new(
   student_id : String,
-  config : @config.Config[SurrealConfig],
+  config : @config.Config[SharedConfig],
 ) -> StudentAgent {
-  {
-    config,
-    student_id,
-    subject_cache: None,
-    terms_cache: Map::new(),
-    lessons_cache: Map::new(),
-    edge_cache: Map::new(),
-    lesson_cache: Map::new(),
-  }
+  { student_id, config, caches: Map::new() }
 }
 
 ///|
-fn parse_result_array(raw : String) -> Result[Array[Json], String] {
-  let val = @json.parse(raw) catch { _ => return Err("parse response failed") }
+fn parse_profile(json_str : String) -> StudentProfile? {
+  let val = @json.parse(json_str) catch { _ => return None }
   match val {
-    Array(a) => {
-      if a.length() == 0 {
-        return Err("response empty")
+    Object(obj) => {
+      let class_level = match obj.get("class_level") {
+        Some(String(s)) => s
+        _ => ""
       }
-      match a[0] {
-        Object(obj) =>
-          match obj.get("result") {
-            Some(r) =>
-              match r {
-                Array(arr) => Ok(arr)
-                _ => Err("result not an array")
-              }
-            None => Err("result missing")
-          }
-        _ => Err("element not an object")
-      }
+      Some(StudentProfile::{ class_level })
     }
-    _ => Err("response not an array")
+    _ => None
   }
 }
 
 ///|
-/// Tests SurrealDB connectivity.
-pub fn StudentAgent::test_db(self : Self) -> String {
-  match surreal_query(self.config, "SELECT * FROM 1") {
-    Ok(body) => "OK: " + body
-    Err(e) => "ERROR: " + e
-  }
-}
-
-///|
-/// Initializes this student's subject cache from SurrealDB.
-/// Idempotent — calling again refreshes the cache.
-/// NOTE: user_profile row is created by AdminAgent.initialize_user()
-/// before this method is called.
-pub fn StudentAgent::initialize(self : Self, class_level : String) -> String {
-  let subj_sql = "SELECT id AS edge_id, out.id AS id, out.name AS name, out.code AS code " +
-    "FROM has_subject " +
-    "WHERE in.name = $class_level AND active = true " +
-    "ORDER BY out.name ASC"
-  let subj_raw = match
-    surreal_query(self.config, subj_sql, bindings={ "class_level": class_level }) {
-    Ok(body) => body
-    Err(e) => return "ERROR: query subjects failed: " + e
-  }
-
-  let result_arr = match parse_result_array(subj_raw) {
-    Ok(arr) => arr
-    Err(e) => return "ERROR: " + e
-  }
-
-  let subjects : Array[SubjectInfo] = []
-  let now = @wallClock.now().seconds
-  for item in result_arr {
-    match item {
-      Object(obj) => {
-        let id = match obj.get("id") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
-        }
-        let name = match obj.get("name") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
-        }
-        let code = match obj.get("code") {
-          Some(v) =>
-            match v {
-              String(s) => Some(s)
-              _ => None
-            }
-          None => None
-        }
-        match obj.get("edge_id") {
-          Some(String(eid)) =>
-            self.edge_cache.set(id, { edge_id: eid, fetched_at: now })
-          _ => ()
-        }
-        subjects.push(SubjectInfo::{ id, name, code })
-      }
-      _ => ()
-    }
-  }
-
-  self.subject_cache = Some(SubjectCache::{ subjects, fetched_at: now })
-
-  "OK"
-}
-
-///|
-/// Returns this student's class_level from user_profile table.
+/// Reactive gatekeeper. Checks profile cache first; on miss or expired TTL,
+/// queries the DB. No negative caching — if no row exists, returns None
+/// and does NOT cache the failure.
 fn StudentAgent::get_class_level(self : Self) -> String? {
-  let sql = "SELECT VALUE class_level FROM user_profile WHERE auth_id = '" +
+  let now = @wallClock.now().seconds
+  match self.caches.get("profile") {
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        Profile(profile) if profile.class_level != "" => return Some(profile.class_level)
+        _ => ()
+      }
+    _ => ()
+  }
+  let sql = "SELECT * FROM user_profile WHERE auth_id = '" +
     escape_surreal_string(self.student_id) +
     "' AND deleted_at IS NONE LIMIT 1"
-  match surreal_query_retry(self.config, sql, None) {
+  match surreal_query(self.config.value, sql) {
     Ok(arr) =>
       if arr.length() > 0 {
-        match arr[0] {
-          String(s) => Some(s)
-          _ => None
+        let row = arr[0].stringify()
+        match parse_profile(row) {
+          Some(profile) => {
+            if profile.class_level != "" {
+              self.caches.set("profile", CacheItem::{
+                data: Profile(profile),
+                fetched_at: now,
+              })
+            }
+            Some(profile.class_level)
+          }
+          None => None
         }
       } else {
         None
@@ -235,293 +119,281 @@ fn StudentAgent::get_class_level(self : Self) -> String? {
 }
 
 ///|
-pub fn StudentAgent::get_subjects(self : Self) -> Array[SubjectInfo] {
+fn not_initialized_err() -> String {
+  AppError::{
+    code: NotInitialized,
+    message: "Account not initialized. Please contact your school administrator.",
+    detail: None,
+  }.to_json_string()
+}
+
+///|
+#derive.endpoint(get="/ping")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::ping(self : Self, incoming_key : String) -> String {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return e.to_json_string()
+    Ok(_) => ()
+  }
+  "student online"
+}
+
+///|
+#derive.endpoint(get="/subjects")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_subjects(
+  self : Self,
+  incoming_key : String,
+) -> Result[Array[SubjectInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
   let now = @wallClock.now().seconds
-  let cached = self.subject_cache
+  let cached = self.caches.get("subjects")
   match cached {
-    Some(cache) if now - cache.fetched_at < CACHE_TTL => return cache.subjects
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        Subjects(arr) if arr.length() > 0 => return Ok(arr)
+        _ => ()
+      }
     _ => ()
   }
-
   let cl = match self.get_class_level() {
     Some(cl) => cl
-    None => return []
+    None => return Err(not_initialized_err())
   }
-
-  let subj_sql = "SELECT out.id AS id, out.name AS name, out.code AS code " +
+  let sql = "SELECT out.id AS id, out.name AS name, out.code AS code " +
     "FROM has_subject " +
-    "WHERE in.name = $class_level AND active = true " +
-    "ORDER BY out.name ASC"
-  let subj_raw = match
-    surreal_query(self.config, subj_sql, bindings={ "class_level": cl }) {
-    Ok(body) => body
-    Err(_) => {
-      let old = self.subject_cache
-      match old {
-        Some(c) => return c.subjects
-        None => return []
-      }
-    }
-  }
-
-  let result_arr = match parse_result_array(subj_raw) {
+    "WHERE in = $class_level AND active = true " +
+    "ORDER BY name ASC"
+  let result_arr = match
+    surreal_query(self.config.value, sql, bindings={ "class_level": cl }) {
     Ok(arr) => arr
     Err(_) => {
-      let old = self.subject_cache
-      match old {
-        Some(c) => return c.subjects
-        None => return []
+      match cached {
+        Some(item) =>
+          match item.data {
+        Subjects(arr) if arr.length() > 0 => return Ok(arr)
+            _ => ()
+          }
+        _ => ()
       }
+      return Err(
+        AppError::{
+          code: SurrealDBError,
+          message: "Failed to query subjects from database",
+          detail: None,
+        }.to_json_string(),
+      )
     }
   }
-
   let subjects : Array[SubjectInfo] = []
   for item in result_arr {
     match item {
       Object(obj) => {
         let id = match obj.get("id") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
+          Some(String(s)) => s
+          _ => continue
         }
         let name = match obj.get("name") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
+          Some(String(s)) => s
+          _ => continue
         }
         let code = match obj.get("code") {
-          Some(v) =>
-            match v {
-              String(s) => Some(s)
-              _ => None
-            }
-          None => None
+          Some(String(s)) => Some(s)
+          _ => None
         }
         subjects.push(SubjectInfo::{ id, name, code })
       }
       _ => ()
     }
   }
-
-  self.subject_cache = Some(SubjectCache::{ subjects, fetched_at: now })
-  match self.subject_cache {
-    Some(c) => c.subjects
-    None => []
+  if subjects.length() == 0 {
+    return Err(
+      AppError::{
+        code: NotFound,
+        message: "No subjects are assigned to your class yet.",
+        detail: None,
+      }.to_json_string(),
+    )
   }
+  self.caches.set("subjects", CacheItem::{
+    data: Subjects(subjects),
+    fetched_at: now,
+  })
+  Ok(subjects)
 }
 
 ///|
-pub fn StudentAgent::get_terms(self : Self) -> Array[TermInfo] {
+#derive.endpoint(get="/terms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_terms(
+  self : Self,
+  incoming_key : String,
+) -> Result[Array[TermInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
   let now = @wallClock.now().seconds
   let cl = match self.get_class_level() {
     Some(cl) => cl
-    None => return []
+    None => return Err(not_initialized_err())
   }
-
-  let cached_entry = self.terms_cache.get(cl)
-  match cached_entry {
-    Some(entry) if now - entry.fetched_at < CACHE_TTL => return entry.data
+  let cache_key = "terms:" + cl
+  let cached = self.caches.get(cache_key)
+  match cached {
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        Terms(arr) if arr.length() > 0 => return Ok(arr)
+        _ => ()
+      }
     _ => ()
   }
-
   let sql = "SELECT * FROM terms WHERE active = true ORDER BY sort_order ASC"
-  let raw = match surreal_query(self.config, sql) {
-    Ok(body) => body
-    Err(_) => {
-      let old = self.terms_cache.get(cl)
-      match old {
-        Some(e) => return e.data
-        None => return []
-      }
-    }
-  }
-
-  let result_arr = match parse_result_array(raw) {
+  let result_arr = match surreal_query(self.config.value, sql) {
     Ok(arr) => arr
     Err(_) => {
-      let old = self.terms_cache.get(cl)
-      match old {
-        Some(e) => return e.data
-        None => return []
+      match cached {
+        Some(item) =>
+          match item.data {
+            Terms(arr) if arr.length() > 0 => return Ok(arr)
+            _ => ()
+          }
+        _ => ()
       }
+      return Err(
+        AppError::{
+          code: SurrealDBError,
+          message: "Failed to query terms from database",
+          detail: None,
+        }.to_json_string(),
+      )
     }
   }
-
   let terms : Array[TermInfo] = []
   for item in result_arr {
     match item {
       Object(obj) => {
         let id = match obj.get("id") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
+          Some(String(s)) => s
+          _ => continue
         }
         let name = match obj.get("name") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
+          Some(String(s)) => s
+          _ => continue
         }
         let sort_order = match obj.get("sort_order") {
-          Some(v) =>
-            match v {
-              Number(d, ..) => d.to_int()
-              _ => 0
-            }
-          None => 0
+          Some(Number(d, ..)) => d.to_int()
+          _ => 0
         }
         let active = match obj.get("active") {
-          Some(v) =>
-            match v {
-              True => true
-              _ => false
-            }
-          None => false
+          Some(True) => true
+          _ => false
         }
         terms.push(TermInfo::{ id, name, sort_order, active })
       }
       _ => ()
     }
   }
-
-  self.terms_cache.set(cl, TermCacheEntry::{ data: terms, fetched_at: now })
-  self.terms_cache.get(cl).map(fn(e) { e.data }).unwrap_or([])
+  if terms.length() == 0 {
+    return Err(
+      AppError::{
+        code: NotFound,
+        message: "No terms are available for your class.",
+        detail: None,
+      }.to_json_string(),
+    )
+  }
+  self.caches.set(cache_key, CacheItem::{
+    data: Terms(terms),
+    fetched_at: now,
+  })
+  Ok(terms)
 }
 
 ///|
-/// Returns lessons for a given subject + term in the student's class level.
-/// Uses edge cache to avoid graph traversal on repeated queries.
+#derive.endpoint(get="/lessons?subject_id={subject_id}&term_id={term_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn StudentAgent::get_lessons(
   self : Self,
+  incoming_key : String,
   subject_id : String,
   term_id : String,
-) -> Array[LessonInfo] {
+) -> Result[Array[LessonInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
   let now = @wallClock.now().seconds
-  let cache_key = subject_id + "|" + term_id
-
-  let cached_entry = self.lessons_cache.get(cache_key)
-  match cached_entry {
-    Some(entry) if now - entry.fetched_at < CACHE_TTL => return entry.data
+  let cache_key = "lessons:" + subject_id + "|" + term_id
+  let cached = self.caches.get(cache_key)
+  match cached {
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        Lessons(arr) if arr.length() > 0 => return Ok(arr)
+        _ => ()
+      }
     _ => ()
   }
-
   let cl = match self.get_class_level() {
     Some(cl) => cl
-    None => return []
+    None => return Err(not_initialized_err())
   }
-
-  // Check edge cache for cached has_subject edge record ID
-  let cached_edge = self.edge_cache.get(subject_id)
-  let edge_id = match cached_edge {
-    Some(entry) if now - entry.fetched_at < CACHE_TTL => Some(entry.edge_id)
-    _ => None
-  }
-
-  // Build SQL based on whether edge is cached
-  let sql = match edge_id {
-    Some(_) =>
-      "SELECT id, topic_title, week, " +
-      "  class_subject.out.name AS subject_name, term.name AS term_name " +
-      "FROM lessons " +
-      "WHERE class_subject = $hs_id AND term = $term_id AND active = true " +
-      "ORDER BY week ASC"
-    None =>
-      "SELECT id, topic_title, week, class_subject, " +
-      "  class_subject.out.name AS subject_name, term.name AS term_name " +
-      "FROM lessons " +
-      "WHERE class_subject.in.name = $class_level " +
-      "  AND class_subject.out = $subject_id " +
-      "  AND class_subject.active = true " +
-      "  AND term = $term_id AND active = true " +
-      "ORDER BY week ASC"
-  }
-
-  let hs_binding = match edge_id {
-    Some(eid) => eid
-    None => ""
-  }
-  let raw = match
-    surreal_query(self.config, sql, bindings={
-      "class_level": cl,
-      "subject_id": subject_id,
-      "term_id": term_id,
-      "hs_id": hs_binding,
-    }) {
-    Ok(body) => body
-    Err(_) => {
-      let old = self.lessons_cache.get(cache_key)
-      match old {
-        Some(e) => return e.data
-        None => return []
-      }
-    }
-  }
-
-  let result_arr = match parse_result_array(raw) {
+  let sql = "SELECT id, topic_title, week, " +
+    "  topic.has_subject.out.name AS subject_name, topic.term.name AS term_name " +
+    "FROM lessons " +
+    "WHERE topic.has_subject.in = " + cl + " " +
+    "  AND topic.has_subject.out = " + subject_id + " " +
+    "  AND topic.has_subject.active = true " +
+    "  AND topic.term = " + term_id + " " +
+    "  AND active = true " +
+    "ORDER BY week ASC"
+  let result_arr = match
+    surreal_query(self.config.value, sql) {
     Ok(arr) => arr
     Err(_) => {
-      let old = self.lessons_cache.get(cache_key)
-      match old {
-        Some(e) => return e.data
-        None => return []
+      match cached {
+        Some(item) =>
+          match item.data {
+            Lessons(arr) if arr.length() > 0 => return Ok(arr)
+            _ => ()
+          }
+        _ => ()
       }
+      return Err(
+        AppError::{
+          code: SurrealDBError,
+          message: "Failed to query lessons from database",
+          detail: None,
+        }.to_json_string(),
+      )
     }
   }
-
   let lessons : Array[LessonInfo] = []
   for item in result_arr {
     match item {
       Object(obj) => {
         let id = match obj.get("id") {
-          Some(v) =>
-            match v {
-              String(s) => s
-              _ => continue
-            }
-          None => continue
+          Some(String(s)) => s
+          _ => continue
         }
         let topic_title = match obj.get("topic_title") {
-          Some(v) =>
-            match v {
-              String(s) => Some(s)
-              _ => None
-            }
-          None => None
+          Some(String(s)) => Some(s)
+          _ => None
         }
         let week = match obj.get("week") {
-          Some(v) =>
-            match v {
-              Number(d, ..) => Some(d.to_int())
-              _ => None
-            }
-          None => None
+          Some(Number(d, ..)) => Some(d.to_int())
+          _ => None
         }
         let subject_name = match obj.get("subject_name") {
-          Some(v) =>
-            match v {
-              String(s) => Some(s)
-              _ => None
-            }
-          None => None
+          Some(String(s)) => Some(s)
+          _ => None
         }
         let term_name = match obj.get("term_name") {
-          Some(v) =>
-            match v {
-              String(s) => Some(s)
-              _ => None
-            }
-          None => None
+          Some(String(s)) => Some(s)
+          _ => None
         }
         lessons.push(LessonInfo::{
           id,
@@ -534,155 +406,153 @@ pub fn StudentAgent::get_lessons(
       _ => ()
     }
   }
-
-  // Cache the has_subject edge ID from dot-traversal results
-  if edge_id == None && result_arr.length() > 0 {
-    match result_arr[0] {
-      Object(obj) =>
-        match obj.get("class_subject") {
-          Some(String(full_id)) =>
-            self.edge_cache.set(subject_id, {
-              edge_id: full_id,
-              fetched_at: now,
-            })
-          _ => ()
-        }
-      _ => ()
-    }
+  if lessons.length() == 0 {
+    return Err(
+      AppError::{
+        code: NotFound,
+        message: "No lessons are available for this term yet.",
+        detail: None,
+      }.to_json_string(),
+    )
   }
-
-  self.lessons_cache.set(cache_key, LessonCacheEntry::{
-    data: lessons,
+  self.caches.set(cache_key, CacheItem::{
+    data: Lessons(lessons),
     fetched_at: now,
   })
-  self.lessons_cache.get(cache_key).map(fn(e) { e.data }).unwrap_or([])
+  Ok(lessons)
 }
 
 ///|
-/// Returns student-visible lesson content for a given lesson_id.
-/// Fetches from SurrealDB with TTL caching (600s).
-/// Returns None if the lesson does not exist.
+#derive.endpoint(get="/lesson?lesson_id={lesson_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn StudentAgent::get_lesson(
   self : Self,
+  incoming_key : String,
   lesson_id : String,
-) -> LessonContent? {
+) -> Result[LessonContent?, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
   let now = @wallClock.now().seconds
-
-  let cached = self.lesson_cache.get(lesson_id)
+  let cache_key = "lesson:" + lesson_id
+  let cached = self.caches.get(cache_key)
   match cached {
-    Some(entry) if now - entry.fetched_at < CACHE_TTL => return Some(entry.data)
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        LessonContent(lc) => return Ok(Some(lc))
+        _ => ()
+      }
     _ => ()
   }
-
   let sql = "SELECT id, topic_title, week, " +
-    "class_subject.out.name AS subject_name, term.name AS term_name, " +
+    "topic.has_subject.out.name AS subject_name, topic.term.name AS term_name, " +
     "objectives, content_sections, key_points " +
     "FROM lessons WHERE id = $lesson_id"
-
-  let raw = match
-    surreal_query(self.config, sql, bindings={ "lesson_id": lesson_id }) {
-    Ok(body) => body
-    Err(_) => {
-      let old = self.lesson_cache.get(lesson_id)
-      match old {
-        Some(e) => return Some(e.data)
-        None => return None
-      }
-    }
-  }
-
-  let result_arr = match parse_result_array(raw) {
+  let result_arr = match
+    surreal_query(self.config.value, sql, bindings={ "lesson_id": lesson_id }) {
     Ok(arr) => arr
     Err(_) => {
-      let old = self.lesson_cache.get(lesson_id)
-      match old {
-        Some(e) => return Some(e.data)
-        None => return None
+      match cached {
+        Some(item) =>
+          match item.data {
+            LessonContent(lc) => return Ok(Some(lc))
+            _ => ()
+          }
+        _ => ()
       }
+      return Err(
+        AppError::{
+          code: SurrealDBError,
+          message: "Failed to query lesson from database",
+          detail: None,
+        }.to_json_string(),
+      )
     }
   }
-
   if result_arr.length() == 0 {
-    return None
+    return Ok(None)
   }
-
   let lesson = match result_arr[0] {
     Object(obj) => {
-      let id = match obj.get("id") {
-        Some(v) =>
-          match v {
-            String(s) => s
-            _ => ""
-          }
-        None => ""
+      let lid = match obj.get("id") {
+        Some(String(s)) => s
+        _ => ""
       }
-      let topic_title = match obj.get("topic_title") {
-        Some(v) =>
-          match v {
-            String(s) => Some(s)
-            _ => None
-          }
-        None => None
+      let t = match obj.get("topic_title") {
+        Some(String(s)) => Some(s)
+        _ => None
       }
-      let week = match obj.get("week") {
-        Some(v) =>
-          match v {
-            Number(d, ..) => Some(d.to_int())
-            _ => None
-          }
-        None => None
+      let w = match obj.get("week") {
+        Some(Number(d, ..)) => Some(d.to_int())
+        _ => None
       }
-      let subject_name = match obj.get("subject_name") {
-        Some(v) =>
-          match v {
-            String(s) => Some(s)
-            _ => None
-          }
-        None => None
+      let sn = match obj.get("subject_name") {
+        Some(String(s)) => Some(s)
+        _ => None
       }
-      let term_name = match obj.get("term_name") {
-        Some(v) =>
-          match v {
-            String(s) => Some(s)
-            _ => None
-          }
-        None => None
+      let tn = match obj.get("term_name") {
+        Some(String(s)) => Some(s)
+        _ => None
       }
-      let objectives = match obj.get("objectives") {
+      let objs = match obj.get("objectives") {
         Some(v) => Some(v.stringify())
-        None => None
+        _ => None
       }
-      let content_sections = match obj.get("content_sections") {
+      let cs = match obj.get("content_sections") {
         Some(v) => Some(v.stringify())
-        None => None
+        _ => None
       }
-      let key_points = match obj.get("key_points") {
+      let kp = match obj.get("key_points") {
         Some(v) => Some(v.stringify())
-        None => None
+        _ => None
       }
       LessonContent::{
-        id,
-        topic_title,
-        week,
-        subject_name,
-        term_name,
-        objectives,
-        content_sections,
-        key_points,
+        id: lid,
+        topic_title: t,
+        week: w,
+        subject_name: sn,
+        term_name: tn,
+        objectives: objs,
+        content_sections: cs,
+        key_points: kp,
       }
     }
     _ => {
-      let old = self.lesson_cache.get(lesson_id)
-      match old {
-        Some(e) => return Some(e.data)
-        None => return None
+      match cached {
+        Some(item) =>
+          match item.data {
+            LessonContent(lc) => return Ok(Some(lc))
+            _ => ()
+          }
+        _ => ()
       }
+      return Ok(None)
     }
   }
-
-  self.lesson_cache.set(lesson_id, LessonContentCache::{
-    data: lesson,
+  self.caches.set(cache_key, CacheItem::{
+    data: LessonContent(lesson),
     fetched_at: now,
   })
-  Some(lesson)
+  Ok(Some(lesson))
+}
+
+///|
+#derive.endpoint(post="/invalidate-cache?key={key}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::invalidate_cache(
+  self : Self,
+  incoming_key : String,
+  key : String,
+) -> String {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return e.to_json_string()
+    Ok(_) => ()
+  }
+  if key == "all" || key == "profile" {
+    self.caches = Map::new()
+  } else {
+    self.caches.remove(key)
+  }
+  "OK"
 }

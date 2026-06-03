@@ -1,4 +1,4 @@
-import { createUser, resetPassword } from '$lib/server/authentik';
+import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
@@ -16,45 +16,56 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const body = await event.request.json();
-	const { username, name, email, password, is_active = true, group_pk } = body;
+	const body = await event.request.json().catch(() => null);
+	if (!body) {
+		return new Response(
+			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Invalid JSON body' } }),
+			{ status: 400, headers: { 'content-type': 'application/json' } }
+		);
+	}
+	const { username, name, email, password, is_active = true, group_pk, role, class_level } = body;
 
-	if (!username || !name || !email || !password) {
+	if (!username || !name || !email || !password || !role) {
 		return new Response(
 			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing required fields' } }),
 			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
 
-	try {
-		const created = await createUser({
-			username,
-			name,
-			email,
-			password,
-			is_active,
-			groups: group_pk ? [group_pk] : []
+	const proxy = adminProxy(user);
+	const createBody = JSON.stringify({
+		username, name, email, password, is_active,
+		group_pk: group_pk || '',
+		role,
+		class_level: class_level || undefined
+	});
+	const result = await proxy('/create-user', undefined, 'POST', { body_json: createBody });
+
+	if (result.error) {
+		return new Response(JSON.stringify(result), {
+			status: mapErrorCodeToHttpStatus(result.error.code),
+			headers: { 'content-type': 'application/json' }
 		});
+	}
 
-		await resetPassword(created.pk, password);
-
-		const result = {
-			pk: created.pk,
-			uuid: created.uuid,
-			username: created.username,
-			name: created.name,
-			email: created.email,
-			groups: created.groups || [],
-			is_active: created.is_active
+	try {
+		const parsed = JSON.parse(result.data);
+		const shaped = {
+			pk: parsed.pk,
+			uuid: parsed.uuid,
+			username: parsed.username,
+			name: parsed.name,
+			email: parsed.email,
+			groups: parsed.groups || [],
+			is_active: parsed.is_active ?? true
 		};
-
 		return new Response(
-			JSON.stringify({ data: result }),
+			JSON.stringify({ data: shaped }),
 			{ status: 201, headers: { 'content-type': 'application/json' } }
 		);
-	} catch (err) {
+	} catch {
 		return new Response(
-			JSON.stringify({ error: { code: 'AUTHENTIK_ERROR', message: err instanceof Error ? err.message : 'Failed to create user' } }),
+			JSON.stringify({ error: { code: 'PARSE_ERROR', message: 'Invalid Authentik response' } }),
 			{ status: 502, headers: { 'content-type': 'application/json' } }
 		);
 	}

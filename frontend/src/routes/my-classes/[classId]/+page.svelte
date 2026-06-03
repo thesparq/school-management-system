@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
+  import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { Skeleton } from '$lib/components/ui/skeleton';
-  import { Button } from '$lib/components/ui/button';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
@@ -20,24 +19,9 @@
       {/each}
     </div>
   {:else if data.subjectsError}
-    <Alert variant="destructive">
-      <AlertTitle>Failed to load subjects</AlertTitle>
-      <AlertDescription>{data.subjectsError}</AlertDescription>
-      <AlertAction>
-        <Button variant="outline" onclick={() => goto('/my-classes/' + $page.params.classId)}>Retry</Button>
-      </AlertAction>
-    </Alert>
+    <StatusCard variant="error" title="Failed to load subjects" description={data.subjectsError} onRetry={() => goto('/my-classes/' + $page.params.classId)} />
   {:else if data.subjects.length === 0}
-    <div class="mx-auto max-w-lg py-16 text-center space-y-6">
-      <div class="rounded-full bg-secondary-100 dark:bg-secondary-900/20 mx-auto w-fit p-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01" />
-        </svg>
-      </div>
-      <h2 class="text-xl font-semibold text-surface-800">No Subjects Available</h2>
-      <p class="text-surface-700">No subjects have been assigned for this class.</p>
-    </div>
+    <StatusCard variant="info" title="No Subjects Available" description="No subjects have been assigned for this class." />
   {:else}
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {#each data.subjects as subject (subject.subject_id)}

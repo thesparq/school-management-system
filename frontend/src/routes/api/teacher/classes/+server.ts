@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { proxyToTeacher, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -10,11 +10,10 @@ export const GET: RequestHandler = async (event) => {
     );
   }
 
-  const result = await proxyToGateway('/gateway/teacher/classes', userId);
+  const result = await proxyToTeacher(userId, '/classes');
 
   if (result.error) {
-    const status = result.error.code === 'NOT_INITIALIZED' ? 403 : 502;
-    return new Response(JSON.stringify(result), { status, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
   }
 
   let data: unknown;

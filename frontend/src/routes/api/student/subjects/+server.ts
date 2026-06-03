@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { proxyToStudent } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -10,7 +10,7 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToGateway('/gateway/student/subjects', userId);
+	const result = await proxyToStudent(userId, '/subjects');
 
 	if (result.error) {
 		const status = result.error.code === 'NOT_ACTIVATED' ? 403 : 502;

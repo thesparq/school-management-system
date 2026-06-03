@@ -26,10 +26,18 @@ school-management/
 │   ├── golem.yaml               # Root app manifest
 │   ├── app-agents/              # Single component — all agent types
 │   │   ├── moon.pkg             # Package config (merged imports, is-main)
-│   │   ├── admin_agent.mbt      # Durable Admin Agent (singleton)
-│   │   ├── gateway_agent.mbt    # Ephemeral Gateway Agent
-│   │   ├── student_agent.mbt    # Durable Student Agent (per-student)
-│   │   └── teacher_agent.mbt    # Durable Teacher Agent (per-teacher)
+│   │   ├── main.mbt              # Entry point
+│   │   ├── errors.mbt            # AppError, ErrorCode, structured error handling
+│   │   ├── config.mbt            # SharedConfig, SurrealCfg, AuthentikCfg (resolved)
+│   │   ├── http_client.mbt       # Shared WASI HTTP request/response helper
+│   │   ├── auth.mbt              # require_auth() helper (replaces check_auth_key boilerplate)
+│   │   ├── validation.mbt        # Input validation (email, password, username, role, class_level)
+│   │   ├── surreal_client.mbt    # SurrealDB HTTP client (surreal_query, save_profile, soft_delete)
+│   │   ├── authentik_client.mbt  # Authentik REST API client (user CRUD, groups, group PK resolution)
+│   │   ├── cache_types.mbt       # CacheData enum, CacheItem struct, CACHE_TTL constant
+│   │   ├── admin_agent.mbt       # Durable Admin Agent (per-admin, HTTP)
+│   │   ├── student_agent.mbt    # Durable Student Agent (per-student, HTTP)
+│   │   └── teacher_agent.mbt    # Durable Teacher Agent (per-teacher, HTTP)
 │   └── common-wit/              # Shared WIT dependencies
 │       └── deps/                # wit-deps output
 ├── shared/                      # MoonBit shared library
@@ -51,7 +59,7 @@ school-management/
     │   │   ├── +page.svelte     # Root page (LMS subjects for students, dashboard for admins)
     │   │   ├── lms/             # LMS routes (subjects → terms → lessons)
     │   │   ├── admin/           # Admin routes (user management)
-    │   │   └── api/             # Proxy routes to Golem gateway
+    │   │   └── api/             # Proxy routes to Golem agent endpoints
     │   └── lib/
     │       ├── components/      # shadcn-svelte components
     │       └── utils.ts
@@ -155,7 +163,7 @@ Every line of code lives in one of three security domains. A request never skips
 
 - **Rendering**: Svelte 5 components with runes (`$state`, `$derived`, `$effect`); shadcn-svelte primitives; Tailwind CSS v4 utilities configured via `@theme` in `app.css`.
 - **Server-side hooks** (`src/hooks.server.ts`): Validates the Authentik JWT on every request using Authentik's JWKS endpoint, extracts the internal `user_id` and roles, and stores them in `locals` for downstream load functions and actions.
-- **API routes** (`src/routes/api/`): Thin proxy handlers. They read `user_id` from `locals`, construct a request to the Golem API Gateway (targeting the Ephemeral Gateway Agent), and return the response. They never query a database.
+- **API routes** (`src/routes/api/`): Thin proxy handlers. They read `user_id` from `locals`, construct a request to the target Golem agent's HTTP endpoint, and return the response. They never query a database.
 - **MoonBit modules**: Imported via `mbt:shared/…` prefix. Used for shared validation, data transformations, and type definitions that must be identical on both frontend and backend. The `vite-plugin-moonbit` plugin resolves these imports from the workspace `_build/` directory.
 - **No database credentials, no Golem internal addresses, and no internal agent IDs are ever exposed to the browser.**
 
@@ -168,14 +176,13 @@ Every line of code lives in one of three security domains. A request never skips
 
 ### Golem Cloud Backend (agents — `agents/`)
 
-All agents are defined in the single `app:agents` component (`app-agents/`). They share one WASM binary, and the `golem-sdk-tools agents` step generates typed RPC clients for every agent type so intra-component calls use `<AgentName>Client::scoped(...)` with full type safety.
+All agents are defined in the single `app:agents` component (`app-agents/`). They share one WASM binary, and the `golem-sdk-tools agents` step generates typed RPC clients for every agent type so intra-component calls use `<AgentName>Client::scoped(...)` with full type safety. No Gateway Agent exists — each agent exposes its own HTTP endpoints via `#derive.endpoint` annotations. SvelteKit proxies directly to the target agent.
 
 | Agent Type | Mode | Instances | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Ephemeral Gateway Agent** (`GatewayAgent`) | Ephemeral | One per HTTP request | Stateless gatekeeper. Checks activation status via Admin Agent RPC, then forwards the request to the target User Agent or returns an error. The sole HTTP-facing agent. **Does not hold SurrealDB credentials** — only Admin, Student, and Teacher agents query the database via the internal `surreal_client` helper. |
-| **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry (receptionist), user initialization orchestrator, gatekeeper for user agent creation, relationship manager, and long-running task dispatcher. Tracks initialization state only — activation/deactivation is handled by SvelteKit via Authentik API. Accessed via RPC only (no HTTP mount). |
-| **Student Agent** (`StudentAgent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. |
-| **Teacher Agent** (`TeacherAgent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox (projection), and grading records. |
+| **Admin Agent** (`AdminAgent`) | Durable | One (singleton) | Central registry, user initialization, teacher-subject-class assignments, and long-running task dispatcher. Tracks initialization state via SurrealDB `user_profile` table. Activation/deactivation is handled by SvelteKit via Authentik API. HTTP-accessible via `#derive.endpoint`. |
+| **Student Agent** (`StudentAgent`) | Durable | One per student | Owns all student state: class, subjects, cached lesson metadata, assignment configurations, submissions, and grades. HTTP-accessible via `#derive.endpoint`. |
+| **Teacher Agent** (`TeacherAgent`) | Durable | One per teacher | Owns teacher state: assigned classes/subjects, class rosters, assignment definitions, submission inbox, and grading records. HTTP-accessible via `#derive.endpoint`. |
 
 ### SurrealDB
 
@@ -216,8 +223,8 @@ Replaces `AdminAgent.initialized_users` and `StudentAgent.profile`. Single user 
 | Field | Type | Notes |
 |---|---|---|
 | `auth_id` | `string` | Authentik `sub` claim (UUID). Unique. |
-| `role` | `string` | `"admin"`, `"teacher"`, or `"student"` |
-| `class_level` | `option<string>` | Record ID (e.g. `"class_levels:jss_1"`). Only for students. |
+| `role` | `string` | `"admin"`, `"teacher"`, or `"student"`. Validated in code (`validation.mbt`), not at DB level. |
+| `class_level` | `option<record<class_levels>>` | Record link to class_levels table. Only for students. |
 | `created_at` | `datetime` | When the user agent was initialized |
 | `updated_at` | `option<datetime>` | Last profile update |
 | `deleted_at` | `option<datetime>` | Soft-delete timestamp |
@@ -226,28 +233,29 @@ Unique index on `auth_id` prevents duplicates.
 
 **`teacher_assignment` table (SCHEMAFULL, new):**
 
-Replaces `AdminAgent.teacher_assignments`. Maps teacher → class_level → subject. Supports multiple teachers per class-subject pair via separate rows.
+Replaces `AdminAgent.teacher_assignments`. Maps teacher → has_subject edge. Supports multiple teachers per class-subject pair via separate rows.
 
 | Field | Type | Notes |
 |---|---|---|
 | `teacher_id` | `string` | Teacher's auth_id |
-| `class_level_id` | `string` | Record ID (e.g. `"class_levels:jss_1"`) |
-| `subject_id` | `string` | Record ID (e.g. `"subjects:basic_science"`) |
+| `has_subject` | `record<has_subject>` | FK to the graph edge — guarantees registered class-subject pair |
+| `session_term` | `record<session_term>` | FK to the active session term — scopes assignments to a school period |
 | `assigned_at` | `datetime` | When this assignment was created |
 | `deleted_at` | `option<datetime>` | Soft-delete timestamp |
 
-Unique index on `(teacher_id, class_level_id, subject_id)` prevents duplicate assignments for the same teacher.
+Unique index on `(teacher_id, has_subject, session_term)` prevents duplicate assignments for the same teacher in the same session term.
 
 **`lessons` table (SCHEMAFULL, renamed from `lesson_content`):**
 
 | Navigation Field | Type | Notes |
 |---|---|---|
-| `class_subject` | `record<has_subject>` | FK to the edge — guarantees the class-subject pair is registered |
-| `term` | `record<terms>` | FK to the terms table |
-| `week` | `int` | Week number within the term (1-based) |
+| `topic` | `record<topics>` | FK to the topics table (which links to has_subject + term) |
 | `topic_title` | `string` | Lesson title |
+| `week` | `int` | Week number within the term (1-based) |
 | `active` | `bool` | Default `true`. Toggle to hide a lesson. |
 | `duration_mins` | `int` | Lesson duration in minutes |
+
+The `topic` FK resolves through `topics.has_subject` (→ `has_subject` edge → `class_level` + `subject`) and `topics.term` (→ `terms` table). Lesson queries use dot-traversal: `topic.has_subject.in`, `topic.has_subject.out`, `topic.term`.
 
 Content fields (`objectives`, `content_sections`, `key_points`, `lesson_steps`, `mcq_questions`, `theoretical_questions`, `materials`, `prior_knowledge`, `success_criteria`, `extension_activities`, `textbook_references`) and string fields (`introduction`, `conclusion`, `formative_assessment`, `summative_assessment`, `remediation`, `teacher_tips`) are typed as `FLEXIBLE TYPE array<object>` / `string` — the MoonBit agent code is the real validation layer. `FLEXIBLE` prevents SCHEMAFULL from silently stripping nested object properties when no explicit `field.*.property` definitions exist.
 
@@ -258,7 +266,8 @@ Content fields (`objectives`, `content_sections`, `key_points`, `lesson_steps`, 
 | `idx_cl_name` | `name` (unique) | Class-level lookup by name (drives dot-traversal queries) |
 | `idx_hs_unique` | `in, out` (unique) | Prevent duplicate class-subject edges |
 | `idx_hs_in` | `in` | Lookup: find all has_subject edges for a class |
-| `idx_lessons_nav` | `class_subject, term, week` | Lesson navigation: lessons for a given subject+term |
+| `idx_topics_unique` | `has_subject, term, week` (unique) | Prevent duplicate topics for same subject+term+week |
+| `idx_lessons_topic` | `topic` (unique) | One lesson per topic |
 | `idx_lessons_term` | `class_subject, term` | Which terms have lessons for a subject |
 
 **Deprecation note:** The original `lesson_content` table remains intact for legacy systems. All new queries target `lessons`. After all legacy consumers are migrated, `lesson_content` can be dropped.
@@ -280,7 +289,7 @@ pub(all) struct SurrealConfig {
 
 `SurrealConfig` is used by all agents that need SurrealDB access (`StudentAgent`, `TeacherAgent`, future `AdminAgent` SurrealDB methods). Each agent gets one `@config.Config[SurrealConfig]` field injected via its constructor. The `surreal_query(config, sql)` function resolves all 5 secrets internally with proper `match`-based error handling — no `.unwrap()` panics on network operations.
 
-Only **Admin Agent**, **Student Agent**, and **Teacher Agent** hold SurrealDB credentials. The **Gateway Agent** never stores DB credentials — its `/gateway/db-test` endpoint calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via typed RPC.
+**Admin Agent**, **Student Agent**, and **Teacher Agent** each hold credentials via `@config.Config[SharedConfig]` (shared across all agents).
 
 ### Agent Durable State
 
@@ -294,7 +303,9 @@ Following the **Two Layers, Clear Separation** principle (see Architecture Princ
 
 | Field | MoonBit Type | Purpose | Storage |
 | :--- | :--- | :--- | :--- |
-| `config` | `@config.Config[SurrealConfig]` | Injected DB credentials | Secret |
+| `admin_id` | `String` | Authentik UUID — agent identity | Constructor |
+| `config` | `@config.Config[SharedConfig]` | Injected credentials (SurrealDB + Authentik + auth key) | Secret |
+| `caches` | `Map[String, CacheItem]` | Generic in-memory cache map | Durable |
 | *(removed)* | — | `initialized_users` → `user_profile` table | DB |
 | *(removed)* | — | `teacher_assignments` → `teacher_assignment` table | DB |
 
@@ -302,19 +313,23 @@ Following the **Two Layers, Clear Separation** principle (see Architecture Princ
 
 | Field | MoonBit Type | Purpose | Strategy |
 | :--- | :--- | :--- | :--- |
-| *(removed)* | — | `profile` → `user_profile` table | DB |
-| `subject_cache` | `SubjectCache?` | Cached subject list (TTL 600s) | TTL cache (Rule 4B) |
-| `terms_cache` | `Map[String, TermCacheEntry]` | Cached terms per class level (TTL 600s) | TTL cache (Rule 4B) |
-| `lessons_cache` | `Map[String, LessonCacheEntry]` | Cached lessons per key (TTL 600s) | TTL cache (Rule 4B) |
-| `edge_cache` | `Map[String, EdgeCacheEntry]` | Cached `has_subject` edge IDs | Pre-populated on init |
-| `lesson_cache` | `Map[String, LessonContentCache]` | Cached full lesson content (TTL 600s) | TTL cache (Rule 4B) |
+| `student_id` | `String` | Authentik UUID — agent identity | Constructor |
+| `config` | `@config.Config[SharedConfig]` | Injected credentials | Secret |
+| `caches` | `Map[String, CacheItem]` | Unified cache map for profile + all data | Reactive TTL cache (Rule 4B) |
+
+Cache keys: `"profile"` (backbone — invalidates all), `"subjects"`, `"terms:{class_level}"`, `"lessons:{subject_id}|{term_id}"`, `"lesson:{lesson_id}"`.
+
+The `get_class_level()` method is the reactive gatekeeper — it checks the profile cache first; on miss or expired TTL, queries the DB. If the profile has no `class_level`, it returns `None` and the caller returns `NOT_INITIALIZED`. No negative caching — empty results never cached.
 
 **Teacher Agent struct fields:**
 
 | Field | MoonBit Type | Purpose | Strategy |
 | :--- | :--- | :--- | :--- |
-| `class_groups` | `Map[String, TeacherClassGroup]` | Grouped class-subject cache | Push invalidation (Rule 4A) — cleared via `invalidate_cache()` RPC, re-reads from DB |
-| *(not yet moved)* | — | `rosters`, `assignments`, `submission_inbox`, `grading` | Still in agent state (future DB migration) |
+| `teacher_id` | `String` | Authentik UUID — agent identity | Constructor |
+| `config` | `@config.Config[SharedConfig]` | Injected credentials | Secret |
+| `caches` | `Map[String, CacheItem]` | Unified cache map | Reactive TTL cache (Rule 4B) |
+
+Cache key: `"class_groups"` (backbone — invalidates all). Terms and lessons are queried directly from SurrealDB on each request (not cached).
 
 ### Agent Memory Cache
 
@@ -346,16 +361,20 @@ Roles are embedded in the Authentik JWT claims. SvelteKit checks roles in `hooks
 | `admin` | `/admin/*` (user management, content management) |
 | `parent` | Future |
 
-### Agent-Level Access Control
+### Init Check (Reactive Pattern)
 
-After SvelteKit validates the JWT, it proxies the request to the Golem API Gateway, targeting the Ephemeral Gateway Agent and passing `user_id` as a path parameter:
+No Gateway Agent exists. The Student Agent uses a **reactive gatekeeper** pattern — `get_class_level()` is the single method that checks initialization:
 
-1. **Ephemeral Gateway Agent** calls `AdminAgent.is_user_initialized(user_id)` via RPC.
-2. If initialized, the gateway forwards the request to the target User Agent.
-3. If not initialized, the gateway returns `"NOT_INITIALIZED"` which SvelteKit translates to `403 Forbidden` with the message "Account not initialized. Please contact your school administrator."
-4. Authentik activation/deactivation is handled entirely by SvelteKit API routes (`/api/admin/users/[uuid]/activate-authentik` and `deactivate-authentik`), not by Golem agents.
+1. Checks the profile cache (`caches.get("profile")`) with TTL guard and non-empty class_level guard
+2. If cache hit with valid non-empty class_level → returns `Some(class_level)` immediately
+3. If cache miss, stale, or empty class_level → queries `user_profile` table from SurrealDB
+4. If a record exists with a valid class_level → caches the typed `Profile(StudentProfile)`, returns `Some(class_level)`
+5. If no record exists → returns `None`; the caller returns a structured `NOT_INITIALIZED` error (translates to HTTP 403)
+6. **No negative caching** — failed lookups never write a sentinel to the cache map
 
-This gatekeeper pattern ensures that a user agent can **never** be implicitly created by an unauthorized request. An agent exists only after an admin explicitly initializes the user.
+When an admin creates or edits a user profile (writes `user_profile` to SurrealDB), they call the agent's `invalidate_cache("profile")` RPC. This clears ALL caches (profile + subjects + terms + lessons) because `"profile"` is the backbone key. The next request re-fetches everything from SurrealDB.
+
+Activation/deactivation (login permission) is handled by SvelteKit API routes directly against Authentik, not by Golem agents.
 
 ### Network-Level Security
 
@@ -397,7 +416,7 @@ Agent forking is efficient because Golem forks from the latest snapshot — it d
 
 ### Content Caching
 
-Subject lists, term lists, lesson content, and edge record IDs are cached in each agent's in-memory maps with a configurable TTL (default: 600 seconds). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB. No background refresh — the edge cache is pre-populated during initialization, so lesson queries never need graph traversal after init.
+Subject lists, term lists, and lesson content are cached in each agent's unified `caches` map with TTL (default: 600 seconds). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB. No background refresh — the cache is reactive and self-warming. Empty results are never cached; they return structured errors instead.
 
 ## Architecture Principles
 
@@ -430,8 +449,8 @@ Agent recreation is never a crisis because entity data was never owned by the ag
 ### Rule 4: Three Cache Strategies — Choose Per Data Type
 
 Every cached field must have an explicit strategy:
-- **Strategy A: Push Invalidation (Strong Consistency)** — Writer sends targeted RPC to affected agents after the DB write. Use when staleness is unacceptable.
-- **Strategy B: TTL (Eventual Consistency)** — Agent re-queries after a time interval. Use when data changes rarely.
+- **Strategy A: Push Invalidation (Strong Consistency)** — Writer sends targeted RPC to affected agents after the DB write. Use when staleness is unacceptable. Proxy backbone keys cascade invalidation to all dependent caches (e.g., `"profile"` → clears all).
+- **Strategy B: TTL (Eventual Consistency)** — Agent re-queries after a time interval (600s). Use when data changes rarely. Empty results are never cached.
 - **Strategy C: No Cache (Always Fresh)** — Query SurrealDB on every access. Use when data must be maximally fresh.
 
 | Data Type | Strategy | Reason |
@@ -476,11 +495,11 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 1. **SvelteKit never accesses SurrealDB or any agent-local storage.** All data flows through Golem agents. The SvelteKit backend is a pure proxy and has no database credentials.
 
-2. **No durable User Agent is created without an explicit admin initialization.** The Ephemeral Gateway Agent must always check `AdminAgent.is_user_initialized(user_id)` before forwarding a request to a User Agent. Implicit agent creation via Golem's default behaviour is blocked by the gatekeeper.
+2. **No durable User Agent can serve data requests without an existing `user_profile` record in SurrealDB.** The Student Agent's `get_class_level()` method serves as the reactive gatekeeper — if no profile row exists, it returns `None` and the caller returns a structured `NOT_INITIALIZED` error (HTTP 403). A user agent cannot be implicitly created — the Admin Agent is the sole writer of `user_profile` records.
 
 3. **SurrealDB is the single source of truth for entity data.** User profiles, teacher assignments, and class rosters are stored in `user_profile` and `teacher_assignment` tables. Agent durable memory holds only ephemeral cache and in-progress work.
 
-4. **Every durable agent writes its own profile to SurrealDB on initialization.** The Admin Agent fires RPC to create the User Agent; the User Agent writes its own `user_profile` record. The Admin Agent never writes profiles directly.
+4. **The Admin Agent is the sole writer of `user_profile` records.** Agents read their profile from SurrealDB on first request via the cache-first pattern. Agents never write their own profile.
 
 5. **Assignment deadlines are enforced authoritatively by the Teacher Agent.** The Student Agent performs a local check for immediate user feedback, but the Teacher Agent's timestamp comparison on receipt is the final word. The Teacher Agent's clock is the authority.
 
@@ -499,31 +518,17 @@ These rules must never be violated by any code change, refactor, or new feature.
 │                       SvelteKit Server                             │
 │  ┌──────────┐  ┌──────────────┐  ┌─────────────────────────────┐ │
 │  │  Routes   │  │ hooks.server │  │  API Proxy (server-side)     │ │
-│  │  (pages)  │  │ (JWT check)  │  │  → Golem API Gateway         │ │
+│  │  (pages)  │  │ (JWT check)  │  │  → Agent HTTP Endpoints      │ │
 │  └──────────┘  └──────────────┘  └─────────────────────────────┘ │
 └──────────────────────┬───────────────────────────────────────────┘
                        │ HTTPS (IP-whitelisted)
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     Golem API Gateway                              │
-│  Routes HTTP requests to agents based on golem.yaml API            │
-│  definitions. Phantoms ephemeral agents per request.               │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│               Ephemeral Gateway Agent (stateless)                  │
-               │  1. AdminAgent.is_user_initialized(user_id)? ──▶ Admin Agent (RPC)  │
-│  2. If initialized: forward to User Agent (RPC)                    │
-│  3. If not: "NOT_INITIALIZED" → SvelteKit returns 403              │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ (RPC, internal)
          ┌─────────────┼─────────────┐
          ▼             ▼             ▼
    ┌──────────┐ ┌──────────┐ ┌──────────┐
    │  Admin    │ │ Student  │ │ Teacher  │
    │  Agent    │ │  Agent   │ │  Agent   │
-   │(durable) │ │(durable) │ │(durable) │
+   │(durable,  │ │(durable, │ │(durable, │
+   │ HTTP)     │ │ HTTP)    │ │ HTTP)    │
    └────┬─────┘ └────┬─────┘ └────┬─────┘
         │            │            │
         │   RPC      │   RPC      │   RPC
@@ -536,21 +541,22 @@ These rules must never be violated by any code change, refactor, or new feature.
         ▼            ▼            ▼
    ┌─────────────────────────────────────┐
    │             SurrealDB               │
-   │        (Lesson Content)             │
+   │        (All Entity Data)            │
    └─────────────────────────────────────┘
 ```
+
+No Gateway Agent sits between SvelteKit and the agents. Each agent exposes its own HTTP endpoints via `#derive.endpoint`. Agent init check is handled internally via the cache-first pattern — no external gatekeeper required.
 
 ## Key Design Patterns
 
 | Pattern | Implementation |
 | :--- | :--- |
 | **DB-Backed Facts** | User profiles, teacher assignments, and class rosters live in SurrealDB tables (`user_profile`, `teacher_assignment`). Agents read from DB directly; writes go through the orchestrating agent. |
-| **Cache with Explicit Strategy** | Every cached field uses one of three strategies: Push Invalidation (Rule 4A), TTL (Rule 4B), or No Cache (Rule 4C). Strategy is declared per data type. |
+| **Cache with Explicit Strategy** | Every cached field uses one of three strategies: Push Invalidation (Rule 4A), TTL (Rule 4B), or No Cache (Rule 4C). Strategy is declared per data type. Empty results are never cached. |
 | **Deterministic Worker IDs** | Worker IDs are computed from entity IDs (`"teacher-{auth_id}"`, `"student-{auth_id}"`). No agent holds a registry of other agents. |
-| **Gatekeeper** | Ephemeral Gateway Agent prevents implicit user agent creation and blocks requests before they reach a User Agent. Init check queries `user_profile` table via AdminAgent RPC. |
+| **Reactive Cache Pattern** | Profile cache serves as the backbone — `get_class_level()` checks cache first; on miss or empty class_level, queries SurrealDB. No negative caching, no `ensure_initialized` pre-flight check. Cache hits with non-empty data skip the DB; all other paths fall through to a DB query. |
 | **Direct Actor Communication** | After discovery via the Admin Agent, Student Agents communicate directly with Teacher Agents for submissions and grading. |
 | **Fire-and-Forget with Promises** | Long-running admin tasks (future) use fire-and-forget RPCs to ephemeral forked agents with a Promise handle for polling results. |
-| **Simple TTL Caching** | Subject lists, term lists, lesson metadata, and edge record IDs are cached in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
-| **Dot-Traversal Queries** | SurrealQL uses dot-traversal (`class_subject.in.name = $class_level`) instead of nested `IN (SELECT ...)` subqueries. This lets the query planner leverage the `idx_cl_name` index on `class_levels(name)` for O(1) lookup. Applied in all subject and lesson queries. |
-| **Edge ID Pre-Population** | During student initialization, a single query returns both subject metadata and the `has_subject` edge record ID. The edge ID is cached per student (`edge_cache: Map[String, EdgeCacheEntry]`), enabling lesson queries to use the trivial indexed path `WHERE class_subject = $hs_id AND term = $term_id` — never the dot-traversal path after init. |
+| **Simple TTL Caching** | Subject lists, term lists, lesson metadata are cached in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
+| **Dot-Traversal Queries** | SurrealQL uses dot-traversal (`topic.has_subject.in = $class_level`) instead of nested `IN (SELECT ...)` subqueries. Record ID comparisons on embedded fields use direct value interpolation (not `$var` bindings which don't auto-cast in SurrealDB 3.x). |
 | **Soft Deletes** | Every entity table has a `deleted_at` field. All queries filter `WHERE deleted_at IS NONE`. Hard deletes are never used. |

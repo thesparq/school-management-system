@@ -1,38 +1,16 @@
-import { proxyToGateway } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
-	const userId = event.locals.user?.id;
-	if (!userId) {
+	const user = event.locals.user;
+	if (!user) {
 		return new Response(
-			JSON.stringify({
-				error: { code: 'UNAUTHENTICATED', message: 'Not authenticated.' }
-			}),
+			JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Not authenticated.' } }),
 			{ status: 401, headers: { 'content-type': 'application/json' } }
 		);
 	}
 
-	// Admins use the singleton Admin Agent — no per-user initialization needed.
-	const roles = event.locals.user?.roles ?? [];
-	if (roles.includes('admin')) {
-		return new Response(
-			JSON.stringify({ data: { initialized: true } }),
-			{ status: 200, headers: { 'content-type': 'application/json' } }
-		);
-	}
-
-	const result = await proxyToGateway('/gateway/check-initialization', userId);
-
-	if (result.error) {
-		const status = result.error.code === 'NOT_INITIALIZED' ? 403 : 502;
-		return new Response(JSON.stringify(result), {
-			status,
-			headers: { 'content-type': 'application/json' }
-		});
-	}
-
 	return new Response(
-		JSON.stringify({ data: { initialized: true } }),
+		JSON.stringify({ data: { authenticated: true } }),
 		{ status: 200, headers: { 'content-type': 'application/json' } }
 	);
 };

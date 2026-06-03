@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -18,11 +18,10 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToGateway('/gateway/student/lesson', userId, { lesson_id: lessonId });
+	const result = await proxyToStudent(userId, '/lesson', { lesson_id: lessonId });
 
 	if (result.error) {
-		const status = result.error.code === 'NOT_INITIALIZED' ? 403 : 502;
-		return new Response(JSON.stringify(result), { status, headers: { 'content-type': 'application/json' } });
+		return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
 	}
 
 	let lesson: unknown;
@@ -30,7 +29,7 @@ export const GET: RequestHandler = async (event) => {
 		lesson = JSON.parse(result.data);
 	} catch {
 		return new Response(
-			JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse gateway response' } }),
+			JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse agent response' } }),
 			{ status: 502, headers: { 'content-type': 'application/json' } }
 		);
 	}

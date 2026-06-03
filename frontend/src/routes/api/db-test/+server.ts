@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { proxyToAdmin } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -9,7 +9,7 @@ export const GET: RequestHandler = async (event) => {
 			{ status: 401, headers: { 'content-type': 'application/json' } }
 		);
 	}
-	const result = await proxyToGateway('/gateway/db-test', userId);
+	const result = await proxyToAdmin(userId, '/ping');
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
 			status: 502,

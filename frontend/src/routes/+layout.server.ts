@@ -28,7 +28,7 @@ export const load: LayoutServerLoad = async (event) => {
 
 		if (redirectTo) {
 			event.cookies.set('oauth_redirect', redirectTo, {
-				httpOnly: true,
+				httpOnly: false,
 				sameSite: 'lax',
 				path: '/',
 				maxAge: 300,

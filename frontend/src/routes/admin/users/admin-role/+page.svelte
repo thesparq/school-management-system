@@ -5,13 +5,14 @@
 	import type { UserRow } from '$lib/types/user';
 
 	let { data }: { data: PageData } = $props();
-	let { users: initialUsers, initMap: initialInitMap, allGroups: initialAllGroups, error, groupPk } = data;
 
-	let users = $state<UserRow[]>(initialUsers as UserRow[] || []);
-	let initMap = $state<Record<string, string>>(initialInitMap || {});
-	let allGroups = $state<{pk: string; name: string}[]>(initialAllGroups || []);
-	let isLoading = $derived(!initialUsers && !error);
-	let hasError = $derived(!!error);
+	let error: string | undefined = $derived(data.error);
+	let groupPk: string | undefined = $derived(data.groupPk);
+	let isLoading = $derived(!data.users && !data.error);
+	let hasError = $derived(!!data.error);
+
+	let users = $state<UserRow[]>((() => data.users as UserRow[])() || []);
+	let allGroups = $state<{pk: string; name: string}[]>((() => data.allGroups)() || []);
 	let showCreateDialog = $state(false);
 </script>
 
@@ -28,7 +29,6 @@
 
 	<UserTable
 		bind:users
-		bind:initMap
 		bind:allGroups
 		role="admin-role"
 		groupPk={groupPk ?? ''}
