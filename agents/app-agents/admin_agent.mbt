@@ -540,6 +540,218 @@ pub fn AdminAgent::get_active_session_term(
 }
 
 ///|
+#derive.endpoint(get="/terms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_terms(
+  self : Self,
+  incoming_key : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let sql = "SELECT id, name, sort_order FROM terms ORDER BY sort_order ASC"
+  match surreal_query(self.config.value, sql) {
+    Ok(arr) => {
+      let items = arr.map(fn(item) {
+        match item {
+          Object(o) => {
+            let id = match o.get("id") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            let name = match o.get("name") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            "{\"id\":\"" + escape_json_string(id) + "\",\"name\":\"" + escape_json_string(name) + "\"}"
+          }
+          _ => "null"
+        }
+      })
+      Ok("[" + items.join(",") + "]")
+    }
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/session-terms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_session_terms(
+  self : Self,
+  incoming_key : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let sql = "SELECT id, session, term.name AS term_name, active, created_at " +
+    "FROM session_term ORDER BY created_at DESC"
+  match surreal_query(self.config.value, sql) {
+    Ok(arr) => {
+      let items = arr.map(fn(item) {
+        match item {
+          Object(o) => {
+            let id = match o.get("id") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            let session = match o.get("session") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            let term_name = match o.get("term_name") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            let active = match o.get("active") {
+              Some(True) => true
+              _ => false
+            }
+            let created_at = match o.get("created_at") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            "{\"id\":\"" + escape_json_string(id) +
+            "\",\"session\":\"" + escape_json_string(session) +
+            "\",\"term_name\":\"" + escape_json_string(term_name) +
+            "\",\"active\":" + (if active { "true" } else { "false" }) +
+            ",\"created_at\":\"" + escape_json_string(created_at) + "\"}"
+          }
+          _ => "null"
+        }
+      })
+      Ok("[" + items.join(",") + "]")
+    }
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/create-session-term")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+#derive.endpoint_body("body_json")
+pub fn AdminAgent::create_session_term(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let val = @json.parse(body_json) catch {
+    _ => return Err(AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }.to_json_string())
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(AppError::{ code: ValidationError, message: "Body must be an object", detail: None }.to_json_string())
+  }
+  let session = match obj.get("session") {
+    Some(String(s)) => s
+    _ => return Err(AppError::{ code: ValidationError, message: "Session is required", detail: None }.to_json_string())
+  }
+  let term_id = match obj.get("term_id") {
+    Some(String(s)) => s
+    _ => return Err(AppError::{ code: ValidationError, message: "term_id is required", detail: None }.to_json_string())
+  }
+  let active = match obj.get("active") {
+    Some(True) => true
+    _ => false
+  }
+  self.caches.remove("active_session_term")
+  if active {
+    let deactivate_sql = "UPDATE session_term SET active = false"
+    match surreal_query(self.config.value, deactivate_sql) {
+      Ok(_) => ()
+      Err(e) => return Err(e.to_json_string())
+    }
+  }
+  let create_sql = "CREATE session_term SET session = '" +
+    escape_surreal_string(session) +
+    "', term = " + term_id +
+    ", active = " + (if active { "true" } else { "false" }) +
+    ", created_at = time::now()"
+  match surreal_query(self.config.value, create_sql) {
+    Ok(arr) =>
+      if arr.length() > 0 {
+        match arr[0] {
+          Object(o) => {
+            let id = match o.get("id") {
+              Some(v) =>
+                match v {
+                  String(s) => s
+                  _ => ""
+                }
+              None => ""
+            }
+            Ok(
+              "{\"id\":\"" + escape_json_string(id) +
+              "\",\"session\":\"" + escape_json_string(session) +
+              "\",\"active\":" + (if active { "true" } else { "false" }) +
+              "}",
+            )
+          }
+          _ => Err(AppError::{ code: InternalError, message: "Failed to create session term", detail: None }.to_json_string())
+        }
+      } else {
+        Err(AppError::{ code: InternalError, message: "Failed to create session term", detail: None }.to_json_string())
+      }
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/activate-session-term?session_term_id={session_term_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::activate_session_term(
+  self : Self,
+  incoming_key : String,
+  session_term_id : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  self.caches.remove("active_session_term")
+  let deactivate_sql = "UPDATE session_term SET active = false"
+  match surreal_query(self.config.value, deactivate_sql) {
+    Ok(_) => ()
+    Err(e) => return Err(e.to_json_string())
+  }
+  let activate_sql = "UPDATE session_term SET active = true WHERE id = " + session_term_id
+  match surreal_query(self.config.value, activate_sql) {
+    Ok(_) => Ok("ok")
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
 #derive.endpoint(post="/invalidate-cache?key={key}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn AdminAgent::invalidate_cache(

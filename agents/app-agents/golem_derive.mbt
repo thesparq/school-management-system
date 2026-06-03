@@ -147,6 +147,198 @@ impl @schema.ToElementValue for CreateUserResponse with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for CacheData with element_schema() {
+  @schema.make_variant_schema([
+    (
+      "Profile",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[StudentProfile]),
+        ),
+      ),
+    ),
+    (
+      "Subjects",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[Array[SubjectInfo]]),
+        ),
+      ),
+    ),
+    (
+      "Terms",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[Array[TermInfo]]),
+        ),
+      ),
+    ),
+    (
+      "Lessons",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[Array[LessonInfo]]),
+        ),
+      ),
+    ),
+    (
+      "LessonContent",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[LessonContent]),
+        ),
+      ),
+    ),
+    (
+      "ClassGroups",
+      Some(
+        @schema.schema_of_tag(
+          (@schema.TypeTag::{  } : @schema.TypeTag[Array[TeacherClassGroup]]),
+        ),
+      ),
+    ),
+    (
+      "ActiveSessionTerm",
+      Some(
+        @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+      ),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for CacheData with from_extractor(e) {
+  let (idx, payload) = @schema.extract_variant(e)
+  match idx {
+    0 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::Profile",
+        )
+      }
+      let field0 :StudentProfile = @schema.from_extractor_as(p)
+      Profile(field0)
+    }
+    1 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::Subjects",
+        )
+      }
+      let field0 :Array[SubjectInfo] = @schema.from_extractor_as(p)
+      Subjects(field0)
+    }
+    2 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::Terms",
+        )
+      }
+      let field0 :Array[TermInfo] = @schema.from_extractor_as(p)
+      Terms(field0)
+    }
+    3 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::Lessons",
+        )
+      }
+      let field0 :Array[LessonInfo] = @schema.from_extractor_as(p)
+      Lessons(field0)
+    }
+    4 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::LessonContent",
+        )
+      }
+      let field0 :LessonContent = @schema.from_extractor_as(p)
+      LessonContent(field0)
+    }
+    5 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::ClassGroups",
+        )
+      }
+      let field0 :Array[TeacherClassGroup] = @schema.from_extractor_as(p)
+      ClassGroups(field0)
+    }
+    6 => {
+      guard payload is Some(p) else {
+        raise  @common.AgentError::InvalidInput(
+          "Expected payload for CacheData::ActiveSessionTerm",
+        )
+      }
+      let field0 :String = @schema.from_extractor_as(p)
+      ActiveSessionTerm(field0)
+    }
+    _ => raise  @common.AgentError::InvalidInput("Unknown CacheData case")
+  }
+}
+
+///|
+impl @schema.FromElementValue for CacheData with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for CacheData with to_element_value(self) {
+  match self {
+    Profile(field0) => 
+      @schema.make_variant_value(0U, Some(@schema.to_element_value_as(field0)))
+    Subjects(field0) => 
+      @schema.make_variant_value(1U, Some(@schema.to_element_value_as(field0)))
+    Terms(field0) => 
+      @schema.make_variant_value(2U, Some(@schema.to_element_value_as(field0)))
+    Lessons(field0) => 
+      @schema.make_variant_value(3U, Some(@schema.to_element_value_as(field0)))
+    LessonContent(field0) => 
+      @schema.make_variant_value(4U, Some(@schema.to_element_value_as(field0)))
+    ClassGroups(field0) => 
+      @schema.make_variant_value(5U, Some(@schema.to_element_value_as(field0)))
+    ActiveSessionTerm(field0) => 
+      @schema.make_variant_value(6U, Some(@schema.to_element_value_as(field0)))
+  }
+}
+
+///|
+impl @schema.HasElementSchema for CacheItem with element_schema() {
+  @schema.make_record_schema([
+    (
+      "data",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[CacheData]),
+      ),
+    ),
+    (
+      "fetched_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for CacheItem with from_extractor(e) {
+  let data :CacheData = @schema.extract_field(e, 0)
+  let fetched_at :UInt64 = @schema.extract_field(e, 1)
+  { data, fetched_at }
+}
+
+///|
+impl @schema.FromElementValue for CacheItem with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for CacheItem with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.data),
+    @schema.to_element_value_as(self.fetched_at),
+  ])
+}
+
+///|
 impl @schema.HasElementSchema for SubjectInfo with element_schema() {
   @schema.make_record_schema([
     (
@@ -493,198 +685,6 @@ impl @schema.ToElementValue for TeacherClassGroup with to_element_value(self) {
     @schema.to_element_value_as(self.class_level_id),
     @schema.to_element_value_as(self.class_level_name),
     @schema.to_element_value_as(self.subjects),
-  ])
-}
-
-///|
-impl @schema.HasElementSchema for CacheData with element_schema() {
-  @schema.make_variant_schema([
-    (
-      "Profile",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[StudentProfile]),
-        ),
-      ),
-    ),
-    (
-      "Subjects",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[Array[SubjectInfo]]),
-        ),
-      ),
-    ),
-    (
-      "Terms",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[Array[TermInfo]]),
-        ),
-      ),
-    ),
-    (
-      "Lessons",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[Array[LessonInfo]]),
-        ),
-      ),
-    ),
-    (
-      "LessonContent",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[LessonContent]),
-        ),
-      ),
-    ),
-    (
-      "ClassGroups",
-      Some(
-        @schema.schema_of_tag(
-          (@schema.TypeTag::{  } : @schema.TypeTag[Array[TeacherClassGroup]]),
-        ),
-      ),
-    ),
-    (
-      "ActiveSessionTerm",
-      Some(
-        @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
-      ),
-    ),
-  ])
-}
-
-///|
-impl @schema.FromExtractor for CacheData with from_extractor(e) {
-  let (idx, payload) = @schema.extract_variant(e)
-  match idx {
-    0 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::Profile",
-        )
-      }
-      let field0 :StudentProfile = @schema.from_extractor_as(p)
-      Profile(field0)
-    }
-    1 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::Subjects",
-        )
-      }
-      let field0 :Array[SubjectInfo] = @schema.from_extractor_as(p)
-      Subjects(field0)
-    }
-    2 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::Terms",
-        )
-      }
-      let field0 :Array[TermInfo] = @schema.from_extractor_as(p)
-      Terms(field0)
-    }
-    3 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::Lessons",
-        )
-      }
-      let field0 :Array[LessonInfo] = @schema.from_extractor_as(p)
-      Lessons(field0)
-    }
-    4 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::LessonContent",
-        )
-      }
-      let field0 :LessonContent = @schema.from_extractor_as(p)
-      LessonContent(field0)
-    }
-    5 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::ClassGroups",
-        )
-      }
-      let field0 :Array[TeacherClassGroup] = @schema.from_extractor_as(p)
-      ClassGroups(field0)
-    }
-    6 => {
-      guard payload is Some(p) else {
-        raise  @common.AgentError::InvalidInput(
-          "Expected payload for CacheData::ActiveSessionTerm",
-        )
-      }
-      let field0 :String = @schema.from_extractor_as(p)
-      ActiveSessionTerm(field0)
-    }
-    _ => raise  @common.AgentError::InvalidInput("Unknown CacheData case")
-  }
-}
-
-///|
-impl @schema.FromElementValue for CacheData with from_element_value(v) {
-  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
-}
-
-///|
-impl @schema.ToElementValue for CacheData with to_element_value(self) {
-  match self {
-    Profile(field0) => 
-      @schema.make_variant_value(0U, Some(@schema.to_element_value_as(field0)))
-    Subjects(field0) => 
-      @schema.make_variant_value(1U, Some(@schema.to_element_value_as(field0)))
-    Terms(field0) => 
-      @schema.make_variant_value(2U, Some(@schema.to_element_value_as(field0)))
-    Lessons(field0) => 
-      @schema.make_variant_value(3U, Some(@schema.to_element_value_as(field0)))
-    LessonContent(field0) => 
-      @schema.make_variant_value(4U, Some(@schema.to_element_value_as(field0)))
-    ClassGroups(field0) => 
-      @schema.make_variant_value(5U, Some(@schema.to_element_value_as(field0)))
-    ActiveSessionTerm(field0) => 
-      @schema.make_variant_value(6U, Some(@schema.to_element_value_as(field0)))
-  }
-}
-
-///|
-impl @schema.HasElementSchema for CacheItem with element_schema() {
-  @schema.make_record_schema([
-    (
-      "data",
-      @schema.schema_of_tag(
-        (@schema.TypeTag::{  } : @schema.TypeTag[CacheData]),
-      ),
-    ),
-    (
-      "fetched_at",
-      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[UInt64])),
-    ),
-  ])
-}
-
-///|
-impl @schema.FromExtractor for CacheItem with from_extractor(e) {
-  let data :CacheData = @schema.extract_field(e, 0)
-  let fetched_at :UInt64 = @schema.extract_field(e, 1)
-  { data, fetched_at }
-}
-
-///|
-impl @schema.FromElementValue for CacheItem with from_element_value(v) {
-  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
-}
-
-///|
-impl @schema.ToElementValue for CacheItem with to_element_value(self) {
-  @schema.make_record_value([
-    @schema.to_element_value_as(self.data),
-    @schema.to_element_value_as(self.fetched_at),
   ])
 }
 
