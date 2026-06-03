@@ -33,9 +33,12 @@ Report which test number fails and we'll dig in.
 | 16 | Assign teacher subjects | Click "Assign" on a teacher → search/select class-subject pairs → save | Assigned subjects persist on reload; teacher dashboard shows classes |
 | 17 | Teacher subject list | Open a teacher's assign modal | Shows currently assigned subjects from DB |
 | 18 | Create teacher | Click "Create Teacher" → fill form → submit | New user in Authentik + SurrealDB, appears in teachers table |
-| 19 | Delete user | Click "Edit" → "Delete" → confirm | User removed from Authentik, profile soft-deleted in SurrealDB |
-| 20 | Assign teacher subjects | Click "Manage" on a teacher → pick class-subject combos → save | Assigned subjects persist on reload |
-| 21 | Teacher subject list | Click a teacher's Manage panel | Shows currently assigned subjects |
+| 19 | Session terms page | Navigate to Configuration > Session Terms | Table with Session, Term, Active, Created At columns |
+| 20 | Create session term | Click "Create Session Term" → fill session + select term → submit | New row appears at top; toast confirms success |
+| 21 | Activate session term | Click "Activate" on inactive row → confirm | Row shows active badge; all others deactivated; toast confirms |
+| 22 | No active term warning | Ensure no active ST exists → visit page | StatusCard(warning) shown above table |
+| 23 | Toast on CRUD | Create/Edit/Delete a user | Success toast appears top-right; error toast on failure |
+| 24 | Toast hover pause | Hover over toast during countdown | Progress bar stops; resumes on mouse leave |
 
 ---
 

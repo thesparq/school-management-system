@@ -58,7 +58,10 @@ school-management/
     │   │   ├── +layout.svelte   # Root layout (sidebar, nav, breadcrumbs)
     │   │   ├── +page.svelte     # Root page (LMS subjects for students, dashboard for admins)
     │   │   ├── lms/             # LMS routes (subjects → terms → lessons)
-    │   │   ├── admin/           # Admin routes (user management)
+    │   │   ├── admin/           # Admin routes (user management, configuration)
+    │   │   │   ├── users/
+    │   │   │   └── configuration/
+    │   │   │       └── session-terms/
     │   │   └── api/             # Proxy routes to Golem agent endpoints
     │   └── lib/
     │       ├── components/      # shadcn-svelte components
@@ -109,7 +112,7 @@ cd agents
 golem new --template moonbit --component-name app:agents .
 ```
 
-The scaffold produces a `app-agents/` directory. All four agent types (Admin, Gateway, Student, Teacher) live in this single component, sharing one WASM binary and one set of generated typed RPC clients. This enables type-safe agent-to-agent calls using `<AgentName>Client::scoped(...)` without cross-component bridging.
+The scaffold produces a `app-agents/` directory. All three agent types (Admin, Student, Teacher) live in this single component, sharing one WASM binary and one set of generated typed RPC clients. This enables type-safe agent-to-agent calls using `<AgentName>Client::scoped(...)` without cross-component bridging.
 
 The `golem new --template moonbit` command scaffolds a MoonBit Golem component with:
 - `golem.yaml` – per-component manifest with build profiles and WIT directories
@@ -187,7 +190,7 @@ All agents are defined in the single `app:agents` component (`app-agents/`). The
 ### SurrealDB
 
 - **Accessed only by Golem agents** via HTTP using the `golemcloud/golem_sdk/http` package with HTTP Basic Auth.
-- Stores canonical entity data: user profiles (`user_profile`), teacher assignments (`teacher_assignment`), curriculum structure (`has_subject`), lesson content (`lessons`), and future assignment/submission/grade records.
+- Stores canonical entity data: user profiles (`user_profile`), teacher assignments (`teacher_assignment`), session terms (`session_term`), curriculum structure (`has_subject`), lesson content (`lessons`), and future assignment/submission/grade records.
 - Golem automatically persists all outgoing HTTP requests and responses in the agent's operation log. On replay, the response is read from the log rather than re-executing the network call, ensuring deterministic behaviour.
 
 ## Storage Model
@@ -201,8 +204,8 @@ The database uses SurrealDB's idiomatic multi-model approach. Navigation fields 
 | Table | Key Fields | Purpose |
 |---|---|---|
 | `subjects` | `name` (unique), `code?` | All curriculum subjects (e.g., "Basic Science", "Mathematics") |
-| `class_levels` | `name` (unique), `age_range?` | All class/year levels (e.g., "Primary 1", "JSS 1") |
-| `terms` | `name` (unique), `sort_order`, `active` | Academic terms: "First Term" (1), "Second Term" (2), "Third Term" (3) |
+| `class_levels` | `name` (unique), `code`, `active` | All class/year levels (e.g., "Primary 1", "JSS 1") |
+| `terms` | `name` (unique), `sort_order`, `active` | Academic terms: "Noel Term" (1), "Calvary Term" (2), "Summer Term" (3) |
 
 **Graph edge — `has_subject` (`TYPE RELATION`):**
 
@@ -274,22 +277,25 @@ Content fields (`objectives`, `content_sections`, `key_points`, `lesson_steps`, 
 
 Agents query via HTTP using the `surreal_client` module (`agents/app-agents/surreal_client.mbt`), which wraps WASI HTTP POST requests to `https://{host}/sql` with HTTP Basic Auth (`username:password` base64-encoded). Namespace and database are sent as `surreal-ns` / `surreal-db` headers.
 
-A shared `SurrealConfig` struct defines all 5 connection parameters as Golem secrets:
+A shared `SharedConfig` struct defines all connection parameters as Golem secrets with prefixed field names:
 
 ```moonbit
 #derive.config
-pub(all) struct SurrealConfig {
-  host      : @config.Secret[String]
-  ns        : @config.Secret[String]
-  database  : @config.Secret[String]
-  username  : @config.Secret[String]
-  password  : @config.Secret[String]
+pub(all) struct SharedConfig {
+  surreal_host      : @config.Secret[String]
+  surreal_ns        : @config.Secret[String]
+  surreal_database  : @config.Secret[String]
+  surreal_username  : @config.Secret[String]
+  surreal_password  : @config.Secret[String]
+  authentik_host    : @config.Secret[String]
+  authentik_api_token : @config.Secret[String]
+  auth_key          : @config.Secret[String]
 }
 ```
 
-`SurrealConfig` is used by all agents that need SurrealDB access (`StudentAgent`, `TeacherAgent`, future `AdminAgent` SurrealDB methods). Each agent gets one `@config.Config[SurrealConfig]` field injected via its constructor. The `surreal_query(config, sql)` function resolves all 5 secrets internally with proper `match`-based error handling — no `.unwrap()` panics on network operations.
+Companion `SurrealCfg` and `AuthentikCfg` structs (plain, non-config) provide resolved string values to client modules via `resolve_surreal_cfg(config)` and `resolve_authentik_cfg(config)` helpers defined in `config.mbt`.
 
-**Admin Agent**, **Student Agent**, and **Teacher Agent** each hold credentials via `@config.Config[SharedConfig]` (shared across all agents).
+**Admin Agent**, **Student Agent**, and **Teacher Agent** each hold credentials via a single `@config.Config[SharedConfig]`.
 
 ### Agent Durable State
 
@@ -329,7 +335,7 @@ The `get_class_level()` method is the reactive gatekeeper — it checks the prof
 | `config` | `@config.Config[SharedConfig]` | Injected credentials | Secret |
 | `caches` | `Map[String, CacheItem]` | Unified cache map | Reactive TTL cache (Rule 4B) |
 
-Cache key: `"class_groups"` (backbone — invalidates all). Terms and lessons are queried directly from SurrealDB on each request (not cached).
+Cache keys: `"class_groups"` (backbone — invalidates all) and `"active_session_term"` (cross-agent, TTL 600s). Terms and lessons are queried directly from SurrealDB on each request (not cached).
 
 ### Agent Memory Cache
 
@@ -560,3 +566,39 @@ No Gateway Agent sits between SvelteKit and the agents. Each agent exposes its o
 | **Simple TTL Caching** | Subject lists, term lists, lesson metadata are cached in-memory with a configurable TTL (default: 600s). On cache miss or TTL expiry, the next request fetches fresh data from SurrealDB — no background refresh. |
 | **Dot-Traversal Queries** | SurrealQL uses dot-traversal (`topic.has_subject.in = $class_level`) instead of nested `IN (SELECT ...)` subqueries. Record ID comparisons on embedded fields use direct value interpolation (not `$var` bindings which don't auto-cast in SurrealDB 3.x). |
 | **Soft Deletes** | Every entity table has a `deleted_at` field. All queries filter `WHERE deleted_at IS NONE`. Hard deletes are never used. |
+
+## Sidebar Structure
+
+The root layout (`+layout.svelte`) renders three sidebar groups:
+
+```
+Navigation              ← visible to all roles
+  └── LMS
+  └── My Classes        ← teachers only
+Configuration           ← admin only (above Users)
+  └── Session Terms
+Users                   ← admin only
+  ├── Students
+  ├── Teachers
+  └── Admin
+```
+
+## Session Term Management (HF-04)
+
+Admin users can manage session terms via **Configuration > Session Terms**. A session term links a school session (e.g., "2024") to an academic term (e.g., "Noel Term"). Only one session term can be active at a time.
+
+**Backend**: 4 AdminAgent HTTP endpoints: `GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`. Also `GET /active-session-term` (from HF-03). Cache key `"active_session_term"` (TTL 600s) is invalidated on create/activate via `self.caches.remove("active_session_term")`. Teacher agents independently cache the same key and re-fetch on TTL expiry (lazy eventual consistency).
+
+**Frontend**: Table with session/term/active badge/created date/activate button. Create dialog with session input, term dropdown (from terms table), and active checkbox (default checked). Activate deactivates all other terms. Non-blocking terms fetch with degraded text-input fallback.
+
+## UI Components
+
+### StatusCard
+
+`StatusCard.svelte` — three variants (info, warning, error) with optional Retry button. Used uniformly across all page-level states: loading skeletons, empty data, error alerts, `NOT_INITIALIZED` info cards.
+
+### Toast Notifications
+
+Global toast notification system (`lib/stores/toast.ts`, `lib/components/ui/toast/`). Four variants: success (green), info (blue), warning (amber), error (red). Features: progress bar timer with pause-on-hover, fade-in/fade-out animations (200ms), auto-dismiss after 5 seconds, manual dismiss via close button. Rendered via `<ToastContainer />` in `+layout.svelte`. Instances clean up on route navigation (`onDestroy`).
+
+**Usage**: `addToast('success', 'Title', 'Description')` — used in UserTable (all 6 CRUD operations), session terms page (create/activate), dashboard ($effect guards prevent re-fire on navigation). Toast is for transient operation feedback; `StatusCard` is for persistent page-level state.

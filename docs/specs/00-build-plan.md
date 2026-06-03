@@ -14,6 +14,12 @@
 *Spec:* `docs/specs/hotfix-03-user-crud-error-handling-refactor.md`
 *Status:* **Complete.** All user CRUD operations working with saga-pattern compensation. Reactive cache redesign done (unified `caches` map, no negative caching, parent-child invalidation). Schema updated (class_level record link, teacher_assignment with has_subject + session_term). 7 AppError codes replacing all raw strings. golem.ts rewritten for structured error parsing. StatusCard component (info/warning/error) used uniformly across dashboard + my-classes routes. Teacher dashboard + full lesson browsing flow working end-to-end. Group names unified to singular across Authentik, backend, and frontend. Proxy routes use mapErrorCodeToHttpStatus. Teacher agent cache (class_groups + active_session_term) follow reactive pattern. Dead code removed (invalidated field, ensure_initialized, edge cache). Context files synced to current architecture.
 
+**HF-04. Session Term Management (Admin Configuration)**
+*What it builds:* Admin Configuration sidebar group with Session Terms management page. Backend: 4 new AdminAgent endpoints (`GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`) with `"active_session_term"` cache invalidation. Frontend: table with session/term/active badge/created date/activate button, create dialog with term dropdown + active checkbox, non-blocking terms fetch with degraded fallback. Global toast notification system: `addToast()` store, 4 variants (success/info/warning/error), progress bar timer with pause-on-hover, fade-in/fade-out animations, integrated in UserTable (6 CRUD ops), session terms page, and dashboard error effects.
+*Dependencies:* HF-03 (session_term table schema, `get_active_st()` helper, StatusCard component, reactive cache pattern, structured error handling).
+*Spec:* `docs/specs/hotfix-04-session-term-management.md`
+*Status:* **Complete.**
+
 ## Build Units
 **1. Frontend Foundation**  
 *What it builds:* SvelteKit project with Tailwind v4 and shadcn‑svelte fully configured. Design tokens from `ui-context.md` applied in `app.css`. A single static page showing “School Management” with a primary‑blue button.  
@@ -88,7 +94,7 @@
 *Dependencies:* Unit 10 (Student Agent exists), Unit 9 (normalised schema with term active flags).
 
 **17. Student LMS – Term & Lesson Browsing**  
-*What it builds:* Frontend: clicking a subject navigates to `/lms/[subject]`, which calls `getTerms` and displays term buttons (First, Second, Third). Clicking a term navigates to `/lms/[subject]/[term]`, which calls `getLessons` and shows a numbered lesson list. Active/inactive items are visually distinct. Breadcrumb: `LMS > Basic Science > Second Term`.  
+*What it builds:* Frontend: clicking a subject navigates to `/lms/[subject]`, which calls `getTerms` and displays term buttons (Noel Term, Calvary Term, Summer Term). Clicking a term navigates to `/lms/[subject]/[term]`, which calls `getLessons` and shows a numbered lesson list. Active/inactive items are visually distinct. Breadcrumb: `LMS > Basic Science > Noel Term`.  
 *Dependencies:* Unit 16 (agent methods), Unit 15 (subject grid).
 
 **18. Student Agent – Lesson Content (Student View)**  
