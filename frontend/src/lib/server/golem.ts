@@ -21,6 +21,12 @@ function getAuthKey(): string {
 	return authKey;
 }
 
+interface BackendError {
+	code: string;
+	message: string;
+	detail?: string | null;
+}
+
 interface ProxySuccess {
 	data: string;
 	error?: never;
@@ -31,77 +37,85 @@ interface ProxyError {
 	error: { code: string; message: string };
 }
 
-type ProxyResult = ProxySuccess | ProxyError;
+export type ProxyResult = ProxySuccess | ProxyError;
 
 function errorResult(code: string, message: string): ProxyResult {
 	return { error: { code, message } };
 }
 
-function isErrMsg(text: string): ProxyResult | null {
-	if (text === 'unauthorized') {
-		return errorResult('UNAUTHORIZED', 'Request to backend was rejected (auth key mismatch).');
-	}
-	if (text === 'auth error') {
-		return errorResult('AUTH_ERROR', 'Backend encountered an error reading its auth configuration.');
-	}
-	if (text === 'NOT_INITIALIZED') {
-		return errorResult('NOT_INITIALIZED', 'Account not initialized. Please contact your school administrator.');
+function parseStructuredError(text: string): BackendError | null {
+	try {
+		const parsed = JSON.parse(text);
+		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.error) {
+			return {
+				code: parsed.error.code || 'UNKNOWN_ERROR',
+				message: parsed.error.message || 'An unknown error occurred.',
+				detail: parsed.error.detail ?? null
+			};
+		}
+	} catch {
+		// Not valid JSON
 	}
 	return null;
 }
 
-export async function proxyToGateway(
-	path: string,
-	userId: string,
-	extraParams?: Record<string, string>
-): Promise<ProxyResult> {
-	let url = `${getGatewayUrl()}${path}?user_id=${encodeURIComponent(userId)}`;
-
-	if (extraParams) {
-		for (const [key, value] of Object.entries(extraParams)) {
-			url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-		}
-	}
-
+async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>): Promise<ProxyResult> {
 	try {
-		const res = await fetch(url, {
+		const fetchInit: RequestInit = {
+			method,
 			headers: {
 				'X-Golem-Auth-Key': getAuthKey()
 			}
-		});
+		};
+		if (body) {
+			fetchInit.headers = { ...fetchInit.headers, 'Content-Type': 'application/json' };
+			fetchInit.body = JSON.stringify(body);
+		}
+		const res = await fetch(url, fetchInit);
 
 		const raw = await res.text();
 
-		// Detect typed Ok/Err envelope from Result[T, String] Gateway returns
+		// Golem envelope: { "Ok": "..." } or { "Err": "..." }
 		try {
 			const parsed = JSON.parse(raw);
+
+			if (typeof parsed === 'string') {
+				const structured = parseStructuredError(parsed);
+				if (structured) return errorResult(structured.code, structured.message);
+				return { data: parsed };
+			}
+
 			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
 				if ('Ok' in parsed) {
-					return { data: JSON.stringify(parsed.Ok) };
+					const okValue = parsed.Ok;
+					const data = typeof okValue === 'string' ? okValue : JSON.stringify(okValue);
+					return { data };
 				}
-				if ('Err' in parsed && typeof parsed.Err === 'string') {
-					const check = isErrMsg(parsed.Err as string);
-					if (check) return check;
-					return errorResult('GATEWAY_ERROR', parsed.Err as string);
+				if ('Err' in parsed) {
+					const errValue = parsed.Err;
+					const errText = typeof errValue === 'string' ? errValue : JSON.stringify(errValue);
+					const structured = parseStructuredError(errText);
+					if (structured) {
+						return errorResult(structured.code, structured.message);
+					}
+					return errorResult('GATEWAY_ERROR', errText);
 				}
 			}
 		} catch {
-			// Not valid JSON — fall through to legacy string handling
+			// Not valid JSON — check raw text
+			const structured = parseStructuredError(raw);
+			if (structured) {
+				return errorResult(structured.code, structured.message);
+			}
 		}
 
-		// Legacy string responses
-		let text: string;
-		try {
-			const jsonParsed = JSON.parse(raw);
-			text = typeof jsonParsed === 'string' ? jsonParsed : raw;
-		} catch {
-			text = raw;
+		// Legacy: raw text as data (strings from non-Result endpoints like ping)
+		const structured = parseStructuredError(raw);
+		if (structured) {
+			return errorResult(structured.code, structured.message);
 		}
 
-		const check = isErrMsg(text);
-		if (check) return check;
-
-		return { data: text };
+		return { data: raw };
 	} catch (err) {
 		return {
 			error: {
@@ -109,5 +123,50 @@ export async function proxyToGateway(
 				message: err instanceof Error ? err.message : 'Failed to reach backend service.'
 			}
 		};
+	}
+}
+
+function buildUrl(basePath: string, extraParams?: Record<string, string>): string {
+	let url = `${getGatewayUrl()}${basePath}`;
+	if (extraParams) {
+		const sep = basePath.includes('?') ? '&' : '?';
+		const parts: string[] = [];
+		for (const [key, value] of Object.entries(extraParams)) {
+			parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+		}
+		url += sep + parts.join('&');
+	}
+	return url;
+}
+
+export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
+export function adminProxy(user: { id: string }): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
+	return (path, extraParams, method, body) => proxyToAdmin(user.id, path, extraParams, method, body);
+}
+
+export function proxyToStudent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/student/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
+export function proxyToTeacher(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
+export function mapErrorCodeToHttpStatus(code: string): number {
+	switch (code) {
+		case 'VALIDATION_ERROR': return 400;
+		case 'AUTH_FAILURE': return 401;
+		case 'NOT_FOUND': return 404;
+		case 'ALREADY_EXISTS': return 409;
+		case 'NOT_INITIALIZED': return 403;
+		case 'AUTHENTIK_ERROR':
+		case 'SURREALDB_ERROR':
+		case 'GATEWAY_ERROR': return 502;
+		case 'INTERNAL_ERROR': return 500;
+		case 'PROXY_ERROR': return 503;
+		default: return 502;
 	}
 }

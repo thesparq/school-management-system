@@ -21,10 +21,9 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
    - Authentik returns a JWT; SvelteKit validates it server‑side and stores it in an HTTP‑only cookie.
 
 2. **LMS Access**  
-   - On any subsequent request, SvelteKit extracts the internal user ID from the JWT and calls the Golem Ephemeral Gateway Agent.  
-   - Gateway checks with the durable Admin Agent whether the user is initialized.  
-   - If not initialized → error “Account not initialized; please contact admin.”  
-   - If initialized → forwards the request to the user’s durable agent (Student, Teacher, or Admin User Agent).  
+   - On any subsequent request, SvelteKit extracts the internal user ID from the JWT and proxies directly to the user's durable agent (Student, Teacher, or Admin Agent) via its HTTP endpoint.  
+   - Each agent fetches the user profile reactively from SurrealDB when data is needed (lazy, not on every request).  
+   - If no `user_profile` record exists → return "Account not initialized; please contact admin."  
    - The root page `/` is the default landing — students see the LMS subject list; admins see a dashboard.
 
 3. **Student LMS Flow**  
@@ -82,16 +81,15 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Responsive layout: collapsible sidebar, breadcrumb navigation.
 - All data access via agents; SvelteKit never touches databases directly.
 - JWT‑based authentication, no server‑side sessions.
-- Agent struct fields (durable memory) for structured user data; SurrealDB for lesson content.
+- Agent durable memory (unified `caches` map per agent) for cached data; SurrealDB for canonical entity data.
 
 ## In Scope (MVP)
 
 - Authentik integration (OIDC) with JWT validation in SvelteKit.
 - SvelteKit as auth proxy and UI server; MoonBit for shared logic.
 - Golem Cloud backend with:
-  - Ephemeral Gateway Agent (stateless gatekeeper).
-  - Durable Admin Agent (central registry, user activation, relationships).
-  - Durable User Agents (student, teacher, admin) with in‑memory durable state.
+  - Durable Admin Agent (central registry, user initialization, relationships, HTTP-accessible).
+  - Durable User Agents (student, teacher, admin) with TTL-cached state, each HTTP-accessible.
 - Display AI‑generated lesson content from SurrealDB.
 - Teacher selection of assessment questions and creation of assignments with deadlines.
 - Student submission of answers (text‑only).

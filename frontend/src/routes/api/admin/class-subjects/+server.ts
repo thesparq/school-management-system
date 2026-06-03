@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { adminProxy } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 
@@ -7,7 +7,8 @@ export const GET: RequestHandler = async (event) => {
   if (!user) error(401, 'Not authenticated');
   if (!user.roles.includes('admin')) error(403, 'Forbidden');
 
-  const result = await proxyToGateway('/gateway/admin/class-subjects', user.id);
+  const proxy = adminProxy(user);
+  const result = await proxy('/class-subjects');
 
   if (result.error) {
     return new Response(JSON.stringify(result), {

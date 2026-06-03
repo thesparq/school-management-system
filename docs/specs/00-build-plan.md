@@ -4,6 +4,16 @@
 *What it builds:* Replaces the relational-style normalization (FK columns, `class_subjects` junction table) with an idiomatic SurrealDB schema using `TYPE RELATION` graph edges (`has_subject`) and a properly `SCHEMAFULL`-typed `lessons` table. All `lesson_content` records migrate to `lessons`; the old table is preserved for legacy systems. Agent SQL queries, MoonBit types, frontend types, and docs update in lockstep.
 *Dependencies:* SurrealDB staging instance with existing `lesson_content` data.
 
+**HF-02. GatewayAgent Removal — Per-User Agent Architecture**
+*What it builds:* Eliminates the Ephemeral Gateway Agent. Migrates all four agent types to direct HTTP mounts with path-based worker ID extraction (`#derive.mount("/student/{student_id}")`, etc.). Adds SuperAdminAgent (durable singleton) for bootstrap only — creates first admin's `user_profile` with no init check. AdminAgent becomes per-admin-user (`#derive.mount("/admin/{admin_id}")`). Adds typed RPC invalidation methods (`invalidate_subject_cache`, `invalidate_class_groups`, `invalidate_all`) with `invalidated` flags on all cache structs (TTL + explicit invalidation). Consolidates config into a single `SharedConfig` (auth_key + SurrealDB). Removes `initialize()` from Student/Teacher agents — lazy refresh via `invalidate()` is sufficient. Rewrites SvelteKit proxy layer from `proxyToGateway()` to per-role helpers (`proxyStudent`, `proxyTeacher`, `proxyAdmin`, `proxySuperAdmin`). Simplifies all proxy `+server.ts` routes.
+*Dependencies:* Unit 20 (DB-backed architecture), Golem 1.5.3+ with mount path variable support.
+
+**HF-03. User CRUD — Error Handling, Saga Pattern & Config Refactor**
+*What it builds:* Complete rewrite of user CRUD layer with structured `AppError` types (replaces vague string errors), saga-pattern compensation for multi-step Authentik+SurrealDB operations (create/edit/delete/activate-deactivate), config split (`SharedConfig` with pre-fixed fields), shared `http_client.mbt` deduplication, group PK resolution moved to backend, `class_level` schema fix (`string` → `record<class_levels>`), `teacher_assignment` schema upgrade (`class_level_id`+`subject_id` → `record<has_subject>` + `session_term`), and unified group names (`"student"`/`"teacher"` singular). Reactive cache redesign: unified `caches : Map[String, CacheItem]` per agent, no negative caching, `get_class_level()` reactive gatekeeper replaces `ensure_initialized()`, parent-child invalidation via backbone keys, 7 structured error codes, all raw strings replaced with `AppError`. Frontend: `golem.ts` rewritten (structured error parsing), `StatusCard` component (info/warning/error), `NOT_INITIALIZED` → info card, assign-modal search ordering fix, session term field.
+*Dependencies:* HF-02 (per-user agent architecture, `#derive.endpoint` HTTP mounts).
+*Spec:* `docs/specs/hotfix-03-user-crud-error-handling-refactor.md`
+*Status:* **Complete.** All user CRUD operations working with saga-pattern compensation. Reactive cache redesign done (unified `caches` map, no negative caching, parent-child invalidation). Schema updated (class_level record link, teacher_assignment with has_subject + session_term). 7 AppError codes replacing all raw strings. golem.ts rewritten for structured error parsing. StatusCard component (info/warning/error) used uniformly across dashboard + my-classes routes. Teacher dashboard + full lesson browsing flow working end-to-end. Group names unified to singular across Authentik, backend, and frontend. Proxy routes use mapErrorCodeToHttpStatus. Teacher agent cache (class_groups + active_session_term) follow reactive pattern. Dead code removed (invalidated field, ensure_initialized, edge cache). Context files synced to current architecture.
+
 ## Build Units
 **1. Frontend Foundation**  
 *What it builds:* SvelteKit project with Tailwind v4 and shadcn‑svelte fully configured. Design tokens from `ui-context.md` applied in `app.css`. A single static page showing “School Management” with a primary‑blue button.  
@@ -18,11 +28,13 @@
 *Dependencies:* Unit 2 (auth so user can log in).
 
 **4. Golem Agent Scaffolding (Code‑First)**  
-*What it builds:* Minimal **Admin Agent** (durable) and **Gateway Agent** (ephemeral) using Golem’s current code‑first pattern. Each agent is a struct with annotations (cors, routing, etc.). The Admin Agent exposes a `ping` method returning `"admin online"`. The Gateway Agent exposes an endpoint that calls `AdminAgent.ping` via RPC and returns the result. Deployed to Golem Cloud and tested via `curl`.  
+*What it builds:* ~~Minimal **Admin Agent** (durable) and **Gateway Agent** (ephemeral)~~  
+**Status: Built / Superseded by HF-02.** Gateway Agent removed; all agents now expose direct HTTP endpoints via `#derive.endpoint` with path-based worker ID extraction. AdminAgent, StudentAgent, TeacherAgent are the current production agent types.  
 *Dependencies:* `agents/` directory exists; Golem CLI authenticated. MoonBit compiler with Golem SDK installed.
 
 **5. SvelteKit → Golem Proxy**  
-*What it builds:* A single SvelteKit API route (`/api/ping`) that proxies to the Gateway Agent’s ping endpoint. The route reads `user_id` from `locals.user` and passes it. A button on the dashboard calls this route and shows the result.  
+*What it builds:* ~~A single SvelteKit API route (`/api/ping`) that proxies to the Gateway Agent~~  
+**Status: Built / Superseded by HF-02.** SvelteKit proxies directly to per-agent HTTP endpoints via `proxyToAdmin`, `proxyToStudent`, `proxyToTeacher` helpers in `golem.ts`. The proxy gateways the `X-Golem-Auth-Key` header and parses structured `AppError` responses.  
 *Dependencies:* Unit 4 (agents deployed), Unit 2 (auth provides `locals.user`).
 
 **6. Admin User List Page**  
@@ -30,31 +42,33 @@
 *Dependencies:* Unit 3 (layout shell), Unit 2 (auth).
 
 **7. Admin Agent – Activation Methods**  
-*What it builds:* Extends Admin Agent with `activateUser(userId, role, class?)` (stores in agent struct fields, status `active`) and `isUserActive(userId)`. Gateway Agent extended: every incoming request now calls `AdminAgent.isUserActive`; if false, returns `403 { code: "NOT_ACTIVATED" }`. Testable via ping proxy for inactive vs active users.  
+*What it builds:* ~~activation methods in agent struct fields~~  
+**Status: Built / Superseded by HF-03.** User activation/deactivation now flows through the Admin Agent's Authentik client (`authentik_set_active`). Activation state is stored in Authentik, not in Golem agent state. The `is_user_active` check is an Authentik API call, and `NOT_INITIALIZED` is handled by the reactive cache gatekeeper (`get_class_level()`).  
 *Dependencies:* Unit 4 (agents), Unit 5 (proxy pattern).
 
 **8. Admin Portal – Activation Actions**  
-*What it builds:* Activate/Deactivate buttons on the admin user list page. Clicking “Activate” calls a new SvelteKit API route that proxies to `AdminAgent.activateUser`. The table row updates optimistically. An inactive user logging in sees a clear “Account not activated” error page.  
+*What it builds:* ~~Activate/Deactivate buttons~~  
+**Status: Built / Superseded by HF-03.** Activation/deactivation is now handled inline on the user table rows (activate/deactivate buttons in `UserTable.svelte`), using admin proxy → agent → Authentik API. No separate "Manage" panel. User CRUD (create, edit, delete) follows the same pattern.  
 *Dependencies:* Unit 7 (activation methods), Unit 6 (user list).
 
 **9. SurrealDB Connection & Normalization**  
-*What it builds:* Connect the production SurrealDB instance (already containing AI‑generated lesson records) to the project. Verify connectivity and run a one‑time normalisation migration:
-- Extract `subject`, `class_level`, `term`, `week` into separate tables (`subjects`, `class_levels`, `terms`) with `active` fields where needed.
-- Update `lesson_content` records to reference these new tables via foreign IDs.
-- Create a `class_subjects` mapping table to define which subjects belong to a class.
-- Ensure all agents can query the normalised schema via HTTP.
+*What it builds:* ~~connect and normalize `lesson_content`~~  
+**Status: Built / Superseded by HF-01.** The production `schema-v2.surql` replaces `class_subjects` with `has_subject` TYPE RELATION edges, defines `topics` + `lessons` tables with proper record links, and migrates all `lesson_content` data. Agents query `has_subject` edges with dot-traversal (`topic.has_subject.in`, `topic.has_subject.out`, `topic.term`).
 *Dependencies:* SurrealDB instance running with existing lesson data. No code dependencies.
 
 **10. Student Agent – Initialization and Subject List**  
-*What it builds:* Student Agent with `initialize(classLevel)` – it queries SurrealDB for subjects assigned to that class (from `class_subjects`) and stores them in its durable state. Exposes `getSubjects()`. Admin Agent: during `activateUser` for a student, calls `StudentAgent.initialize`. A proxy route `/api/student/subjects` added.  
+*What it builds:* ~~Student Agent with `initialize(classLevel)` and agent durable state~~  
+**Status: Built / Superseded by HF-03.** Student Agent now uses a reactive cache pattern — `get_class_level()` is the gatekeeper that lazily fetches from `user_profile` on first data access. Subject list queried from `has_subject` edges via `WHERE in = $class_level`. No `initialize()` method. Webhooks added for cache invalidation.  
 *Dependencies:* Unit 8 (activation flow), Unit 9 (normalised SurrealDB).
 
 **11. Architecture Refactor – Activation → Initialization Split**  
-*What it builds:* Refactors the conflated "activation" concept into two independent concerns: initialization (Golem-side agent creation) and activation (Authentik-side login permission). Admin Agent renamed from `activated_users`/`UserActivation` to `initialized_users`/`UserInitialization`. Gateway returns `NOT_INITIALIZED`. Deactivation removed from Golem — handled by SvelteKit via Authentik Admin API. Admin users page restructured into role-based tabs (Students, Teachers, Admin) under a "Users" sidebar section. Adds 5 new Authentik API routes (activate, deactivate, reset password, add/remove group) and a reusable UserTable component with two status columns.  
+*What it builds:* ~~refactoring conflated activation concept~~  
+**Status: Built / Superseded by HF-02 + HF-03.** Activation/initialization split is now realized as: (1) Authentik user lifecycle (create/edit/activate/deactivate) via Admin Agent → Authentik API, and (2) SurrealDB profile (`user_profile` table) populated during user creation. The reactive gatekeeper (`get_class_level()`) handles `NOT_INITIALIZED` — no Gateway needed. Admin users page uses role-based tabs (Students, Teachers, Admin) under `/admin/users`.  
 *Dependencies:* Unit 10 (Student Agent subjects), Unit 8 (admin portal activation flow).
 
 **12. User CRUD – Create and Delete Users**  
-*What it builds:* Admin UI to create new users (username, email, password, role/group assignment) and delete existing users directly from the admin users page. Both operations call the Authentik Admin API (`POST /api/v3/core/users/` for create, `DELETE /api/v3/core/users/{pk}/` for delete). New user creation includes optional group assignment and `is_active` flag. Deletion removes the user from Authentik entirely. Server-side API routes and frontend form/dialog UI added to the expandable row pattern in UserTable.  
+*What it builds:* ~~direct Authentik API calls from frontend~~  
+**Status: Built / Superseded by HF-03.** User CRUD now flows through the Admin Agent: `create_user_in_authentik` (saga pattern — create Authentik user → set password → save SurrealDB profile, with compensation on failure), `edit_user_in_authentik`, `delete_user_in_authentik` (soft-delete SurrealDB first → delete Authentik → undo soft-delete on failure). Group PK resolution happens in the backend agent, not the frontend. `UserTable.svelte` handles the form/dialog UI.  
 *Dependencies:* Unit 11 (admin users page, UserTable, Authentik API routes).
 
 **13. Routing Refactor – Direct Authentik Redirect**  
@@ -62,15 +76,15 @@
 *Dependencies:* Unit 2 (Authentik OIDC flow, hooks.server.ts auth guard), Unit 3 (dashboard layout shell, sidebar, navbar).
 
 **14. Auth Refresh Fixes – Race Condition, Client-Side 401, and Cookie Cleanup**  
-*What it builds:* Fixes five concrete issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel tab navigations, preventing OIDC token rotation races from logging users out. (2) New `apiFetch` wrapper in `frontend/src/lib/client/api.ts` catches client-side 401s, calls `POST /api/auth/refresh` silently, retries the original request on success, and redirects to `/?error=session_expired` on failure. (3) Cookie `maxAge` is aligned to real JWT `exp` (removes the `Math.max(..., 60)` floor) in hooks.server.ts, callback, and refresh route — if the token expires in 5s, the cookie lives 5s, not 60s. (4) Removes unused `accessToken` from `TokenResponse`. (5) Standardises `SECURE` constant from `process.env.NODE_ENV === 'production'` to `!dev` (SvelteKit compile-time constant) in callback and refresh routes.
+*What it builds:* Fixes multiple issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel tab navigations, preventing OIDC token rotation races from logging users out. (2) Client-side 401 interception via `+layout.svelte` `onMount` — patches `window.fetch` to catch 401 responses from protected API calls, sets `oauth_redirect` cookie, and hard-redirects to Authentik login via `window.location.href`. (3) Cookie `maxAge` aligned to real JWT `exp`. (4) Removed unused `accessToken` from `TokenResponse`. (5) Standardised `SECURE` constant to `!dev` (SvelteKit compile-time constant).
 *Dependencies:* Unit 13 (routing refactor — dashboard at `/`, auth guard in root layout), Unit 2 (Authentik OIDC flow, hooks.server.ts, refresh endpoint).
 
 **15. Student Dashboard – Subject Cards**  
-*What it builds:* Student dashboard at `/` calls `/api/student/subjects` (via SvelteKit load) and renders a grid of subject cards (shadcn‑svelte `Card`). Empty state: “No subjects assigned.” Loading state: skeleton cards.  
+*What it builds:* Student dashboard at `/` calls `/api/student/subjects` (via SvelteKit proxy to StudentAgent) and renders a grid of subject cards (shadcn‑svelte `Card`). Empty state: `StatusCard(variant="error")`. Loading state: skeleton cards. Subjects queried from `has_subject` graph edges.  
 *Dependencies:* Unit 11 (architecture refactor), Unit 10 (Student Agent subjects), Unit 3 (layout).
 
 **16. Student Agent – Term & Lesson Lists**  
-*What it builds:* Student Agent methods `getTerms(subjectId)` and `getLessons(subjectId, termId)`. Both query SurrealDB’s normalised `terms` and `lessons` tables, filtering by `active = true`. Terms that have no active lessons are excluded (or greyed out) based on the `active` flag on the term record itself (set during normalisation). Results cached in memory (agent struct fields). Proxy routes added.  
+*What it builds:* Student Agent methods `getTerms()` and `getLessons(subjectId, termId)`. Both query SurrealDB with dot-traversal via `topic.has_subject` and `topic.term`, filtering by `active = true`. Results cached in the agent's unified `caches` map (TTL 600s). Proxy routes added.  
 *Dependencies:* Unit 10 (Student Agent exists), Unit 9 (normalised schema with term active flags).
 
 **17. Student LMS – Term & Lesson Browsing**  
@@ -78,7 +92,7 @@
 *Dependencies:* Unit 16 (agent methods), Unit 15 (subject grid).
 
 **18. Student Agent – Lesson Content (Student View)**  
-*What it builds:* Student Agent method `getLesson(lessonId)`. Fetches the lesson from SurrealDB (cache with TTL) but returns **only** the student‑visible fields: `objectives`, `content_sections`, `key_points`, plus any active assignment questions. No full teacher‑only fields. Proxy route added.  
+*What it builds:* Student Agent method `getLesson(lessonId)`. Fetches lesson from SurrealDB via `topic.has_subject.out.name`/`topic.term.name` dot-traversal. Cached with TTL; returns student‑visible fields: `objectives`, `content_sections`, `key_points`. Proxy route added.  
 *Dependencies:* Unit 15 (Student Agent queries SurrealDB), Unit 9 (SurrealDB normalised).
 
 **19. Lesson Content Page with Side Navigation**  
@@ -86,15 +100,14 @@
 *Dependencies:* Unit 18 (lesson data available), Unit 17 (browsing flow).
 
 **20. Teacher Agent – Initialization & Dashboard (DB-Backed Architecture)**  
-*What it builds:* Architecture Rules 1-10 implementation (see `docs/architecture.md`). SurrealDB-backed `user_profile` and `teacher_assignment` tables replace agent durable state for entity data. Admin Agent refactored: `initialized_users`/`teacher_assignments` maps removed, all reads/writes go to DB tables. Teacher Agent `trigger_initialize` reads from `teacher_assignment` table directly (not AdminAgent RPC). `class_groups` becomes a Push-Invalidation cache (Rule 4A). Gateway endpoints for teacher subjects with ID-only payloads. Teacher dashboard with "My Classes" card grid, admin assignment UI with search+badge pattern filtering already-assigned pairs. 7 phases: Schema migration → SurrealDB client retry wrapper → AdminAgent → TeacherAgent → StudentAgent profile → GatewayAgent → Frontend (filtered dropdown, init guard, ID-only save).  
-**Status: Code complete (phases 1-6). Phase 7 (deploy/verify) deferred** — superseded by GatewayAgent refactor (next unit). Init persistence to SurrealDB verified.  
-*Branch:* `feat/20-teacher-db-backed-state`  
+*What it builds:* ~~7-phase DB-backed architecture implementation~~  
+**Status: Built / Superseded by HF-02 + HF-03.** Architecture Rules 1-10 are now the production baseline: `user_profile` and `teacher_assignment` (now `record<has_subject>`) tables in SurrealDB. Teacher Agent uses reactive cache (`caches` map, `fetch_class_groups` populates `"class_groups"` with dot-traversal query). No `trigger_initialize` — first request lazily populates cache. Admin assignment UI with search+badge pattern for class-subject pairs. GatewayAgent removed (direct HTTP endpoints). Teacher dashboard renders "My Classes" card grid.  
 *Dependencies:* Unit 19 (lesson content page), Unit 9 (SurrealDB connection).
 
-**21. Teacher Agent – Term & Lesson Toggle (with Normalised Term Table)**  
+**21. Teacher Agent – Term & Lesson Toggle**  
 
-*What it builds:* Teacher Agent methods `toggleTermActive(subjectId, termId, active)` and `toggleLessonActive(lessonId, active)`. These update the `active` flag on the `terms` or `lessons` table in SurrealDB and fire‑and‑forget push status changes to all Student Agents in the class (discovering students via `user_profile` table query). Student Agent method `updateLessonStatus(lessonId, active)` updates local cache. Teacher UI shows toggle switches that work end‑to‑end.  
-*Dependencies:* Unit 20 (Teacher Agent, class_groups cache), Unit 9 (normalised terms with active flag).
+*What it builds:* Teacher Agent methods to toggle `active` flags on `terms` or `lessons` in SurrealDB, with fire‑and‑forget push to affected Student Agents (discovered via `user_profile` table query by class_level). Student Agent method to update local lesson status cache. Teacher UI shows toggle switches.  
+*Dependencies:* Unit 20 (Teacher Agent, reactive `"class_groups"` cache), Unit 9 (SurrealDB terms table with active flag).
 
 **22. Teacher Assignment Creation**  
 *What it builds:* Teacher Agent method `configureAssignment(lessonId, selectedQuestionIds, deadline)`. Assignment definitions stored in a new SurrealDB table (not agent durable state — Rule 1). Pushes to students via `StudentAgent.addOrUpdateAssignment`. Teacher's lesson detail page shows **all** lesson fields plus checkboxes for questions, deadline picker, and "Create Assignment" button.  
@@ -109,13 +122,13 @@
 *Dependencies:* Unit 22 (assignment visible), Unit 20 (DB-backed teacher_assignment table).
 
 **25. Teacher Grading**  
-*What it builds:* Teacher Agent inbox view, grading method `gradeSubmission` that writes grade to a DB-backed grades table and pushes to `StudentAgent.receiveGrade`. Student Agent stores grade (cache) and displays it on the assignment. Frontend: grading form in teacher's assignment page; grade view in student's lesson.  
+*What it builds:* Teacher Agent inbox view, grading method `gradeSubmission` that writes grade to a DB-backed grades table (SurrealDB) and pushes to `StudentAgent.receiveGrade`. Student Agent stores grade in its `caches` map (TTL) and displays it on the assignment. Frontend: grading form in teacher's assignment page; grade view in student's lesson.  
 *Dependencies:* Unit 24 (submissions exist), Unit 22 (assignment exists).
 
 **26. Admin Class & Teacher Management**  
-*What it builds:* Admin portal UI to assign teachers to classes/subjects (writes to `teacher_assignment` table, invalidates TeacherAgent caches) and to move students between classes (updates `user_profile.class_level`).  
+*What it builds:* Admin portal UI to assign teachers to class-subject pairs (writes to `teacher_assignment` table with `record<has_subject>` FK, invalidates TeacherAgent `"class_groups"` cache) and to move students between classes (updates `user_profile.class_level`, invalidates StudentAgent `"profile"` cache which cascades to all dependent caches).  
 *Dependencies:* Unit 20 (DB-backed architecture), Unit 10 (Student Agent), Unit 8 (admin portal).
 
-**27. Polish – Loading, Error, Empty States, Stale Data Indicators & Dark Mode**  
-*What it builds:* Skeleton loaders and empty states on all data‑driven pages. Error boundaries with retry buttons. **Stale data indicators on every page that displays cached content** (lesson lists, lesson content, assignment views) with manual refresh buttons. Dark mode toggle in the navbar using `mode‑watcher`; all components respond to `dark:` variant. Responsive sidebar collapse on small screens.  
+**27. Polish – Loading, Error, Empty States & Dark Mode**  
+*What it builds:* Skeleton loaders on all data‑driven pages. `StatusCard` component (info/warning/error variants) for all error and empty states. Dark mode toggle in the navbar using `mode‑watcher`; all components respond to `dark:` variant. Responsive sidebar collapse on small screens.  
 *Dependencies:* All previous units; can be implemented incrementally but finalised as the last pass.

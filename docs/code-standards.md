@@ -41,6 +41,8 @@
 ## API Routes (SvelteKit → Golem)
 
 - **JWT validation is mandatory.** Every request to an API route must be checked by the server hook. If the token is missing, expired, or tampered with, the route must return `401 Unauthorized` before any proxy call.
+- **Map error codes to HTTP statuses.** Use `mapErrorCodeToHttpStatus()` from `golem.ts` to convert backend `AppError` codes to proper HTTP status codes. Never hardcode `502` for all errors.
+- **Structured errors only.** All agent methods return structured JSON errors (`{"error":{"code":"...","message":"..."}}`). The proxy layer must parse these and propagate the code + message to the frontend. Never pass raw error strings through.
 
 
 ## Data and Storage
@@ -55,6 +57,113 @@
 - **Soft deletes everywhere.** Every table has a `deleted_at` field. All queries filter `deleted_at IS NONE`. Never hard-delete records.
 - **Agent recreation is never a crisis.** Because entity data lives in DB, any agent can be rebuilt via `init()`/`reconcile()` reading from SurrealDB.
 
+## Cache Convention
+
+Every cache operation must follow this reactive pattern. There are exactly three blocks for every cached data type. The pattern is identical across all agents — only the cache key, `CacheData` variant, and DB query differ.
+
+### Cache Contract
+
+| State | Behavior |
+|-------|----------|
+| No cache key | Full fetch from DB |
+| Cache hit + TTL valid + non-empty | Return cached data immediately |
+| Cache hit + TTL expired | Fall through to DB query |
+| DB returns rows | Cache the typed result, return `Ok(data)` |
+| DB returns empty `[]` or error | **Never cache** — return `Err(AppError)` |
+| Cache invalidation | Delete cache key entirely (parent keys cascade to children) |
+
+### Code Pattern
+
+Every cached data method follows this exact structure. Copy the template and replace `Variant`, `cache_key`, SQL, and error message.
+
+**READ (cache hit check):**
+```moonbit
+  let now = @wallClock.now().seconds
+  let cache_key = "<descriptive key>"   // may include dynamic parts
+  let cached = self.caches.get(cache_key)
+  match cached {
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        Variant(arr) if arr.length() > 0 => return Ok(arr)
+        _ => ()   // fall through to DB
+      }
+    _ => ()       // fall through to DB
+  }
+```
+
+**FETCH (DB query — goes between READ and WRITE):**
+```moonbit
+  let sql = "<SurrealQL query here>"
+  let result_arr = match surreal_query(self.config.value, sql) {
+    Ok(arr) => arr
+    Err(_) => {
+      // Stale-fallback: serve cached data on DB error
+      match cached {
+        Some(item) =>
+          match item.data {
+            Variant(arr) if arr.length() > 0 => return Ok(arr)
+            _ => ()
+          }
+        _ => ()
+      }
+      return Err(AppError::{
+        code: SurrealDBError,
+        message: "Failed to query <description> from database",
+        detail: None,
+      }.to_json_string())
+    }
+  }
+  // ... build results array from result_arr ...
+```
+
+**WRITE (cache and return — after building results array):**
+```moonbit
+  if results.length() == 0 {
+    return Err(AppError::{
+      code: NotFound,
+      message: "<User-facing message>",
+      detail: None,
+    }.to_json_string())
+  }
+  self.caches.set(cache_key, CacheItem::{
+    data: Variant(results),
+    fetched_at: now,
+  })
+  Ok(results)
+```
+
+### Cache Invalidation — Parent-Child Dependency
+
+Every agent's `invalidate_cache` endpoint declares dependencies using backbone keys. When a backbone key is invalidated, all dependent caches are also cleared:
+
+```moonbit
+pub fn Agent::invalidate_cache(self, incoming_key, key) -> String {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return e.to_json_string()
+    Ok(_) => ()
+  }
+  if key == "all" || key == "<backbone_key>" {
+    self.caches = Map::new()   // clear all dependent caches
+  } else {
+    self.caches.remove(key)     // targeted removal
+  }
+  "OK"
+}
+```
+
+| Agent | Backbone Key | Effect |
+|-------|-------------|--------|
+| Student | `"profile"` | Clears all caches (profile, subjects, terms, lessons) |
+| Teacher | `"class_groups"` | Clears all caches |
+
+### Invariants
+
+- **Empty results never cached.** All cache writes are guarded by `results.length() > 0`.
+- **Stale-fallback always has a length guard.** Even when serving stale cache on DB error, the guard `if arr.length() > 0` must be present.
+- **No negative caching.** Failed queries never write a `CacheData::Empty` sentinel or any negative state.
+- **TTL is always 600 seconds** (`CACHE_TTL : UInt64 = 600` in `cache_types.mbt`). All `fetched_at` timestamps come from `@wallClock.now().seconds`.
+- **`CacheItem` has exactly two fields:** `data : CacheData` and `fetched_at : UInt64`. No `invalidated` field (invalidation = key deletion).
+
 ## File Organization
 
 ```
@@ -64,10 +173,18 @@ school-management/
 │   ├── golem.yaml             # Root app manifest
 │   ├── app-agents/            # All agent types in one WASM component
 │   │   ├── moon.pkg           # Package config (is-main, merged imports)
-│   │   ├── admin_agent.mbt    # Durable Admin Agent (singleton)
-│   │   ├── gateway_agent.mbt  # Ephemeral Gateway Agent
-│   │   ├── student_agent.mbt  # Durable Student Agent (per-student)
-│   │   └── teacher_agent.mbt  # Durable Teacher Agent (per-teacher)
+│   │   ├── main.mbt            # Entry point
+│   │   ├── errors.mbt          # AppError, ErrorCode, structured error types
+│   │   ├── config.mbt          # SharedConfig, SurrealCfg, AuthentikCfg
+│   │   ├── http_client.mbt     # Shared WASI HTTP request/response helper
+│   │   ├── auth.mbt            # require_auth() helper
+│   │   ├── validation.mbt      # Input validation functions (email, password, role, etc.)
+│   │   ├── surreal_client.mbt  # SurrealDB HTTP client (queries /sql endpoint)
+│   │   ├── authentik_client.mbt # Authentik REST API client (user CRUD, groups)
+│   │   ├── cache_types.mbt     # CacheData enum, CacheItem struct, CACHE_TTL
+│   │   ├── admin_agent.mbt     # Durable Admin Agent (singleton, HTTP)
+│   │   ├── student_agent.mbt  # Durable Student Agent (per-student, HTTP)
+│   │   └── teacher_agent.mbt  # Durable Teacher Agent (per-teacher, HTTP)
 │   └── common-wit/            # Shared WIT dependencies (wit-deps)
 ├── shared/                    # MoonBit library — shared types and pure logic
 │   ├── moon.mod.json
@@ -95,7 +212,7 @@ school-management/
 
 **Rules for each directory:**
 
-- `agents/`: A single `app-agents/` component holds all agent types sharing one WASM binary. All agent files live in the same MoonBit package so typed RPC clients (`<AgentName>Client`) are generated for every agent and usable by every other agent. Agent-to-agent RPC uses the idiomatic `<AgentName>Client::scoped(...)` pattern.
+- `agents/`: A single `app-agents/` component holds all agent types and shared modules sharing one WASM binary. All files share the same MoonBit package namespace so typed RPC clients are generated for every agent and usable by every other agent. Shared modules (`errors.mbt`, `config.mbt`, `http_client.mbt`, `auth.mbt`, `validation.mbt`, `surreal_client.mbt`, `authentik_client.mbt`, `cache_types.mbt`) are co-located in the same directory — MoonBit does not require separate directories for code organization within a package. Agent-to-agent RPC uses the idiomatic `<AgentName>Client::scoped(...)` pattern.
 - `shared/`: Contains only MoonBit modules that compile for both `wasm-gc` (Golem) and `js` (SvelteKit). No I/O, no filesystem, no network. Pure types and functions only.
 - `frontend/src/routes/`: Follow SvelteKit conventions. Group routes by role inside `(auth)/`. Server endpoints go in `+page.server.ts` or `+server.ts` files. Client-side components belong in the `lib/` folder.
 - `frontend/src/lib/components/`: Each shadcn-svelte component lives in its own file. Custom composition components go here as well. No business logic.

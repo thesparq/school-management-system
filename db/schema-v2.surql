@@ -288,8 +288,8 @@ DEFINE TABLE user_profile SCHEMAFULL
 DEFINE FIELD IF NOT EXISTS auth_id      ON user_profile TYPE string;
 DEFINE FIELD IF NOT EXISTS role         ON user_profile TYPE string
   ASSERT $value IN ["admin", "teacher", "student"];
-DEFINE FIELD IF NOT EXISTS class_level  ON user_profile TYPE option<string>;
-DEFINE FIELD IF NOT EXISTS created_at   ON user_profile TYPE datetime;
+DEFINE FIELD IF NOT EXISTS class_level ON user_profile TYPE option<record<class_levels>>;
+DEFINE FIELD IF NOT EXISTS created_at   ON user_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at   ON user_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS deleted_at   ON user_profile TYPE option<datetime>;
 
@@ -306,24 +306,23 @@ DEFINE TABLE session_term SCHEMAFULL
 DEFINE FIELD session     ON session_term TYPE string;
 DEFINE FIELD term        ON session_term TYPE record<terms>;
 DEFINE FIELD active      ON session_term TYPE bool DEFAULT false;
-DEFINE FIELD created_at  ON session_term TYPE datetime;
+DEFINE FIELD created_at  ON session_term TYPE datetime DEFAULT time::now();
 DEFINE FIELD deleted_at  ON session_term TYPE option<datetime>;
 
 DEFINE INDEX idx_st_combo ON session_term COLUMNS session, term UNIQUE;
 
 ----------------
 -- Step 8: teacher_assignment table (replaces AdminAgent.teacher_assignments)
--- Uses string IDs for class_level and subject for simple writes.
--- session_term will be added in a later phase.
+-- Uses record<has_subject> edge for graph-native queries with dot-traversal.
 
 DEFINE TABLE teacher_assignment SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 
-DEFINE FIELD teacher_id       ON teacher_assignment TYPE string;
-DEFINE FIELD class_level_id   ON teacher_assignment TYPE string;
-DEFINE FIELD subject_id       ON teacher_assignment TYPE string;
-DEFINE FIELD assigned_at      ON teacher_assignment TYPE datetime;
-DEFINE FIELD deleted_at       ON teacher_assignment TYPE option<datetime>;
+DEFINE FIELD teacher_id   ON teacher_assignment TYPE string;
+DEFINE FIELD has_subject  ON teacher_assignment TYPE record<has_subject>;
+DEFINE FIELD session_term ON teacher_assignment TYPE record<session_term>;
+DEFINE FIELD assigned_at  ON teacher_assignment TYPE datetime DEFAULT time::now();
+DEFINE FIELD deleted_at   ON teacher_assignment TYPE option<datetime>;
 
-DEFINE INDEX idx_ta_teacher_cl_subj
-  ON teacher_assignment COLUMNS teacher_id, class_level_id, subject_id UNIQUE;
+DEFINE INDEX idx_ta_teacher_hs_st
+  ON teacher_assignment COLUMNS teacher_id, has_subject, session_term UNIQUE;

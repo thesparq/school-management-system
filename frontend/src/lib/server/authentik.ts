@@ -89,7 +89,7 @@ export async function generateAuthUrl(): Promise<{
 		response_type: 'code',
 		client_id: cfg.CLIENT_ID,
 		redirect_uri: cfg.REDIRECT_URI,
-		scope: 'openid profile email',
+		scope: 'openid profile email offline_access',
 		state,
 		code_challenge_method: 'S256',
 		code_challenge: codeChallenge
@@ -217,7 +217,7 @@ export async function getEndSessionUrl(idToken: string): Promise<string> {
 	return `${config.end_session_endpoint}?${params.toString()}`;
 }
 
-// ─── Admin API ───────────────────────────────────────────────
+// ─── Admin API (reads only) ──────────────────────────────────
 
 export interface AuthentikUser {
 	pk: number;
@@ -247,7 +247,7 @@ async function getTargetGroupPks(): Promise<Set<string>> {
 	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
 	if (!host || !token) return new Set();
 
-	const targetNames = ['admin', 'students', 'teachers'];
+	const targetNames = ['admin', 'student', 'teacher'];
 	const targetPks = new Set<string>();
 
 	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;
@@ -332,118 +332,6 @@ export async function getGroupPkByName(name: string): Promise<string | null> {
 	const page: { results: AuthentikGroup[] } = await res.json();
 	const match = page.results.find((g) => g.name.toLowerCase() === name.toLowerCase());
 	return match ? match.pk : null;
-}
-
-async function setUserActive(pk: number, isActive: boolean): Promise<void> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const response = await fetch(`https://${host}/api/v3/core/users/${pk}/`, {
-		method: 'PATCH',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ is_active: isActive })
-	});
-	if (!response.ok) throw new Error(`Authentik PATCH failed: ${response.status}`);
-}
-
-export const activateUser = (pk: number) => setUserActive(pk, true);
-export const deactivateUser = (pk: number) => setUserActive(pk, false);
-
-export async function resetPassword(pk: number, password: string): Promise<void> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const response = await fetch(`https://${host}/api/v3/core/users/${pk}/set_password/`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ password })
-	});
-	if (!response.ok) throw new Error(`Authentik set_password failed: ${response.status}`);
-}
-
-export async function addUserToGroup(userPk: number, groupUuid: string): Promise<void> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const resp = await fetch(`https://${host}/api/v3/core/groups/${groupUuid}/add_user/`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ pk: userPk })
-	});
-	if (!resp.ok) throw new Error(`Authentik add user to group failed: ${resp.status}`);
-}
-
-export async function removeUserFromGroup(userPk: number, groupUuid: string): Promise<void> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const resp = await fetch(`https://${host}/api/v3/core/groups/${groupUuid}/remove_user/`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ pk: userPk })
-	});
-	if (!resp.ok) throw new Error(`Authentik remove user from group failed: ${resp.status}`);
-}
-
-export interface CreateUserParams {
-	username: string;
-	name: string;
-	email: string;
-	password: string;
-	is_active?: boolean;
-	groups?: string[];
-}
-
-export async function createUser(params: CreateUserParams): Promise<AuthentikUser> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const response = await fetch(`https://${host}/api/v3/core/users/`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-			username: params.username,
-			name: params.name,
-			email: params.email,
-			password: params.password,
-			is_active: params.is_active ?? true,
-			groups: params.groups ?? [],
-			path: 'users'
-		})
-	});
-	if (!response.ok) {
-		const body = await response.json().catch(() => null);
-		throw new Error(body?.detail || `Authentik create failed: ${response.status}`);
-	}
-	return response.json();
-}
-
-export async function deleteUser(pk: number): Promise<void> {
-	const host = env.AUTHENTIK_HOST;
-	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
-	if (!host || !token) throw new Error('Missing Authentik config');
-	const response = await fetch(`https://${host}/api/v3/core/users/${pk}/`, {
-		method: 'DELETE',
-		headers: { Authorization: `Bearer ${token}` }
-	});
-	if (response.status !== 204 && response.status !== 200) {
-		throw new Error(`Authentik delete failed: ${response.status}`);
-	}
 }
 
 function generateCodeVerifier(): string {

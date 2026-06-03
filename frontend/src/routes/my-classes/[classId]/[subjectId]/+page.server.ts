@@ -22,8 +22,9 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     return { terms: [], subjectName: null, termsError: 'Invalid response from server.', breadcrumbs: [{ label: 'My Classes', href: '/' }, { label: 'Class' }, { label: 'Subject' }] };
   }
 
-  // Look up subject name from teacher's class data
+  // Look up class and subject names from teacher's class data
   let subjectName = 'Subject';
+  let classLevelName = 'Class';
   const classesRes = await fetch('/api/teacher/classes');
   if (classesRes.ok) {
     try {
@@ -31,20 +32,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
       const groups: TeacherClassGroup[] = classesJson.data ?? [];
       const match = groups.find((g: TeacherClassGroup) => g.class_level_id === classId);
       if (match) {
+        classLevelName = match.class_level_name;
         const subjMatch = match.subjects.find(s => s.subject_id === params.subjectId);
         if (subjMatch) subjectName = subjMatch.subject_name;
       }
-    } catch { /* fallback */ }
-  }
-
-  // Look up class name for breadcrumb
-  let classLevelName = 'Class';
-  if (classesRes.ok) {
-    try {
-      const classesJson = await classesRes.json();
-      const groups: TeacherClassGroup[] = classesJson.data ?? [];
-      const match = groups.find((g: TeacherClassGroup) => g.class_level_id === classId);
-      if (match) classLevelName = match.class_level_name;
     } catch { /* fallback */ }
   }
 

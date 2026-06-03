@@ -1,4 +1,4 @@
-import { deleteUser } from '$lib/server/authentik';
+import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const DELETE: RequestHandler = async (event) => {
@@ -24,17 +24,30 @@ export const DELETE: RequestHandler = async (event) => {
 		);
 	}
 
-	try {
-		await deleteUser(targetPk);
+	const targetUuid = event.url.searchParams.get('uuid');
+	if (!targetUuid) {
 		return new Response(
-			JSON.stringify({ data: { deleted: true } }),
-			{ status: 200, headers: { 'content-type': 'application/json' } }
-		);
-	} catch (err) {
-		const message = err instanceof Error ? err.message : 'Failed to delete user';
-		return new Response(
-			JSON.stringify({ error: { code: 'AUTHENTIK_ERROR', message } }),
-			{ status: 502, headers: { 'content-type': 'application/json' } }
+			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing uuid query param' } }),
+			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
+
+	const proxy = adminProxy(user);
+	const agentBody = JSON.stringify({
+		authentik_pk: targetPk,
+		target_user_id: targetUuid
+	});
+	const result = await proxy('/delete-user', undefined, 'POST', { body_json: agentBody });
+
+	if (result.error) {
+		return new Response(JSON.stringify(result), {
+			status: mapErrorCodeToHttpStatus(result.error.code),
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+
+	return new Response(
+		JSON.stringify({ data: { deleted: true } }),
+		{ status: 200, headers: { 'content-type': 'application/json' } }
+	);
 };

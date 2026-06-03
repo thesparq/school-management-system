@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { adminProxy } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -16,7 +16,8 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToGateway('/gateway/admin/class-levels', user.id);
+	const proxy = adminProxy(user);
+	const result = await proxy('/class-levels');
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {

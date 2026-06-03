@@ -7,14 +7,10 @@ export const load: PageServerLoad = async (event) => {
 	if (!user || !user.roles.includes('admin')) error(403, 'Forbidden');
 
 	try {
-		const [authentikUsers, initsResponse, allGroups] = await Promise.all([
+		const [authentikUsers, allGroups] = await Promise.all([
 			fetchAllUsers(),
-			event.fetch('/api/admin/initializations'),
 			fetchAllGroups()
 		]);
-
-		const initsBody = await initsResponse.json();
-		const initMap: Record<string, string> = initsBody.data || {};
 
 		const adminGroup = allGroups.find(g => g.name === 'admin');
 		const adminGroupPk = adminGroup?.pk ?? null;
@@ -22,11 +18,10 @@ export const load: PageServerLoad = async (event) => {
 			? authentikUsers.filter(u => (u.groups ?? []).includes(adminGroupPk))
 			: authentikUsers;
 
-		return { users: filtered, initMap, allGroups, role: 'admin-role', groupPk: adminGroupPk ?? '' };
+		return { users: filtered, allGroups, role: 'admin-role', groupPk: adminGroupPk ?? '' };
 	} catch (err) {
 		return {
 			users: [],
-			initMap: {},
 			allGroups: [],
 			role: 'admin-role',
 			groupPk: '',

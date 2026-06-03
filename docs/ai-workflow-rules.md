@@ -55,6 +55,7 @@ The following must never be modified without explicit, direct instruction in the
   - New UI patterns, component conventions → `ui-context.md`
   - New coding rules, file organization changes → `code-standards.md`
   - New feature scope, user flow changes → `project-overview.md`
+  - New feature, endpoint, or user-facing capability → `feature-checklist.md` (add a test row)
 - **If a change invalidates a statement in a context file, you must correct it.** Leaving stale documentation is a bug.
 - **Keep documentation concrete.** Replace vague phrases with specific names, counts, and paths. If the implementation uses `assignment_id`, the documentation must use the same term, not "assignment reference" or "assignment key."
 

@@ -2,9 +2,40 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- None. All hotfixes complete. Next unit: either **HF-04 (Session Term Management)** or **Unit 21 (Teacher Assignment/Term Toggle)**.
+
 ## Completed
 
-- **✅ Unit 20: Teacher Agent – Initialization & Dashboard (DB-Backed Architecture) — Complete**
+- **✅ HF-03: User CRUD — Error Handling, Saga Pattern & Config Refactor — Complete**
+  Full rewrite of user CRUD layer with structured `AppError` types (7 codes), saga-pattern compensation (create/edit/delete/activate-deactivate with rollback). Reactive cache redesign: unified `caches : Map[String, CacheItem]` per agent, no negative caching, `get_class_level()` reactive gatekeeper, parent-child invalidation via backbone keys. Schema updated: `class_level` → `record<class_levels>`, `teacher_assignment` → `record<has_subject>` + `session_term`, DEFAULT time::now() on 3 tables. Frontend: `golem.ts` rewritten (structured error parsing without string matching), `mapErrorCodeToHttpStatus`, `StatusCard` component (info/warning/error) used uniformly across all routes. Teacher dashboard + full class→subject→term→lesson browsing flow working end-to-end. Assign-modal search ordered by match quality. Proxy routes use proper HTTP status codes. Dead code removed: `invalidated` field from CacheItem, `ensure_initialized()` from both agents, edge cache. Group names unified to singular (`"student"`, `"teacher"`) across Authentik, backend, and frontend. Context files synced.
+
+- **✅ Session 2026-06-02: Post-GatewayAgent Bugfixes — Init silent failure, proxy method, SurrealDB error validation**
+  
+  **Root cause of silent init failure:** Frontend `proxyFetch()` defaulted to GET for all Golem proxy calls. The SvelteKit route correctly received POST from the browser, but forwarded it to Golem as GET. Golem's POST-only `/initialize` endpoint returned `ROUTE_NOT_FOUND`, which `proxyFetch` treated as a success (no `Ok`/`Err` envelope to flag as error). The frontend showed "Initialized" but SurrealDB never received the INSERT.
+  
+  **Fixes:**
+  1. `golem.ts` — `proxyFetch()` now accepts a `method` parameter; `proxyToSuperAdmin/Student/Teacher` forward it
+  2. `POST /api/admin/users/[pk]/initialize` — passes `'POST'` to `proxyToSuperAdmin`
+  3. `POST /api/admin/teacher/subjects` — passes `'POST'` to `proxyToSuperAdmin`
+  4. `surreal_client.mbt` — added `surreal_query_checked()` that parses the JSON response body and returns `Err(...)` if `"status":"ERR"` is found (SurrealDB returns SQL errors with HTTP 200)
+  5. `initialize_user` in both `SuperAdminAgent` and `AdminAgent` — uses `surreal_query_checked()` instead of raw `surreal_query()`
+  
+   **Build status:** `golem build` 0 errors, deployed (revision 4). `pnpm check` 0 errors 9 warnings (same baseline).
+
+- **✅ 2026-06-02: Auth UX Fix — Non-expiry JWT errors now attempt refresh, race condition dedup window, API 401 redirects to Authentik**
+
+   **Problem:** Users saw inline "Not authenticated" errors (no redirect to Authentik) when:
+   1. JWT verification failed for non-expiry reasons (transient JWKS network blip, issuer mismatch) → `hooks.server.ts` else branch instantly deleted BOTH cookies without attempting a refresh
+   2. Concurrent fetch calls (UserTable.svelte loading multiple data sources) race with refresh token rotation — the second request used the old (rotated) token, refresh failed silently
+   3. Protected API `fetch()` calls from the browser returned 401 → component showed error inline because `+layout.server.ts` redirect only runs on page loads, not API routes
+
+   **Fixes (2 files, zero cascade):**
+   1. **`frontend/src/hooks.server.ts`** — Non-expiry `else` branch now calls `attemptRefresh()` instead of instantly deleting cookies. Added `attemptRefresh()` helper with `setAuthCookies()` / `clearAuthCookies()` extractors. Changed refresh dedup from `finally()` (instant reset) to 3-second `setTimeout` grace window so concurrent stale-cookie requests reuse the same successful result. Added protected API guard: if user is null + request is a non-auth API route → return JSON 401 with Authentik `redirectUrl`, set `oauth_redirect` cookie so user returns to same page after login.
+   2. **`frontend/src/routes/+layout.svelte`** — Added `onMount` client-side `window.fetch` interceptor: if response is 401 with `redirectUrl` in body, hard-redirects browser to Authentik and stops further component code from running (returns never-resolving promise).
+
+   **Build status:** `pnpm check` 0 errors, 9 warnings (same pre-existing baseline).
   Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`, `bbd06ca`). Init persistence to SurrealDB verified end-to-end. No known regressions.
   
   **What was built:**
@@ -24,13 +55,21 @@ Update this file after every meaningful implementation change.
   
   **Note:** Much of this code will be rewritten in the next unit (GatewayAgent removal refactor). The DB-backed architecture and Agent Memory Cache patterns are the lasting contributions.
 
-## Up Next
+- **✅ HF-02 (Unit 21): GatewayAgent Removal — Per-User Agent Architecture — Complete**
+  Eliminated the Ephemeral GatewayAgent entirely. Each durable agent now exposes HTTP endpoints directly via `#derive.endpoint` with path-based worker ID extraction (`{admin_id}`, `{student_id}`, `{teacher_id}`). New `SuperAdminAgent` (durable singleton, mount `/super-admin`) handles admin operations without init check. Auth is per-endpoint via `#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")`. All 4 agents share a `@config.Config[GolemAgentConfig]` with `auth_key` as a secret. Unified `CacheData` enum map pattern for cache-first init and data caching. Cache invalidation via typed RPC `invalidate_cache(key)` — both `StudentAgentCache` and `TeacherAgentCache` have per-key invalidation methods. RPC calls from AdminAgent/SuperAdminAgent pass `auth_key` from their own config.
 
-- **GatewayAgent removal refactor.** Eliminate GatewayAgent entirely — move `#derive.endpoint` annotations and auth to the respective agents (StudentAgent, TeacherAgent, AdminAgent). Each agent becomes its own HTTP endpoint. SvelteKit proxy routes target agent-specific endpoints. Frontend `golem.ts` updated or replaced. This will simplify the architecture significantly: fewer RPC hops, one less WASM artifact to deploy, clearer data flow.
+  **What was built:**
+  - **SuperAdminAgent**: 11 HTTP endpoints (`/ping`, `/db-test`, `/class-levels`, `/class-subjects`, `/check-init`, `/initialize`, `/teacher/subjects` GET/POST, `/initializations`, `/invalidate-cache`). No init check — singleton agent, always available.
+  - **AdminAgent**: 9 HTTP endpoints (`/ping`, `/check-init`, `/class-levels`, `/class-subjects`, `/initialize`, `/teacher/subjects` GET/POST, `/initializations`, `/invalidate-cache`). HTTP mount at `/admin/{admin_id}`.
+  - **StudentAgent**: 5 HTTP endpoints (`/ping`, `/subjects`, `/terms`, `/lessons`, `/lesson`, `/invalidate-cache`). HTTP mount at `/student/{student_id}`.
+  - **TeacherAgent**: 6 HTTP endpoints (`/ping`, `/classes`, `/terms`, `/lessons`, `/invalidate-cache`). HTTP mount at `/teacher/{teacher_id}`.
+  - **`common.mbt`**: Shared `GolemAgentConfig` (6 secrets), `CacheData`/`CacheEntry` types, `check_auth_key()`, `surreal_query()`, `surreal_query_retry()`, `parse_result_array()`, `parse_result_single()`, `escape_surreal_string()`.
+  - **`agent_cache.mbt`**: Generic Agent Memory Cache (`AgentCache[C]`) with `get_or_refresh()` pattern, TTL per key.
+  - **GatewayAgent deleted** — `gateway_agent.mbt`, all gateway references in golem_agents.mbt/clients.mbt removed.
+  - **All agents use same config struct** — `GolemAgentConfig` with 6 secrets shared across all 4 agent types.
+  - **Cache invalidation via RPC**: `invalidate_cache(incoming_key, key)` on StudentAgent and TeacherAgent. Called from AdminAgent/SuperAdminAgent with locally-resolved `auth_key`.
 
-  Design spec to be written as the first task of the next session.
-
-## Completed
+  **Build status:** `golem build` 0 errors, deployed (component revision 4). `moon info && moon fmt` run.
 
 - Unit 19: **Lesson Content Page with Side Navigation** — Enhanced lesson detail page at `/lms/[subjectId]/[termId]/[lessonId]` with sticky side navigation panel: dots column (w-14) at content's right edge uses `sticky top-50vh translateY(-50%)` to stay vertically centered. Hovering dots reveals section headings card to the left (`absolute right-full`). Scroll spy via `use:scrollSpy` action (passive scroll listener with rAF throttling, scanning `[data-section]` children). Mobile floating TOC button with FAB at bottom-right. Placeholder assignment card with dashed border. Key Points/Assignments sections swapped (assignments last). Removed Separator between title and content. Added `pb-16` after last section. `px-6` on all card headers/content. Fixed scroll spy: `position: fixed` broken by `<SidebarInset>` parent transform → replaced with `sticky` flex layout. A11y fixes: `aria-label` on nav/FAB, keyboard handler on backdrop. Open redirect fix: backslash bypass blocked via regex. Week badge guard: `!= null` catches `undefined`. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
 
@@ -61,20 +100,37 @@ Update this file after every meaningful implementation change.
 
   **Post-deploy fix (part 2):** The lesson detail page hung (amber loader forever) due to the Gateway endpoint at `/gateway/student/lesson` returning 404. Root cause: the generated `.mbti` interface file was stale — `student_lesson` function was added to `gateway_agent.mbt` but `moon info` was never run to regenerate the `.mbti`. Fixed by running `moon info` before `golem build` to ensure generated stubs match the actual source. The build pipeline (`golem build` → `golem-sdk-tools agents` → `moon build`) regenerates `golem_agents.mbt` etc. but does NOT regenerate `.mbti` files, so `moon info` must be run manually after adding new endpoint functions. Also: Gateway HTTP API is on port **9006** (not 9881 which is the Golem management API), and `golem deploy --reset` deletes all agent state requiring re-initialization.
 
-## Most Recent Fix — Class-Subject Dropdown Empty (Session 2026-05-31)
+- **✅ 2026-06-02: SurrealDB Agent HTTP Timeout — 15s first_byte_timeout added to WASI HTTP calls**
 
-**Root cause:** Admin Agent was running revision 1 (old code without `get_available_class_subjects`). After `golem deploy --reset`, a new revision 2 agent was created. The SQL and SurrealDB query were correct all along.
+   **Problem:** `surreal_query()` called `@http.handle(request, None)` then `pollable.block()` with no timeout. If Surreal Cloud was unresponsive, the singleton SuperAdminAgent hung forever on `pollable.block()` — all subsequent requests queued behind it with no way to recover.
 
-**Additional finding:** Fresh Agent instances have a first-call issue where `@json.parse()` in MoonBit WASM fails with "parse response failed" on the first `surreal_query` response (returns `[]` silently). Subsequent calls work correctly. Added a one-time retry in `get_available_class_subjects` — if `parse_result_array` fails, it re-queries SurrealDB and retries the parse.
+   **Fix (1 file, 2 lines added):**
+   1. `surreal_client.mbt:146-147` — Created `RequestOptions` resource and set `first_byte_timeout` to 15s (`15000UL`); passed `Some(opts)` to `@http.handle`
 
-**Fix applied:**
-1. Deployed agents with `golem deploy --reset -Y` (component revision 2, later 4)
-2. Added retry for `parse_result_array` in `AdminAgent.get_available_class_subjects` (`admin_agent.mbt:202-212`)
-3. Verified gateway returns 98 class-subject pairs: `curl /gateway/admin/class-subjects` → `200 OK` with full data
-4. Verdict: **No class-subject data missing** — stale agent instance was the culprit
+   **Build status:** `golem build` 0 errors (same 41 pre-existing warnings). `moon info && moon fmt` run.
+
+## Most Recent Fix — Post-GatewayAgent Bugs (Session 2026-06-01)
+
+**Root cause 1 (dead code/broken build):** GatewayAgent removal left mangled code in `super_admin_agent.mbt`: dangling `"super admin online"` block after `db_test`, leftover `match surreal_query(...SELECT VALUE 1...)` block from old `db_test` implementation, and a duplicate `debug_has_subject` endpoint. Fixed by removing all three.
+
+**Root cause 2 (`check_init` missing query param):** The `#derive.endpoint(get="/check-init")` annotation didn't include `?target_user_id={target_user_id}`, so the endpoint never extracted the query parameter. Fixed.
+
+**Root cause 3 (`db_test` SQL syntax):** `SELECT VALUE 1` and `SELECT 1 AS one FROM (SELECT * FROM ONLY (SELECT VALUE 1))` both fail in SurrealDB. Fixed by using a valid SQL: `SELECT 1 AS one FROM (SELECT * FROM ONLY (SELECT 1))`.
+
+**Root cause 4 (`get_available_class_subjects` parse failure):** `@json.parse()` in MoonBit WASM fails on response strings > ~4KB (returns "parse response failed"). The single-query approach for `has_subject` edges returned 17KB when not limited. With `LIMIT 2`, response was 402B and parsed fine. The retry in `_query_class_subjects` couldn't fix this — every call to `@json.parse` on a 17KB string fails deterministically. Fixed by rewriting to use two smaller queries: first fetch `class_levels` (small response), then per-class-level fetch subjects via `WHERE in = type::thing(...)` (each small enough to parse).
+
+**Fixes applied:**
+1. Removed dead/duplicate code from `super_admin_agent.mbt`
+2. Added `?target_user_id={target_user_id}` to `check-init` endpoint annotation
+3. Fixed `db-test` SQL query syntax
+4. Rewrote `get_available_class_subjects` to use two-phase query pattern — avoids `@json.parse` large-input crash
+5. Deployed component revision 10; all SuperAdminAgent endpoints verified working: `class-subjects`, `class-levels`, `check-init`, `initializations`, `teacher/subjects`, `debug-has-subject`
+
+**Key finding:** MoonBit WASM `@json.parse` has a size-dependent first-call bug — responses > ~4KB fail on the first (and every) call. All SurrealDB responses should be kept under 1KB per query, or split into multiple small queries.
 
 ## Important Notes for Next Session
 
+- HTTP `first_byte_timeout` set to 15s (`15000UL`) on WASI HTTP calls — prevents agent hang on Surreal Cloud blips
 - Gateway HTTP API port: **9006** (agents.localhost:9006), NOT 9881 (Golem management API)
 - After adding new endpoint functions to any agent: run `moon info && moon fmt` before `golem build` to keep `.mbti` files in sync
 - `golem deploy --reset` destroys all agent state — re-init is always required
@@ -87,14 +143,15 @@ Update this file after every meaningful implementation change.
 ## Next Steps (Session Bootstrap)
 
 After context reset or new session:
-1. Re-run `db/schema-v2.surql` in Surrealist
-2. Verify lesson count = 1919, arrays populated
-3. Deploy agents: `golem deploy --reset -Y` (from `agents/` dir)
-4. Re-init admin: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"admin"' 'None'`
-5. Re-init student: `golem agent invoke 'GatewayAgent()' initialize_admin '"dev-auth-key-change-in-production"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"725d7fe9-2999-410d-8281-bd3016931a1f"' '"student"' 'Some("JSS_3")'`
-6. Verify: `golem agent invoke 'StudentAgent("725d7fe9-2999-410d-8281-bd3016931a1f")' get_subjects`
-7. Verify lesson detail API: `curl "http://agents.localhost:9006/gateway/student/lesson?user_id=725d7fe9-2999-410d-8281-bd3016931a1f&lesson_id=lessons:s48v5um2fyzq6ad5lplu" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
-8. Verify lesson detail navigation: click a lesson card on `/lms/[subjectId]/[termId]/` → loads lesson detail page with objectives, content sections, key points
+1. Deploy agents: `golem deploy --yes` (from `agents/` dir, or `--reset -Y` to destroy all state)
+2. Update agent instances (auto update should apply on next invocation)
+3. Test: `curl "http://agents.localhost:9006/super-admin/class-subjects" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
+
+**Important caveats:**
+- GatewayAgent removed — all endpoints are now directly on per-user agents (SuperAdminAgent, AdminAgent, StudentAgent, TeacherAgent)
+- HTTP API domain: `agents.localhost:9006` (NOT `localhost:9881`)
+- After `golem deploy --reset`, all agent state is destroyed — re-initialization needed via `POST /super-admin/initialize?target_user_id=...&role=...`
+- MoonBit WASM `@json.parse` has size-dependent crash on responses > ~4KB — split large queries into per-entity sub-queries
 
 ## Session 2026-05-30 — Optimizations
 
@@ -171,6 +228,18 @@ After context reset or new session:
 - Unit 5: SvelteKit → Golem Proxy — Created `/api/ping` proxy route in SvelteKit (`src/routes/api/ping/+server.ts`). Shared proxy helper `src/lib/server/golem.ts` with `proxyToGateway(path, userId)` and `X-Golem-Auth-Key` auth. Gateway Agent updated with `#derive.config` + `@config.Secret[String]` for auth key verification (rejects unauthorized requests before AdminAgent RPC). `secretDefaults` in `golem.yaml` for local dev. Dashboard "Connection Status" card with "Test Connection" button. Extension method `AgentError::to_string` added for generated code compatibility.
 
 
+
+- **✅ 2026-06-02: Authentik Agent Write Operations — WASI HTTP Body Transport Fix**
+  Moved all Authentik write operations into Golem AdminAgent for durable atomicity. Created `authentik_client.mbt` with WASI HTTP helpers (`authentik_post`, `authentik_patch`, `authentik_delete`), `SharedConfig` with `authentik_host`/`authentik_api_token`/`authentik_api_user` secrets, and 4 Agent endpoints (create, edit, delete, set-user-active). All SvelteKit admin routes rewritten to proxy through agent. `authentik.ts` cleaned — only reads/OIDC remain.
+
+  **Root cause of body transport bug:** `auth.johnethel.school`'s reverse proxy was dropping body bytes from WASI HTTP/2 requests that lacked an explicit `Content-Length` header. The body WAS being written, flushed, and finished (confirmed by `@logging.info` — `blocking_write_and_flush OK`, `finish OK`, `http.handle OK`), but the upstream server received empty body.
+
+  **Fix (1 file, 5 lines):**
+  - `authentik_client.mbt:16-25` — Added explicit `Content-Length` header computed from `body_json.length().to_string()` (or `"0"` when no body). Changed `Accept` from `application/json` to `*/*`.
+
+  **Verification:** `debug_create_hardcoded` to `auth.johnethel.school/api/v3/core/users/` now returns `HTTP 400 {"username":["This field must be unique."]}` — Authentik receives, parses, and validates the JSON body. Previously returned generic "required" errors for empty body. httpbin.org confirmed correct Content-Length and body content.
+
+  **Build status:** `golem build` 0 errors.
 
 ## Recent Specs
 

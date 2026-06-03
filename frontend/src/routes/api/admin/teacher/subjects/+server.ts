@@ -1,4 +1,4 @@
-import { proxyToGateway } from '$lib/server/golem';
+import { adminProxy } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
 
@@ -17,10 +17,12 @@ export const POST: RequestHandler = async (event) => {
     );
   }
 
-  const result = await proxyToGateway(
-    '/gateway/admin/teacher/subjects',
-    user.id,
-    { target_teacher_id: targetTeacherId, pairs_json: JSON.stringify(pairs) }
+  const proxy = adminProxy(user);
+  const result = await proxy(
+    '/teacher/subjects',
+    { target_teacher_id: targetTeacherId },
+    'POST',
+    { pairs_json: JSON.stringify(pairs) }
   );
 
   if (result.error) {
