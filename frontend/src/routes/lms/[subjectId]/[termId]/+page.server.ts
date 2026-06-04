@@ -50,7 +50,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 			termName,
 			lessonsError: err.error?.message ?? 'Unknown error',
 			breadcrumbs: [
-				{ label: 'LMS' } as BreadcrumbItem,
 				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
 				{ label: termName } as BreadcrumbItem
@@ -68,7 +67,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 			termName,
 			lessonsError: 'Invalid response from server.',
 			breadcrumbs: [
-				{ label: 'LMS' } as BreadcrumbItem,
 				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
 				{ label: termName } as BreadcrumbItem
@@ -81,7 +79,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 		termName,
 		lessonsError: null,
 		breadcrumbs: [
-			{ label: 'LMS' } as BreadcrumbItem,
+			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 			{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
 			{ label: termName } as BreadcrumbItem

@@ -201,14 +201,25 @@ school-management/
     │   ├── routes/
     │   │   ├── +layout.svelte # Root layout (sidebar, nav, breadcrumbs)
     │   │   ├── +page.svelte   # Root page (LMS subjects for students, My Classes for teachers, dashboard for admins)
-    │   │   ├── lms/           # LMS routes (subjects → terms → lessons)
+    │   │   ├── lms/           # Student LMS routes (subjects → terms → lessons)
+    │   │   │   └── [subjectId]/
+    │   │   │       └── [termId]/
+    │   │   │           └── [lessonId]/
+    │   │   │               └── +page.svelte   # Wrapper → LessonPage
+    │   │   ├── my-classes/    # Teacher class browsing
+    │   │   │   └── [classId]/
+    │   │   │       └── [subjectId]/
+    │   │   │           └── [termId]/
+    │   │   │               ├── +page.svelte
+    │   │   │               └── [lessonId]/
+    │   │   │                   └── +page.svelte   # Wrapper → LessonPage
     │   │   ├── admin/         # Admin routes (user management, configuration)
     │   │   │   ├── users/
     │   │   │   └── configuration/
     │   │   │       └── session-terms/
     │   │   └── api/           # Proxy routes to Golem gateway
     │   └── lib/
-    │       ├── components/    # shadcn-svelte components
+    │       ├── components/    # shadcn-svelte components + LessonPage.svelte (shared lesson page) + accordion/ + checkbox/
     │       └── utils.ts       # Small helper functions
     └── static/
 ```
@@ -217,7 +228,7 @@ school-management/
 
 - `agents/`: A single `app-agents/` component holds all agent types and shared modules sharing one WASM binary. All files share the same MoonBit package namespace so typed RPC clients are generated for every agent and usable by every other agent. Shared modules (`errors.mbt`, `config.mbt`, `http_client.mbt`, `auth.mbt`, `validation.mbt`, `surreal_client.mbt`, `authentik_client.mbt`, `cache_types.mbt`) are co-located in the same directory — MoonBit does not require separate directories for code organization within a package. Agent-to-agent RPC uses the idiomatic `<AgentName>Client::scoped(...)` pattern.
 - `shared/`: Contains only MoonBit modules that compile for both `wasm-gc` (Golem) and `js` (SvelteKit). No I/O, no filesystem, no network. Pure types and functions only.
-- `frontend/src/routes/`: Follow SvelteKit conventions. Group routes by role inside `(auth)/`. Server endpoints go in `+page.server.ts` or `+server.ts` files. Client-side components belong in the `lib/` folder.
+- `frontend/src/routes/`: Follow SvelteKit conventions. Routes are organised by feature/role. Server endpoints go in `+page.server.ts` or `+server.ts` files. Client-side components belong in the `lib/` folder.
 - `frontend/src/lib/components/`: Each shadcn-svelte component lives in its own file. Custom composition components go here as well. No business logic.
 - `static/`: Assets like fonts and images. No generated content.
 

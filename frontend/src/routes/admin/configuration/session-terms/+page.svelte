@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+	import AppButton from '$lib/components/ui/app-button.svelte';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import {
 		Dialog,
 		DialogContent,
@@ -45,6 +46,8 @@
 	let createLoading = $state(false);
 	let createError = $state('');
 	let activateLoading = $state<Record<string, boolean>>({});
+	let showActivateConfirm = $state(false);
+	let activatingStId = $state('');
 
 	const hasActive = $derived(sessionTerms.some((st) => st.active));
 
@@ -79,8 +82,8 @@
 		}
 	}
 
-	async function handleActivate(stId: string) {
-		if (!confirm('Activate this session term? All other session terms will be deactivated.')) return;
+	async function doActivate(stId: string) {
+		showActivateConfirm = false;
 		activateLoading = { ...activateLoading, [stId]: true };
 		try {
 			const res = await fetch(`/api/admin/session-terms/activate?session_term_id=${encodeURIComponent(stId)}`, {
@@ -110,7 +113,7 @@
 		<div class="space-y-4">
 			<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
 			<div class="flex justify-start">
-				<Button variant="default" class="cursor-pointer" onclick={() => showCreateDialog = true}>Create Session Term</Button>
+				<AppButton variant="default" onclick={() => showCreateDialog = true}>Create Session Term</AppButton>
 			</div>
 		</div>
 	{:else}
@@ -120,7 +123,7 @@
 			{/if}
 
 			<div class="flex justify-end">
-				<Button variant="default" class="cursor-pointer" onclick={() => showCreateDialog = true}>Create Session Term</Button>
+				<AppButton variant="default" onclick={() => showCreateDialog = true}>Create Session Term</AppButton>
 			</div>
 
 			<Card>
@@ -147,15 +150,15 @@
 									</TableCell>
 									<TableCell class="text-surface-700 text-sm">{formatDate(st.created_at)}</TableCell>
 									<TableCell>
-										<Button
+										<AppButton
 											variant="outline"
 											size="sm"
-											class="cursor-pointer"
-											disabled={st.active || activateLoading[st.id]}
-											onclick={() => handleActivate(st.id)}
+											loading={activateLoading[st.id]}
+											disabled={st.active}
+											onclick={() => { activatingStId = st.id; showActivateConfirm = true; }}
 										>
 											{activateLoading[st.id] ? '...' : 'Activate'}
-										</Button>
+										</AppButton>
 									</TableCell>
 								</TableRow>
 							{/each}
@@ -168,7 +171,7 @@
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
-	<DialogContent>
+	<DialogContent class="sm:max-w-lg">
 		<DialogHeader>
 			<DialogTitle>Create Session Term</DialogTitle>
 			<DialogDescription>
@@ -213,23 +216,35 @@
 				<p class="text-sm text-error-500">{createError}</p>
 			{/if}
 			<div class="flex justify-end gap-2">
-				<Button
+				<AppButton
 					type="button"
 					variant="outline"
 					onclick={() => { showCreateDialog = false; createError = ''; }}
-					class="cursor-pointer"
 				>
 					Cancel
-				</Button>
-				<Button
+				</AppButton>
+				<AppButton
 					type="submit"
 					variant="default"
-					disabled={createLoading || !createForm.session || !createForm.termId}
-					class="cursor-pointer"
+					loading={createLoading}
+					disabled={!createForm.session || !createForm.termId}
 				>
 					{createLoading ? 'Creating...' : 'Create'}
-				</Button>
+				</AppButton>
 			</div>
 		</form>
 	</DialogContent>
 </Dialog>
+
+<AlertDialog.Root bind:open={showActivateConfirm}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Activate Session Term</AlertDialog.Title>
+			<AlertDialog.Description>This will activate the selected session term and deactivate all others. Continue?</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+			<AlertDialog.Action onclick={() => doActivate(activatingStId)}>Activate</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

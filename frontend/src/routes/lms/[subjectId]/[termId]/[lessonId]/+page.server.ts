@@ -10,7 +10,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 
   const lessonId = params.lessonId;
   const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'LMS' },
     { label: 'Subjects', href: '/' },
     { label: 'Subject', href: `/lms/${params.subjectId}` },
     { label: 'Term', href: `/lms/${params.subjectId}/${params.termId}` },

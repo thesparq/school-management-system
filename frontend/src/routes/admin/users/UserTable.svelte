@@ -9,11 +9,12 @@
 	} from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+	import AppButton from '$lib/components/ui/app-button.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Label } from '$lib/components/ui/label';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import {
 		Dialog,
 		DialogContent,
@@ -93,6 +94,7 @@
 	let teacherSubjectLoading = $state<Record<number, string>>({});
 	let teacherPairsLoading = $state<Record<number, boolean>>({});
 	let activeSessionTerm = $state<{ id: string; session: string; term_name: string } | null>(null);
+	let activeSessionTermLoading = $state(false);
 
 	function filterSubjectPairs(search: string, addedPairs: SubjectPair[]): SubjectPair[] {
 		const q = search.toLowerCase().replace(/\s+/g, '');
@@ -139,6 +141,7 @@
 	let deleteLoading = $state(false);
 	let deleteError = $state('');
 	let deleteTarget = $state<{ pk: number; uuid: string; name: string } | null>(null);
+	let deleteDialogOpen = $state(false);
 
 	function generatePassword(): string {
 		const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -442,6 +445,7 @@
 	}
 
 	async function handleDeleteUser() {
+		if (deleteLoading) return;
 		if (!deleteTarget) return;
 		const pk = deleteTarget.pk;
 		const userObj = getUser(pk);
@@ -459,6 +463,7 @@
 			users = users.filter(u => u.pk !== pk);
 			addToast('success', 'User deleted', deleteTarget.name);
 			deleteTarget = null;
+			deleteDialogOpen = false;
 		} catch (err) {
 			deleteError = err instanceof Error ? err.message : 'Delete failed';
 			addToast('error', 'Delete failed', err instanceof Error ? err.message : 'Delete failed');
@@ -476,15 +481,18 @@
 		subjectPairSearch = { ...subjectPairSearch, [userObj.pk]: '' };
 		selectedSubjectPair = { ...selectedSubjectPair, [userObj.pk]: null };
 		activeSessionTerm = null;
-		try {
-			const res = await fetch('/api/admin/active-session-term');
-			if (res.ok) {
-				const body = await res.json();
-				if (body.data && body.data.id) activeSessionTerm = body.data;
-			}
-		} catch { /* ignore */ }
-		loadTeacherPairs(userObj.uuid, userObj.pk);
+		activeSessionTermLoading = true;
 		classAssignDialogOpen = true;
+
+		fetch('/api/admin/active-session-term')
+			.then(res => res.ok ? res.json() : null)
+			.then(body => {
+				if (body?.data?.id) activeSessionTerm = body.data;
+			})
+			.catch(() => {})
+			.finally(() => { activeSessionTermLoading = false; });
+
+		loadTeacherPairs(userObj.uuid, userObj.pk);
 	}
 </script>
 
@@ -508,7 +516,7 @@
 	<Alert variant="destructive">
 		<AlertTitle>Failed to load users</AlertTitle>
 		<AlertDescription>{errorMessage}</AlertDescription>
-		<Button onclick={handleRetry} variant="outline" class="mt-3 cursor-pointer">Retry</Button>
+		<AppButton onclick={handleRetry} variant="outline" class="mt-3 cursor-pointer">Retry</AppButton>
 	</Alert>
 
 {:else if !hasUsers}
@@ -563,40 +571,35 @@
 								<Badge variant={authStatus.variant}>{authStatus.label}</Badge>
 							</TableCell>
 							<TableCell>
-								<Button
+								<AppButton
 									variant={userObj.is_active ? 'destructive' : 'default'}
 									size="sm"
-									class="cursor-pointer"
+									loading={isAuthLoading}
 									onclick={() => userObj.is_active ? handleDeactivateAuthentik(userObj.pk) : handleActivateAuthentik(userObj.pk)}
-									disabled={isAuthLoading}
 								>
 									{userObj.is_active ? 'Deactivate' : 'Activate'}
-								</Button>
+								</AppButton>
 							</TableCell>
 							<TableCell>
-								<Button
+								<AppButton
 									variant="outline"
 									size="sm"
-									class="cursor-pointer"
+ 
 									onclick={() => openEditDialog(userObj)}
 								>
 									Edit
-								</Button>
+								</AppButton>
 							</TableCell>
 							{#if role === 'teachers'}
 								<TableCell>
-									<Button
+									<AppButton
 										variant="outline"
 										size="sm"
-										class="cursor-pointer"
+										loading={teacherPairsLoading[userObj.pk]}
 										onclick={() => openClassAssign(userObj)}
 									>
-										{#if teacherPairsLoading[userObj.pk]}
-											<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-surface-300 border-t-surface-700 mr-1"></span> Loading
-										{:else}
-											Assign
-										{/if}
-									</Button>
+										{teacherPairsLoading[userObj.pk] ? 'Loading' : 'Assign'}
+									</AppButton>
 								</TableCell>
 							{/if}
 						</TableRow>
@@ -608,7 +611,7 @@
 {/if}
 
 <Dialog open={editDialogOpen} onOpenChange={(o) => { editDialogOpen = o; if (!o) editError = ''; }}>
-	<DialogContent>
+	<DialogContent class="sm:max-w-lg">
 		<DialogHeader>
 			<DialogTitle>Edit User</DialogTitle>
 			<DialogDescription>
@@ -692,44 +695,48 @@
 				<p class="text-sm text-error-500">{editError}</p>
 			{/if}
 			<div class="flex justify-end gap-2">
-				<Button
+				<AppButton
 					type="button"
 					variant="destructive"
-					onclick={() => { deleteTarget = { pk: editForm.authentikPk, uuid: editForm.uuid, name: editForm.name }; editDialogOpen = false; }}
+					onclick={() => { deleteTarget = { pk: editForm.authentikPk, uuid: editForm.uuid, name: editForm.name }; deleteDialogOpen = true; editDialogOpen = false; }}
 					class="cursor-pointer"
 					disabled={editProfileLoading}
 				>
 					Delete User
-				</Button>
-				<Button
+				</AppButton>
+				<AppButton
 					type="button"
 					variant="outline"
 					onclick={() => { editDialogOpen = false; editError = ''; }}
 					class="cursor-pointer"
 				>
 					Cancel
-				</Button>
-				<Button
+				</AppButton>
+				<AppButton
 					type="submit"
 					variant="default"
-					disabled={editLoading || editProfileLoading || !editForm.username || !editForm.name || !editForm.email || !editForm.role}
-					class="cursor-pointer"
+					loading={editLoading}
+					disabled={editProfileLoading || !editForm.username || !editForm.name || !editForm.email || !editForm.role}
 				>
 					{editLoading ? 'Saving...' : 'Save'}
-				</Button>
+				</AppButton>
 			</div>
 		</form>
 	</DialogContent>
 </Dialog>
 
 <Dialog open={classAssignDialogOpen} onOpenChange={(o) => { classAssignDialogOpen = o; }}>
-	<DialogContent class="max-w-lg">
+	<DialogContent class="sm:max-w-lg">
 		<DialogHeader>
 			<DialogTitle>Class Subjects</DialogTitle>
 			<DialogDescription>Manage class-subject assignments for this teacher.</DialogDescription>
 		</DialogHeader>
 		<div class="space-y-4">
-			{#if activeSessionTerm}
+			{#if activeSessionTermLoading}
+				<div class="rounded border border-surface-200 bg-surface-50 px-3 py-2">
+					<span class="text-xs text-surface-500 italic">Loading session term...</span>
+				</div>
+			{:else if activeSessionTerm}
 				<div class="space-y-1">
 					<span class="text-xs font-medium text-surface-500">Session Term</span>
 					<input
@@ -820,7 +827,7 @@
 								</div>
 							{/if}
 						</div>
-						<Button
+						<AppButton
 							variant="default"
 							size="sm"
 							class="cursor-pointer shrink-0"
@@ -837,35 +844,35 @@
 							}}
 						>
 							Add
-						</Button>
+						</AppButton>
 					</div>
 				</div>
 			{/if}
 
 			<div class="flex justify-end gap-2">
-				<Button
+				<AppButton
 					type="button"
 					variant="outline"
 					onclick={() => { classAssignDialogOpen = false; }}
 					class="cursor-pointer"
 				>
 					Cancel
-				</Button>
-				<Button
+				</AppButton>
+				<AppButton
 					variant="default"
 					class="cursor-pointer"
 					disabled={teacherSubjectLoading[classAssignTeacherPk] === 'loading' || teacherPairsLoading[classAssignTeacherPk] || !activeSessionTerm}
 					onclick={handleSaveTeacherSubjects}
 				>
 					{teacherSubjectLoading[classAssignTeacherPk] === 'loading' ? 'Saving...' : 'Save'}
-				</Button>
+				</AppButton>
 			</div>
 		</div>
 	</DialogContent>
 </Dialog>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
-	<DialogContent>
+	<DialogContent class="sm:max-w-lg">
 		<DialogHeader>
 			<DialogTitle>Create {role === 'admin-role' ? 'Admin' : roleLabel}</DialogTitle>
 			<DialogDescription>
@@ -947,55 +954,44 @@
 				<p class="text-sm text-error-500">{createError}</p>
 			{/if}
 			<div class="flex justify-end gap-2">
-				<Button
+				<AppButton
 					type="button"
 					variant="outline"
 					onclick={() => { showCreateDialog = false; createError = ''; }}
 					class="cursor-pointer"
 				>
 					Cancel
-				</Button>
-				<Button
+				</AppButton>
+				<AppButton
 					type="submit"
 					variant="default"
-					disabled={createLoading || !createForm.username || !createForm.name || !createForm.email || !createForm.password}
-					class="cursor-pointer"
+					loading={createLoading}
+					disabled={!createForm.username || !createForm.name || !createForm.email || !createForm.password}
 				>
 					{createLoading ? 'Creating...' : 'Create'}
-				</Button>
+				</AppButton>
 			</div>
 		</form>
 	</DialogContent>
 </Dialog>
 
 {#if deleteTarget}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onclick={() => deleteTarget = null}>
-		<div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4" onclick={(e) => e.stopPropagation()}>
-			<h3 class="text-lg font-semibold">Delete {deleteTarget.name}?</h3>
-			<p class="text-sm text-surface-600">
-				This permanently removes the user from Authentik. The user will lose all access. This cannot be undone.
-			</p>
+	<AlertDialog.Root bind:open={deleteDialogOpen}>
+		<AlertDialog.Content>
+			<AlertDialog.Header>
+				<AlertDialog.Title>Delete {deleteTarget.name}?</AlertDialog.Title>
+				<AlertDialog.Description>This permanently removes the user from Authentik. The user will lose all access. This cannot be undone.</AlertDialog.Description>
+			</AlertDialog.Header>
 			{#if deleteError}
-				<p class="text-sm text-error-500">{deleteError}</p>
+				<p class="text-sm text-error-500 px-6">{deleteError}</p>
 			{/if}
-			<div class="flex justify-end gap-2">
-				<Button
-					type="button"
-					variant="outline"
-					onclick={() => { deleteTarget = null; deleteError = ''; }}
-					class="cursor-pointer"
-				>
-					Cancel
-				</Button>
-				<Button
-					variant="destructive"
-					disabled={deleteLoading}
-					onclick={handleDeleteUser}
-					class="cursor-pointer"
-				>
+			<AlertDialog.Footer>
+				<AlertDialog.Cancel onclick={() => { deleteTarget = null; deleteDialogOpen = false; deleteError = ''; }}>Cancel</AlertDialog.Cancel>
+				<AlertDialog.Action onclick={handleDeleteUser}>
 					{deleteLoading ? 'Deleting...' : 'Delete'}
-				</Button>
-			</div>
-		</div>
-	</div>
+				</AlertDialog.Action>
+			</AlertDialog.Footer>
+		</AlertDialog.Content>
+	</AlertDialog.Root>
 {/if}
+

@@ -26,7 +26,7 @@
     <div class="space-y-3">
       {#each data.lessons as lesson (lesson.id)}
         {#if lesson.active !== false}
-          <a href="/lms/{$page.params.subjectId}/{$page.params.termId}/{lesson.id}" class="block">
+          <a href="/my-classes/{$page.params.classId}/{$page.params.subjectId}/{$page.params.termId}/{lesson.id}" class="block">
             <Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
               <CardHeader class="pb-0">
                 <div class="flex justify-between items-start">

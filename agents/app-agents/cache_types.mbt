@@ -10,6 +10,7 @@ enum CacheData {
   LessonContent(LessonContent)
   ClassGroups(Array[TeacherClassGroup])
   ActiveSessionTerm(String)
+  SessionTerms(String)
 }
 
 ///|

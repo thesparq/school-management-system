@@ -29,6 +29,7 @@ struct LessonInfo {
   id : String
   topic_title : String?
   week : Int?
+  active : Bool?
   subject_name : String?
   term_name : String?
 }
@@ -44,6 +45,8 @@ struct LessonContent {
   objectives : String?
   content_sections : String?
   key_points : String?
+  mcq_questions : String?
+  theoretical_questions : String?
 }
 
 ///|
@@ -341,7 +344,7 @@ pub fn StudentAgent::get_lessons(
     Some(cl) => cl
     None => return Err(not_initialized_err())
   }
-  let sql = "SELECT id, topic_title, week, " +
+  let sql = "SELECT id, topic_title, week, active, " +
     "  topic.has_subject.out.name AS subject_name, topic.term.name AS term_name " +
     "FROM lessons " +
     "WHERE topic.has_subject.in = " + cl + " " +
@@ -395,10 +398,16 @@ pub fn StudentAgent::get_lessons(
           Some(String(s)) => Some(s)
           _ => None
         }
+        let active = match obj.get("active") {
+          Some(True) => Some(true)
+          Some(False) => Some(false)
+          _ => None
+        }
         lessons.push(LessonInfo::{
           id,
           topic_title,
           week,
+          active,
           subject_name,
           term_name,
         })
@@ -447,7 +456,8 @@ pub fn StudentAgent::get_lesson(
   }
   let sql = "SELECT id, topic_title, week, " +
     "topic.has_subject.out.name AS subject_name, topic.term.name AS term_name, " +
-    "objectives, content_sections, key_points " +
+    "objectives, content_sections, key_points, " +
+    "mcq_questions, theoretical_questions " +
     "FROM lessons WHERE id = $lesson_id"
   let result_arr = match
     surreal_query(self.config.value, sql, bindings={ "lesson_id": lesson_id }) {
@@ -507,6 +517,14 @@ pub fn StudentAgent::get_lesson(
         Some(v) => Some(v.stringify())
         _ => None
       }
+      let mcq = match obj.get("mcq_questions") {
+        Some(v) => Some(v.stringify())
+        _ => None
+      }
+      let tq = match obj.get("theoretical_questions") {
+        Some(v) => Some(v.stringify())
+        _ => None
+      }
       LessonContent::{
         id: lid,
         topic_title: t,
@@ -516,6 +534,8 @@ pub fn StudentAgent::get_lesson(
         objectives: objs,
         content_sections: cs,
         key_points: kp,
+        mcq_questions: mcq,
+        theoretical_questions: tq,
       }
     }
     _ => {

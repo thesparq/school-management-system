@@ -8,6 +8,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-05: Teacher Lesson Tabs — Complete**
+  Added tabbed lesson page shared between teacher and student roles via `$lib/components/LessonPage.svelte`. Teacher sees 3 tabs: Lesson (full content, no assignments section), Assessments (list + Create Assessment button → modal with MCQ/theoretical question checkboxes from lesson data), Grading (submission accordion placeholders). Student sees 2 tabs: Lesson, Assessments (placeholder). Backend: added `mcq_questions` + `theoretical_questions` to `StudentAgent.get_lesson` endpoint; teacher agent `get_terms` and `get_lessons` no longer filter by `active` (inactive items now show with lock icon in UI); `LessonInfo` struct gains `active` field. Frontend: installed shadcn-svelte accordion + checkbox; fixed `McqQuestion` type to match DB fields (`question`, `option_a/b/c`, `explanation`, `correct_answer`); student breadcrumbs now start at "Subjects" (removed "LMS" prefix). Unified UI patterns: `AppButton.svelte` (shared button component with built-in loading spinner, auto-disabled on loading, refactored across 10 files); unified modals (all dialogs widened to `sm:max-w-lg` (512px), replaced `window.confirm()` in session-term activation with `AlertDialog`, replaced custom delete overlay in `UserTable` with `AlertDialog`); non-blocking modal opens (Assign dialog opens instantly with session-term loading state). Backend: added `SessionTerms` cache to AdminAgent `get_session_terms` endpoint (TTL 600s, invalidated on create/activate); added stale-fallback pattern to TeacherAgent's `get_active_st` and `fetch_class_groups` for resilience against SurrealDB timeouts. Spec: `docs/specs/hotfix-05-teacher-lesson-tabs.md`.
+
 - **✅ HF-04: Session Term Management (Admin Configuration) — Complete**
   Added "Configuration" sidebar group above "Users" with "Session Terms" management page. Backend: 4 new AdminAgent endpoints (`GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`) with cache invalidation on create/activate. Frontend: 4 proxy routes, page server + component (table with session/term/active/created columns, create dialog with term dropdown + active checkbox, activate button with confirmation). Toast notification system: global `addToast()` store (success/info/warning/error variants), progress bar timer with pause-on-hover, fade-in/fade-out animations. Terms fetch is non-blocking with degraded text-input fallback. All CRUD toasts integrated across UserTable + session terms page.
 
@@ -246,6 +249,7 @@ After context reset or new session:
 
 ## Recent Specs
 
+- `docs/specs/hotfix-05-teacher-lesson-tabs.md` — Tabbed teacher lesson page with 3 tabs (Lesson, Assessments, Grading), shared `LessonPage.svelte` component, unfiltered teacher agent terms/lessons, MCQ type fix.
 - `docs/specs/15-student-dashboard-subject-cards.md` — Student dashboard subject cards with clickable Card grid, Skeleton loading, empty and error states.
 - `docs/specs/14-auth-refresh-fixes.md` — Fix race condition, client-side 401, cookie maxAge, accessToken removal, SECURE standardisation.
 - `docs/specs/13-routing-refactor-direct-authentik-redirect.md` — Eliminate `/login` page, redirect unauthenticated users directly to Authentik, move dashboard to `/`, remove `(auth)` route group.
