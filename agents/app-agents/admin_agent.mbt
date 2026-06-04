@@ -95,13 +95,20 @@ pub fn AdminAgent::get_profile(
           }
           _ =>
             Err(
-              AppError::{ code: NotFound, message: "Profile not found", detail: None }
-              .to_json_string(),
+              AppError::{
+                code: NotFound,
+                message: "Profile not found",
+                detail: None,
+              }.to_json_string(),
             )
         }
       } else {
         Err(
-          AppError::{ code: NotFound, message: "Profile not found", detail: None }.to_json_string(),
+          AppError::{
+            code: NotFound,
+            message: "Profile not found",
+            detail: None,
+          }.to_json_string(),
         )
       }
     Err(e) => Err(e.to_json_string())
@@ -463,31 +470,25 @@ fn AdminAgent::get_active_st(self : Self) -> Result[String, AppError] {
             Ok(id)
           }
           _ =>
-            Err(
-              AppError::{
-                code: NotFound,
-                message: "No active session term found.",
-                detail: None,
-              },
-            )
+            Err(AppError::{
+              code: NotFound,
+              message: "No active session term found.",
+              detail: None,
+            })
         }
       } else {
-        Err(
-          AppError::{
-            code: NotFound,
-            message: "No active session term found.",
-            detail: None,
-          },
-        )
+        Err(AppError::{
+          code: NotFound,
+          message: "No active session term found.",
+          detail: None,
+        })
       }
     Err(_) =>
-      Err(
-        AppError::{
-          code: SurrealDBError,
-          message: "Failed to query active session term.",
-          detail: None,
-        },
-      )
+      Err(AppError::{
+        code: SurrealDBError,
+        message: "Failed to query active session term.",
+        detail: None,
+      })
   }
 }
 
@@ -572,7 +573,11 @@ pub fn AdminAgent::get_terms(
                 }
               None => ""
             }
-            "{\"id\":\"" + escape_json_string(id) + "\",\"name\":\"" + escape_json_string(name) + "\"}"
+            "{\"id\":\"" +
+            escape_json_string(id) +
+            "\",\"name\":\"" +
+            escape_json_string(name) +
+            "\"}"
           }
           _ => "null"
         }
@@ -647,11 +652,17 @@ pub fn AdminAgent::get_session_terms(
                 }
               None => ""
             }
-            "{\"id\":\"" + escape_json_string(id) +
-            "\",\"session\":\"" + escape_json_string(session) +
-            "\",\"term_name\":\"" + escape_json_string(term_name) +
-            "\",\"active\":" + (if active { "true" } else { "false" }) +
-            ",\"created_at\":\"" + escape_json_string(created_at) + "\"}"
+            "{\"id\":\"" +
+            escape_json_string(id) +
+            "\",\"session\":\"" +
+            escape_json_string(session) +
+            "\",\"term_name\":\"" +
+            escape_json_string(term_name) +
+            "\",\"active\":" +
+            (if active { "true" } else { "false" }) +
+            ",\"created_at\":\"" +
+            escape_json_string(created_at) +
+            "\"}"
           }
           _ => "null"
         }
@@ -681,19 +692,47 @@ pub fn AdminAgent::create_session_term(
     Ok(_) => ()
   }
   let val = @json.parse(body_json) catch {
-    _ => return Err(AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }.to_json_string())
+    _ =>
+      return Err(
+        AppError::{
+          code: ValidationError,
+          message: "Invalid JSON body",
+          detail: None,
+        }.to_json_string(),
+      )
   }
   let obj = match val {
     Object(o) => o
-    _ => return Err(AppError::{ code: ValidationError, message: "Body must be an object", detail: None }.to_json_string())
+    _ =>
+      return Err(
+        AppError::{
+          code: ValidationError,
+          message: "Body must be an object",
+          detail: None,
+        }.to_json_string(),
+      )
   }
   let session = match obj.get("session") {
     Some(String(s)) => s
-    _ => return Err(AppError::{ code: ValidationError, message: "Session is required", detail: None }.to_json_string())
+    _ =>
+      return Err(
+        AppError::{
+          code: ValidationError,
+          message: "Session is required",
+          detail: None,
+        }.to_json_string(),
+      )
   }
   let term_id = match obj.get("term_id") {
     Some(String(s)) => s
-    _ => return Err(AppError::{ code: ValidationError, message: "term_id is required", detail: None }.to_json_string())
+    _ =>
+      return Err(
+        AppError::{
+          code: ValidationError,
+          message: "term_id is required",
+          detail: None,
+        }.to_json_string(),
+      )
   }
   let active = match obj.get("active") {
     Some(True) => true
@@ -710,8 +749,10 @@ pub fn AdminAgent::create_session_term(
   }
   let create_sql = "CREATE session_term SET session = '" +
     escape_surreal_string(session) +
-    "', term = " + term_id +
-    ", active = " + (if active { "true" } else { "false" }) +
+    "', term = " +
+    term_id +
+    ", active = " +
+    (if active { "true" } else { "false" }) +
     ", created_at = time::now()"
   match surreal_query(self.config.value, create_sql) {
     Ok(arr) =>
@@ -727,16 +768,32 @@ pub fn AdminAgent::create_session_term(
               None => ""
             }
             Ok(
-              "{\"id\":\"" + escape_json_string(id) +
-              "\",\"session\":\"" + escape_json_string(session) +
-              "\",\"active\":" + (if active { "true" } else { "false" }) +
+              "{\"id\":\"" +
+              escape_json_string(id) +
+              "\",\"session\":\"" +
+              escape_json_string(session) +
+              "\",\"active\":" +
+              (if active { "true" } else { "false" }) +
               "}",
             )
           }
-          _ => Err(AppError::{ code: InternalError, message: "Failed to create session term", detail: None }.to_json_string())
+          _ =>
+            Err(
+              AppError::{
+                code: InternalError,
+                message: "Failed to create session term",
+                detail: None,
+              }.to_json_string(),
+            )
         }
       } else {
-        Err(AppError::{ code: InternalError, message: "Failed to create session term", detail: None }.to_json_string())
+        Err(
+          AppError::{
+            code: InternalError,
+            message: "Failed to create session term",
+            detail: None,
+          }.to_json_string(),
+        )
       }
     Err(e) => Err(e.to_json_string())
   }
@@ -761,7 +818,8 @@ pub fn AdminAgent::activate_session_term(
     Ok(_) => ()
     Err(e) => return Err(e.to_json_string())
   }
-  let activate_sql = "UPDATE session_term SET active = true WHERE id = " + session_term_id
+  let activate_sql = "UPDATE session_term SET active = true WHERE id = " +
+    session_term_id
   match surreal_query(self.config.value, activate_sql) {
     Ok(_) => Ok("ok")
     Err(e) => Err(e.to_json_string())
@@ -811,16 +869,22 @@ pub fn AdminAgent::create_user_in_authentik(
   let val = @json.parse(body_json) catch {
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Invalid JSON body",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let obj = match val {
     Object(o) => o
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Body must be an object", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Body must be an object",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let username = match obj.get("username") {
@@ -838,16 +902,22 @@ pub fn AdminAgent::create_user_in_authentik(
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Name is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Name is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let email = match obj.get("email") {
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Email is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Email is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let password = match obj.get("password") {
@@ -874,8 +944,11 @@ pub fn AdminAgent::create_user_in_authentik(
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Role is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Role is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let class_level = match obj.get("class_level") {
@@ -909,7 +982,8 @@ pub fn AdminAgent::create_user_in_authentik(
     if group_name_or_pk.contains("-") && group_name_or_pk.length() > 30 {
       group_name_or_pk
     } else {
-      match authentik_get_group_pk_by_name(self.config.value, group_name_or_pk) {
+      match
+        authentik_get_group_pk_by_name(self.config.value, group_name_or_pk) {
         Ok(pk) => pk
         Err(e) => return Err(e.to_json_string())
       }
@@ -958,11 +1032,7 @@ pub fn AdminAgent::create_user_in_authentik(
     Err(e) => {
       let _ = authentik_delete_user(self.config.value, pk)
       return Err(
-        AppError::{
-          code: e.code,
-          message: e.message,
-          detail: e.detail,
-        }.to_json_string(),
+        AppError::{ code: e.code, message: e.message, detail: e.detail }.to_json_string(),
       )
     }
   }
@@ -994,17 +1064,7 @@ pub fn AdminAgent::create_user_in_authentik(
   }
 
   let groups = if group_pk != "" { [group_pk] } else { [] }
-  Ok(
-    CreateUserResponse::{
-      pk,
-      uuid,
-      username,
-      name,
-      email,
-      is_active,
-      groups,
-    },
-  )
+  Ok(CreateUserResponse::{ pk, uuid, username, name, email, is_active, groups })
 }
 
 ///|
@@ -1027,16 +1087,22 @@ pub fn AdminAgent::edit_user_in_authentik(
   let val = @json.parse(body_json) catch {
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Invalid JSON body",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let obj = match val {
     Object(o) => o
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Body must be an object", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Body must be an object",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let target_user_id = match obj.get("target_user_id") {
@@ -1069,8 +1135,11 @@ pub fn AdminAgent::edit_user_in_authentik(
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Role is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Role is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let class_level = match obj.get("class_level") {
@@ -1081,24 +1150,33 @@ pub fn AdminAgent::edit_user_in_authentik(
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Username is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Username is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let name = match obj.get("name") {
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Name is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Name is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let email = match obj.get("email") {
     Some(String(s)) => s
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Email is required", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Email is required",
+          detail: None,
+        }.to_json_string(),
       )
   }
 
@@ -1125,15 +1203,20 @@ pub fn AdminAgent::edit_user_in_authentik(
     }
   }
 
-  let target_group_pk = match authentik_get_group_pk_by_name(
-    self.config.value,
-    role,
-  ) {
+  let target_group_pk = match
+    authentik_get_group_pk_by_name(self.config.value, role) {
     Ok(pk) => pk
     Err(e) => return Err(e.to_json_string())
   }
 
-  match authentik_update_profile(self.config.value, authentik_pk, username, name, email) {
+  match
+    authentik_update_profile(
+      self.config.value,
+      authentik_pk,
+      username,
+      name,
+      email,
+    ) {
     Ok(_) => ()
     Err(e) => return Err(e.to_json_string())
   }
@@ -1166,16 +1249,22 @@ pub fn AdminAgent::edit_user_in_authentik(
   }
   for remove_pk in remove_group_pks {
     if remove_pk != target_group_pk {
-      let _ = authentik_remove_from_group(self.config.value, remove_pk, authentik_pk)
+      let _ = authentik_remove_from_group(
+        self.config.value,
+        remove_pk,
+        authentik_pk,
+      )
     }
   }
 
-  match authentik_add_to_group(self.config.value, target_group_pk, authentik_pk) {
+  match
+    authentik_add_to_group(self.config.value, target_group_pk, authentik_pk) {
     Ok(_) => ()
     Err(e) => return Err(e.to_json_string())
   }
 
-  match surreal_save_profile(self.config.value, target_user_id, role, class_level) {
+  match
+    surreal_save_profile(self.config.value, target_user_id, role, class_level) {
     Ok(_) => ()
     Err(e) => return Err(e.to_json_string())
   }
@@ -1228,16 +1317,22 @@ pub fn AdminAgent::delete_user_in_authentik(
   let val = @json.parse(body_json) catch {
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Invalid JSON body",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let obj = match val {
     Object(o) => o
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Body must be an object", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Body must be an object",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let authentik_pk = match obj.get("authentik_pk") {
@@ -1297,16 +1392,22 @@ pub fn AdminAgent::set_user_active_status(
   let val = @json.parse(body_json) catch {
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Invalid JSON body", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Invalid JSON body",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let obj = match val {
     Object(o) => o
     _ =>
       return Err(
-        AppError::{ code: ValidationError, message: "Body must be an object", detail: None }
-        .to_json_string(),
+        AppError::{
+          code: ValidationError,
+          message: "Body must be an object",
+          detail: None,
+        }.to_json_string(),
       )
   }
   let authentik_pk = match obj.get("authentik_pk") {

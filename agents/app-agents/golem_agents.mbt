@@ -3,292 +3,6 @@
 fn init{
   try {
     @agents.register_agent({
-      name: "TeacherAgent",
-      agent_type: {
-        type_name: "TeacherAgent",
-        description: "TeacherAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new TeacherAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([
-            (
-              "teacher_id",
-              @schema.schema_of_tag(
-                (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-              ),
-            ),
-          ]),
-        },
-        methods: [
-          {
-            name: "ping",
-            description: "ping",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("ping")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_my_classes",
-            description: "get_my_classes",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("classes")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[TeacherClassGroup], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_terms",
-            description: "get_terms",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("terms")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[TermInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_lessons",
-            description: "get_lessons",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("lessons")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "class_level_id",
-                    variable_name: "class_level_id",
-                  },
-                  {
-                    query_param_name: "subject_id",
-                    variable_name: "subject_id",
-                  },
-                  { query_param_name: "term_id", variable_name: "term_id" },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "class_level_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "subject_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "term_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[LessonInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "invalidate_cache",
-            description: "invalidate_cache",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [{ query_param_name: "key", variable_name: "key" }],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: Some({
-          path_prefix: [
-            @common.PathSegment::Literal("teacher"),
-            @common.PathSegment::PathVariable({ variable_name: "teacher_id", }),
-          ],
-          auth_details: None,
-          phantom_agent: false,
-          cors_options: { allowed_patterns: [], },
-          webhook_suffix: [],
-        }),
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 1 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 1 elements, got " + elements.length().to_string(),
-            )
-          }
-          let teacher_id :String = @schema.from_element_value_as(elements[0])
-          let config :@config.Config[SharedConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
-          )
-          let agent = TeacherAgent::new(teacher_id, config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
       name: "AdminAgent",
       agent_type: {
         type_name: "AdminAgent",
@@ -1442,84 +1156,406 @@ fn init{
         }
       },
     })
+    @agents.register_agent({
+      name: "TeacherAgent",
+      agent_type: {
+        type_name: "TeacherAgent",
+        description: "TeacherAgent",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new TeacherAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([
+            (
+              "teacher_id",
+              @schema.schema_of_tag(
+                (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+              ),
+            ),
+          ]),
+        },
+        methods: [
+          {
+            name: "ping",
+            description: "ping",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("ping")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_my_classes",
+            description: "get_my_classes",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("classes")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TeacherClassGroup], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_terms",
+            description: "get_terms",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("terms")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TermInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_lessons",
+            description: "get_lessons",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("lessons")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "class_level_id",
+                    variable_name: "class_level_id",
+                  },
+                  {
+                    query_param_name: "subject_id",
+                    variable_name: "subject_id",
+                  },
+                  { query_param_name: "term_id", variable_name: "term_id" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "class_level_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "subject_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[LessonInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "invalidate_cache",
+            description: "invalidate_cache",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [{ query_param_name: "key", variable_name: "key" }],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "toggle_term_active",
+            description: "toggle_term_active",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("toggle-term-active"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "term_id", variable_name: "term_id" },
+                  { query_param_name: "active", variable_name: "active" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "active",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "toggle_lesson_active",
+            description: "toggle_lesson_active",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("toggle-lesson-active"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "lesson_id", variable_name: "lesson_id" },
+                  { query_param_name: "active", variable_name: "active" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "lesson_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "active",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: Some({
+          path_prefix: [
+            @common.PathSegment::Literal("teacher"),
+            @common.PathSegment::PathVariable({ variable_name: "teacher_id", }),
+          ],
+          auth_details: None,
+          phantom_agent: false,
+          cors_options: { allowed_patterns: [], },
+          webhook_suffix: [],
+        }),
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 1 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 1 elements, got " + elements.length().to_string(),
+            )
+          }
+          let teacher_id :String = @schema.from_element_value_as(elements[0])
+          let config :@config.Config[SharedConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
+          )
+          let agent = TeacherAgent::new(teacher_id, config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
   } catch{
     e => abort(e.to_string())
-  }
-}
-
-///|
-impl @agents.RawAgent for TeacherAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "ping" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.ping(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_my_classes" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_my_classes(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_terms" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_terms(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_lessons" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 4 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 4 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let class_level_id :String = @schema.from_element_value_as(elements[1])
-        let subject_id :String = @schema.from_element_value_as(elements[2])
-        let term_id :String = @schema.from_element_value_as(elements[3])
-        let result = 
-          self.get_lessons(incoming_key, class_level_id, subject_id, term_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "invalidate_cache" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let key :String = @schema.from_element_value_as(elements[1])
-        let result = self.invalidate_cache(incoming_key, key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
   }
 }
 
@@ -1818,6 +1854,108 @@ impl @agents.RawAgent for StudentAgent with invoke(
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let key :String = @schema.from_element_value_as(elements[1])
         let result = self.invalidate_cache(incoming_key, key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
+  }
+}
+
+///|
+impl @agents.RawAgent for TeacherAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "ping" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.ping(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_my_classes" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_my_classes(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_terms(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_lessons" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 4 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 4 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let class_level_id :String = @schema.from_element_value_as(elements[1])
+        let subject_id :String = @schema.from_element_value_as(elements[2])
+        let term_id :String = @schema.from_element_value_as(elements[3])
+        let result = 
+          self.get_lessons(incoming_key, class_level_id, subject_id, term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "invalidate_cache" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let key :String = @schema.from_element_value_as(elements[1])
+        let result = self.invalidate_cache(incoming_key, key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "toggle_term_active" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let term_id :String = @schema.from_element_value_as(elements[1])
+        let active :Bool = @schema.from_element_value_as(elements[2])
+        let result = self.toggle_term_active(incoming_key, term_id, active)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "toggle_lesson_active" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let lesson_id :String = @schema.from_element_value_as(elements[1])
+        let active :Bool = @schema.from_element_value_as(elements[2])
+        let result = self.toggle_lesson_active(incoming_key, lesson_id, active)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

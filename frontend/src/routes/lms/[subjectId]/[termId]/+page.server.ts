@@ -78,11 +78,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 		lessons,
 		termName,
 		lessonsError: null,
-		breadcrumbs: [
-			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
-			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
-			{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
-			{ label: termName } as BreadcrumbItem
-		]
+    breadcrumbs: [
+      { label: 'Subjects', href: '/' } as BreadcrumbItem,
+      { label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
+      { label: termName } as BreadcrumbItem
+    ]
 	};
 };
