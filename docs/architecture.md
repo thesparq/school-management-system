@@ -56,15 +56,30 @@ school-management/
     │   ├── hooks.server.ts      # Authentik JWT validation
     │   ├── routes/
     │   │   ├── +layout.svelte   # Root layout (sidebar, nav, breadcrumbs)
-    │   │   ├── +page.svelte     # Root page (LMS subjects for students, dashboard for admins)
-    │   │   ├── lms/             # LMS routes (subjects → terms → lessons)
+    │   │   ├── +page.svelte     # Root page (LMS subjects for students, My Classes for teachers, dashboard for admins)
+    │   │   ├── lms/             # Student LMS routes (subjects → terms → lessons)
+    │   │   │   └── [subjectId]/
+    │   │   │       ├── +page.svelte
+    │   │   │       └── [termId]/
+    │   │   │           ├── +page.svelte
+    │   │   │           └── [lessonId]/
+    │   │   │               └── +page.svelte   # Student 2-tab lesson (wrapper → LessonPage)
+    │   │   ├── my-classes/      # Teacher class browsing
+    │   │   │   └── [classId]/
+    │   │   │       ├── +page.svelte
+    │   │   │       └── [subjectId]/
+    │   │   │           ├── +page.svelte
+    │   │   │           └── [termId]/
+    │   │   │               ├── +page.svelte
+    │   │   │               └── [lessonId]/
+    │   │   │                   └── +page.svelte   # Teacher 3-tab lesson (wrapper → LessonPage)
     │   │   ├── admin/           # Admin routes (user management, configuration)
     │   │   │   ├── users/
     │   │   │   └── configuration/
     │   │   │       └── session-terms/
     │   │   └── api/             # Proxy routes to Golem agent endpoints
     │   └── lib/
-    │       ├── components/      # shadcn-svelte components
+    │       ├── components/      # shadcn-svelte components + LessonPage.svelte + accordion/checkbox
     │       └── utils.ts
     └── static/
 ```
@@ -335,7 +350,7 @@ The `get_class_level()` method is the reactive gatekeeper — it checks the prof
 | `config` | `@config.Config[SharedConfig]` | Injected credentials | Secret |
 | `caches` | `Map[String, CacheItem]` | Unified cache map | Reactive TTL cache (Rule 4B) |
 
-Cache keys: `"class_groups"` (backbone — invalidates all) and `"active_session_term"` (cross-agent, TTL 600s). Terms and lessons are queried directly from SurrealDB on each request (not cached).
+Cache keys: `"class_groups"` (backbone — invalidates all) and `"active_session_term"` (cross-agent, TTL 600s). Terms and lessons are queried directly from SurrealDB on each request without TTL caching. Teacher agent's `get_terms` and `get_lessons` do not filter by `active` — inactive items are returned and rendered with lock icon styling on the frontend.
 
 ### Agent Memory Cache
 
@@ -362,8 +377,8 @@ Roles are embedded in the Authentik JWT claims. SvelteKit checks roles in `hooks
 
 | Role | Allowed Routes |
 | :--- | :--- |
-| `student` | `/lms/*`, `/assignments/*`, `/grades/*` |
-| `teacher` | `/my-classes/*`, `/lms/*` (teaching view), `/assignments/*` (grading view), `/students/*` |
+| `student` | `/lms/*` (2-tab lesson page: Lesson + Assessments), `/assignments/*`, `/grades/*` |
+| `teacher` | `/my-classes/*` (3-tab lesson page: Lesson + Assessments + Grading), `/lms/*` (student-preview, 2-tab), `/assignments/*` (grading), `/students/*` |
 | `admin` | `/admin/*` (user management, content management) |
 | `parent` | Future |
 
@@ -587,7 +602,7 @@ Users                   ← admin only
 
 Admin users can manage session terms via **Configuration > Session Terms**. A session term links a school session (e.g., "2024") to an academic term (e.g., "Noel Term"). Only one session term can be active at a time.
 
-**Backend**: 4 AdminAgent HTTP endpoints: `GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`. Also `GET /active-session-term` (from HF-03). Cache key `"active_session_term"` (TTL 600s) is invalidated on create/activate via `self.caches.remove("active_session_term")`. Teacher agents independently cache the same key and re-fetch on TTL expiry (lazy eventual consistency).
+**Backend**: 4 AdminAgent HTTP endpoints: `GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`. Also `GET /active-session-term` (from HF-03). Cache key `"session_terms"` (TTL 600s) is invalidated on create/activate via `self.caches.remove("session_terms")`. Cache key `"active_session_term"` (TTL 600s) is invalidated on create/activate via `self.caches.remove("active_session_term")` — Admin only; Teacher agent queries `active_session_term` directly (Strategy C: Always Fresh) to avoid stale cache on session-term change. Known limitation: teacher's `class_groups` cache does not auto-invalidate on session-term change — to be addressed in a follow-up hotfix.
 
 **Frontend**: Table with session/term/active badge/created date/activate button. Create dialog with session input, term dropdown (from terms table), and active checkbox (default checked). Activate deactivates all other terms. Non-blocking terms fetch with degraded text-input fallback.
 
@@ -602,3 +617,11 @@ Admin users can manage session terms via **Configuration > Session Terms**. A se
 Global toast notification system (`lib/stores/toast.ts`, `lib/components/ui/toast/`). Four variants: success (green), info (blue), warning (amber), error (red). Features: progress bar timer with pause-on-hover, fade-in/fade-out animations (200ms), auto-dismiss after 5 seconds, manual dismiss via close button. Rendered via `<ToastContainer />` in `+layout.svelte`. Instances clean up on route navigation (`onDestroy`).
 
 **Usage**: `addToast('success', 'Title', 'Description')` — used in UserTable (all 6 CRUD operations), session terms page (create/activate), dashboard ($effect guards prevent re-fire on navigation). Toast is for transient operation feedback; `StatusCard` is for persistent page-level state.
+
+### AppButton
+
+`AppButton.svelte` (`$lib/components/ui/app-button.svelte`) — wraps the shadcn-svelte `Button` with a unified `loading` prop. When true, shows an animated SVG spinner icon next to the button text and auto-disables the button. All other props (`variant`, `size`, `onclick`, `disabled`, `class`, etc.) pass through to the underlying Button. Used across all 10 app-level Button consumers — eliminates manual `disabled={loading}` + ad-hoc spinner patterns. Text swap (`{loading ? 'Saving...' : 'Save'}`) is still controlled by the caller.
+
+### AlertDialog
+
+shadcn-svelte `AlertDialog` used for destructive/irreversible confirmations: session-term activation (replaced `window.confirm()`), user delete confirmation (replaced custom `div` overlay in `UserTable`). Provides accessible focus trapping, escape-to-close, consistent overlay styling (`bg-black/10`), and ARIA patterns via the `bits-ui` `AlertDialog` primitive.

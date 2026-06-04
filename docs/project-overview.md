@@ -27,20 +27,20 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
    - The root page `/` is the default landing — students see the LMS subject list; admins see a dashboard.
 
 3. **Student LMS Flow**  
-   - Student logs in and lands on the LMS page (root `/`) with the “LMS” sidebar tab active.  
-   - Root page displays subject cards for the student’s class (cached in Student Agent; fetched from SurrealDB on cache miss).  
+   - Student logs in and lands on the LMS page (root `/`) with the "LMS" sidebar tab active.  
+   - Root page displays subject cards for the student's class (cached in Student Agent).  
    - Clicking a subject → list of terms (First, Second, Third); disabled terms appear greyed out.  
    - Clicking a term → list of lessons; disabled lessons greyed out.  
-   - Clicking a lesson → full lesson content rendered (sections, sub‑points) plus the active assignment’s questions (previously pushed by the Teacher Agent).  
-   - Student answers objective (radio buttons) and theoretical (text area) questions, submits before deadline.  
-   - Student Agent verifies deadline locally, discovers the teacher via Admin Agent (cached), then sends submission directly to Teacher Agent via RPC.
+   - Clicking a lesson → tabbed lesson page (Lesson tab: full content with objectives, sections, key points, side navigation; Assessments tab: assigned assessments placeholder).  
+   - Student views assigned assessments in the Assessments tab (placeholder — wired in later units).
 
 4. **Teacher LMS & Grading Flow**  
    - Teacher first sees a list of classes they teach → subjects for that class → terms → lessons.  
-   - Within a lesson, teacher can view full content and a list of all assessment questions (MCQ + theoretical).  
+   - Within a lesson, teacher sees a 3-tab page: Lesson (full content, side navigation, no assignment section), Assessments (assessment list + "Create Assessment" button → modal with MCQ/theoretical question checkboxes selected from the lesson's question bank), and Grading (submission list with per-student grading rows).  
+   - Assessments and grading tabs are UI placeholders for now — backend wiring for assignment creation, submission, and grading comes in later units.  
    - Teacher selects questions, sets a deadline, and creates an assignment (multiple assignments per lesson allowed).  
    - Teacher Agent stores assignment config, pushes it to all students in the class via fire‑and‑forget RPCs.  
-   - Teacher opens the grading view for an assignment → sees submissions received in its inbox (lazy refresh with “data may be stale” message).  
+   - Teacher opens the grading view for an assignment → sees submissions received in its inbox (lazy refresh with "data may be stale" message).  
    - Teacher grades a submission; grade and feedback are pushed to the Student Agent via RPC.
 
 5. **Admin Operations**  
@@ -57,15 +57,16 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 ### Student Features
 - View subjects, terms, and lessons for own class only.
 - Disabled terms and lessons are visually indicated (greyed out, lock icon).
-- Lesson page with breadcrumbs, full content, and inline assignment.
+- Lesson page with breadcrumbs, 2-tab layout (Lesson: full content with side navigation; Assessments: assigned assessments placeholder).
 - Assignment: objective (MCQ) and theoretical (text) questions; file uploads deferred.
 - Submission with local deadline check; resubmission allowed until deadline.
 - View own grades and feedback after teacher grading.
 
 ### Teacher Features
-- View classes taught, subjects, terms, lessons.
+- View classes taught, subjects, terms, lessons (including inactive — shown greyed out with lock icon).
 - Toggle lesson/term active status (deactivate for students).
-- Create assignments: select questions from lesson’s bank, set deadline (UTC).
+- 3-tab lesson page: Lesson (full content), Assessments (list + create-assessment modal with question checkboxes from lesson bank), Grading (submission list).
+- Create assignments: select questions from lesson's bank, set deadline (UTC).
 - Multiple assignments per lesson (active simultaneously until deadline/closure).
 - Grading inbox with student submissions; lazy refresh and manual refresh button.
 - Grade submissions (score + feedback) pushed back to student.

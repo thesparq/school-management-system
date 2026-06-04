@@ -81,13 +81,26 @@ fn TeacherAgent::get_active_st(self : Self) -> Result[String, AppError] {
         )
       }
     Err(_) =>
-      Err(
-        AppError::{
-          code: SurrealDBError,
-          message: "Failed to query active session term.",
-          detail: None,
-        },
-      )
+      match self.caches.get("active_session_term") {
+        Some(item) =>
+          match item.data {
+            ActiveSessionTerm(id) => Ok(id)
+            _ => Err(
+              AppError::{
+                code: SurrealDBError,
+                message: "Failed to query active session term.",
+                detail: None,
+              },
+            )
+          }
+        None => Err(
+          AppError::{
+            code: SurrealDBError,
+            message: "Failed to query active session term.",
+            detail: None,
+          },
+        )
+      }
   }
 }
 
@@ -111,7 +124,15 @@ fn TeacherAgent::fetch_class_groups(self : Self) -> Result[Unit, String] {
     "AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC"
   let result_arr = match surreal_query(self.config.value, sql) {
     Ok(arr) => arr
-    Err(e) => return Err(e.to_json_string())
+    Err(e) =>
+      match self.caches.get("class_groups") {
+        Some(item) =>
+          match item.data {
+            ClassGroups(arr) if arr.length() > 0 => return Ok(())
+            _ => return Err(e.to_json_string())
+          }
+        None => return Err(e.to_json_string())
+      }
   }
   let groups_map : Map[String, TeacherClassGroup] = Map::new()
   for item in result_arr {
@@ -243,7 +264,7 @@ pub fn TeacherAgent::get_terms(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  let sql = "SELECT * FROM terms WHERE active = true ORDER BY sort_order ASC"
+  let sql = "SELECT * FROM terms ORDER BY sort_order ASC"
   let result_arr = match surreal_query(self.config.value, sql) {
     Ok(arr) => arr
     Err(_) =>
@@ -306,14 +327,13 @@ pub fn TeacherAgent::get_lessons(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  let sql = "SELECT id, topic_title, week, " +
+  let sql = "SELECT id, topic_title, week, active, " +
     "topic.has_subject.out.name AS subject_name, topic.term.name AS term_name " +
     "FROM lessons " +
     "WHERE topic.has_subject.in = " + class_level_id + " " +
     "  AND topic.has_subject.out = " + subject_id + " " +
     "  AND topic.has_subject.active = true " +
     "  AND topic.term = " + term_id + " " +
-    "  AND active = true " +
     "ORDER BY week ASC"
   let result_arr = match
     surreal_query(self.config.value, sql) {
@@ -351,10 +371,16 @@ pub fn TeacherAgent::get_lessons(
           Some(String(s)) => Some(s)
           _ => None
         }
+        let active = match obj.get("active") {
+          Some(True) => Some(true)
+          Some(False) => Some(false)
+          _ => None
+        }
         lessons.push(LessonInfo::{
           id,
           topic_title,
           week,
+          active,
           subject_name,
           term_name,
         })

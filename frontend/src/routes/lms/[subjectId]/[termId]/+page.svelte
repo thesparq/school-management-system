@@ -3,7 +3,7 @@
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
   import { Skeleton } from '$lib/components/ui/skeleton';
-  import { Button } from '$lib/components/ui/button';
+  import AppButton from '$lib/components/ui/app-button.svelte';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
@@ -24,7 +24,7 @@
       <AlertTitle>Failed to load lessons</AlertTitle>
       <AlertDescription>{data.lessonsError}</AlertDescription>
       <AlertAction>
-        <Button variant="outline" onclick={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId)}>Retry</Button>
+        <AppButton variant="outline" onclick={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId)}>Retry</AppButton>
       </AlertAction>
     </Alert>
   {:else if data.lessons.length === 0}

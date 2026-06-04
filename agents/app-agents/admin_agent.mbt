@@ -594,6 +594,16 @@ pub fn AdminAgent::get_session_terms(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
+  let now = @wallClock.now().seconds
+  let cache_key = "session_terms"
+  match self.caches.get(cache_key) {
+    Some(item) if now - item.fetched_at < CACHE_TTL =>
+      match item.data {
+        SessionTerms(json) => return Ok(json)
+        _ => ()
+      }
+    _ => ()
+  }
   let sql = "SELECT id, session, term.name AS term_name, active, created_at " +
     "FROM session_term ORDER BY created_at DESC"
   match surreal_query(self.config.value, sql) {
@@ -646,7 +656,12 @@ pub fn AdminAgent::get_session_terms(
           _ => "null"
         }
       })
-      Ok("[" + items.join(",") + "]")
+      let json = "[" + items.join(",") + "]"
+      self.caches.set(cache_key, CacheItem::{
+        data: SessionTerms(json),
+        fetched_at: now,
+      })
+      Ok(json)
     }
     Err(e) => Err(e.to_json_string())
   }
@@ -685,6 +700,7 @@ pub fn AdminAgent::create_session_term(
     _ => false
   }
   self.caches.remove("active_session_term")
+  self.caches.remove("session_terms")
   if active {
     let deactivate_sql = "UPDATE session_term SET active = false"
     match surreal_query(self.config.value, deactivate_sql) {
@@ -739,6 +755,7 @@ pub fn AdminAgent::activate_session_term(
     Ok(_) => ()
   }
   self.caches.remove("active_session_term")
+  self.caches.remove("session_terms")
   let deactivate_sql = "UPDATE session_term SET active = false"
   match surreal_query(self.config.value, deactivate_sql) {
     Ok(_) => ()

@@ -29,6 +29,22 @@ export interface LessonContent {
   objectives: string | null;
   content_sections: string | null;
   key_points: string | null;
+  mcq_questions: string | null;
+  theoretical_questions: string | null;
+}
+
+export interface McqQuestion {
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  explanation: string;
+  correct_answer: string;
+}
+
+export interface TheoreticalQuestion {
+  question: string;
+  answer: string;
 }
 
 export interface LessonObjective {

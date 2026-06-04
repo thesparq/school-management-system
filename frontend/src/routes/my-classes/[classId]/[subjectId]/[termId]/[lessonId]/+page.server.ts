@@ -4,7 +4,7 @@ import type { LessonContent, TeacherClassGroup, BreadcrumbItem } from '$lib/type
 
 export const load: PageServerLoad = async ({ params, locals, fetch }) => {
   const userId = locals.user?.id;
-  if (!userId || !locals.user?.roles.includes('teachers')) {
+  if (!userId || !locals.user?.roles.includes('teacher')) {
     redirect(302, '/');
   }
 
@@ -25,10 +25,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     })
     .catch(() => ({ lesson: null, lessonError: 'Failed to reach server.' }));
 
-  // Resolve class and subject names for breadcrumbs
   let classLevelName = 'Class';
   let subjectName = 'Subject';
   let termName = 'Term';
+
   const classesRes = await fetch('/api/teacher/classes');
   if (classesRes.ok) {
     try {
@@ -43,7 +43,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     } catch { /* fallback */ }
   }
 
-  // Resolve term name
   const termsRes = await fetch('/api/teacher/terms');
   if (termsRes.ok) {
     try {

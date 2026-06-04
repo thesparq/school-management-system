@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
   const termsRes = await fetch('/api/student/terms');
   if (!termsRes.ok) {
     const err = await termsRes.json().catch(() => ({ error: { message: 'Failed to fetch terms' } }));
-    return { terms: [], subjectName: null, termsError: err.error?.message ?? 'Unknown error', breadcrumbs: [{ label: 'LMS' }, { label: 'Subjects', href: '/' }, { label: 'Subject' }] };
+    return { terms: [], subjectName: null, termsError: err.error?.message ?? 'Unknown error', breadcrumbs: [{ label: 'Subjects', href: '/' }, { label: 'Subject' }] };
   }
 
   let terms: Term[];
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     const termsJson = await termsRes.json();
     terms = termsJson.data ?? [];
   } catch {
-    return { terms: [], subjectName: null, termsError: 'Invalid response from server.', breadcrumbs: [{ label: 'LMS' }, { label: 'Subjects', href: '/' }, { label: 'Subject' }] };
+    return { terms: [], subjectName: null, termsError: 'Invalid response from server.', breadcrumbs: [{ label: 'Subjects', href: '/' }, { label: 'Subject' }] };
   }
 
   let subjectName = 'Subject';
@@ -40,7 +40,6 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     subjectName,
     termsError: null,
     breadcrumbs: [
-      { label: 'LMS' } as BreadcrumbItem,
       { label: 'Subjects', href: '/' } as BreadcrumbItem,
       { label: subjectName } as BreadcrumbItem
     ]

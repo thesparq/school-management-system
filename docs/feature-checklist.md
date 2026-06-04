@@ -50,8 +50,8 @@ Report which test number fails and we'll dig in.
 | 23 | "LMS" sidebar link | Check sidebar | "LMS" nav link visible and active |
 | 24 | Drill into subject | Click a subject card at `/` | Terms listing at `/lms/{subjectId}` |
 | 25 | Drill into term | Click a term | Lesson list at `/lms/{subjectId}/{termId}` |
-| 26 | View lesson | Click a lesson | Full content with objectives, sections, key points |
-| 27 | Content side navigation | Hover dots column on lesson page | Section headings pop up; click to scroll |
+| 26 | View lesson | Click a lesson | Tabbed page: Lesson tab (full content, side nav), Assessments tab (placeholder) |
+| 27 | Content side navigation | Hover dots column on lesson page | Section headings pop up; click to scroll (Lesson tab only) |
 | 28 | Mobile TOC | Narrow viewport on lesson page | Floating TOC button at bottom-right |
 | 29 | Empty state (no subjects) | Login as student with class level that has no active has_subject edges | `StatusCard(variant="error")` with "No subjects are assigned to your class yet." |
 | 30 | Not initialized | Login as student with no profile row in SurrealDB | `StatusCard(variant="info")` with "Account Not Initialized" message |
@@ -68,6 +68,18 @@ Report which test number fails and we'll dig in.
 | 34 | Drill into class | Click a card | Subjects for that class |
 | 35 | Drill into subject | Click a subject | Terms list |
 | 36 | Drill into term | Click a term | Lesson list |
+| 37 | Drill into lesson | Click a lesson | 3-tab page: Lesson (full content, side nav, no assignments), Assessments (list + Create Assessment button), Grading (submission placeholders) |
+| 38 | Create Assessment modal | Click "Create Assessment" button in Assessments tab | Dialog opens with title input + MCQ accordion (collapsed) + Theoretical accordion (collapsed); questions from lesson data with checkboxes |
+| 39 | Create button disabled | Leave title empty in create modal | "Create" button greyed out; becomes enabled when title is non-empty |
+| 40 | Grading view | Click Grading tab | Placeholder accordion rows with student names, submission status badges, and Grade buttons |
+| 41 | Inactive terms/lessons | Navigate to term/lesson selection | Inactive items shown with opacity-50, lock icon, not clickable |
+| 42 | Student breadcrumb | Navigate deep as student | Breadcrumb trail starts at "Subjects" (no "LMS" prefix) |
+| 43 | Student 2-tab lesson | Click lesson as student | 2 tabs: Lesson, Assessments (no Grading tab, no Create button) |
+| 44 | AppButton spinner | Trigger an async action (Save, Create, Delete) | Button shows spinning SVG icon, disables, shows gerund text (e.g. "Saving...") |
+| 45 | AlertDialog activation | Click "Activate" on session term row | AlertDialog opens with "Activate Session Term" title + "will deactivate all others" description; Cancel/Action buttons |
+| 46 | AlertDialog delete | Click "Delete User" in edit dialog | AlertDialog opens with user name in title; danger description; Cancel/Action buttons |
+| 47 | Assign modal non-blocking | Click "Assign" on teacher row | Modal opens immediately; session term shows "Loading session term..." indicator until fetch completes |
+| 48 | Delete double-click guard | Rapidly click "Delete" twice | Only one DELETE request sent; second click silently ignored |
 
 ---
 
@@ -75,10 +87,10 @@ Report which test number fails and we'll dig in.
 
 | # | Test | How | Expected |
 |---|------|-----|----------|
-| 37 | Sidebar collapse | Click sidebar toggle | Sidebar collapses; state persists on reload |
-| 38 | Breadcrumbs | Navigate deep (Subject → Term → Lesson) | Breadcrumb trail updates correctly |
-| 39 | Loading skeletons | Visit a slow page | Skeleton loading states, not blank/spinner |
-| 40 | Responsive layout | Resize browser to tablet width | Sidebar becomes sheet overlay |
+| 49 | Sidebar collapse | Click sidebar toggle | Sidebar collapses; state persists on reload |
+| 50 | Breadcrumbs | Navigate deep (Subject → Term → Lesson) | Breadcrumb trail updates correctly |
+| 51 | Loading skeletons | Visit a slow page | Skeleton loading states, not blank/spinner |
+| 52 | Responsive layout | Resize browser to tablet width | Sidebar becomes sheet overlay |
 
 ---
 

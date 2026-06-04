@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+	import AppButton from '$lib/components/ui/app-button.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { navigating } from '$app/stores';
@@ -150,9 +150,9 @@
 					<CardTitle class="text-base">Connection Status</CardTitle>
 				</CardHeader>
 				<CardContent class="space-y-3">
-					<Button onclick={testConnection} disabled={isPinging}>
+					<AppButton onclick={testConnection} loading={isPinging}>
 						{isPinging ? 'Testing...' : 'Test Connection'}
-					</Button>
+					</AppButton>
 
 					{#if pingResult}
 						<p class="text-sm text-success-500">Gateway: {pingResult}</p>

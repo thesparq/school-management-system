@@ -3,7 +3,7 @@
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Alert, AlertTitle, AlertDescription, AlertAction } from '$lib/components/ui/alert';
   import { Skeleton } from '$lib/components/ui/skeleton';
-  import { Button } from '$lib/components/ui/button';
+  import AppButton from '$lib/components/ui/app-button.svelte';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
@@ -24,7 +24,7 @@
       <AlertTitle>Failed to load terms</AlertTitle>
       <AlertDescription>{data.termsError}</AlertDescription>
       <AlertAction>
-        <Button variant="outline" onclick={() => goto('/lms/' + $page.params.subjectId)}>Retry</Button>
+        <AppButton variant="outline" onclick={() => goto('/lms/' + $page.params.subjectId)}>Retry</AppButton>
       </AlertAction>
     </Alert>
   {:else if data.terms.length === 0}
