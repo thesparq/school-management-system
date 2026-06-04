@@ -75,7 +75,7 @@ fn parse_profile(json_str : String) -> StudentProfile? {
         Some(String(s)) => s
         _ => ""
       }
-      Some(StudentProfile::{ class_level })
+      Some(StudentProfile::{ class_level, })
     }
     _ => None
   }
@@ -90,7 +90,8 @@ fn StudentAgent::get_class_level(self : Self) -> String? {
   match self.caches.get("profile") {
     Some(item) if now - item.fetched_at < CACHE_TTL =>
       match item.data {
-        Profile(profile) if profile.class_level != "" => return Some(profile.class_level)
+        Profile(profile) if profile.class_level != "" =>
+          return Some(profile.class_level)
         _ => ()
       }
     _ => ()
@@ -177,7 +178,7 @@ pub fn StudentAgent::get_subjects(
       match cached {
         Some(item) =>
           match item.data {
-        Subjects(arr) if arr.length() > 0 => return Ok(arr)
+            Subjects(arr) if arr.length() > 0 => return Ok(arr)
             _ => ()
           }
         _ => ()
@@ -309,10 +310,7 @@ pub fn StudentAgent::get_terms(
       }.to_json_string(),
     )
   }
-  self.caches.set(cache_key, CacheItem::{
-    data: Terms(terms),
-    fetched_at: now,
-  })
+  self.caches.set(cache_key, CacheItem::{ data: Terms(terms), fetched_at: now })
   Ok(terms)
 }
 
@@ -347,14 +345,19 @@ pub fn StudentAgent::get_lessons(
   let sql = "SELECT id, topic_title, week, active, " +
     "  topic.has_subject.out.name AS subject_name, topic.term.name AS term_name " +
     "FROM lessons " +
-    "WHERE topic.has_subject.in = " + cl + " " +
-    "  AND topic.has_subject.out = " + subject_id + " " +
+    "WHERE topic.has_subject.in = " +
+    cl +
+    " " +
+    "  AND topic.has_subject.out = " +
+    subject_id +
+    " " +
     "  AND topic.has_subject.active = true " +
-    "  AND topic.term = " + term_id + " " +
+    "  AND topic.term = " +
+    term_id +
+    " " +
     "  AND active = true " +
     "ORDER BY week ASC"
-  let result_arr = match
-    surreal_query(self.config.value, sql) {
+  let result_arr = match surreal_query(self.config.value, sql) {
     Ok(arr) => arr
     Err(_) => {
       match cached {

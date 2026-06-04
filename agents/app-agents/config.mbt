@@ -39,22 +39,44 @@ pub fn resolve_surreal_cfg(
   config : SharedConfig,
 ) -> Result[SurrealCfg, AppError] {
   let host = config.surreal_host.get() catch {
-    _ => return Err(AppError::{ code: InternalError, message: "Surreal host missing", detail: None })
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal host missing",
+        detail: None,
+      })
   }
   let ns = config.surreal_ns.get() catch {
-    _ => return Err(AppError::{ code: InternalError, message: "Surreal ns missing", detail: None })
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal ns missing",
+        detail: None,
+      })
   }
   let database = config.surreal_database.get() catch {
     _ =>
-      return Err(AppError::{ code: InternalError, message: "Surreal database missing", detail: None })
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal database missing",
+        detail: None,
+      })
   }
   let username = config.surreal_username.get() catch {
     _ =>
-      return Err(AppError::{ code: InternalError, message: "Surreal username missing", detail: None })
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal username missing",
+        detail: None,
+      })
   }
   let password = config.surreal_password.get() catch {
     _ =>
-      return Err(AppError::{ code: InternalError, message: "Surreal password missing", detail: None })
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal password missing",
+        detail: None,
+      })
   }
   Ok(SurrealCfg::{ host, ns, database, username, password })
 }
@@ -65,13 +87,19 @@ pub fn resolve_authentik_cfg(
 ) -> Result[AuthentikCfg, AppError] {
   let host = config.authentik_host.get() catch {
     _ =>
-      return Err(AppError::{ code: InternalError, message: "Authentik host missing", detail: None })
+      return Err(AppError::{
+        code: InternalError,
+        message: "Authentik host missing",
+        detail: None,
+      })
   }
   let api_token = config.authentik_api_token.get() catch {
     _ =>
-      return Err(
-        AppError::{ code: InternalError, message: "Authentik token missing", detail: None },
-      )
+      return Err(AppError::{
+        code: InternalError,
+        message: "Authentik token missing",
+        detail: None,
+      })
   }
   Ok(AuthentikCfg::{ host, api_token })
 }

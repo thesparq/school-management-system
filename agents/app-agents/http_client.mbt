@@ -65,7 +65,8 @@ fn http_request_raw(
           return Err("body write stream failed")
         }
       }
-      match output_stream.blocking_write_and_flush(FixedArray::make(0, b'\x00')) {
+      match
+        output_stream.blocking_write_and_flush(FixedArray::make(0, b'\x00')) {
         Ok(_) => ()
         Err(_) => {
           output_stream.drop()

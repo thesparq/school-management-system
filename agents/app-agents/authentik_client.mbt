@@ -18,20 +18,28 @@ fn authentik_request(
     Some(data) => data.length().to_string()
     None => "0"
   }
-  let headers = match build_headers([
-    ("Authorization", "Bearer " + cfg.api_token),
-    ("Content-Type", "application/json"),
-    ("Accept", "*/*"),
-    ("Content-Length", content_length),
-  ]) {
+  let headers = match
+    build_headers([
+      ("Authorization", "Bearer " + cfg.api_token),
+      ("Content-Type", "application/json"),
+      ("Accept", "*/*"),
+      ("Content-Length", content_length),
+    ]) {
     Ok(h) => h
     Err(e) =>
       return Err(AppError::{ code: AuthentikError, message: e, detail: None })
   }
-  match http_request(cfg.host, http_method, @http_types.Https, api_path, headers, body_json) {
+  match
+    http_request(
+      cfg.host,
+      http_method,
+      @http_types.Https,
+      api_path,
+      headers,
+      body_json,
+    ) {
     Ok((status, body)) => Ok((status, body))
-    Err(e) =>
-      Err(AppError::{ code: AuthentikError, message: e, detail: None })
+    Err(e) => Err(AppError::{ code: AuthentikError, message: e, detail: None })
   }
 }
 
@@ -44,13 +52,11 @@ fn check_authentik_status(
   if status >= 200 && status < 300 {
     Ok(())
   } else {
-    Err(
-      AppError::{
-        code: AuthentikError,
-        message: operation + ": HTTP " + status.to_string(),
-        detail: Some(body),
-      },
-    )
+    Err(AppError::{
+      code: AuthentikError,
+      message: operation + ": HTTP " + status.to_string(),
+      detail: Some(body),
+    })
   }
 }
 
@@ -83,7 +89,12 @@ pub fn authentik_create_user(
     ",\"path\":\"users\"}"
   let body_bytes = @utf8.encode(body).to_fixedarray()
   let (status, resp_body) = match
-    authentik_request(config, @http_types.Post, "/api/v3/core/users/", Some(body_bytes)) {
+    authentik_request(
+      config,
+      @http_types.Post,
+      "/api/v3/core/users/",
+      Some(body_bytes),
+    ) {
     Ok(r) => r
     Err(e) => return Err(e)
   }
@@ -93,46 +104,38 @@ pub fn authentik_create_user(
   }
   let parsed = @json.parse(resp_body) catch {
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik create: parse response failed",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik create: parse response failed",
+        detail: None,
+      })
   }
   let obj = match parsed {
     Object(o) => o
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik create: response not an object",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik create: response not an object",
+        detail: None,
+      })
   }
   let pk = match obj.get("pk") {
     Some(Number(n, ..)) => n.to_int()
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik create: pk missing in response",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik create: pk missing in response",
+        detail: None,
+      })
   }
   let uuid = match obj.get("uuid") {
     Some(String(s)) => s
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik create: uuid missing in response",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik create: uuid missing in response",
+        detail: None,
+      })
   }
   Ok((pk, uuid))
 }
@@ -196,7 +199,9 @@ pub fn authentik_set_active(
   pk : Int,
   is_active : Bool,
 ) -> Result[Unit, AppError] {
-  let body = "{\"is_active\":" + (if is_active { "true" } else { "false" }) + "}"
+  let body = "{\"is_active\":" +
+    (if is_active { "true" } else { "false" }) +
+    "}"
   let body_bytes = @utf8.encode(body).to_fixedarray()
   let (status, resp_body) = match
     authentik_request(
@@ -253,13 +258,11 @@ pub fn authentik_remove_from_group(
     Err(e) => return Err(e)
   }
   if status < 200 || status >= 300 {
-    return Err(
-      AppError::{
-        code: AuthentikError,
-        message: "Authentik remove from group: HTTP " + status.to_string(),
-        detail: None,
-      },
-    )
+    return Err(AppError::{
+      code: AuthentikError,
+      message: "Authentik remove from group: HTTP " + status.to_string(),
+      detail: None,
+    })
   }
   Ok(())
 }
@@ -301,45 +304,37 @@ pub fn authentik_get_group_pk_by_name(
     Err(e) => return Err(e)
   }
   if status < 200 || status >= 300 {
-    return Err(
-      AppError::{
-        code: AuthentikError,
-        message: "Authentik get groups: HTTP " + status.to_string(),
-        detail: Some(resp_body),
-      },
-    )
+    return Err(AppError::{
+      code: AuthentikError,
+      message: "Authentik get groups: HTTP " + status.to_string(),
+      detail: Some(resp_body),
+    })
   }
   let parsed = @json.parse(resp_body) catch {
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik get groups: parse failed",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik get groups: parse failed",
+        detail: None,
+      })
   }
   let obj = match parsed {
     Object(o) => o
     _ =>
-      return Err(
-        AppError::{
-          code: AuthentikError,
-          message: "Authentik get groups: response not an object",
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: AuthentikError,
+        message: "Authentik get groups: response not an object",
+        detail: None,
+      })
   }
   let results = match obj.get("results") {
     Some(Array(arr)) => arr
     _ =>
-      return Err(
-        AppError::{
-          code: NotFound,
-          message: "Group not found: " + name,
-          detail: None,
-        },
-      )
+      return Err(AppError::{
+        code: NotFound,
+        message: "Group not found: " + name,
+        detail: None,
+      })
   }
   for item in results {
     match item {
@@ -358,7 +353,9 @@ pub fn authentik_get_group_pk_by_name(
       _ => ()
     }
   }
-  Err(
-    AppError::{ code: NotFound, message: "Group not found: " + name, detail: None },
-  )
+  Err(AppError::{
+    code: NotFound,
+    message: "Group not found: " + name,
+    detail: None,
+  })
 }

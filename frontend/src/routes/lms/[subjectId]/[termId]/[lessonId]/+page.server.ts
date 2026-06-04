@@ -8,11 +8,36 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
     redirect(302, '/');
   }
 
-  const lessonId = params.lessonId;
+  const { subjectId, termId, lessonId } = params;
+
+  // Resolve names for breadcrumbs
+  let subjectName = 'Subject';
+  let termName = 'Term';
+
+  const subjectsRes = await fetch('/api/student/subjects');
+  if (subjectsRes.ok) {
+    try {
+      const json = await subjectsRes.json();
+      const subjects: { id: string; name: string }[] = json.data ?? [];
+      const match = subjects.find((s) => s.id === subjectId);
+      if (match) subjectName = match.name;
+    } catch { /* fallback */ }
+  }
+
+  const termsRes = await fetch('/api/student/terms');
+  if (termsRes.ok) {
+    try {
+      const json = await termsRes.json();
+      const terms: { id: string; name: string }[] = json.data ?? [];
+      const match = terms.find((t) => t.id === termId);
+      if (match) termName = match.name;
+    } catch { /* fallback */ }
+  }
+
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Subjects', href: '/' },
-    { label: 'Subject', href: `/lms/${params.subjectId}` },
-    { label: 'Term', href: `/lms/${params.subjectId}/${params.termId}` },
+    { label: subjectName, href: `/lms/${subjectId}` },
+    { label: termName, href: `/lms/${subjectId}/${termId}` },
     { label: 'Lesson' }
   ];
 

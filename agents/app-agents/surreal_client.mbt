@@ -39,16 +39,21 @@ fn url_encode(s : String) -> String {
 ///|
 fn parse_result_array(raw : String) -> Result[Array[Json], AppError] {
   let val = @json.parse(raw) catch {
-    _ => return Err(
-      AppError::{ code: SurrealDBError, message: "Failed to parse SurrealDB response", detail: None },
-    )
+    _ =>
+      return Err(AppError::{
+        code: SurrealDBError,
+        message: "Failed to parse SurrealDB response",
+        detail: None,
+      })
   }
   match val {
     Array(a) => {
       if a.length() == 0 {
-        return Err(
-          AppError::{ code: SurrealDBError, message: "SurrealDB response empty", detail: None },
-        )
+        return Err(AppError::{
+          code: SurrealDBError,
+          message: "SurrealDB response empty",
+          detail: None,
+        })
       }
       match a[0] {
         Object(obj) =>
@@ -63,30 +68,29 @@ fn parse_result_array(raw : String) -> Result[Array[Json], AppError] {
                       _ => raw
                     }
                 }
-                Err(
-                  AppError::{ code: SurrealDBError, message: "SurrealDB: " + detail, detail: Some(raw) },
-                )
+                Err(AppError::{
+                  code: SurrealDBError,
+                  message: "SurrealDB: " + detail,
+                  detail: Some(raw),
+                })
               } else {
                 match obj.get("result") {
                   Some(r) =>
                     match r {
                       Array(arr) => Ok(arr)
-                      _ => Err(
-                        AppError::{
+                      _ =>
+                        Err(AppError::{
                           code: SurrealDBError,
                           message: "SurrealDB result not an array",
                           detail: None,
-                        },
-                      )
+                        })
                     }
                   None =>
-                    Err(
-                      AppError::{
-                        code: SurrealDBError,
-                        message: "SurrealDB result missing",
-                        detail: None,
-                      },
-                    )
+                    Err(AppError::{
+                      code: SurrealDBError,
+                      message: "SurrealDB result missing",
+                      detail: None,
+                    })
                 }
               }
             _ =>
@@ -94,42 +98,35 @@ fn parse_result_array(raw : String) -> Result[Array[Json], AppError] {
                 Some(r) =>
                   match r {
                     Array(arr) => Ok(arr)
-                    _ => Err(
-                      AppError::{
+                    _ =>
+                      Err(AppError::{
                         code: SurrealDBError,
                         message: "SurrealDB result not an array",
                         detail: None,
-                      },
-                    )
+                      })
                   }
                 None =>
-                  Err(
-                    AppError::{
-                      code: SurrealDBError,
-                      message: "SurrealDB result missing",
-                      detail: None,
-                    },
-                  )
+                  Err(AppError::{
+                    code: SurrealDBError,
+                    message: "SurrealDB result missing",
+                    detail: None,
+                  })
               }
           }
         _ =>
-          Err(
-            AppError::{
-              code: SurrealDBError,
-              message: "SurrealDB response element not an object",
-              detail: None,
-            },
-          )
+          Err(AppError::{
+            code: SurrealDBError,
+            message: "SurrealDB response element not an object",
+            detail: None,
+          })
       }
     }
     _ =>
-      Err(
-        AppError::{
-          code: SurrealDBError,
-          message: "SurrealDB response not an array",
-          detail: None,
-        },
-      )
+      Err(AppError::{
+        code: SurrealDBError,
+        message: "SurrealDB response not an array",
+        detail: None,
+      })
   }
 }
 
@@ -144,20 +141,24 @@ fn surreal_query_internal(
     Err(e) => return Err(e)
   }
   let auth_bytes = @utf8.encode(cfg.username + ":" + cfg.password).to_fixedarray()
-  let auth_value = "Basic " + @base64.encode(Bytes::from_array(auth_bytes).view())
+  let auth_value = "Basic " +
+    @base64.encode(Bytes::from_array(auth_bytes).view())
 
-  let headers = match build_headers([
-    ("Authorization", auth_value),
-    ("Accept", "application/json"),
-    ("Content-Type", "text/plain"),
-    ("surreal-ns", cfg.ns),
-    ("surreal-db", cfg.database),
-  ]) {
+  let headers = match
+    build_headers([
+      ("Authorization", auth_value),
+      ("Accept", "application/json"),
+      ("Content-Type", "text/plain"),
+      ("surreal-ns", cfg.ns),
+      ("surreal-db", cfg.database),
+    ]) {
     Ok(h) => h
     Err(_) =>
-      return Err(
-        AppError::{ code: InternalError, message: "Build SurrealDB headers failed", detail: None },
-      )
+      return Err(AppError::{
+        code: InternalError,
+        message: "Build SurrealDB headers failed",
+        detail: None,
+      })
   }
 
   let path = match bindings {
@@ -179,17 +180,17 @@ fn surreal_query_internal(
   }
 
   let body_bytes = @utf8.encode(sql).to_fixedarray()
-  match http_request(
-    cfg.host,
-    @http_types.Post,
-    @http_types.Https,
-    path,
-    headers,
-    Some(body_bytes),
-  ) {
+  match
+    http_request(
+      cfg.host,
+      @http_types.Post,
+      @http_types.Https,
+      path,
+      headers,
+      Some(body_bytes),
+    ) {
     Ok((status, body)) => Ok((status, body))
-    Err(e) =>
-      Err(AppError::{ code: SurrealDBError, message: e, detail: None })
+    Err(e) => Err(AppError::{ code: SurrealDBError, message: e, detail: None })
   }
 }
 
@@ -206,16 +207,19 @@ pub fn surreal_query(
     Err(e) => return Err(e)
   }
   if status < 200 || status >= 300 {
-    return Err(
-      AppError::{
-        code: SurrealDBError,
-        message: "SurrealDB HTTP " + status.to_string(),
-        detail: Some(body),
-      },
-    )
+    return Err(AppError::{
+      code: SurrealDBError,
+      message: "SurrealDB HTTP " + status.to_string(),
+      detail: Some(body),
+    })
   }
   @logging.info("SurrealDB: " + sql)
-  @logging.info("SurrealDB: status=" + status.to_string() + " body_len=" + body.length().to_string())
+  @logging.info(
+    "SurrealDB: status=" +
+    status.to_string() +
+    " body_len=" +
+    body.length().to_string(),
+  )
   parse_result_array(body)
 }
 
@@ -230,13 +234,11 @@ pub fn surreal_save_profile(
   class_level : String?,
 ) -> Result[Unit, AppError] {
   if !["admin", "teacher", "student"].contains(role) {
-    return Err(
-      AppError::{
-        code: ValidationError,
-        message: "Invalid role: " + role,
-        detail: None,
-      },
-    )
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Invalid role: " + role,
+      detail: None,
+    })
   }
   let cl_record = match class_level {
     Some(cl) => {
