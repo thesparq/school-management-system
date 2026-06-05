@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔨 HF-10: User Management Refactor — Spec Written**
+  Split `user_profile` into 4 role-specialized tables (`student_profile`, `teacher_profile`, `admin_profile`, `parent_profile`) using Authentik UUIDs as record IDs. New Parent Agent mirrors complete student agent for multi-student access. Credentials lookup table for teacher qualifications. Cloudflare R2 passport storage via presigned URLs with saga compensation on create. All profiles enriched with role-specific fields (surname, first_name, middle_name, display_name, dob, passport, class_enrolled/current_class, qualifications, role_title, students array). 16 role-specific admin CRUD endpoints replace 4 generic ones. Spec: `docs/specs/hotfix-10-user-management-refactor.md`.
+
 ## Completed
 
 - **✅ HF-09: Relocate Term Toggle — Complete**
