@@ -1,32 +1,133 @@
 ///|
-pub fn db_admin_fetch_profile(config : SharedConfig, target_user_id : String) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT auth_id, role, class_level.name AS class_level, created_at FROM user_profile WHERE auth_id = $target_user_id AND deleted_at IS NONE LIMIT 1", bindings={ "target_user_id": target_user_id })
+pub fn db_admin_fetch_student_profile(config : SharedConfig, user_id : String) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT *, meta::id(id) AS id FROM type::thing('student_profile', $user_id) WHERE deleted_at IS NONE", bindings={ "user_id": user_id })
 }
-pub fn db_admin_save_profile(config : SharedConfig, target_user_id : String, role : String, class_level : String?) -> Result[Unit, AppError] {
-  if !["admin", "teacher", "student"].contains(role) { return Err(validation_error("Invalid role: " + role)) }
-  let cl_record = match class_level {
-    Some(cl) => {
-      let arr = match surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": cl }) { Ok(a) => a; Err(e) => return Err(AppError::{ code: SurrealDBError, message: "Failed to resolve class level", debug: e.debug }) }
-      if arr.length() > 0 { match arr[0] { Object(o) => match o.get("id") { Some(String(slug)) => Some(slug); _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) }; _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) } } else { None }
-    }
-    None => None
+pub fn db_admin_fetch_teacher_profile(config : SharedConfig, user_id : String) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT *, meta::id(id) AS id FROM type::thing('teacher_profile', $user_id) WHERE deleted_at IS NONE", bindings={ "user_id": user_id })
+}
+pub fn db_admin_fetch_admin_profile(config : SharedConfig, user_id : String) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT *, meta::id(id) AS id FROM type::thing('admin_profile', $user_id) WHERE deleted_at IS NONE", bindings={ "user_id": user_id })
+}
+pub fn db_admin_fetch_parent_profile(config : SharedConfig, user_id : String) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT *, meta::id(id) AS id FROM type::thing('parent_profile', $user_id) WHERE deleted_at IS NONE", bindings={ "user_id": user_id })
+}
+
+pub fn db_admin_create_student_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, dob : String, class_level_id : String, passport_url : String) -> Result[Unit, AppError] {
+  let b = match middle_name {
+    Some(_) => { "user_id": user_id, "surname": surname, "first_name": first_name, "middle_name": middle_name.unwrap(), "display_name": display_name, "dob": dob, "cl": class_level_id, "passport": passport_url }
+    None => { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "dob": dob, "cl": class_level_id, "passport": passport_url }
   }
-  let sql = match cl_record {
-    Some(_) => "INSERT INTO user_profile (auth_id, role, class_level, created_at) VALUES ($target_user_id, $role, $class_level, time::now()) ON DUPLICATE KEY UPDATE role=$role, class_level=$class_level"
-    None => "INSERT INTO user_profile (auth_id, role, created_at) VALUES ($target_user_id, $role, time::now()) ON DUPLICATE KEY UPDATE role=$role"
-  }
-  let b = match cl_record {
-    Some(slug) => { "target_user_id": target_user_id, "role": role, "class_level": slug }
-    None => { "target_user_id": target_user_id, "role": role }
+  let sql = if middle_name.is_some() {
+    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = $dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
+  } else {
+    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = $dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
   }
   match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
 }
-pub fn db_admin_soft_delete_user(config : SharedConfig, target_user_id : String) -> Result[Unit, AppError] {
-  match surreal_query(config, "UPDATE user_profile SET deleted_at = time::now() WHERE auth_id = $target_user_id AND deleted_at IS NONE", bindings={ "target_user_id": target_user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+pub fn db_admin_update_student_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, dob : String, class_level_id : String, passport_url : String) -> Result[Unit, AppError] {
+  let b = match middle_name {
+    Some(_) => { "user_id": user_id, "surname": surname, "first_name": first_name, "middle_name": middle_name.unwrap(), "display_name": display_name, "dob": dob, "cl": class_level_id, "passport": passport_url }
+    None => { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "dob": dob, "cl": class_level_id, "passport": passport_url }
+  }
+  let sql = if middle_name.is_some() {
+    "UPDATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = $dob, current_class = type::thing('class_levels', $cl), passport = $passport, updated_at = time::now()"
+  } else {
+    "UPDATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = $dob, current_class = type::thing('class_levels', $cl), passport = $passport, updated_at = time::now()"
+  }
+  match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
 }
-pub fn db_admin_undo_soft_delete(config : SharedConfig, target_user_id : String) -> Result[Unit, AppError] {
-  match surreal_query(config, "UPDATE user_profile SET deleted_at = NONE WHERE auth_id = $target_user_id", bindings={ "target_user_id": target_user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+
+pub fn db_admin_create_teacher_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, qualifications : Array[String]?, date_employed : String?, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "CREATE type::thing('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()"
+  let b : Map[String, String] = { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "passport": passport_url }
+  match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
 }
+pub fn db_admin_update_teacher_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, qualifications : Array[String]?, date_employed : String?, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "UPDATE type::thing('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()"
+  let b : Map[String, String] = { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "passport": passport_url }
+  match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+
+pub fn db_admin_create_admin_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, role_title : String?, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "CREATE type::thing('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()"
+  let b : Map[String, String] = { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "passport": passport_url }
+  match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_update_admin_profile(config : SharedConfig, user_id : String, surname : String, first_name : String, middle_name : String?, display_name : String, role_title : String?, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "UPDATE type::thing('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()"
+  let b : Map[String, String] = { "user_id": user_id, "surname": surname, "first_name": first_name, "display_name": display_name, "passport": passport_url }
+  match surreal_query(config, sql, bindings=b) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+
+pub fn db_admin_create_parent_profile(config : SharedConfig, user_id : String, name : String, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "CREATE type::thing('parent_profile', $user_id) SET name = $name, display_name = $name, students = [], passport = $passport, created_at = time::now()"
+  match surreal_query(config, sql, bindings={ "user_id": user_id, "name": name, "passport": passport_url }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_update_parent_profile(config : SharedConfig, user_id : String, name : String, passport_url : String) -> Result[Unit, AppError] {
+  let sql = "UPDATE type::thing('parent_profile', $user_id) SET name = $name, display_name = $name, passport = $passport, updated_at = time::now()"
+  match surreal_query(config, sql, bindings={ "user_id": user_id, "name": name, "passport": passport_url }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+
+pub fn db_admin_soft_delete_student_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('student_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_undo_soft_delete_student_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('student_profile', $user_id) SET deleted_at = NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_soft_delete_teacher_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('teacher_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_undo_soft_delete_teacher_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('teacher_profile', $user_id) SET deleted_at = NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_soft_delete_admin_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('admin_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_undo_soft_delete_admin_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('admin_profile', $user_id) SET deleted_at = NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_soft_delete_parent_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('parent_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+pub fn db_admin_undo_soft_delete_parent_profile(config : SharedConfig, user_id : String) -> Result[Unit, AppError] {
+  match surreal_query(config, "UPDATE type::thing('parent_profile', $user_id) SET deleted_at = NONE", bindings={ "user_id": user_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
+}
+
+pub fn db_admin_fetch_students_by_class_level(config : SharedConfig, class_level_id : String) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT meta::id(id) AS id FROM student_profile WHERE current_class = $class_level_id AND deleted_at IS NONE", bindings={ "class_level_id": class_level_id })
+}
+
+pub fn db_admin_fetch_users_by_role(config : SharedConfig, role : String) -> Result[Array[Json], AppError] {
+  let table = match role {
+    "student" => "student_profile"
+    "teacher" => "teacher_profile"
+    "admin" => "admin_profile"
+    "parent" => "parent_profile"
+    _ => return Err(validation_error("Unknown role: " + role))
+  }
+  surreal_query(config, "SELECT meta::id(id) AS id FROM " + table + " WHERE deleted_at IS NONE")
+}
+
+pub fn db_admin_fetch_credentials(config : SharedConfig) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT meta::id(id) AS id, name, active FROM credentials WHERE active = true ORDER BY name ASC")
+}
+
+pub fn db_admin_create_credential(config : SharedConfig, name : String) -> Result[Array[Json], AppError] {
+  let slug = string::lowercase(string::replace(name, ' ', '_'))
+  surreal_query(config, "CREATE type::thing('credentials', $slug) SET name = $name, active = true", bindings={ "slug": slug, "name": name })
+}
+
+pub fn db_admin_fetch_all_student_profiles(config : SharedConfig) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT meta::id(id) AS id, display_name FROM student_profile WHERE deleted_at IS NONE ORDER BY display_name ASC")
+}
+
+pub fn db_admin_fetch_student_exists(config : SharedConfig, student_id : String) -> Result[Bool, AppError] {
+  match surreal_query(config, "SELECT meta::id(id) AS id FROM type::thing('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1", bindings={ "student_id": student_id }) {
+    Ok(arr) => Ok(arr.length() > 0)
+    Err(e) => Err(e)
+  }
+}
+
 pub fn db_admin_fetch_class_levels(config : SharedConfig) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT id, name FROM class_levels ORDER BY name ASC")
 }
@@ -60,9 +161,6 @@ pub fn db_admin_create_session_term(config : SharedConfig, session : String, ter
 pub fn db_admin_activate_session_term(config : SharedConfig, session_term_id : String) -> Result[Unit, AppError] {
   match surreal_query(config, "UPDATE $session_term_id SET active = true", bindings={ "session_term_id": session_term_id }) { Ok(_) => Ok(()); Err(e) => Err(e) }
 }
-pub fn db_admin_fetch_students_by_class_level(config : SharedConfig, class_level_id : String) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT auth_id FROM user_profile WHERE class_level = $class_level_id AND role = 'student' AND deleted_at IS NONE", bindings={ "class_level_id": class_level_id })
-}
 pub fn db_admin_fetch_students_by_class_levels(config : SharedConfig, class_level_ids : Array[String]) -> Result[Array[Json], AppError] {
   if class_level_ids.length() == 0 { return Ok([]) }
   for id in class_level_ids {
@@ -70,29 +168,15 @@ pub fn db_admin_fetch_students_by_class_levels(config : SharedConfig, class_leve
       return Err(validation_error("Invalid class level ID format: " + id))
     }
   }
-  ///|
-  /// NOTE: SurrealDB $bindings do not support array parameters for IN clauses.
-  /// class_level_ids are pre-validated slugs from the DB, not user input.
-  /// escape_surreal_string is retained here as the only exception in the DB layer.
   let cl_in = "[" + class_level_ids.map(fn(cl) { escape_surreal_string(cl) }).join(", ") + "]"
-  surreal_query(config, "SELECT auth_id, class_level FROM user_profile WHERE class_level IN " + cl_in + " AND role = 'student' AND deleted_at IS NONE")
+  surreal_query(config, "SELECT meta::id(id) AS id, current_class FROM student_profile WHERE current_class IN " + cl_in + " AND deleted_at IS NONE")
 }
 
-///|
-pub fn db_admin_fetch_class_level_by_name(
-  config : SharedConfig,
-  class_level : String
-) -> Result[Array[Json], AppError] {
+pub fn db_admin_fetch_class_level_by_name(config : SharedConfig, class_level : String) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": class_level })
 }
 
-///|
-pub fn db_admin_create_teacher_assignments(
-  config : SharedConfig,
-  teacher_id : String,
-  pairs : Array[TeacherSubjectPair],
-  active_st : String
-) -> Result[Unit, AppError] {
+pub fn db_admin_create_teacher_assignments(config : SharedConfig, teacher_id : String, pairs : Array[TeacherSubjectPair], active_st : String) -> Result[Unit, AppError] {
   for pair in pairs {
     let sql = if active_st != "" {
       "CREATE teacher_assignment SET teacher_id = $teacher_id, has_subject = $edge_id, session_term = $active_st, assigned_at = time::now()"
@@ -110,12 +194,4 @@ pub fn db_admin_create_teacher_assignments(
     }
   }
   Ok(())
-}
-
-///|
-pub fn db_admin_fetch_users_by_role(
-  config : SharedConfig,
-  role : String
-) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT auth_id FROM user_profile WHERE role = $role AND deleted_at IS NONE", bindings={ "role": role })
 }

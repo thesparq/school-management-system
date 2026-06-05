@@ -1,6 +1,6 @@
 ///|
 pub fn db_student_fetch_profile(config : SharedConfig, student_id : String) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT * FROM user_profile WHERE auth_id = $student_id AND deleted_at IS NONE LIMIT 1", bindings={ "student_id": student_id })
+  surreal_query(config, "SELECT *, meta::id(id) AS id FROM type::thing('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1", bindings={ "student_id": student_id })
 }
 pub fn db_student_fetch_subjects(config : SharedConfig, class_level : String) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT out.id AS id, out.name AS name, out.code AS code FROM has_subject WHERE in = $class_level AND active = true ORDER BY name ASC", bindings={ "class_level": class_level })
