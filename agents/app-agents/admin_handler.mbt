@@ -784,7 +784,13 @@ pub fn admin_delete_user(
     Some(String(s)) => s
     _ => return Err(validation_error("target_user_id is required"))
   }
-  let role = match obj.get("role") { Some(String(r)) => r; _ => "" }
+  let role = match db_admin_fetch_profile(config, target_user_id) {
+    Ok(arr) if arr.length() > 0 => match arr[0] {
+      Object(obj) => match obj.get("role") { Some(String(r)) => r; _ => "" }
+      _ => ""
+    }
+    _ => ""
+  }
   match @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
     match db_admin_soft_delete_user(config, target_user_id) {
       Ok(_) => ()
