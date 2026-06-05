@@ -55,9 +55,7 @@ export const POST: RequestHandler = async (event) => {
 			status: mapErrorCodeToHttpStatus(result.error.code),
 			headers: { 'content-type': 'application/json' }
 		});
-  } else {
-    console.log(result.data)
-	}
+  }
 
 	return new Response(
 		JSON.stringify({ data: { uuid: targetUuid } }),
