@@ -14,7 +14,7 @@ fn init{
           prompt_hint: None,
           input_schema: @rpcTypes.DataSchema::Tuple([
             (
-              "admin_id",
+              "_admin_id",
               @schema.schema_of_tag(
                 (@schema.TypeTag::{  } : @schema.TypeTag[String]),
               ),
@@ -398,12 +398,7 @@ fn init{
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [@common.PathSegment::Literal("terms")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -437,12 +432,7 @@ fn init{
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [@common.PathSegment::Literal("session-terms")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -478,12 +468,7 @@ fn init{
                 path_suffix: [
                   @common.PathSegment::Literal("create-session-term"),
                 ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -525,12 +510,7 @@ fn init{
                 path_suffix: [
                   @common.PathSegment::Literal("activate-session-term"),
                 ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [
                   {
                     query_param_name: "session_term_id",
@@ -544,13 +524,13 @@ fn init{
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
-                "incoming_key",
+                "session_term_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
               ),
               (
-                "session_term_id",
+                "incoming_key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -575,12 +555,7 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [{ query_param_name: "key", variable_name: "key" }],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -589,13 +564,13 @@ fn init{
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
-                "incoming_key",
+                "key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
               ),
               (
-                "key",
+                "incoming_key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -612,17 +587,12 @@ fn init{
           },
           {
             name: "create_user_in_authentik",
-            description: "Creates a user in Authentik + SurrealDB with compensation on failure.  Steps: validate → create user → set password → save profile If step 2/3 fails, the created Authentik user is cleaned up.",
+            description: "create_user_in_authentik",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("create-user")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -657,17 +627,12 @@ fn init{
           },
           {
             name: "edit_user_in_authentik",
-            description: "Edits a user in Authentik + SurrealDB.  Steps: validate → resolve group PK → update profile → set password (opt) → remove old groups → add to target group → save profile → invalidate caches. Non-critical failures (group removal) are logged but don't stop the flow.",
+            description: "edit_user_in_authentik",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("edit-user")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -702,17 +667,12 @@ fn init{
           },
           {
             name: "delete_user_in_authentik",
-            description: "Deletes a user. Soft-deletes from SurrealDB first,  then deletes from Authentik. If Authentik deletion fails, the soft-delete is undone.",
+            description: "delete_user_in_authentik",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("delete-user")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -747,17 +707,12 @@ fn init{
           },
           {
             name: "set_user_active_status",
-            description: "Activates or deactivates a user in Authentik.",
+            description: "set_user_active_status",
             http_endpoint: [
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("set-user-active")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
+                header_vars: [],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -796,7 +751,7 @@ fn init{
         http_mount: Some({
           path_prefix: [
             @common.PathSegment::Literal("admin"),
-            @common.PathSegment::PathVariable({ variable_name: "admin_id", }),
+            @common.PathSegment::PathVariable({ variable_name: "_admin_id", }),
           ],
           auth_details: None,
           phantom_agent: false,
@@ -817,11 +772,11 @@ fn init{
               "Expected 1 elements, got " + elements.length().to_string(),
             )
           }
-          let admin_id :String = @schema.from_element_value_as(elements[0])
+          let _admin_id :String = @schema.from_element_value_as(elements[0])
           let config :@config.Config[SharedConfig] = @config.load_config(
             (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
           )
-          let agent = AdminAgent::new(admin_id, config)
+          let agent = AdminAgent::new(_admin_id, config)
           let constructed = @agents.ConstructedAgent::{
             raw: agent,
             snapshottable: None,
@@ -1705,8 +1660,8 @@ impl @agents.RawAgent for AdminAgent with invoke(
             "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let session_term_id :String = @schema.from_element_value_as(elements[1])
+        let session_term_id :String = @schema.from_element_value_as(elements[0])
+        let incoming_key :String = @schema.from_element_value_as(elements[1])
         let result = self.activate_session_term(incoming_key, session_term_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
@@ -1717,8 +1672,8 @@ impl @agents.RawAgent for AdminAgent with invoke(
             "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let key :String = @schema.from_element_value_as(elements[1])
+        let key :String = @schema.from_element_value_as(elements[0])
+        let incoming_key :String = @schema.from_element_value_as(elements[1])
         let result = self.invalidate_cache(incoming_key, key)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }

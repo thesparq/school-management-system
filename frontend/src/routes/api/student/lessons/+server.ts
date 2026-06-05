@@ -1,4 +1,4 @@
-import { proxyToStudent } from '$lib/server/golem';
+import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async (event) => {
 	const result = await proxyToStudent(userId, '/lessons', { subject_id: subjectId, term_id: termId });
 
 	if (result.error) {
-		const status = result.error.code === 'NOT_ACTIVATED' ? 403 : 502;
+		const status = mapErrorCodeToHttpStatus(result.error.code);
 		return new Response(JSON.stringify(result), { status, headers: { 'content-type': 'application/json' } });
 	}
 

@@ -1,14 +1,8 @@
 ///|
-/// Structured error types for the entire agent application.
-/// Replaces ad-hoc string errors with typed codes that the frontend
-/// can map to HTTP status codes and user-facing messages.
-
-///|
 pub enum ErrorCode {
   ValidationError
   AuthFailure
   NotFound
-  AlreadyExists
   NotInitialized
   AuthentikError
   SurrealDBError
@@ -28,7 +22,6 @@ fn AppError::to_code_string(self : AppError) -> String {
     ValidationError => "VALIDATION_ERROR"
     AuthFailure => "AUTH_FAILURE"
     NotFound => "NOT_FOUND"
-    AlreadyExists => "ALREADY_EXISTS"
     NotInitialized => "NOT_INITIALIZED"
     AuthentikError => "AUTHENTIK_ERROR"
     SurrealDBError => "SURREALDB_ERROR"
@@ -52,13 +45,20 @@ pub fn AppError::to_json_string(self : AppError) -> String {
 }
 
 ///|
-/// Escapes a string for safe inclusion in a JSON string literal.
-/// Used by AppError serialization and other contexts.
 pub fn escape_json_string(s : String) -> String {
-  s
-  .replace(old="\\", new="\\\\")
-  .replace(old="\"", new="\\\"")
-  .replace(old="\n", new="\\n")
-  .replace(old="\r", new="\\r")
-  .replace(old="\t", new="\\t")
+  s.replace(old="\\", new="\\\\").replace(old="\"", new="\\\"").replace(old="\n", new="\\n").replace(old="\r", new="\\r").replace(old="\t", new="\\t")
+}
+
+///|
+pub fn surreal_error(body : String, sql : String?) -> AppError {
+  AppError::{ code: SurrealDBError, message: "SurrealDB query failed", detail: Some(match sql { Some(s) => "SQL: " + s + " | Response: " + body; None => "Response: " + body }) }
+}
+
+pub fn not_found_error(resource : String) -> AppError {
+  AppError::{ code: NotFound, message: resource + " not found", detail: None }
+}
+
+///|
+pub fn validation_error(msg : String) -> AppError {
+  AppError::{ code: ValidationError, message: msg, detail: None }
 }

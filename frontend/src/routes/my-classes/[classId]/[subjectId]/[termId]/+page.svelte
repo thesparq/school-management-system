@@ -9,11 +9,16 @@
   import { goto } from '$app/navigation';
   import { addToast } from '$lib/stores/toast';
 
-  let { data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
 
-  let lessons = $state<Lesson[]>(data.lessons);
+	let lessonsSource = $derived(data.lessons);
+	let lessons = $state<Lesson[]>(lessonsSource);
 
-  async function handleToggleLesson(lessonId: string, newActive: boolean) {
+	$effect(() => {
+		lessons = lessonsSource;
+	});
+
+	async function handleToggleLesson(lessonId: string, newActive: boolean) {
     const idx = lessons.findIndex(l => l.id === lessonId);
     if (idx === -1) return;
     const prev = lessons[idx].active;
