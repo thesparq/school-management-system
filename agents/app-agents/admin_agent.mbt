@@ -232,6 +232,20 @@ pub fn AdminAgent::activate_session_term(
 }
 
 ///|
+#derive.endpoint(post="/toggle-term-active?term_id={term_id}&active={active}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::toggle_term_active(self : Self, incoming_key : String, term_id : String, active : Bool) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_toggle_term(self.config.value, term_id, active) {
+    Ok(_) => Ok("ok")
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
 #derive.endpoint(post="/invalidate-cache?key={key}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn AdminAgent::invalidate_cache(

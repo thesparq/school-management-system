@@ -46,7 +46,7 @@ pub fn db_admin_fetch_active_session_term_detail(config : SharedConfig) -> Resul
   surreal_query(config, "SELECT id, session, term.name AS term_name FROM session_term WHERE active = true LIMIT 1")
 }
 pub fn db_admin_fetch_terms(config : SharedConfig) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT id, name, sort_order FROM terms ORDER BY sort_order ASC")
+  surreal_query(config, "SELECT id, name, sort_order, active FROM terms ORDER BY sort_order ASC")
 }
 pub fn db_admin_fetch_session_terms(config : SharedConfig) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT id, session, term.name AS term_name, active, created_at FROM session_term ORDER BY created_at DESC")
@@ -105,4 +105,12 @@ pub fn db_admin_create_teacher_assignments(
     }
   }
   Ok(())
+}
+
+///|
+pub fn db_admin_fetch_users_by_role(
+  config : SharedConfig,
+  role : String
+) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT auth_id FROM user_profile WHERE role = $role AND deleted_at IS NONE", bindings={ "role": role })
 }

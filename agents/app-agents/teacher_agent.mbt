@@ -39,13 +39,6 @@ pub fn TeacherAgent::invalidate_cache(self : Self, incoming_key : String, key : 
   if key == "all" { self.cache.invalidate_all() } else { self.cache.invalidate(key) }
   "OK"
 }
-#derive.endpoint(post="/toggle-term-active?term_id={term_id}&active={active}")
-#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn TeacherAgent::toggle_term_active(self : Self, incoming_key : String, term_id : String, active : Bool) -> Result[String, String] {
-  match require_auth(self.config.value, incoming_key) { Err(e) => return Err(e.to_json_string()); Ok(_) => () }
-  let now = @wallClock.now().seconds
-  match teacher_toggle_term(self.cache, self.config.value, self.teacher_id, term_id, active, now) { Ok(_) => Ok("ok"); Err(e) => Err(e.to_json_string()) }
-}
 #derive.endpoint(post="/toggle-lesson-active?lesson_id={lesson_id}&active={active}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn TeacherAgent::toggle_lesson_active(self : Self, incoming_key : String, lesson_id : String, active : Bool) -> Result[String, String] {

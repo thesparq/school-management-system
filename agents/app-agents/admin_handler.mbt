@@ -279,6 +279,8 @@ pub fn admin_fetch_terms(config : SharedConfig) -> Result[Array[TermSimple], App
       Object(o) => items.push(TermSimple::{
         id: match o.get("id") { Some(String(s)) => s; _ => continue },
         name: match o.get("name") { Some(String(s)) => s; _ => continue },
+        active: match o.get("active") { Some(True) => true; _ => false },
+        sort_order: match o.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
       })
       _ => ()
     }
@@ -400,6 +402,52 @@ pub fn admin_activate_session_term(
     Ok(_) => Ok(())
     Err(e) => Err(e)
   }
+}
+
+///|
+pub fn admin_toggle_term(
+  config : SharedConfig,
+  term_id : String,
+  active : Bool,
+) -> Result[Unit, AppError] {
+  match db_teacher_update_record_active(config, term_id, active) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  let students = match db_admin_fetch_users_by_role(config, "student") {
+    Ok(a) => a
+    Err(_) => []
+  }
+  let teachers = match db_admin_fetch_users_by_role(config, "teacher") {
+    Ok(a) => a
+    Err(_) => []
+  }
+  let ak = config.auth_key.get() catch { _ => "" }
+  if ak != "" {
+    for item in students {
+      match item {
+        Object(obj) => {
+          let uid = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
+          let _ = StudentAgentClient::scoped(uid, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "all")
+          }) catch { _ => () }
+        }
+        _ => ()
+      }
+    }
+    for item in teachers {
+      match item {
+        Object(obj) => {
+          let uid = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
+          let _ = TeacherAgentClient::scoped(uid, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "class_groups")
+          }) catch { _ => () }
+        }
+        _ => ()
+      }
+    }
+  }
+  Ok(())
 }
 
 ///|

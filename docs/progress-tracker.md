@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔧 HF-09: Relocate Term Toggle — In Progress**
+  Moving term active/inactive toggling from Teacher Agent to Admin Agent, adding admin "Terms" page under Configuration, replacing teacher term page Switch with padlock badge. Spec: `docs/specs/hotfix-09-relocate-term-toggle.md`.
+
 ## Completed
 
 - **✅ HF-08: Error Handling Unification — Complete**

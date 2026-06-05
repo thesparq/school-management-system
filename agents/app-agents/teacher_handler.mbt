@@ -94,25 +94,6 @@ pub fn teacher_fetch_lessons(cache : CacheSystem, config : SharedConfig, class_l
   cache.set(cache_key, lessons.to_json().stringify(), CACHE_TTL, ["terms:all"], now)
   Ok(lessons)
 }
-pub fn teacher_toggle_term(cache : CacheSystem, config : SharedConfig, teacher_id : String, term_id : String, active : Bool, now : UInt64) -> Result[Unit, AppError] {
-  match db_teacher_update_record_active(config, term_id, active) { Ok(_) => (); Err(e) => return Err(e) }
-  cache.invalidate("terms:all")
-  let active_st = match admin_fetch_active_session_term_id(cache, config, now) { Ok(id) => id; Err(e) => return Err(e) }
-  let cl_arr = match db_teacher_fetch_class_levels_for_teacher(config, teacher_id, active_st) { Ok(arr) => arr; Err(e) => return Err(e) }
-  let class_levels : Array[String] = []
-  for item in cl_arr { match item { String(cl) => class_levels.push(cl); _ => () } }
-  if class_levels.length() == 0 { return Ok(()) }
-  let up_arr = match db_admin_fetch_students_by_class_levels(config, class_levels) { Ok(arr) => arr; Err(e) => return Err(e) }
-  let ak = config.auth_key.get() catch { _ => "" }
-  if ak != "" {
-    for item in up_arr { match item { Object(obj) => {
-      let student_id = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
-      let cl = match obj.get("class_level") { Some(String(s)) => s; _ => continue }
-      let _ = StudentAgentClient::scoped(student_id, fn(c) raise @common.AgentError { c.trigger_invalidate_cache(ak, "terms:" + cl) }) catch { _ => () }
-    }; _ => () } }
-  }
-  Ok(())
-}
 pub fn teacher_toggle_lesson(cache : CacheSystem, config : SharedConfig, lesson_id : String, active : Bool) -> Result[Unit, AppError] {
   let meta_arr = match db_teacher_fetch_lesson_meta(config, lesson_id) { Ok(arr) => arr; Err(_) => return Err(not_found_error("Lesson")) }
   if meta_arr.length() == 0 { return Err(not_found_error("Lesson")) }

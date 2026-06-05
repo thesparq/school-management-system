@@ -569,6 +569,62 @@ fn init{
             ]),
           },
           {
+            name: "toggle_term_active",
+            description: "toggle_term_active",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("toggle-term-active"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "term_id", variable_name: "term_id" },
+                  { query_param_name: "active", variable_name: "active" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "active",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
             name: "invalidate_cache",
             description: "invalidate_cache",
             http_endpoint: [
@@ -1400,62 +1456,6 @@ fn init{
             ]),
           },
           {
-            name: "toggle_term_active",
-            description: "toggle_term_active",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [
-                  @common.PathSegment::Literal("toggle-term-active"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  { query_param_name: "term_id", variable_name: "term_id" },
-                  { query_param_name: "active", variable_name: "active" },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "term_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "active",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
             name: "toggle_lesson_active",
             description: "toggle_lesson_active",
             http_endpoint: [
@@ -1710,6 +1710,19 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let result = self.activate_session_term(incoming_key, session_term_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
+      "toggle_term_active" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let term_id :String = @schema.from_element_value_as(elements[1])
+        let active :Bool = @schema.from_element_value_as(elements[2])
+        let result = self.toggle_term_active(incoming_key, term_id, active)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
       "invalidate_cache" => {
         let elements = @extractor.extract_tuple(input)
         guard elements.length() == 2 else {
@@ -1930,19 +1943,6 @@ impl @agents.RawAgent for TeacherAgent with invoke(
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let key :String = @schema.from_element_value_as(elements[1])
         let result = self.invalidate_cache(incoming_key, key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "toggle_term_active" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 3 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 3 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let term_id :String = @schema.from_element_value_as(elements[1])
-        let active :Bool = @schema.from_element_value_as(elements[2])
-        let result = self.toggle_term_active(incoming_key, term_id, active)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "toggle_lesson_active" => {

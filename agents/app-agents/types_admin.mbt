@@ -51,4 +51,6 @@ struct SessionTermInfo {
 struct TermSimple {
   id : String
   name : String
+  active : Bool
+  sort_order : Int
 } derive(ToJson, FromJson)

@@ -249,6 +249,14 @@ impl @schema.HasElementSchema for TermSimple with element_schema() {
       "name",
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
+    (
+      "active",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+    (
+      "sort_order",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
   ])
 }
 
@@ -256,7 +264,9 @@ impl @schema.HasElementSchema for TermSimple with element_schema() {
 impl @schema.FromExtractor for TermSimple with from_extractor(e) {
   let id :String = @schema.extract_field(e, 0)
   let name :String = @schema.extract_field(e, 1)
-  { id, name }
+  let active :Bool = @schema.extract_field(e, 2)
+  let sort_order :Int = @schema.extract_field(e, 3)
+  { id, name, active, sort_order }
 }
 
 ///|
@@ -269,6 +279,8 @@ impl @schema.ToElementValue for TermSimple with to_element_value(self) {
   @schema.make_record_value([
     @schema.to_element_value_as(self.id),
     @schema.to_element_value_as(self.name),
+    @schema.to_element_value_as(self.active),
+    @schema.to_element_value_as(self.sort_order),
   ])
 }
 
