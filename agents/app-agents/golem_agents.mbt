@@ -398,7 +398,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [@common.PathSegment::Literal("terms")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -432,7 +437,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Get,
                 path_suffix: [@common.PathSegment::Literal("session-terms")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -468,7 +478,12 @@ fn init{
                 path_suffix: [
                   @common.PathSegment::Literal("create-session-term"),
                 ],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -510,7 +525,12 @@ fn init{
                 path_suffix: [
                   @common.PathSegment::Literal("activate-session-term"),
                 ],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [
                   {
                     query_param_name: "session_term_id",
@@ -524,13 +544,13 @@ fn init{
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
-                "session_term_id",
+                "incoming_key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
               ),
               (
-                "incoming_key",
+                "session_term_id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -555,7 +575,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [{ query_param_name: "key", variable_name: "key" }],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -564,13 +589,13 @@ fn init{
             prompt_hint: None,
             input_schema: @rpcTypes.DataSchema::Tuple([
               (
-                "key",
+                "incoming_key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
               ),
               (
-                "incoming_key",
+                "key",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -592,7 +617,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("create-user")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -632,7 +662,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("edit-user")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -672,7 +707,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("delete-user")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -712,7 +752,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("set-user-active")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
@@ -1660,8 +1705,8 @@ impl @agents.RawAgent for AdminAgent with invoke(
             "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
-        let session_term_id :String = @schema.from_element_value_as(elements[0])
-        let incoming_key :String = @schema.from_element_value_as(elements[1])
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let session_term_id :String = @schema.from_element_value_as(elements[1])
         let result = self.activate_session_term(incoming_key, session_term_id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
@@ -1672,8 +1717,8 @@ impl @agents.RawAgent for AdminAgent with invoke(
             "Expected 2 elements, got " + elements.length().to_string(),
           )
         }
-        let key :String = @schema.from_element_value_as(elements[0])
-        let incoming_key :String = @schema.from_element_value_as(elements[1])
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let key :String = @schema.from_element_value_as(elements[1])
         let result = self.invalidate_cache(incoming_key, key)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }

@@ -43,14 +43,43 @@ function errorResult(code: string, message: string): ProxyResult {
 	return { error: { code, message } };
 }
 
-function parseStructuredError(text: string): BackendError | null {
+function extractErrorFromBody(raw: string): BackendError | null {
 	try {
-		const parsed = JSON.parse(text);
-		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.error) {
+		const parsed = JSON.parse(raw);
+
+		// Format 1: Golem Err envelope {"Err": "<inner_json>"}
+		if (parsed.Err && typeof parsed.Err === 'string') {
+			try {
+				const inner = JSON.parse(parsed.Err);
+				if (inner.code) {
+					return {
+						code: inner.code,
+						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						detail: inner.debug ?? null
+					};
+				}
+			} catch {
+				// inner wasn't valid JSON — use raw Err string
+			}
+			return { code: 'AGENT_ERROR', message: parsed.Err };
+		}
+
+		// Format 2: Top-level {"code":"...","errors":[...]}
+		//           (Golem gateway errors + our new AppError format)
+		if (parsed.code) {
 			return {
-				code: parsed.error.code || 'UNKNOWN_ERROR',
-				message: parsed.error.message || 'An unknown error occurred.',
-				detail: parsed.error.detail ?? null
+				code: parsed.code,
+				message: parsed.message || parsed.errors?.[0] || 'Unknown error',
+				detail: parsed.debug ?? null
+			};
+		}
+
+		// Format 3: Legacy nested {"error":{"code":"...","message":"..."}}
+		if (parsed.error?.code) {
+			return {
+				code: parsed.error.code,
+				message: parsed.error.message,
+				detail: parsed.error.debug || parsed.error.detail || null
 			};
 		}
 	} catch {
@@ -75,13 +104,20 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 
 		const raw = await res.text();
 
-		// Golem envelope: { "Ok": "..." } or { "Err": "..." }
+		// Gate 1: Any non-2xx response is always an error
+		if (!res.ok) {
+			const extracted = extractErrorFromBody(raw);
+			if (extracted) return errorResult(extracted.code, extracted.message);
+			return errorResult('GATEWAY_ERROR', raw);
+		}
+
+		// Gate 2: 2xx — parse Golem envelope
 		try {
 			const parsed = JSON.parse(raw);
 
 			if (typeof parsed === 'string') {
-				const structured = parseStructuredError(parsed);
-				if (structured) return errorResult(structured.code, structured.message);
+				const extracted = extractErrorFromBody(parsed);
+				if (extracted) return errorResult(extracted.code, extracted.message);
 				return { data: parsed };
 			}
 
@@ -94,26 +130,18 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 				if ('Err' in parsed) {
 					const errValue = parsed.Err;
 					const errText = typeof errValue === 'string' ? errValue : JSON.stringify(errValue);
-					const structured = parseStructuredError(errText);
-					if (structured) {
-						return errorResult(structured.code, structured.message);
-					}
-					return errorResult('GATEWAY_ERROR', errText);
+					const extracted = extractErrorFromBody(errText);
+					if (extracted) return errorResult(extracted.code, extracted.message);
+					return errorResult('AGENT_ERROR', errText);
 				}
 			}
 		} catch {
-			// Not valid JSON — check raw text
-			const structured = parseStructuredError(raw);
-			if (structured) {
-				return errorResult(structured.code, structured.message);
-			}
+			// Not valid JSON — check as raw text below
 		}
 
-		// Legacy: raw text as data (strings from non-Result endpoints like ping)
-		const structured = parseStructuredError(raw);
-		if (structured) {
-			return errorResult(structured.code, structured.message);
-		}
+		// Gate 3: Defensive — 200 but body contains unrecognized error fields
+		const extracted = extractErrorFromBody(raw);
+		if (extracted) return errorResult(extracted.code, extracted.message);
 
 		return { data: raw };
 	} catch (err) {

@@ -30,7 +30,7 @@ pub fn student_get_class_level(cache : CacheSystem, config : SharedConfig, stude
       _ => ()
     }
   }
-  Err(AppError::{ code: NotInitialized, message: "Account not initialized. Please contact your school administrator.", detail: None })
+  Err(AppError::{ code: NotInitialized, message: "Account not initialized. Please contact your school administrator.", debug: None })
 }
 
 pub fn student_fetch_subjects(cache : CacheSystem, config : SharedConfig, student_id : String, now : UInt64) -> Result[Array[SubjectInfo], AppError] {

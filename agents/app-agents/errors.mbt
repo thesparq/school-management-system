@@ -12,8 +12,8 @@ pub enum ErrorCode {
 ///|
 pub struct AppError {
   code : ErrorCode
-  message : String
-  detail : String?
+  message : String   // always user-facing, clean
+  debug : String?    // developer-facing, contains raw SQL/HTTP responses
 }
 
 ///|
@@ -31,17 +31,19 @@ fn AppError::to_code_string(self : AppError) -> String {
 
 ///|
 pub fn AppError::to_json_string(self : AppError) -> String {
-  let detail_json = match self.detail {
+  let debug_json = match self.debug {
     Some(d) => "\"" + escape_json_string(d) + "\""
     None => "null"
   }
-  "{\"error\":{\"code\":\"" +
+  "{\"code\":\"" +
   self.to_code_string() +
   "\",\"message\":\"" +
   escape_json_string(self.message) +
-  "\",\"detail\":" +
-  detail_json +
-  "}}"
+  "\",\"errors\":[\"" +
+  escape_json_string(self.message) +
+  "\"],\"debug\":" +
+  debug_json +
+  "}"
 }
 
 ///|
@@ -51,14 +53,18 @@ pub fn escape_json_string(s : String) -> String {
 
 ///|
 pub fn surreal_error(body : String, sql : String?) -> AppError {
-  AppError::{ code: SurrealDBError, message: "SurrealDB query failed", detail: Some(match sql { Some(s) => "SQL: " + s + " | Response: " + body; None => "Response: " + body }) }
+  AppError::{
+    code: SurrealDBError,
+    message: "Database query failed",
+    debug: Some(match sql { Some(s) => "SQL: " + s + " | Response: " + body; None => "Response: " + body })
+  }
 }
 
 pub fn not_found_error(resource : String) -> AppError {
-  AppError::{ code: NotFound, message: resource + " not found", detail: None }
+  AppError::{ code: NotFound, message: resource + " not found", debug: None }
 }
 
 ///|
 pub fn validation_error(msg : String) -> AppError {
-  AppError::{ code: ValidationError, message: msg, detail: None }
+  AppError::{ code: ValidationError, message: msg, debug: None }
 }

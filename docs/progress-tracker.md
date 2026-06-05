@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔧 HF-08: Error Handling Unification — In Progress**
+  Unifying all error responses to match Golem's gateway error convention (`{"code":"...","message":"...","errors":["..."]}`), renaming `detail`→`debug` with user-facing vs developer-facing contract, adding `extractErrorFromBody()` and `!res.ok` gate to frontend proxy. Spec: `docs/specs/hotfix-08-error-handling-unification.md`.
+
 ## Completed
 
 - **✅ HF-07: Backend Audit Fixes — Complete**
