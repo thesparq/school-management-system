@@ -49,6 +49,8 @@
 		"vite-plugin-moonbit": "^0.2.1"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1061.0",
+		"@aws-sdk/s3-request-presigner": "^3.1061.0",
 		"jose": "^6.2.3"
 	}
 }

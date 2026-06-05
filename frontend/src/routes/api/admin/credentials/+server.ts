@@ -1,13 +1,6 @@
 import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
-const PROFILE_PATH: Record<string, string> = {
-	student: '/get-student-profile',
-	teacher: '/get-teacher-profile',
-	admin: '/get-admin-profile',
-	parent: '/get-parent-profile'
-};
-
 export const GET: RequestHandler = async (event) => {
 	const user = event.locals.user;
 	if (!user || !user.roles.includes('admin')) {
@@ -16,17 +9,8 @@ export const GET: RequestHandler = async (event) => {
 		});
 	}
 
-	const target_uuid = event.params.pk;
-	const role = event.url.searchParams.get('role') || 'student';
-
-	if (!target_uuid || !PROFILE_PATH[role]) {
-		return new Response(JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Valid uuid and role required' } }), {
-			status: 400, headers: { 'content-type': 'application/json' }
-		});
-	}
-
 	const proxy = adminProxy(user);
-	const result = await proxy(PROFILE_PATH[role], { target_user_id: target_uuid });
+	const result = await proxy('/credentials');
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
@@ -37,11 +21,11 @@ export const GET: RequestHandler = async (event) => {
 
 	try {
 		const parsed = JSON.parse(result.data);
-		return new Response(JSON.stringify({ data: parsed }), {
+		return new Response(JSON.stringify({ data: Array.isArray(parsed) ? parsed : [] }), {
 			status: 200, headers: { 'content-type': 'application/json' }
 		});
 	} catch {
-		return new Response(JSON.stringify({ data: null }), {
+		return new Response(JSON.stringify({ data: [] }), {
 			status: 200, headers: { 'content-type': 'application/json' }
 		});
 	}
