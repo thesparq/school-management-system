@@ -165,6 +165,13 @@
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/parents')}>
+								{#snippet child({ props })}
+									<a href="/admin/users/parents" {...props}>Parents</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
 							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/admin-role')}>
 								{#snippet child({ props })}
 									<a href="/admin/users/admin-role" {...props}>Admin</a>
