@@ -558,7 +558,7 @@ pub fn AdminAgentClient::schedule_cancelable_set_teacher_subjects(
 pub fn AdminAgentClient::get_active_session_term(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[SessionTermDetail, String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -616,7 +616,7 @@ pub fn AdminAgentClient::schedule_cancelable_get_active_session_term(
 pub fn AdminAgentClient::get_terms(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[Array[TermSimple], String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -674,7 +674,7 @@ pub fn AdminAgentClient::schedule_cancelable_get_terms(
 pub fn AdminAgentClient::get_session_terms(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[Array[SessionTermInfo], String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -733,7 +733,7 @@ pub fn AdminAgentClient::create_session_term(
   self : AdminAgentClient,
   incoming_key : String,
   body_json : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[SessionTermInfo, String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(

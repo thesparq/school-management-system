@@ -18,7 +18,7 @@
 ///   "session_terms"     — admin session term list
 
 ///|
-pub let CACHE_TTL : UInt64 = 600UL
+pub const CACHE_TTL : UInt64 = 600UL
 
 ///|
 struct CacheEntry {

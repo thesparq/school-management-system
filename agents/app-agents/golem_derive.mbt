@@ -147,6 +147,132 @@ impl @schema.ToElementValue for CreateUserResponse with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for SessionTermDetail with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "session",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "term_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SessionTermDetail with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let session :String = @schema.extract_field(e, 1)
+  let term_name :String = @schema.extract_field(e, 2)
+  { id, session, term_name }
+}
+
+///|
+impl @schema.FromElementValue for SessionTermDetail with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SessionTermDetail with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.session),
+    @schema.to_element_value_as(self.term_name),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for SessionTermInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "session",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "term_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "active",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+    (
+      "created_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SessionTermInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let session :String = @schema.extract_field(e, 1)
+  let term_name :String = @schema.extract_field(e, 2)
+  let active :Bool = @schema.extract_field(e, 3)
+  let created_at :String = @schema.extract_field(e, 4)
+  { id, session, term_name, active, created_at }
+}
+
+///|
+impl @schema.FromElementValue for SessionTermInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SessionTermInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.session),
+    @schema.to_element_value_as(self.term_name),
+    @schema.to_element_value_as(self.active),
+    @schema.to_element_value_as(self.created_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for TermSimple with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for TermSimple with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  { id, name }
+}
+
+///|
+impl @schema.FromElementValue for TermSimple with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for TermSimple with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.name),
+  ])
+}
+
+///|
 impl @schema.HasElementSchema for SubjectInfo with element_schema() {
   @schema.make_record_schema([
     (

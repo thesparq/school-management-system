@@ -385,7 +385,7 @@ fn init{
                 @schema.schema_of_tag(
                   (
                     @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
+                    : @schema.TypeTag[Result[SessionTermDetail, String]]
                   ),
                 ),
               ),
@@ -419,7 +419,7 @@ fn init{
                 @schema.schema_of_tag(
                   (
                     @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
+                    : @schema.TypeTag[Result[Array[TermSimple], String]]
                   ),
                 ),
               ),
@@ -453,7 +453,7 @@ fn init{
                 @schema.schema_of_tag(
                   (
                     @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
+                    : @schema.TypeTag[Result[Array[SessionTermInfo], String]]
                   ),
                 ),
               ),
@@ -495,7 +495,7 @@ fn init{
                 @schema.schema_of_tag(
                   (
                     @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
+                    : @schema.TypeTag[Result[SessionTermInfo, String]]
                   ),
                 ),
               ),

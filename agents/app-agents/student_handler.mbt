@@ -3,6 +3,16 @@ fn parse_profile(json_str : String) -> StudentProfile? {
   match val { Object(obj) => { let class_level = match obj.get("class_level") { Some(String(s)) => s; _ => "" }; Some(StudentProfile::{ class_level, }) }; _ => None }
 }
 
+fn json_parse_array_safe(json_str : String) -> Array[Json]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Array(arr) => Some(arr); _ => None }
+}
+
+fn json_parse_object_safe(json_str : String) -> Map[String, Json]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Object(obj) => Some(obj); _ => None }
+}
+
 pub fn student_get_class_level(cache : CacheSystem, config : SharedConfig, student_id : String, now : UInt64) -> Result[String, AppError] {
   let cache_key = "profile"
   match cache.get(cache_key, now) {
@@ -26,20 +36,17 @@ pub fn student_get_class_level(cache : CacheSystem, config : SharedConfig, stude
 pub fn student_fetch_subjects(cache : CacheSystem, config : SharedConfig, student_id : String, now : UInt64) -> Result[Array[SubjectInfo], AppError] {
   let cache_key = "subjects"
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ => () }
-      match val {
-        Array(arr) => {
-          let items : Array[SubjectInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(SubjectInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            name: match obj.get("name") { Some(String(s)) => s; _ => continue },
-            code: match obj.get("code") { Some(String(s)) => Some(s); _ => None },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[SubjectInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(SubjectInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          name: match obj.get("name") { Some(String(s)) => s; _ => continue },
+          code: match obj.get("code") { Some(String(s)) => Some(s); _ => None },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
+      None => ()
     }
     None => ()
   }
@@ -60,21 +67,18 @@ pub fn student_fetch_terms(cache : CacheSystem, config : SharedConfig, student_i
   let cl = match student_get_class_level(cache, config, student_id, now) { Ok(c) => c; Err(e) => return Err(e) }
   let cache_key = "terms:" + cl
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ => () }
-      match val {
-        Array(arr) => {
-          let items : Array[TermInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(TermInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            name: match obj.get("name") { Some(String(s)) => s; _ => continue },
-            sort_order: match obj.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
-            active: match obj.get("active") { Some(True) => true; _ => false },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[TermInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(TermInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          name: match obj.get("name") { Some(String(s)) => s; _ => continue },
+          sort_order: match obj.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
+          active: match obj.get("active") { Some(True) => true; _ => false },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
+      None => ()
     }
     None => ()
   }
@@ -94,23 +98,20 @@ pub fn student_fetch_terms(cache : CacheSystem, config : SharedConfig, student_i
 pub fn student_fetch_lessons(cache : CacheSystem, config : SharedConfig, student_id : String, subject_id : String, term_id : String, now : UInt64) -> Result[Array[LessonInfo], AppError] {
   let cache_key = "lessons:" + subject_id + "|" + term_id
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ => () }
-      match val {
-        Array(arr) => {
-          let items : Array[LessonInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(LessonInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            topic_title: match obj.get("topic_title") { Some(String(s)) => Some(s); _ => None },
-            week: match obj.get("week") { Some(Number(d, ..)) => Some(d.to_int()); _ => None },
-            subject_name: match obj.get("subject_name") { Some(String(s)) => Some(s); _ => None },
-            term_name: match obj.get("term_name") { Some(String(s)) => Some(s); _ => None },
-            active: match obj.get("active") { Some(True) => Some(true); Some(False) => Some(false); _ => None },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[LessonInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(LessonInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          topic_title: match obj.get("topic_title") { Some(String(s)) => Some(s); _ => None },
+          week: match obj.get("week") { Some(Number(d, ..)) => Some(d.to_int()); _ => None },
+          subject_name: match obj.get("subject_name") { Some(String(s)) => Some(s); _ => None },
+          term_name: match obj.get("term_name") { Some(String(s)) => Some(s); _ => None },
+          active: match obj.get("active") { Some(True) => Some(true); Some(False) => Some(false); _ => None },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
+      None => ()
     }
     None => ()
   }
@@ -133,12 +134,9 @@ pub fn student_fetch_lessons(cache : CacheSystem, config : SharedConfig, student
 pub fn student_fetch_lesson(cache : CacheSystem, config : SharedConfig, lesson_id : String, now : UInt64) -> Result[LessonContent?, AppError] {
   let cache_key = "lesson:" + lesson_id
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ => () }
-      match val {
-        Object(obj) => return Ok(Some(parse_lesson_content(obj)))
-        _ => ()
-      }
+    Some(json_str) => match json_parse_object_safe(json_str) {
+      Some(obj) => return Ok(Some(parse_lesson_content(obj)))
+      None => ()
     }
     None => ()
   }

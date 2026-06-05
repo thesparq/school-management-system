@@ -1,3 +1,18 @@
+fn try_parse_session_terms(json_str : String) -> Array[SessionTermInfo]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Array(arr) => {
+    let items : Array[SessionTermInfo] = []
+    for i in arr { match i { Object(obj) => { items.push(SessionTermInfo::{
+      id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+      session: match obj.get("session") { Some(String(s)) => s; _ => continue },
+      term_name: match obj.get("term_name") { Some(String(s)) => s; _ => continue },
+      active: match obj.get("active") { Some(True) => true; _ => false },
+      created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
+    }) }; _ => () } }
+    if items.length() > 0 { Some(items) } else { None }
+  }; _ => None }
+}
+
 ///|
 pub fn admin_fetch_class_levels(
   config : SharedConfig,
@@ -279,23 +294,7 @@ pub fn admin_fetch_session_terms(
 ) -> Result[Array[SessionTermInfo], AppError] {
   let cache_key = "session_terms"
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ => () }
-      match val {
-        Array(arr) => {
-          let items : Array[SessionTermInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(SessionTermInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            session: match obj.get("session") { Some(String(s)) => s; _ => continue },
-            term_name: match obj.get("term_name") { Some(String(s)) => s; _ => continue },
-            active: match obj.get("active") { Some(True) => true; _ => false },
-            created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
-      }
-    }
+    Some(json_str) => match try_parse_session_terms(json_str) { Some(items) => return Ok(items); None => () }
     None => ()
   }
   let arr = match db_admin_fetch_session_terms(config) {
