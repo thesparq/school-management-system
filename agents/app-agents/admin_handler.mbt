@@ -498,11 +498,6 @@ pub fn admin_set_teacher_subjects(
       }
     _ => return Err(validation_error("Invalid JSON body"))
   }
-  let _ = match
-    db_admin_soft_delete_teacher_assignments(config, target_teacher_id) {
-    Ok(_) => ()
-    Err(e) => return Err(e)
-  }
   if pairs.length() > 0 {
     let active_st = match admin_fetch_active_session_term_id(cache, config, now) {
       Ok(id) => id

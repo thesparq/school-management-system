@@ -65,6 +65,11 @@ pub fn db_admin_fetch_students_by_class_level(config : SharedConfig, class_level
 }
 pub fn db_admin_fetch_students_by_class_levels(config : SharedConfig, class_level_ids : Array[String]) -> Result[Array[Json], AppError] {
   if class_level_ids.length() == 0 { return Ok([]) }
+  for id in class_level_ids {
+    if !id.starts_with("class_levels:") {
+      return Err(validation_error("Invalid class level ID format: " + id))
+    }
+  }
   ///|
   /// NOTE: SurrealDB $bindings do not support array parameters for IN clauses.
   /// class_level_ids are pre-validated slugs from the DB, not user input.

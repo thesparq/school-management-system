@@ -17,6 +17,7 @@
 
 	let { data }: { data: PageData } = $props();
 	let terms: TermItem[] = $state(data.terms);
+	let toggling = $state<Record<string, boolean>>({});
 
 	$effect(() => { terms = data.terms; });
 
@@ -26,6 +27,8 @@
 		const prev = terms[idx].active;
 		terms[idx].active = newActive;
 		terms = [...terms];
+		toggling[termId] = true;
+		toggling = { ...toggling };
 
 		try {
 			const res = await fetch('/api/admin/toggle-term', {
@@ -42,6 +45,9 @@
 			terms[idx].active = prev;
 			terms = [...terms];
 			addToast('error', 'Failed to update term', e instanceof Error ? e.message : 'Unknown error');
+		} finally {
+			toggling[termId] = false;
+			toggling = { ...toggling };
 		}
 	}
 </script>
@@ -69,10 +75,19 @@
 							<TableRow>
 								<TableCell class="font-medium">{term.name}</TableCell>
 								<TableCell>
-									<Switch
-										checked={term.active}
-										onCheckedChange={(checked) => handleToggle(term.id, checked)}
-									/>
+									<div class="flex items-center gap-2">
+										<Switch
+											checked={term.active}
+											disabled={toggling[term.id] ?? false}
+											onCheckedChange={(checked) => handleToggle(term.id, checked)}
+										/>
+										{#if toggling[term.id]}
+											<svg class="animate-spin h-4 w-4 text-surface-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+											</svg>
+										{/if}
+									</div>
 								</TableCell>
 								<TableCell class="text-surface-500 text-sm">{term.sort_order}</TableCell>
 							</TableRow>

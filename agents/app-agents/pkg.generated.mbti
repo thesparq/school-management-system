@@ -7,9 +7,46 @@ import {
   "golemcloud/golem_sdk/interface/golem/agent/host",
   "golemcloud/golem_sdk/interface/wasi/clocks/wallClock",
   "golemcloud/golem_sdk/rpc",
+  "moonbitlang/core/json",
 }
 
 // Values
+pub const CACHE_TTL : UInt64 = 600
+
+pub fn admin_activate_session_term(CacheSystem, SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn admin_create_session_term(CacheSystem, SharedConfig, String) -> Result[SessionTermInfo, AppError]
+
+pub fn admin_create_user(SharedConfig, String) -> Result[CreateUserResponse, AppError]
+
+pub fn admin_delete_user(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn admin_edit_user(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn admin_fetch_active_session_term_detail(SharedConfig) -> Result[SessionTermDetail, AppError]
+
+pub fn admin_fetch_active_session_term_id(CacheSystem, SharedConfig, UInt64) -> Result[String, AppError]
+
+pub fn admin_fetch_class_levels(SharedConfig) -> Result[Array[ClassLevelInfo], AppError]
+
+pub fn admin_fetch_class_subjects(SharedConfig) -> Result[Array[TeacherSubjectPair], AppError]
+
+pub fn admin_fetch_profile(SharedConfig, String) -> Result[UserProfileInfo, AppError]
+
+pub fn admin_fetch_session_terms(CacheSystem, SharedConfig, UInt64) -> Result[Array[SessionTermInfo], AppError]
+
+pub fn admin_fetch_teacher_subjects(SharedConfig, String) -> Result[Array[TeacherSubjectPair], AppError]
+
+pub fn admin_fetch_terms(SharedConfig) -> Result[Array[TermSimple], AppError]
+
+pub fn admin_set_teacher_subjects(CacheSystem, SharedConfig, String, String, UInt64) -> Result[String, AppError]
+
+pub fn admin_set_user_active(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn admin_soft_delete_profile(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn admin_toggle_term(SharedConfig, String, Bool) -> Result[Unit, AppError]
+
 pub fn authentik_add_to_group(SharedConfig, String, Int) -> Result[Unit, AppError]
 
 pub fn authentik_create_user(SharedConfig, String, String, String, String, Bool, String) -> Result[(Int, String), AppError]
@@ -30,11 +67,73 @@ pub fn build_headers(Array[(String, String)]) -> Result[@golemcloud/golem_sdk/in
 
 pub fn cabi_realloc(Int, Int, Int, Int) -> Int
 
+pub fn db_admin_activate_session_term(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn db_admin_create_session_term(SharedConfig, String, String, Bool) -> Result[Array[Json], AppError]
+
+pub fn db_admin_create_teacher_assignments(SharedConfig, String, Array[TeacherSubjectPair], String) -> Result[Unit, AppError]
+
+pub fn db_admin_deactivate_all_session_terms(SharedConfig) -> Result[Unit, AppError]
+
+pub fn db_admin_fetch_active_session_term(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_active_session_term_detail(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_class_level_by_name(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_class_levels(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_has_subject_for_class(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_profile(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_session_terms(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_students_by_class_level(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_students_by_class_levels(SharedConfig, Array[String]) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_teacher_subjects(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_terms(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_admin_fetch_users_by_role(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_admin_save_profile(SharedConfig, String, String, String?) -> Result[Unit, AppError]
+
+pub fn db_admin_soft_delete_teacher_assignments(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn db_admin_soft_delete_user(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn db_admin_undo_soft_delete(SharedConfig, String) -> Result[Unit, AppError]
+
+pub fn db_student_fetch_lesson_content(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_student_fetch_lessons(SharedConfig, String, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_student_fetch_profile(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_student_fetch_subjects(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_student_fetch_terms(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_fetch_class_groups(SharedConfig, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_fetch_class_levels_for_teacher(SharedConfig, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_fetch_lesson_meta(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_fetch_lessons(SharedConfig, String, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_fetch_terms(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_teacher_update_record_active(SharedConfig, String, Bool) -> Result[Unit, AppError]
+
 pub fn escape_json_string(String) -> String
 
-pub fn escape_surreal_string(String) -> String
-
 pub fn http_request(String, @golemcloud/golem_sdk/interface/wasi/http/types.Method, @golemcloud/golem_sdk/interface/wasi/http/types.Scheme, String, @golemcloud/golem_sdk/interface/wasi/http/types.Fields, FixedArray[Byte]?) -> Result[(UInt, String), String]
+
+pub fn not_found_error(String) -> AppError
 
 pub fn require_auth(SharedConfig, String) -> Result[Unit, AppError]
 
@@ -42,13 +141,29 @@ pub fn resolve_authentik_cfg(SharedConfig) -> Result[AuthentikCfg, AppError]
 
 pub fn resolve_surreal_cfg(SharedConfig) -> Result[SurrealCfg, AppError]
 
+pub fn student_fetch_lesson(CacheSystem, SharedConfig, String, UInt64) -> Result[LessonContent?, AppError]
+
+pub fn student_fetch_lessons(CacheSystem, SharedConfig, String, String, String, UInt64) -> Result[Array[LessonInfo], AppError]
+
+pub fn student_fetch_subjects(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[SubjectInfo], AppError]
+
+pub fn student_fetch_terms(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[TermInfo], AppError]
+
+pub fn student_get_class_level(CacheSystem, SharedConfig, String, UInt64) -> Result[String, AppError]
+
+pub fn surreal_error(String, String?) -> AppError
+
 pub fn surreal_query(SharedConfig, String, bindings? : Map[String, String]) -> Result[Array[Json], AppError]
 
-pub fn surreal_save_profile(SharedConfig, String, String, String?) -> Result[Unit, AppError]
+pub fn teacher_fetch_classes(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[TeacherClassGroup], AppError]
 
-pub fn surreal_soft_delete_user(SharedConfig, String) -> Result[Unit, AppError]
+pub fn teacher_fetch_lessons(CacheSystem, SharedConfig, String, String, String, UInt64) -> Result[Array[LessonInfo], AppError]
 
-pub fn surreal_undo_soft_delete(SharedConfig, String) -> Result[Unit, AppError]
+pub fn teacher_fetch_terms(CacheSystem, SharedConfig, UInt64) -> Result[Array[TermInfo], AppError]
+
+pub fn teacher_toggle_lesson(CacheSystem, SharedConfig, String, Bool) -> Result[Unit, AppError]
+
+pub fn url_encode(String) -> String
 
 pub fn validate_class_level_exists(SharedConfig, String) -> Result[Unit, AppError]
 
@@ -61,6 +176,8 @@ pub fn validate_password(String) -> Result[Unit, AppError]
 pub fn validate_role(String) -> Result[Unit, AppError]
 
 pub fn validate_username(String) -> Result[Unit, AppError]
+
+pub fn validation_error(String) -> AppError
 
 pub fn wasmExportDiscoverAgentTypes() -> Int
 
@@ -91,42 +208,43 @@ pub fn wasmExportSavePostReturn(Int) -> Unit
 // Types and methods
 type AdminAgent
 pub fn AdminAgent::activate_session_term(Self, String, String) -> Result[String, String]
-pub fn AdminAgent::create_session_term(Self, String, String) -> Result[String, String]
+pub fn AdminAgent::create_session_term(Self, String, String) -> Result[SessionTermInfo, String]
 pub fn AdminAgent::create_user_in_authentik(Self, String, String) -> Result[CreateUserResponse, String]
 pub fn AdminAgent::delete_user_in_authentik(Self, String, String) -> Result[String, String]
 pub fn AdminAgent::edit_user_in_authentik(Self, String, String) -> Result[String, String]
-pub fn AdminAgent::get_active_session_term(Self, String) -> Result[String, String]
+pub fn AdminAgent::get_active_session_term(Self, String) -> Result[SessionTermDetail, String]
 pub fn AdminAgent::get_available_class_subjects(Self, String) -> Result[Array[TeacherSubjectPair], String]
 pub fn AdminAgent::get_class_levels(Self, String) -> Result[Array[ClassLevelInfo], String]
 pub fn AdminAgent::get_profile(Self, String, String) -> Result[UserProfileInfo, String]
-pub fn AdminAgent::get_session_terms(Self, String) -> Result[String, String]
+pub fn AdminAgent::get_session_terms(Self, String) -> Result[Array[SessionTermInfo], String]
 pub fn AdminAgent::get_teacher_subjects(Self, String, String) -> Result[Array[TeacherSubjectPair], String]
-pub fn AdminAgent::get_terms(Self, String) -> Result[String, String]
+pub fn AdminAgent::get_terms(Self, String) -> Result[Array[TermSimple], String]
 pub fn AdminAgent::invalidate_cache(Self, String, String) -> String
 pub fn AdminAgent::ping(Self, String) -> String
 pub fn AdminAgent::set_teacher_subjects(Self, String, String, String) -> Result[String, String]
 pub fn AdminAgent::set_user_active_status(Self, String, String) -> Result[String, String]
 pub fn AdminAgent::soft_delete_profile(Self, String, String) -> Result[String, String]
+pub fn AdminAgent::toggle_term_active(Self, String, String, Bool) -> Result[String, String]
 
 pub(all) struct AdminAgentClient {
   client : @rpc.AgentClient
 }
 pub fn AdminAgentClient::activate_session_term(Self, String, String) -> Result[String, String] raise @common.AgentError
-pub fn AdminAgentClient::create_session_term(Self, String, String) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::create_session_term(Self, String, String) -> Result[SessionTermInfo, String] raise @common.AgentError
 pub fn AdminAgentClient::create_user_in_authentik(Self, String, String) -> Result[CreateUserResponse, String] raise @common.AgentError
 pub fn AdminAgentClient::delete_user_in_authentik(Self, String, String) -> Result[String, String] raise @common.AgentError
 pub fn AdminAgentClient::drop(Self) -> Unit
 pub fn AdminAgentClient::edit_user_in_authentik(Self, String, String) -> Result[String, String] raise @common.AgentError
 pub fn AdminAgentClient::get(String) -> Self raise @common.AgentError
-pub fn AdminAgentClient::get_active_session_term(Self, String) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::get_active_session_term(Self, String) -> Result[SessionTermDetail, String] raise @common.AgentError
 pub fn AdminAgentClient::get_agent_id(Self) -> String raise @common.AgentError
 pub fn AdminAgentClient::get_available_class_subjects(Self, String) -> Result[Array[TeacherSubjectPair], String] raise @common.AgentError
 pub fn AdminAgentClient::get_class_levels(Self, String) -> Result[Array[ClassLevelInfo], String] raise @common.AgentError
 pub fn AdminAgentClient::get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid) -> Self raise @common.AgentError
 pub fn AdminAgentClient::get_profile(Self, String, String) -> Result[UserProfileInfo, String] raise @common.AgentError
-pub fn AdminAgentClient::get_session_terms(Self, String) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::get_session_terms(Self, String) -> Result[Array[SessionTermInfo], String] raise @common.AgentError
 pub fn AdminAgentClient::get_teacher_subjects(Self, String, String) -> Result[Array[TeacherSubjectPair], String] raise @common.AgentError
-pub fn AdminAgentClient::get_terms(Self, String) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::get_terms(Self, String) -> Result[Array[TermSimple], String] raise @common.AgentError
 pub fn AdminAgentClient::invalidate_cache(Self, String, String) -> String raise @common.AgentError
 pub fn AdminAgentClient::new_phantom(String) -> Self raise @common.AgentError
 pub fn AdminAgentClient::phantom_id(Self) -> @golemcloud/golem_sdk/interface/golem/core/types.Uuid?
@@ -149,6 +267,7 @@ pub fn AdminAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, Str
 pub fn AdminAgentClient::schedule_cancelable_set_teacher_subjects(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn AdminAgentClient::schedule_cancelable_set_user_active_status(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn AdminAgentClient::schedule_cancelable_soft_delete_profile(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn AdminAgentClient::schedule_cancelable_toggle_term_active(Self, @wallClock.Datetime, String, String, Bool) -> @host.CancellationToken raise @common.AgentError
 pub fn AdminAgentClient::schedule_create_session_term(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::schedule_create_user_in_authentik(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::schedule_delete_user_in_authentik(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
@@ -165,12 +284,14 @@ pub fn AdminAgentClient::schedule_ping(Self, @wallClock.Datetime, String) -> Uni
 pub fn AdminAgentClient::schedule_set_teacher_subjects(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::schedule_set_user_active_status(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::schedule_soft_delete_profile(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::schedule_toggle_term_active(Self, @wallClock.Datetime, String, String, Bool) -> Unit raise @common.AgentError
 pub fn[T] AdminAgentClient::scoped(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] AdminAgentClient::scoped_get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] AdminAgentClient::scoped_new_phantom(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn AdminAgentClient::set_teacher_subjects(Self, String, String, String) -> Result[String, String] raise @common.AgentError
 pub fn AdminAgentClient::set_user_active_status(Self, String, String) -> Result[String, String] raise @common.AgentError
 pub fn AdminAgentClient::soft_delete_profile(Self, String, String) -> Result[String, String] raise @common.AgentError
+pub fn AdminAgentClient::toggle_term_active(Self, String, String, Bool) -> Result[String, String] raise @common.AgentError
 pub fn AdminAgentClient::trigger_activate_session_term(Self, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::trigger_create_session_term(Self, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::trigger_create_user_in_authentik(Self, String, String) -> Unit raise @common.AgentError
@@ -188,11 +309,12 @@ pub fn AdminAgentClient::trigger_ping(Self, String) -> Unit raise @common.AgentE
 pub fn AdminAgentClient::trigger_set_teacher_subjects(Self, String, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::trigger_set_user_active_status(Self, String, String) -> Unit raise @common.AgentError
 pub fn AdminAgentClient::trigger_soft_delete_profile(Self, String, String) -> Unit raise @common.AgentError
+pub fn AdminAgentClient::trigger_toggle_term_active(Self, String, String, Bool) -> Unit raise @common.AgentError
 
 pub struct AppError {
   code : ErrorCode
   message : String
-  detail : String?
+  debug : String?
 }
 pub fn AppError::to_json_string(Self) -> String
 
@@ -201,28 +323,36 @@ pub(all) struct AuthentikCfg {
   api_token : String
 }
 
-type CacheData
+type CacheEntry
 
-type CacheItem
+type CacheSystem
+pub fn CacheSystem::get(Self, String, UInt64) -> String?
+pub fn CacheSystem::invalidate(Self, String) -> Unit
+pub fn CacheSystem::invalidate_all(Self) -> Unit
+pub fn CacheSystem::new() -> Self
+pub fn CacheSystem::set(Self, String, String, UInt64, Array[String], UInt64) -> Unit
 
-type ClassLevelInfo
+type ClassLevelInfo derive(ToJson, @json.FromJson)
 
-type CreateUserResponse
+type CreateUserResponse derive(ToJson, @json.FromJson)
 
 pub enum ErrorCode {
   ValidationError
   AuthFailure
   NotFound
-  AlreadyExists
   NotInitialized
   AuthentikError
   SurrealDBError
   InternalError
 }
 
-type LessonContent
+type LessonContent derive(ToJson, @json.FromJson)
 
-type LessonInfo
+type LessonInfo derive(ToJson, @json.FromJson)
+
+type SessionTermDetail derive(ToJson, @json.FromJson)
+
+type SessionTermInfo derive(ToJson, @json.FromJson)
 
 pub(all) struct SharedConfig {
   surreal_host : @config.Secret[String]
@@ -280,9 +410,9 @@ pub fn StudentAgentClient::trigger_get_terms(Self, String) -> Unit raise @common
 pub fn StudentAgentClient::trigger_invalidate_cache(Self, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_ping(Self, String) -> Unit raise @common.AgentError
 
-type StudentProfile
+type StudentProfile derive(ToJson, @json.FromJson)
 
-type SubjectInfo
+type SubjectInfo derive(ToJson, @json.FromJson)
 
 pub(all) struct SurrealCfg {
   host : String
@@ -299,7 +429,6 @@ pub fn TeacherAgent::get_terms(Self, String) -> Result[Array[TermInfo], String]
 pub fn TeacherAgent::invalidate_cache(Self, String, String) -> String
 pub fn TeacherAgent::ping(Self, String) -> String
 pub fn TeacherAgent::toggle_lesson_active(Self, String, String, Bool) -> Result[String, String]
-pub fn TeacherAgent::toggle_term_active(Self, String, String, Bool) -> Result[String, String]
 
 pub(all) struct TeacherAgentClient {
   client : @rpc.AgentClient
@@ -320,27 +449,33 @@ pub fn TeacherAgentClient::schedule_cancelable_get_my_classes(Self, @wallClock.D
 pub fn TeacherAgentClient::schedule_cancelable_get_terms(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_toggle_lesson_active(Self, @wallClock.Datetime, String, String, Bool) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_lessons(Self, @wallClock.Datetime, String, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_my_classes(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_terms(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_invalidate_cache(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_ping(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_toggle_lesson_active(Self, @wallClock.Datetime, String, String, Bool) -> Unit raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped_get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped_new_phantom(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn TeacherAgentClient::toggle_lesson_active(Self, String, String, Bool) -> Result[String, String] raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_lessons(Self, String, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_my_classes(Self, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_terms(Self, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_invalidate_cache(Self, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_ping(Self, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_toggle_lesson_active(Self, String, String, Bool) -> Unit raise @common.AgentError
 
-type TeacherClassGroup
+type TeacherClassGroup derive(ToJson, @json.FromJson)
 
-type TeacherSubjectPair
+type TeacherSubjectPair derive(ToJson, @json.FromJson)
 
-type TermInfo
+type TermInfo derive(ToJson, @json.FromJson)
 
-type UserProfileInfo
+type TermSimple derive(ToJson, @json.FromJson)
+
+type UserProfileInfo derive(ToJson, @json.FromJson)
 
 // Type aliases
 

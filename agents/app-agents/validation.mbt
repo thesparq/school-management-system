@@ -8,7 +8,7 @@ pub fn validate_name(name : String) -> Result[Unit, AppError] {
   Ok(())
 }
 pub fn validate_email(email : String) -> Result[Unit, AppError] {
-  if !email.contains("@") || !email.contains(".") { return Err(AppError::{ code: ValidationError, message: "Email address is invalid", debug: Some(email) }) }
+  if !email.contains("@") || !email.contains(".") { return Err(AppError::{ code: ValidationError, message: "Email address is invalid", debug: None }) }
   Ok(())
 }
 pub fn validate_password(password : String) -> Result[Unit, AppError] {

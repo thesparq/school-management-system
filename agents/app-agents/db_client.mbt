@@ -1,5 +1,5 @@
 ///|
-pub fn escape_surreal_string(s : String) -> String { s.replace(old="'", new="''") }
+fn escape_surreal_string(s : String) -> String { s.replace(old="'", new="''") }
 pub fn url_encode(s : String) -> String {
   let bytes = @utf8.encode(s); let arr = bytes.to_fixedarray()
   let hex_chars = "0123456789ABCDEF"; let result = StringBuilder::new()
