@@ -20,7 +20,7 @@ pub fn db_parent_count_subjects_for_class(config : SharedConfig, class_level_id 
       if arr.length() > 0 {
         match arr[0] {
           Object(o) => match o.get("count") {
-            Some(Int64(n)) => Ok(n.to_int())
+             Some(Number(n, ..)) => Ok(n.to_int())
             _ => Ok(0)
           }
           _ => Ok(0)

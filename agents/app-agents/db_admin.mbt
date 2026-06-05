@@ -113,7 +113,7 @@ pub fn db_admin_fetch_credentials(config : SharedConfig) -> Result[Array[Json], 
 }
 
 pub fn db_admin_create_credential(config : SharedConfig, name : String) -> Result[Array[Json], AppError] {
-  let slug = string::lowercase(string::replace(name, ' ', '_'))
+  let slug = name.to_lower()
   surreal_query(config, "CREATE type::thing('credentials', $slug) SET name = $name, active = true", bindings={ "slug": slug, "name": name })
 }
 

@@ -1284,75 +1284,7 @@ pub fn admin_create_parent(
 }
 
 ///|
-fn parse_edit_body(
-  body_json : String,
-) -> Result[
-  (
-    Map[String, Json],
-    String,
-    Int,
-    String?,
-    String,
-    String,
-    String,
-    String,
-    Array[String],
-  ),
-  AppError,
-] {
-  let val = @json.parse(body_json) catch {
-    _ => return Err(validation_error("Invalid JSON body"))
-  }
-  let obj = match val {
-    Object(o) => o
-    _ => return Err(validation_error("Body must be an object"))
-  }
-  let target_user_id = match obj.get("target_user_id") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("target_user_id is required"))
-  }
-  let authentik_pk = match obj.get("authentik_pk") {
-    Some(Number(n, ..)) => n.to_int()
-    _ => return Err(validation_error("authentik_pk is required"))
-  }
-  let password = match obj.get("password") {
-    Some(String(s)) => if s == "" { None } else { Some(s) }
-    _ => None
-  }
-  let username = match obj.get("username") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Username is required"))
-  }
-  let email = match obj.get("email") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Email is required"))
-  }
-  let display_name = match obj.get("display_name") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("display_name is required"))
-  }
-  let remove_group_pks = match obj.get("remove_group_pks") {
-    Some(Array(arr)) => {
-      let pks : Array[String] = []
-      for item in arr {
-        match item {
-          String(s) => pks.push(s)
-          _ => ()
-        }
-      }
-      pks
-    }
-    _ => []
-  }
-  Ok(
-    (
-      obj, target_user_id, authentik_pk, password, username, email, display_name,
-      remove_group_pks,
-    ),
-  )
-}
 
-///|
 fn apply_edit_saga(
   config : SharedConfig,
   target_user_id : String,
@@ -1407,19 +1339,15 @@ pub fn admin_edit_student(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let (
-    obj,
-    target_user_id,
-    pk,
-    password,
-    username,
-    email,
-    display_name,
-    remove_group_pks,
-  ) = match parse_edit_body(body_json) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
+  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
+  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
+  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
+  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
+  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
+  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
+  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1519,19 +1447,15 @@ pub fn admin_edit_teacher(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let (
-    obj,
-    target_user_id,
-    pk,
-    password,
-    username,
-    email,
-    display_name,
-    remove_group_pks,
-  ) = match parse_edit_body(body_json) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
+  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
+  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
+  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
+  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
+  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
+  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
+  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1588,19 +1512,15 @@ pub fn admin_edit_admin(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let (
-    obj,
-    target_user_id,
-    pk,
-    password,
-    username,
-    email,
-    display_name,
-    remove_group_pks,
-  ) = match parse_edit_body(body_json) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
+  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
+  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
+  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
+  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
+  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
+  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
+  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1656,19 +1576,15 @@ pub fn admin_edit_parent(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let (
-    obj,
-    target_user_id,
-    pk,
-    password,
-    username,
-    email,
-    display_name,
-    remove_group_pks,
-  ) = match parse_edit_body(body_json) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
+  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
+  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
+  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
+  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
+  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
+  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
+  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
   let passport_url = match obj.get("passport_url") {
     Some(String(s)) => s
     _ => return Err(validation_error("Passport is required"))
