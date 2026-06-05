@@ -440,7 +440,7 @@ pub fn admin_toggle_term(
         Object(obj) => {
           let uid = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
           let _ = TeacherAgentClient::scoped(uid, fn(c) raise @common.AgentError {
-            c.trigger_invalidate_cache(ak, "class_groups")
+            c.trigger_invalidate_cache(ak, "all")
           }) catch { _ => () }
         }
         _ => ()

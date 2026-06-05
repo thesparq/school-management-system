@@ -18,7 +18,7 @@ export const POST: RequestHandler = async (event) => {
 
 	const body = await event.request.json().catch(() => ({}));
 	const { term_id, active } = body;
-	if (!term_id || typeof active !== 'boolean') {
+	if (typeof term_id !== 'string' || !term_id.trim() || typeof active !== 'boolean') {
 		return new Response(
 			JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing term_id or active.' } }),
 			{ status: 400, headers: { 'content-type': 'application/json' } }

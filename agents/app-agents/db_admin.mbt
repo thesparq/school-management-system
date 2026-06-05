@@ -7,7 +7,7 @@ pub fn db_admin_save_profile(config : SharedConfig, target_user_id : String, rol
   let cl_record = match class_level {
     Some(cl) => {
       let arr = match surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": cl }) { Ok(a) => a; Err(e) => return Err(AppError::{ code: SurrealDBError, message: "Failed to resolve class level", debug: e.debug }) }
-      if arr.length() > 0 { match arr[0] { Object(o) => match o.get("id") { Some(String(slug)) => Some(slug); _ => None }; _ => None } } else { None }
+      if arr.length() > 0 { match arr[0] { Object(o) => match o.get("id") { Some(String(slug)) => Some(slug); _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) }; _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) } } else { None }
     }
     None => None
   }
