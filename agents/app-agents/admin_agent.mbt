@@ -271,7 +271,7 @@ pub fn AdminAgent::create_user_in_authentik(
 
 ///|
 #derive.endpoint(post="/edit-user")
-// #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn AdminAgent::edit_user_in_authentik(
   self : Self,
   incoming_key : String,

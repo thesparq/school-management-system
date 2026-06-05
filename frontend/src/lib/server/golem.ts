@@ -47,6 +47,24 @@ function extractErrorFromBody(raw: string): BackendError | null {
 	try {
 		const parsed = JSON.parse(raw);
 
+		// Format 0: Golem serializes Result<T,String> Err as a JSON string
+		// HTTP 500 body = "\"{\\\"code\\\":...}\"" → JSON.parse gives a string
+		if (typeof parsed === 'string') {
+			try {
+				const inner = JSON.parse(parsed);
+				if (inner.code) {
+					return {
+						code: inner.code,
+						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						detail: inner.debug ?? null
+					};
+				}
+			} catch {
+				// inner wasn't valid JSON
+			}
+			return { code: 'AGENT_ERROR', message: parsed };
+		}
+
 		// Format 1: Golem Err envelope {"Err": "<inner_json>"}
 		if (parsed.Err && typeof parsed.Err === 'string') {
 			try {

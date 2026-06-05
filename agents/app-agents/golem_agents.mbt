@@ -662,7 +662,12 @@ fn init{
               {
                 http_method: @common.HttpMethod::Post,
                 path_suffix: [@common.PathSegment::Literal("edit-user")],
-                header_vars: [],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
                 query_vars: [],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
