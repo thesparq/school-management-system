@@ -2,12 +2,10 @@
 
 Update this file after every meaningful implementation change.
 
-## In Progress
-
-- **🔧 HF-09: Relocate Term Toggle — In Progress**
-  Moving term active/inactive toggling from Teacher Agent to Admin Agent, adding admin "Terms" page under Configuration, replacing teacher term page Switch with padlock badge. Spec: `docs/specs/hotfix-09-relocate-term-toggle.md`.
-
 ## Completed
+
+- **✅ HF-09: Relocate Term Toggle — Complete**
+  Moved term active/inactive toggling from Teacher Agent to Admin Agent. Removed `toggle_term_active` endpoint and `teacher_toggle_term` handler from Teacher. Added `admin_toggle_term` handler with fire-and-forget cache invalidation to all students (`"all"`) and teachers (`"class_groups"`) via `db_admin_fetch_users_by_role`. New `toggle_term_active` endpoint on AdminAgent. `TermSimple` gains `active : Bool` and `sort_order : Int` fields; `admin_fetch_terms` extracts both. Frontend: deleted `/api/teacher/toggle-term` route; teacher term page now shows padlock badge on inactive terms instead of Switch toggle; new admin `/configuration/terms` page with table layout (Name, Active Switch, Sort Order); new `/api/admin/toggle-term` proxy route; "Terms" link added to admin Configuration sidebar. Build: `moon check` 0 errors, `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-09-relocate-term-toggle.md`.
 
 - **✅ HF-08: Error Handling Unification — Complete**
   Unified all error responses to match Golem's gateway error convention (`{"code":"...","message":"...","errors":["..."]}`). Renamed `AppError.detail` → `debug` with enforced contract: `message` = always user-facing/clean, `debug` = developer-facing (raw SQL/HTTP responses). New `to_json_string()` produces top-level `code`/`message`/`errors`/`debug` format. Frontend `extractErrorFromBody()` handles 3 formats (Golem Err envelope, top-level, legacy nested). `proxyFetch` adds `!res.ok` gate — any non-2xx response is always treated as error. `db_admin_save_profile` preserves `e.debug` from original errors (no longer lossy). All 17 `detail:` → `debug:` across 5 backend files. `parseStructuredError` removed (superseded). Build: `moon check` 0 errors (26 warnings), `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-08-error-handling-unification.md`.
