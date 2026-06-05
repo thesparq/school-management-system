@@ -1,26 +1,6 @@
 ///|
-/// Auth key verification helper. Eliminates the 4-line boilerplate
-/// from every endpoint. Returns AppError::AuthFailure or Ok(()).
-
-///|
-pub fn require_auth(
-  config : SharedConfig,
-  incoming_key : String,
-) -> Result[Unit, AppError] {
-  let expected = config.auth_key.get() catch {
-    _ =>
-      return Err(AppError::{
-        code: InternalError,
-        message: "Failed to read auth key configuration",
-        detail: None,
-      })
-  }
-  if incoming_key != expected {
-    return Err(AppError::{
-      code: AuthFailure,
-      message: "Authentication failed",
-      detail: None,
-    })
-  }
+pub fn require_auth(config : SharedConfig, incoming_key : String) -> Result[Unit, AppError] {
+  let expected = config.auth_key.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Failed to read auth key configuration", detail: None }) }
+  if incoming_key != expected { return Err(AppError::{ code: AuthFailure, message: "Authentication failed", detail: None }) }
   Ok(())
 }

@@ -2,9 +2,12 @@
 
 Update this file after every meaningful implementation change.
 
-## In Progress
+## Completed
 
-- None.
+- **✅ HF-06: Backend Refactor — Code Organization, Handlers, Thin Agents — Complete**
+  Full reorganization of `app-agents/` package (27 source files): types extracted to `types_*.mbt` with `derive(ToJson, FromJson)`, SQL queries extracted parameterized `db_*.mbt` (4 domain modules), business logic extracted to `*_handler.mbt` (3 handlers + 1 shared), agents shrunk to thin endpoints (108/53/48 lines). `CacheSystem` adopted in all agent structs (deterministic, dependency-tracked, TTL-based). `cache_types.mbt` and `surreal_client.mbt` deleted. `AlreadyExists`, `authentik_error` dead code removed. `escape_surreal_string` usage gone from DB layer — all queries use `$bindings`. Stale cache fallback removed everywhere — DB failures propagate `Err(e)` directly. Group PK heuristic deleted (front-end always passes UUID). 3 student API routes fixed: `mapErrorCodeToHttpStatus` replaces broken `NOT_ACTIVATED` check. All cache invalidation fire-and-forget (no `return Err` after successful DB writes). Cache-first reads restored in 4 student fetch functions. 3 SvelteKit `$state(data.x)` → `$derived` + `$effect` fixes for SPA navigation staleness. `admin_id` → `_admin_id`, `method` → `http_method` to suppress framework warnings. `teacher_update_term/lesson_active` merged → `teacher_update_record_active`. `CacheEntry.created_at` field removed. `Map::new()` → `Map([], capacity=0)` in 2 files. Warnings: 42 → 25 (all generated code/framework). Build: `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-06-backend-refactor-cache-code-org.md`.
+
+- **✅ Unit 21: Teacher Agent — Term & Lesson Toggle — Complete**
 
 ## Completed
 

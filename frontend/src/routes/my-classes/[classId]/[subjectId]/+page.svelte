@@ -9,11 +9,16 @@
   import { goto } from '$app/navigation';
   import { addToast } from '$lib/stores/toast';
 
-  let { data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
 
-  let terms = $state<Term[]>(data.terms);
+	let termsSource = $derived(data.terms);
+	let terms = $state<Term[]>(termsSource);
 
-  function visibleLabel(active: boolean): string {
+	$effect(() => {
+		terms = termsSource;
+	});
+
+	function visibleLabel(active: boolean): string {
     return active ? 'Visible to students' : 'Hidden from students';
   }
 

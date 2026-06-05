@@ -6,28 +6,28 @@ pub(all) struct AdminAgentClient {
 }
 
 ///|
-pub fn AdminAgentClient::get(admin_id : String) -> AdminAgentClient raise @common.AgentError {
+pub fn AdminAgentClient::get(_admin_id : String) -> AdminAgentClient raise @common.AgentError {
   let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(admin_id)])
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
   let client = @rpc.AgentClient::get("AdminAgent", constructor_data)
   { client, }
 }
 
 ///|
-pub fn AdminAgentClient::new_phantom(admin_id : String) -> AdminAgentClient raise @common.AgentError {
+pub fn AdminAgentClient::new_phantom(_admin_id : String) -> AdminAgentClient raise @common.AgentError {
   let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(admin_id)])
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
   let client = @rpc.AgentClient::new_phantom("AdminAgent", constructor_data)
   { client, }
 }
 
 ///|
 pub fn AdminAgentClient::get_phantom(
-  admin_id : String,
+  _admin_id : String,
   phantom_id : @rpcTypes.Uuid,
 ) -> AdminAgentClient raise @common.AgentError {
   let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(admin_id)])
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
   let client = 
     @rpc.AgentClient::get_phantom("AdminAgent", constructor_data, phantom_id)
   { client, }
@@ -50,31 +50,31 @@ pub fn AdminAgentClient::drop(self : AdminAgentClient) -> Unit {
 
 ///|
 pub fn[T] AdminAgentClient::scoped(
-  admin_id : String,
+  _admin_id : String,
   f : (AdminAgentClient) -> T raise @common.AgentError,
 ) -> T raise @common.AgentError {
-  let client = AdminAgentClient::get(admin_id)
+  let client = AdminAgentClient::get(_admin_id)
   defer client.drop()
   f(client)
 }
 
 ///|
 pub fn[T] AdminAgentClient::scoped_new_phantom(
-  admin_id : String,
+  _admin_id : String,
   f : (AdminAgentClient) -> T raise @common.AgentError,
 ) -> T raise @common.AgentError {
-  let client = AdminAgentClient::new_phantom(admin_id)
+  let client = AdminAgentClient::new_phantom(_admin_id)
   defer client.drop()
   f(client)
 }
 
 ///|
 pub fn[T] AdminAgentClient::scoped_get_phantom(
-  admin_id : String,
+  _admin_id : String,
   phantom_id : @rpcTypes.Uuid,
   f : (AdminAgentClient) -> T raise @common.AgentError,
 ) -> T raise @common.AgentError {
-  let client = AdminAgentClient::get_phantom(admin_id, phantom_id)
+  let client = AdminAgentClient::get_phantom(_admin_id, phantom_id)
   defer client.drop()
   f(client)
 }

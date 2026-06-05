@@ -1,6 +1,6 @@
 ///|
 /// Shared WASI HTTP request/response logic used by both
-/// surreal_client.mbt and authentik_client.mbt.
+/// db_client.mbt and authentik_client.mbt.
 /// Handles body writing, 15s timeout via @poll.poll,
 /// response stream chunking, and byte assembly.
 
@@ -20,7 +20,7 @@ fn bytes_to_str(bs : FixedArray[Byte]) -> String {
 /// Callers should wrap the error string into their own AppError variant.
 fn http_request_raw(
   host : String,
-  method : @http_types.Method,
+  http_method : @http_types.Method,
   scheme : @http_types.Scheme,
   path : String,
   headers : @http_types.Fields,
@@ -28,7 +28,7 @@ fn http_request_raw(
   timeout_ns : UInt64,
 ) -> Result[(UInt, String), String] {
   let request = @http_types.OutgoingRequest::outgoing_request(headers)
-  let _ = request.set_method(method)
+  let _ = request.set_method(http_method)
   let _ = request.set_scheme(Some(scheme))
   let _ = request.set_authority(Some(host))
   let _ = request.set_path_with_query(Some(path))
@@ -171,11 +171,11 @@ pub fn build_headers(
 /// The caller provides pre-built headers and body.
 pub fn http_request(
   host : String,
-  method : @http_types.Method,
+  http_method : @http_types.Method,
   scheme : @http_types.Scheme,
   path : String,
   headers : @http_types.Fields,
   body : FixedArray[Byte]?,
 ) -> Result[(UInt, String), String] {
-  http_request_raw(host, method, scheme, path, headers, body, 15_000_000_000UL)
+  http_request_raw(host, http_method, scheme, path, headers, body, 15_000_000_000UL)
 }
