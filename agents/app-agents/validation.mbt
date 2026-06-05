@@ -20,7 +20,7 @@ pub fn validate_role(role : String) -> Result[Unit, AppError] {
   Ok(())
 }
 pub fn validate_class_level_exists(config : SharedConfig, class_level : String) -> Result[Unit, AppError] {
-  match surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": class_level }) {
+  match db_admin_fetch_class_level_by_name(config, class_level) {
     Ok(arr) => if arr.length() == 0 { Err(AppError::{ code: NotFound, message: "Class level not found: " + class_level, detail: None }) } else { Ok(()) }
     Err(e) => Err(e)
   }

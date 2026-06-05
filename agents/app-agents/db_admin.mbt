@@ -65,6 +65,44 @@ pub fn db_admin_fetch_students_by_class_level(config : SharedConfig, class_level
 }
 pub fn db_admin_fetch_students_by_class_levels(config : SharedConfig, class_level_ids : Array[String]) -> Result[Array[Json], AppError] {
   if class_level_ids.length() == 0 { return Ok([]) }
+  ///|
+  /// NOTE: SurrealDB $bindings do not support array parameters for IN clauses.
+  /// class_level_ids are pre-validated slugs from the DB, not user input.
+  /// escape_surreal_string is retained here as the only exception in the DB layer.
   let cl_in = "[" + class_level_ids.map(fn(cl) { escape_surreal_string(cl) }).join(", ") + "]"
   surreal_query(config, "SELECT auth_id, class_level FROM user_profile WHERE class_level IN " + cl_in + " AND role = 'student' AND deleted_at IS NONE")
+}
+
+///|
+pub fn db_admin_fetch_class_level_by_name(
+  config : SharedConfig,
+  class_level : String
+) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": class_level })
+}
+
+///|
+pub fn db_admin_create_teacher_assignments(
+  config : SharedConfig,
+  teacher_id : String,
+  pairs : Array[TeacherSubjectPair],
+  active_st : String
+) -> Result[Unit, AppError] {
+  for pair in pairs {
+    let sql = if active_st != "" {
+      "CREATE teacher_assignment SET teacher_id = $teacher_id, has_subject = $edge_id, session_term = $active_st, assigned_at = time::now()"
+    } else {
+      "CREATE teacher_assignment SET teacher_id = $teacher_id, has_subject = $edge_id, assigned_at = time::now()"
+    }
+    let b = if active_st != "" {
+      { "teacher_id": teacher_id, "edge_id": pair.edge_id, "active_st": active_st }
+    } else {
+      { "teacher_id": teacher_id, "edge_id": pair.edge_id }
+    }
+    match surreal_query(config, sql, bindings=b) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+  }
+  Ok(())
 }

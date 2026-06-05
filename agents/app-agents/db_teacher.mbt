@@ -17,7 +17,4 @@ pub fn db_teacher_fetch_class_levels_for_teacher(config : SharedConfig, teacher_
 pub fn db_teacher_fetch_lesson_meta(config : SharedConfig, lesson_id : String) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT topic.has_subject.in AS class_level_id, topic.has_subject.out AS subject_id, topic.term AS term_id FROM ONLY lessons WHERE id = $lesson_id", bindings={ "lesson_id": lesson_id })
 }
-pub fn db_teacher_update_lesson_active(config : SharedConfig, lesson_id : String, active : Bool) -> Result[Unit, AppError] {
-  let _ = match surreal_query(config, "UPDATE $lesson_id SET active = $active", bindings={ "lesson_id": lesson_id, "active": if active { "true" } else { "false" } }) { Ok(a) => a; Err(e) => return Err(e) }
-  Ok(())
-}
+

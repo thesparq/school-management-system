@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔧 HF-07: Backend Audit Fixes — In Progress**
+  Fixing 19 issues from backend audit: error propagation, SQL safety via `$bindings`, saga crash-recovery via `@api.with_atomic_operation`, corrupt-cache self-healing, layer boundary violations, dead code removal, return-type consistency (4 outlier endpoints), teacher caching, cache-key standardization. Spec: `docs/specs/hotfix-07-backend-audit-fixes.md`.
+
 ## Completed
 
 - **✅ HF-06: Backend Refactor — Code Organization, Handlers, Thin Agents — Complete**
