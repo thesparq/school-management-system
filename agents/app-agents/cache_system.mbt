@@ -2,6 +2,23 @@
 /// Deterministic, dependency-tracked cache with TTL.
 /// Stores serialized JSON strings — handlers own serialize/deserialize.
 /// All time values use UInt64 (Unix seconds).
+///
+/// Key naming convention: entity[:scope[:subscope]]
+/// Keys are scoped per-agent (each agent owns its own CacheSystem).
+///
+/// Examples:
+///   "profile"           — student profile data
+///   "subjects"          — student's subjects list
+///   "terms:JSS1"        — terms for a specific class level
+///   "lessons:subj|term" — lessons for subject+term combination
+///   "lesson:{id}"       — individual lesson content
+///   "class_groups"      — teacher's class assignments
+///   "terms:all"         — global terms list (teacher/admin)
+///   "active_session_term_id"  — cached active session term ID
+///   "session_terms"     — admin session term list
+
+///|
+pub const CACHE_TTL : UInt64 = 600UL
 
 ///|
 struct CacheEntry {

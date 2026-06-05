@@ -1,3 +1,18 @@
+fn try_parse_session_terms(json_str : String) -> Array[SessionTermInfo]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Array(arr) => {
+    let items : Array[SessionTermInfo] = []
+    for i in arr { match i { Object(obj) => { items.push(SessionTermInfo::{
+      id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+      session: match obj.get("session") { Some(String(s)) => s; _ => continue },
+      term_name: match obj.get("term_name") { Some(String(s)) => s; _ => continue },
+      active: match obj.get("active") { Some(True) => true; _ => false },
+      created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
+    }) }; _ => () } }
+    if items.length() > 0 { Some(items) } else { None }
+  }; _ => None }
+}
+
 ///|
 pub fn admin_fetch_class_levels(
   config : SharedConfig,
@@ -174,11 +189,35 @@ pub fn admin_soft_delete_profile(
   config : SharedConfig,
   target_user_id : String,
 ) -> Result[Unit, AppError] {
-  db_admin_soft_delete_user(config, target_user_id)
+  let role = match db_admin_fetch_profile(config, target_user_id) {
+    Ok(arr) if arr.length() > 0 => match arr[0] {
+      Object(obj) => match obj.get("role") { Some(String(r)) => r; _ => "" }
+      _ => ""
+    }
+    _ => ""
+  }
+  match db_admin_soft_delete_user(config, target_user_id) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  let ak = config.auth_key.get() catch { _ => "" }
+  if ak != "" && role != "" {
+    if role == "student" {
+      let _ = StudentAgentClient::scoped(target_user_id, fn(c) raise @common.AgentError {
+        c.trigger_invalidate_cache(ak, "profile")
+      }) catch { _ => () }
+    }
+    if role == "teacher" {
+      let _ = TeacherAgentClient::scoped(target_user_id, fn(c) raise @common.AgentError {
+        c.trigger_invalidate_cache(ak, "class_groups")
+      }) catch { _ => () }
+    }
+  }
+  Ok(())
 }
 
 ///|
-pub fn admin_fetch_active_session_term(
+pub fn admin_fetch_active_session_term_id(
   cache : CacheSystem,
   config : SharedConfig,
   now : UInt64,
@@ -194,7 +233,7 @@ pub fn admin_fetch_active_session_term(
       if arr.length() > 0 {
         match arr[0] {
           String(id) => {
-            cache.set(cache_key, id, 600UL, [], now)
+            cache.set(cache_key, id, CACHE_TTL, [], now)
             Ok(id)
           }
           _ => Err(not_found_error("Active session term"))
@@ -209,78 +248,44 @@ pub fn admin_fetch_active_session_term(
 ///|
 pub fn admin_fetch_active_session_term_detail(
   config : SharedConfig,
-) -> Result[String, AppError] {
+) -> Result[SessionTermDetail, AppError] {
   let arr = match db_admin_fetch_active_session_term_detail(config) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) =>
-        Ok(
-          "{\"id\":\"" +
-          escape_json_string(
-            match obj.get("id") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\",\"session\":\"" +
-          escape_json_string(
-            match obj.get("session") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\",\"term_name\":\"" +
-          escape_json_string(
-            match obj.get("term_name") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\"}",
-        )
-      _ => Ok("{}")
+      Object(obj) => Ok(SessionTermDetail::{
+        id: match obj.get("id") { Some(String(s)) => s; _ => "" },
+        session: match obj.get("session") { Some(String(s)) => s; _ => "" },
+        term_name: match obj.get("term_name") { Some(String(s)) => s; _ => "" },
+      })
+      _ => Err(not_found_error("Active session term"))
     }
   } else {
-    Ok("{}")
+    Err(not_found_error("Active session term"))
   }
 }
 
 ///|
-pub fn admin_fetch_terms(config : SharedConfig) -> Result[String, AppError] {
+pub fn admin_fetch_terms(config : SharedConfig) -> Result[Array[TermSimple], AppError] {
   let arr = match db_admin_fetch_terms(config) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
-  Ok(
-    "[" +
-    arr
-    .map(fn(item) {
-      match item {
-        Object(o) =>
-          "{\"id\":\"" +
-          escape_json_string(
-            match o.get("id") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\",\"name\":\"" +
-          escape_json_string(
-            match o.get("name") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\"}"
-        _ => "null"
-      }
-    })
-    .join(",") +
-    "]",
-  )
+  let items : Array[TermSimple] = []
+  for item in arr {
+    match item {
+      Object(o) => items.push(TermSimple::{
+        id: match o.get("id") { Some(String(s)) => s; _ => continue },
+        name: match o.get("name") { Some(String(s)) => s; _ => continue },
+        active: match o.get("active") { Some(True) => true; _ => false },
+        sort_order: match o.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
+      })
+      _ => ()
+    }
+  }
+  Ok(items)
 }
 
 ///|
@@ -288,65 +293,31 @@ pub fn admin_fetch_session_terms(
   cache : CacheSystem,
   config : SharedConfig,
   now : UInt64,
-) -> Result[String, AppError] {
+) -> Result[Array[SessionTermInfo], AppError] {
   let cache_key = "session_terms"
   match cache.get(cache_key, now) {
-    Some(json) => Ok(json)
-    None => {
-      let arr = match db_admin_fetch_session_terms(config) {
-        Ok(a) => a
-        Err(e) => return Err(e)
-      }
-      let json = "[" +
-        arr
-        .map(fn(item) {
-          match item {
-            Object(o) => {
-              let is_active = match o.get("active") {
-                Some(True) => true
-                _ => false
-              }
-              "{\"id\":\"" +
-              escape_json_string(
-                match o.get("id") {
-                  Some(String(s)) => s
-                  _ => ""
-                },
-              ) +
-              "\",\"session\":\"" +
-              escape_json_string(
-                match o.get("session") {
-                  Some(String(s)) => s
-                  _ => ""
-                },
-              ) +
-              "\",\"term_name\":\"" +
-              escape_json_string(
-                match o.get("term_name") {
-                  Some(String(s)) => s
-                  _ => ""
-                },
-              ) +
-              "\",\"active\":" +
-              (if is_active { "true" } else { "false" }) +
-              ",\"created_at\":\"" +
-              escape_json_string(
-                match o.get("created_at") {
-                  Some(String(s)) => s
-                  _ => ""
-                },
-              ) +
-              "\"}"
-            }
-            _ => "null"
-          }
-        })
-        .join(",") +
-        "]"
-      cache.set(cache_key, json, 600UL, [], now)
-      Ok(json)
+    Some(json_str) => match try_parse_session_terms(json_str) { Some(items) => return Ok(items); None => () }
+    None => ()
+  }
+  let arr = match db_admin_fetch_session_terms(config) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  let items : Array[SessionTermInfo] = []
+  for item in arr {
+    match item {
+      Object(o) => items.push(SessionTermInfo::{
+        id: match o.get("id") { Some(String(s)) => s; _ => continue },
+        session: match o.get("session") { Some(String(s)) => s; _ => continue },
+        term_name: match o.get("term_name") { Some(String(s)) => s; _ => continue },
+        active: match o.get("active") { Some(True) => true; _ => false },
+        created_at: match o.get("created_at") { Some(String(s)) => s; _ => "" },
+      })
+      _ => ()
     }
   }
+  cache.set(cache_key, items.to_json().stringify(), CACHE_TTL, [], now)
+  Ok(items)
 }
 
 ///|
@@ -354,7 +325,7 @@ pub fn admin_create_session_term(
   cache : CacheSystem,
   config : SharedConfig,
   body_json : String,
-) -> Result[String, AppError] {
+) -> Result[SessionTermInfo, AppError] {
   let val = @json.parse(body_json) catch {
     _ => return Err(validation_error("Invalid JSON body"))
   }
@@ -376,34 +347,36 @@ pub fn admin_create_session_term(
   }
   cache.invalidate("active_session_term")
   cache.invalidate("session_terms")
-  if active {
-    match db_admin_deactivate_all_session_terms(config) {
-      Ok(_) => ()
+  let arr = if active {
+    match @api.with_atomic_operation(fn() -> Result[Array[Json], AppError] {
+      match db_admin_deactivate_all_session_terms(config) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+      db_admin_create_session_term(config, session, term_id, active)
+    }) {
+      Ok(a) => a
+      Err(e) => return Err(e)
+    }
+  } else {
+    match db_admin_create_session_term(config, session, term_id, false) {
+      Ok(a) => a
       Err(e) => return Err(e)
     }
   }
-  let arr = match
-    db_admin_create_session_term(config, session, term_id, active) {
-    Ok(a) => a
-    Err(e) => return Err(e)
-  }
   if arr.length() > 0 {
     match arr[0] {
-      Object(o) =>
-        Ok(
-          "{\"id\":\"" +
-          escape_json_string(
-            match o.get("id") {
-              Some(String(s)) => s
-              _ => ""
-            },
-          ) +
-          "\",\"session\":\"" +
-          escape_json_string(session) +
-          "\",\"active\":" +
-          (if active { "true" } else { "false" }) +
-          "}",
-        )
+      Object(o) => {
+        let term_name = match o.get("term_name") { Some(String(s)) => s; _ => "" }
+        let created_at_val = match o.get("created_at") { Some(String(s)) => s; _ => "" }
+        Ok(SessionTermInfo::{
+          id: match o.get("id") { Some(String(s)) => s; _ => "" },
+          session,
+          term_name,
+          active,
+          created_at: created_at_val,
+        })
+      }
       _ => Err(validation_error("Failed to create session term"))
     }
   } else {
@@ -419,11 +392,62 @@ pub fn admin_activate_session_term(
 ) -> Result[Unit, AppError] {
   cache.invalidate("active_session_term")
   cache.invalidate("session_terms")
-  match db_admin_deactivate_all_session_terms(config) {
+  match @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+    match db_admin_deactivate_all_session_terms(config) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    db_admin_activate_session_term(config, session_term_id)
+  }) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_toggle_term(
+  config : SharedConfig,
+  term_id : String,
+  active : Bool,
+) -> Result[Unit, AppError] {
+  match db_teacher_update_record_active(config, term_id, active) {
     Ok(_) => ()
     Err(e) => return Err(e)
   }
-  db_admin_activate_session_term(config, session_term_id)
+  let students = match db_admin_fetch_users_by_role(config, "student") {
+    Ok(a) => a
+    Err(_) => []
+  }
+  let teachers = match db_admin_fetch_users_by_role(config, "teacher") {
+    Ok(a) => a
+    Err(_) => []
+  }
+  let ak = config.auth_key.get() catch { _ => "" }
+  if ak != "" {
+    for item in students {
+      match item {
+        Object(obj) => {
+          let uid = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
+          let _ = StudentAgentClient::scoped(uid, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "all")
+          }) catch { _ => () }
+        }
+        _ => ()
+      }
+    }
+    for item in teachers {
+      match item {
+        Object(obj) => {
+          let uid = match obj.get("auth_id") { Some(String(s)) => s; _ => continue }
+          let _ = TeacherAgentClient::scoped(uid, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "all")
+          }) catch { _ => () }
+        }
+        _ => ()
+      }
+    }
+  }
+  Ok(())
 }
 
 ///|
@@ -474,29 +498,27 @@ pub fn admin_set_teacher_subjects(
       }
     _ => return Err(validation_error("Invalid JSON body"))
   }
-  let _ = match
-    db_admin_soft_delete_teacher_assignments(config, target_teacher_id) {
-    Ok(_) => ()
-    Err(e) => return Err(e)
-  }
   if pairs.length() > 0 {
-    let active_st = match admin_fetch_active_session_term(cache, config, now) {
+    let active_st = match admin_fetch_active_session_term_id(cache, config, now) {
       Ok(id) => id
       Err(e) => return Err(e)
     }
-    let create_sql = StringBuilder::new()
-    for pair in pairs {
-      create_sql.write_string("CREATE teacher_assignment SET teacher_id = '")
-      create_sql.write_string(escape_surreal_string(target_teacher_id))
-      create_sql.write_string("', has_subject = ")
-      create_sql.write_string(escape_surreal_string(pair.edge_id))
-      if active_st != "" {
-        create_sql.write_string(", session_term = ")
-        create_sql.write_string(active_st)
+    match @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+      match db_admin_soft_delete_teacher_assignments(config, target_teacher_id) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
       }
-      create_sql.write_string(", assigned_at = time::now();")
+      match db_admin_create_teacher_assignments(config, target_teacher_id, pairs, active_st) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+      Ok(())
+    }) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
     }
-    match surreal_query(config, create_sql.to_string()) {
+  } else {
+    let _ = match db_admin_soft_delete_teacher_assignments(config, target_teacher_id) {
       Ok(_) => ()
       Err(e) => return Err(e)
     }
@@ -581,24 +603,28 @@ pub fn admin_create_user(
       Ok(_) => ()
     }
   }
-  let (pk, uuid) = match
-    authentik_create_user(
+  let mut created_pk : Int = 0
+  let saga_result = @api.with_atomic_operation(fn() -> Result[(Int, String), AppError] {
+    let (pk_inner, uuid_inner) = match authentik_create_user(
       config, username, name, email, password, is_active, group_pk,
     ) {
-    Ok(r) => r
-    Err(e) => return Err(e)
-  }
-  match authentik_set_password(config, pk, password) {
-    Ok(_) => ()
-    Err(_) => {
-      let _ = authentik_delete_user(config, pk)
-      return Err(validation_error("Failed to set password. User rolled back."))
+      Ok(r) => { created_pk = r.0; r }
+      Err(e) => return Err(e)
     }
-  }
-  match db_admin_save_profile(config, uuid, role, class_level) {
-    Ok(_) => ()
+    match authentik_set_password(config, pk_inner, password) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    match db_admin_save_profile(config, uuid_inner, role, class_level) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    Ok((pk_inner, uuid_inner))
+  })
+  let (pk, uuid) = match saga_result {
+    Ok(r) => r
     Err(e) => {
-      let _ = authentik_delete_user(config, pk)
+      if created_pk != 0 { let _ = authentik_delete_user(config, created_pk) }
       return Err(e)
     }
   }
@@ -699,23 +725,6 @@ pub fn admin_edit_user(
     Ok(pk) => pk
     Err(e) => return Err(e)
   }
-  match authentik_update_profile(config, authentik_pk, username, name, email) {
-    Ok(_) => ()
-    Err(e) => return Err(e)
-  }
-  match password {
-    Some(pw) => {
-      match validate_password(pw) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      match authentik_set_password(config, authentik_pk, pw) {
-        Ok(_) => ()
-        Err(e) => return Err(e)
-      }
-    }
-    None => ()
-  }
   let remove_group_pks = match obj.get("remove_group_pks") {
     Some(Array(arr)) => {
       let pks : Array[String] = []
@@ -729,16 +738,44 @@ pub fn admin_edit_user(
     }
     _ => []
   }
-  for remove_pk in remove_group_pks {
-    if remove_pk != target_group_pk {
-      let _ = authentik_remove_from_group(config, remove_pk, authentik_pk)
+  match password {
+    Some(pw) => {
+      match validate_password(pw) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
     }
+    None => ()
   }
-  match authentik_add_to_group(config, target_group_pk, authentik_pk) {
-    Ok(_) => ()
-    Err(e) => return Err(e)
-  }
-  match db_admin_save_profile(config, target_user_id, role, class_level) {
+  match @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+    match authentik_update_profile(config, authentik_pk, username, name, email) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    match password {
+      Some(pw) => {
+        match authentik_set_password(config, authentik_pk, pw) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+      None => ()
+    }
+    for remove_pk in remove_group_pks {
+      if remove_pk != target_group_pk {
+        let _ = authentik_remove_from_group(config, remove_pk, authentik_pk)
+      }
+    }
+    match authentik_add_to_group(config, target_group_pk, authentik_pk) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    match db_admin_save_profile(config, target_user_id, role, class_level) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    Ok(())
+  }) {
     Ok(_) => ()
     Err(e) => return Err(e)
   }
@@ -790,15 +827,43 @@ pub fn admin_delete_user(
     Some(String(s)) => s
     _ => return Err(validation_error("target_user_id is required"))
   }
-  match db_admin_soft_delete_user(config, target_user_id) {
-    Ok(_) => ()
-    Err(e) => return Err(e)
+  let role = match db_admin_fetch_profile(config, target_user_id) {
+    Ok(arr) if arr.length() > 0 => match arr[0] {
+      Object(obj) => match obj.get("role") { Some(String(r)) => r; _ => "" }
+      _ => ""
+    }
+    _ => ""
   }
-  match authentik_delete_user(config, authentik_pk) {
-    Ok(_) => Ok(())
+  match @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+    match db_admin_soft_delete_user(config, target_user_id) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    match authentik_delete_user(config, authentik_pk) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+    Ok(())
+  }) {
+    Ok(_) => {
+      let ak = config.auth_key.get() catch { _ => "" }
+      if ak != "" && role != "" {
+        if role == "student" {
+          let _ = StudentAgentClient::scoped(target_user_id, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "profile")
+          }) catch { _ => () }
+        }
+        if role == "teacher" {
+          let _ = TeacherAgentClient::scoped(target_user_id, fn(c) raise @common.AgentError {
+            c.trigger_invalidate_cache(ak, "class_groups")
+          }) catch { _ => () }
+        }
+      }
+      Ok(())
+    }
     Err(e) => {
       let _ = db_admin_undo_soft_delete(config, target_user_id)
-      Err(e)
+      return Err(e)
     }
   }
 }

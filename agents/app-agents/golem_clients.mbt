@@ -558,7 +558,7 @@ pub fn AdminAgentClient::schedule_cancelable_set_teacher_subjects(
 pub fn AdminAgentClient::get_active_session_term(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[SessionTermDetail, String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -616,7 +616,7 @@ pub fn AdminAgentClient::schedule_cancelable_get_active_session_term(
 pub fn AdminAgentClient::get_terms(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[Array[TermSimple], String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -674,7 +674,7 @@ pub fn AdminAgentClient::schedule_cancelable_get_terms(
 pub fn AdminAgentClient::get_session_terms(
   self : AdminAgentClient,
   incoming_key : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[Array[SessionTermInfo], String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -733,7 +733,7 @@ pub fn AdminAgentClient::create_session_term(
   self : AdminAgentClient,
   incoming_key : String,
   body_json : String,
-) -> Result[String, String] raise @common.AgentError {
+) -> Result[SessionTermInfo, String] raise @common.AgentError {
   let result = self
     .client
     .invoke_and_await(
@@ -872,6 +872,88 @@ pub fn AdminAgentClient::schedule_cancelable_activate_session_term(
       @rpcTypes.DataValue::Tuple([
         @schema.to_element_value_as(incoming_key),
         @schema.to_element_value_as(session_term_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::toggle_term_active(
+  self : AdminAgentClient,
+  incoming_key : String,
+  term_id : String,
+  active : Bool,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "toggle_term_active",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(term_id),
+        @schema.to_element_value_as(active),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_toggle_term_active(
+  self : AdminAgentClient,
+  incoming_key : String,
+  term_id : String,
+  active : Bool,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "toggle_term_active",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(term_id),
+        @schema.to_element_value_as(active),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_toggle_term_active(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  term_id : String,
+  active : Bool,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "toggle_term_active",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(term_id),
+        @schema.to_element_value_as(active),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_toggle_term_active(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  term_id : String,
+  active : Bool,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "toggle_term_active",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(term_id),
+        @schema.to_element_value_as(active),
       ]),
     )
 }
@@ -2142,88 +2224,6 @@ pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(
       @rpcTypes.DataValue::Tuple([
         @schema.to_element_value_as(incoming_key),
         @schema.to_element_value_as(key),
-      ]),
-    )
-}
-
-///|
-pub fn TeacherAgentClient::toggle_term_active(
-  self : TeacherAgentClient,
-  incoming_key : String,
-  term_id : String,
-  active : Bool,
-) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
-  let elements = @extractor.extract_tuple(result)
-  @schema.from_element_value_as(elements[0])
-}
-
-///|
-pub fn TeacherAgentClient::trigger_toggle_term_active(
-  self : TeacherAgentClient,
-  incoming_key : String,
-  term_id : String,
-  active : Bool,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
-}
-
-///|
-pub fn TeacherAgentClient::schedule_toggle_term_active(
-  self : TeacherAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  term_id : String,
-  active : Bool,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
-}
-
-///|
-pub fn TeacherAgentClient::schedule_cancelable_toggle_term_active(
-  self : TeacherAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  term_id : String,
-  active : Bool,
-) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
       ]),
     )
 }

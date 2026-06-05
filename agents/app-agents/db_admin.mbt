@@ -6,8 +6,8 @@ pub fn db_admin_save_profile(config : SharedConfig, target_user_id : String, rol
   if !["admin", "teacher", "student"].contains(role) { return Err(validation_error("Invalid role: " + role)) }
   let cl_record = match class_level {
     Some(cl) => {
-      let arr = match surreal_query(config, "SELECT VALUE id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": cl }) { Ok(a) => a; Err(_) => return Err(AppError::{ code: SurrealDBError, message: "Failed to resolve class level", detail: None }) }
-      if arr.length() > 0 { match arr[0] { String(slug) => Some(slug); _ => None } } else { None }
+      let arr = match surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": cl }) { Ok(a) => a; Err(e) => return Err(AppError::{ code: SurrealDBError, message: "Failed to resolve class level", debug: e.debug }) }
+      if arr.length() > 0 { match arr[0] { Object(o) => match o.get("id") { Some(String(slug)) => Some(slug); _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) }; _ => return Err(AppError::{ code: SurrealDBError, message: "Unexpected row shape for class_level lookup", debug: Some("class_level: " + cl) }) } } else { None }
     }
     None => None
   }
@@ -46,7 +46,7 @@ pub fn db_admin_fetch_active_session_term_detail(config : SharedConfig) -> Resul
   surreal_query(config, "SELECT id, session, term.name AS term_name FROM session_term WHERE active = true LIMIT 1")
 }
 pub fn db_admin_fetch_terms(config : SharedConfig) -> Result[Array[Json], AppError] {
-  surreal_query(config, "SELECT id, name, sort_order FROM terms ORDER BY sort_order ASC")
+  surreal_query(config, "SELECT id, name, sort_order, active FROM terms ORDER BY sort_order ASC")
 }
 pub fn db_admin_fetch_session_terms(config : SharedConfig) -> Result[Array[Json], AppError] {
   surreal_query(config, "SELECT id, session, term.name AS term_name, active, created_at FROM session_term ORDER BY created_at DESC")
@@ -65,6 +65,57 @@ pub fn db_admin_fetch_students_by_class_level(config : SharedConfig, class_level
 }
 pub fn db_admin_fetch_students_by_class_levels(config : SharedConfig, class_level_ids : Array[String]) -> Result[Array[Json], AppError] {
   if class_level_ids.length() == 0 { return Ok([]) }
+  for id in class_level_ids {
+    if !id.starts_with("class_levels:") {
+      return Err(validation_error("Invalid class level ID format: " + id))
+    }
+  }
+  ///|
+  /// NOTE: SurrealDB $bindings do not support array parameters for IN clauses.
+  /// class_level_ids are pre-validated slugs from the DB, not user input.
+  /// escape_surreal_string is retained here as the only exception in the DB layer.
   let cl_in = "[" + class_level_ids.map(fn(cl) { escape_surreal_string(cl) }).join(", ") + "]"
   surreal_query(config, "SELECT auth_id, class_level FROM user_profile WHERE class_level IN " + cl_in + " AND role = 'student' AND deleted_at IS NONE")
+}
+
+///|
+pub fn db_admin_fetch_class_level_by_name(
+  config : SharedConfig,
+  class_level : String
+) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT id FROM class_levels WHERE name = $name LIMIT 1", bindings={ "name": class_level })
+}
+
+///|
+pub fn db_admin_create_teacher_assignments(
+  config : SharedConfig,
+  teacher_id : String,
+  pairs : Array[TeacherSubjectPair],
+  active_st : String
+) -> Result[Unit, AppError] {
+  for pair in pairs {
+    let sql = if active_st != "" {
+      "CREATE teacher_assignment SET teacher_id = $teacher_id, has_subject = $edge_id, session_term = $active_st, assigned_at = time::now()"
+    } else {
+      "CREATE teacher_assignment SET teacher_id = $teacher_id, has_subject = $edge_id, assigned_at = time::now()"
+    }
+    let b = if active_st != "" {
+      { "teacher_id": teacher_id, "edge_id": pair.edge_id, "active_st": active_st }
+    } else {
+      { "teacher_id": teacher_id, "edge_id": pair.edge_id }
+    }
+    match surreal_query(config, sql, bindings=b) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+  }
+  Ok(())
+}
+
+///|
+pub fn db_admin_fetch_users_by_role(
+  config : SharedConfig,
+  role : String
+) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT auth_id FROM user_profile WHERE role = $role AND deleted_at IS NONE", bindings={ "role": role })
 }

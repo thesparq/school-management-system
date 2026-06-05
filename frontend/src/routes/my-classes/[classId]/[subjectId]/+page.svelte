@@ -2,12 +2,10 @@
   import type { PageData } from './$types';
   import type { Term } from '$lib/types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Switch } from '$lib/components/ui/switch/index.js';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { Skeleton } from '$lib/components/ui/skeleton';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { addToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
 
@@ -17,35 +15,6 @@
 	$effect(() => {
 		terms = termsSource;
 	});
-
-	function visibleLabel(active: boolean): string {
-    return active ? 'Visible to students' : 'Hidden from students';
-  }
-
-  async function handleToggleTerm(termId: string, newActive: boolean) {
-    const idx = terms.findIndex(t => t.id === termId);
-    if (idx === -1) return;
-    const prev = terms[idx].active;
-    terms[idx].active = newActive;
-    terms = [...terms];
-
-    try {
-      const res = await fetch('/api/teacher/toggle-term', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ term_id: termId, active: newActive }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: { message: 'Request failed' } }));
-        throw new Error(err.error?.message ?? 'Request failed');
-      }
-      addToast('success', 'Term updated', `${terms[idx].name} is now ${newActive ? 'visible' : 'hidden'} to students.`);
-    } catch (e) {
-      terms[idx].active = prev;
-      terms = [...terms];
-      addToast('error', 'Failed to update term', e instanceof Error ? e.message : 'Unknown error');
-    }
-  }
 </script>
 
 <div class="mx-auto max-w-4xl space-y-6">
@@ -72,19 +41,14 @@
               </CardHeader>
             </Card>
           </a>
-          <div class="flex items-center gap-2 mt-2 pl-1">
-            <Switch
-              checked={term.active}
-              onCheckedChange={(checked) => handleToggleTerm(term.id, checked)}
-            />
-            <span
-              class="text-xs"
-              class:text-surface-500={term.active}
-              class:text-amber-600={!term.active}
-            >
-              {visibleLabel(term.active)}
-            </span>
-          </div>
+          {#if !term.active}
+            <div class="flex items-center gap-1.5 mt-2 pl-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span class="text-xs text-amber-600">Hidden from students</span>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>

@@ -3,6 +3,16 @@ fn parse_profile(json_str : String) -> StudentProfile? {
   match val { Object(obj) => { let class_level = match obj.get("class_level") { Some(String(s)) => s; _ => "" }; Some(StudentProfile::{ class_level, }) }; _ => None }
 }
 
+fn json_parse_array_safe(json_str : String) -> Array[Json]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Array(arr) => Some(arr); _ => None }
+}
+
+fn json_parse_object_safe(json_str : String) -> Map[String, Json]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val { Object(obj) => Some(obj); _ => None }
+}
+
 pub fn student_get_class_level(cache : CacheSystem, config : SharedConfig, student_id : String, now : UInt64) -> Result[String, AppError] {
   let cache_key = "profile"
   match cache.get(cache_key, now) {
@@ -11,37 +21,32 @@ pub fn student_get_class_level(cache : CacheSystem, config : SharedConfig, stude
   }
   let arr = match db_student_fetch_profile(config, student_id) {
     Ok(a) => a
-    Err(_) => return Err(AppError::{ code: InternalError, message: "Database unavailable", detail: None })
+    Err(e) => return Err(e)
   }
   if arr.length() > 0 {
     let row = arr[0].stringify()
     match parse_profile(row) {
-      Some(p) if p.class_level != "" => { cache.set(cache_key, row, 600UL, [], now); return Ok(p.class_level) }
+      Some(p) if p.class_level != "" => { cache.set(cache_key, row, CACHE_TTL, [], now); return Ok(p.class_level) }
       _ => ()
     }
   }
-  Err(AppError::{ code: NotInitialized, message: "Account not initialized. Please contact your school administrator.", detail: None })
+  Err(AppError::{ code: NotInitialized, message: "Account not initialized. Please contact your school administrator.", debug: None })
 }
 
 pub fn student_fetch_subjects(cache : CacheSystem, config : SharedConfig, student_id : String, now : UInt64) -> Result[Array[SubjectInfo], AppError] {
   let cache_key = "subjects"
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ =>
-        return Err(AppError::{ code: InternalError, message: "Corrupt cache data for subjects", detail: None })
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[SubjectInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(SubjectInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          name: match obj.get("name") { Some(String(s)) => s; _ => continue },
+          code: match obj.get("code") { Some(String(s)) => Some(s); _ => None },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
-      match val {
-        Array(arr) => {
-          let items : Array[SubjectInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(SubjectInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            name: match obj.get("name") { Some(String(s)) => s; _ => continue },
-            code: match obj.get("code") { Some(String(s)) => Some(s); _ => None },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
-      }
+      None => ()
     }
     None => ()
   }
@@ -54,7 +59,7 @@ pub fn student_fetch_subjects(cache : CacheSystem, config : SharedConfig, studen
     code: match obj.get("code") { Some(String(s)) => Some(s); _ => None },
   }) }; _ => () } }
   if subjects.length() == 0 { return Err(not_found_error("Subjects")) }
-  cache.set(cache_key, subjects.to_json().stringify(), 600UL, ["profile"], now)
+  cache.set(cache_key, subjects.to_json().stringify(), CACHE_TTL, ["profile"], now)
   Ok(subjects)
 }
 
@@ -62,23 +67,18 @@ pub fn student_fetch_terms(cache : CacheSystem, config : SharedConfig, student_i
   let cl = match student_get_class_level(cache, config, student_id, now) { Ok(c) => c; Err(e) => return Err(e) }
   let cache_key = "terms:" + cl
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ =>
-        return Err(AppError::{ code: InternalError, message: "Corrupt cache data for terms", detail: None })
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[TermInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(TermInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          name: match obj.get("name") { Some(String(s)) => s; _ => continue },
+          sort_order: match obj.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
+          active: match obj.get("active") { Some(True) => true; _ => false },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
-      match val {
-        Array(arr) => {
-          let items : Array[TermInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(TermInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            name: match obj.get("name") { Some(String(s)) => s; _ => continue },
-            sort_order: match obj.get("sort_order") { Some(Number(d, ..)) => d.to_int(); _ => 0 },
-            active: match obj.get("active") { Some(True) => true; _ => false },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
-      }
+      None => ()
     }
     None => ()
   }
@@ -91,32 +91,27 @@ pub fn student_fetch_terms(cache : CacheSystem, config : SharedConfig, student_i
     active: match obj.get("active") { Some(True) => true; _ => false },
   }) }; _ => () } }
   if terms.length() == 0 { return Err(not_found_error("Terms")) }
-  cache.set(cache_key, terms.to_json().stringify(), 600UL, ["profile"], now)
+  cache.set(cache_key, terms.to_json().stringify(), CACHE_TTL, ["profile"], now)
   Ok(terms)
 }
 
 pub fn student_fetch_lessons(cache : CacheSystem, config : SharedConfig, student_id : String, subject_id : String, term_id : String, now : UInt64) -> Result[Array[LessonInfo], AppError] {
   let cache_key = "lessons:" + subject_id + "|" + term_id
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ =>
-        return Err(AppError::{ code: InternalError, message: "Corrupt cache data for lessons", detail: None })
+    Some(json_str) => match json_parse_array_safe(json_str) {
+      Some(arr) => {
+        let items : Array[LessonInfo] = []
+        for i in arr { match i { Object(obj) => { items.push(LessonInfo::{
+          id: match obj.get("id") { Some(String(s)) => s; _ => continue },
+          topic_title: match obj.get("topic_title") { Some(String(s)) => Some(s); _ => None },
+          week: match obj.get("week") { Some(Number(d, ..)) => Some(d.to_int()); _ => None },
+          subject_name: match obj.get("subject_name") { Some(String(s)) => Some(s); _ => None },
+          term_name: match obj.get("term_name") { Some(String(s)) => Some(s); _ => None },
+          active: match obj.get("active") { Some(True) => Some(true); Some(False) => Some(false); _ => None },
+        }) }; _ => () } }
+        if items.length() > 0 { return Ok(items) }
       }
-      match val {
-        Array(arr) => {
-          let items : Array[LessonInfo] = []
-          for i in arr { match i { Object(obj) => { items.push(LessonInfo::{
-            id: match obj.get("id") { Some(String(s)) => s; _ => continue },
-            topic_title: match obj.get("topic_title") { Some(String(s)) => Some(s); _ => None },
-            week: match obj.get("week") { Some(Number(d, ..)) => Some(d.to_int()); _ => None },
-            subject_name: match obj.get("subject_name") { Some(String(s)) => Some(s); _ => None },
-            term_name: match obj.get("term_name") { Some(String(s)) => Some(s); _ => None },
-            active: match obj.get("active") { Some(True) => Some(true); Some(False) => Some(false); _ => None },
-          }) }; _ => () } }
-          if items.length() > 0 { return Ok(items) }
-        }
-        _ => ()
-      }
+      None => ()
     }
     None => ()
   }
@@ -132,21 +127,16 @@ pub fn student_fetch_lessons(cache : CacheSystem, config : SharedConfig, student
     active: match obj.get("active") { Some(True) => Some(true); Some(False) => Some(false); _ => None },
   }) }; _ => () } }
   if lessons.length() == 0 { return Err(not_found_error("Lessons")) }
-  cache.set(cache_key, lessons.to_json().stringify(), 600UL, ["profile"], now)
+  cache.set(cache_key, lessons.to_json().stringify(), CACHE_TTL, ["profile"], now)
   Ok(lessons)
 }
 
 pub fn student_fetch_lesson(cache : CacheSystem, config : SharedConfig, lesson_id : String, now : UInt64) -> Result[LessonContent?, AppError] {
   let cache_key = "lesson:" + lesson_id
   match cache.get(cache_key, now) {
-    Some(json_str) => {
-      let val = @json.parse(json_str) catch { _ =>
-        return Err(AppError::{ code: InternalError, message: "Corrupt cache data for lesson", detail: None })
-      }
-      match val {
-        Object(obj) => return Ok(Some(parse_lesson_content(obj)))
-        _ => ()
-      }
+    Some(json_str) => match json_parse_object_safe(json_str) {
+      Some(obj) => return Ok(Some(parse_lesson_content(obj)))
+      None => ()
     }
     None => ()
   }
@@ -160,7 +150,7 @@ pub fn student_fetch_lesson(cache : CacheSystem, config : SharedConfig, lesson_i
   let subject_id = match obj.get("subject_id") { Some(String(s)) => s; _ => "" }
   let term_id = match obj.get("term_id") { Some(String(s)) => s; _ => "" }
   if subject_id != "" && term_id != "" {
-    cache.set(cache_key, lesson.to_json().stringify(), 600UL, ["lessons:" + subject_id + "|" + term_id], now)
+    cache.set(cache_key, lesson.to_json().stringify(), CACHE_TTL, ["lessons:" + subject_id + "|" + term_id], now)
   }
   Ok(Some(lesson))
 }
