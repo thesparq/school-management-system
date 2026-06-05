@@ -11,7 +11,13 @@ struct SubjectInfo {
 ///|
 #derive.golem_schema
 struct StudentProfile {
+  surname : String
+  first_name : String
+  middle_name : String?
+  display_name : String
+  date_of_birth : String
   class_level : String
+  passport : String
 } derive(ToJson, FromJson)
 
 ///|

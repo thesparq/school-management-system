@@ -9,11 +9,63 @@ struct ClassLevelInfo {
 
 ///|
 #derive.golem_schema
-struct UserProfileInfo {
-  auth_id : String
-  role : String
-  class_level : String
+struct StudentProfileInfo {
+  id : String
+  surname : String
+  first_name : String
+  middle_name : String?
+  display_name : String
+  date_of_birth : String
+  class_enrolled : String
+  current_class : String
+  passport : String
   created_at : String
+} derive(ToJson, FromJson)
+
+///|
+#derive.golem_schema
+struct TeacherProfileInfo {
+  id : String
+  surname : String
+  first_name : String
+  middle_name : String?
+  display_name : String
+  qualifications : Array[String]?
+  date_employed : String?
+  passport : String
+  created_at : String
+} derive(ToJson, FromJson)
+
+///|
+#derive.golem_schema
+struct AdminProfileInfo {
+  id : String
+  surname : String
+  first_name : String
+  middle_name : String?
+  display_name : String
+  role_title : String?
+  passport : String
+  created_at : String
+} derive(ToJson, FromJson)
+
+///|
+#derive.golem_schema
+struct ParentProfileInfo {
+  id : String
+  name : String
+  display_name : String
+  students : Array[String]
+  passport : String
+  created_at : String
+} derive(ToJson, FromJson)
+
+///|
+#derive.golem_schema
+struct CredentialInfo {
+  id : String
+  name : String
+  active : Bool
 } derive(ToJson, FromJson)
 
 ///|
