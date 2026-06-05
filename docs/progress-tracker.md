@@ -2,12 +2,10 @@
 
 Update this file after every meaningful implementation change.
 
-## In Progress
-
-- **🔧 HF-08: Error Handling Unification — In Progress**
-  Unifying all error responses to match Golem's gateway error convention (`{"code":"...","message":"...","errors":["..."]}`), renaming `detail`→`debug` with user-facing vs developer-facing contract, adding `extractErrorFromBody()` and `!res.ok` gate to frontend proxy. Spec: `docs/specs/hotfix-08-error-handling-unification.md`.
-
 ## Completed
+
+- **✅ HF-08: Error Handling Unification — Complete**
+  Unified all error responses to match Golem's gateway error convention (`{"code":"...","message":"...","errors":["..."]}`). Renamed `AppError.detail` → `debug` with enforced contract: `message` = always user-facing/clean, `debug` = developer-facing (raw SQL/HTTP responses). New `to_json_string()` produces top-level `code`/`message`/`errors`/`debug` format. Frontend `extractErrorFromBody()` handles 3 formats (Golem Err envelope, top-level, legacy nested). `proxyFetch` adds `!res.ok` gate — any non-2xx response is always treated as error. `db_admin_save_profile` preserves `e.debug` from original errors (no longer lossy). All 17 `detail:` → `debug:` across 5 backend files. `parseStructuredError` removed (superseded). Build: `moon check` 0 errors (26 warnings), `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-08-error-handling-unification.md`.
 
 - **✅ HF-07: Backend Audit Fixes — Complete**
   Fixed 19 issues from backend audit. Critical: 6 multi-step sagas wrapped in `@api.with_atomic_operation` for Golem crash-recovery atomicity (`admin_create_user`, `admin_edit_user`, `admin_delete_user`, `admin_set_teacher_subjects`, `admin_create_session_term`, `admin_activate_session_term`). SQL safety: `db_admin_create_teacher_assignments` uses `$bindings` (no manual escaping). Error propagation: `student_get_class_level` no longer discards original DB error. Cache self-healing: 8 cache-hit paths use `try_parse_*` helpers (`return None` pattern) — corrupt entries silently re-fetch from DB instead of returning `InternalError`. Toggle reliability: prerequisite lookup errors propagate, fire-and-forget RPCs stay best-effort. Cache invalidation: `admin_soft_delete_profile` and `admin_delete_user` now invalidate affected student/teacher agent caches. Type consistency: 4 outlier Admin endpoints converted from raw JSON strings to typed structs (`SessionTermDetail`, `SessionTermInfo`, `TermSimple`). Teacher caching: `teacher_fetch_terms` and `teacher_fetch_lessons` get cache-first reads with self-invalidation from toggle endpoints. Code quality: `db_teacher_update_lesson_active` dead code removed, `teacher_toggle_lesson` meta_obj dedup, `Map::new()` → `Map([], capacity=0)` consistency, `admin_fetch_active_session_term` → `_id` rename, `CACHE_TTL` constant replaces all raw `600UL`. Layer boundaries: `validate_class_level_exists` delegates to `db_admin_fetch_class_level_by_name`. Build: `moon check` 0 errors (26 warnings, same baseline), `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-07-backend-audit-fixes.md`.
