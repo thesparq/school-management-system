@@ -200,6 +200,7 @@
 
 	async function openEditDialog(userObj: UserRow) {
 		editForm = { uuid: userObj.uuid, authentikPk: userObj.pk, username: userObj.username, surname: '', firstName: '', middleName: '', email: userObj.email, password: '', showPassword: false, dob: '', classLevel: '', currentPassport: '' };
+		editDialogOpen = true;
 		editProfileLoading = true;
 		try {
 			const res = await fetch(`/api/admin/users/${userObj.uuid}/profile?role=student`);
@@ -214,7 +215,7 @@
 				editForm.currentPassport = profile.passport ?? '';
 			}
 		} catch { /* pre-load fails gracefully */ }
-		finally { editProfileLoading = false; editDialogOpen = true; }
+		finally { editProfileLoading = false; }
 	}
 
 	function openDeleteDialog(userObj: UserRow) {
@@ -312,7 +313,7 @@
 	<DialogContent class="sm:max-w-lg">
 		<DialogHeader><DialogTitle>Edit Student</DialogTitle><DialogDescription>Update the student details.</DialogDescription></DialogHeader>
 		<div class="space-y-4">
-			{#if editProfileLoading}<div class="text-sm text-muted-foreground">Loading profile...</div>{/if}
+			{#if editProfileLoading}<div class="flex items-center gap-2 text-sm text-muted-foreground"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading profile data...</div>{/if}
 			<div class="space-y-2"><Label for="e-username">Username <span class="text-destructive">*</span></Label><Input id="e-username" bind:value={editForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
 			<div class="space-y-2"><Label for="e-email">Email <span class="text-destructive">*</span></Label><Input id="e-email" type="email" bind:value={editForm.email} required /></div>
@@ -334,7 +335,7 @@
 			</div>
 			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading}>Save</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading} disabled={editLoading || editProfileLoading}>Save</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>

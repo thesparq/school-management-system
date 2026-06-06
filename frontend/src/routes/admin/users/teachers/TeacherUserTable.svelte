@@ -118,9 +118,10 @@ import type { TeacherSubjectPair } from '$lib/types';
 
 	async function openEditDialog(userObj: UserRow) {
 		editForm = { uuid: userObj.uuid, authentikPk: userObj.pk, username: userObj.username, surname: '', firstName: '', middleName: '', email: userObj.email, password: '', showPassword: false, dateEmployed: '', qualifications: [], currentPassport: '' };
+		editDialogOpen = true;
 		editProfileLoading = true;
 		try { const res = await fetch(`/api/admin/users/${userObj.uuid}/profile?role=teacher`); const body = await res.json(); const p = body?.data; if (p) { editForm.surname = p.surname ?? ''; editForm.firstName = p.first_name ?? ''; editForm.middleName = p.middle_name ?? ''; editForm.dateEmployed = p.date_employed ?? ''; editForm.qualifications = p.qualifications ?? []; editForm.currentPassport = p.passport ?? ''; } } catch { }
-		finally { editProfileLoading = false; editDialogOpen = true; }
+		finally { editProfileLoading = false; }
 	}
 
 	function openDeleteDialog(userObj: UserRow) { deleteTarget = { pk: userObj.pk, uuid: userObj.uuid, name: userObj.name || userObj.username }; deleteError = ''; deleteDialogOpen = true; }
@@ -198,7 +199,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 <Dialog open={editDialogOpen} onOpenChange={(v: boolean) => v ? null : closeEdit()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Edit Teacher</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			{#if editProfileLoading}<div class="text-sm text-muted-foreground">Loading...</div>{/if}
+			{#if editProfileLoading}<div class="flex items-center gap-2 text-sm text-muted-foreground"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading profile data...</div>{/if}
 			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={editForm.username} required /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
@@ -207,7 +208,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 			<CredentialsSelect bind:selected={editForm.qualifications} />
 			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading}>Save</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading} disabled={editLoading || editProfileLoading}>Save</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>
@@ -216,7 +217,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 <AlertDialog.Root open={deleteDialogOpen} onOpenChange={(v: boolean) => v ? null : deleteDialogOpen = false}>
 	<AlertDialog.Content><AlertDialog.Header><AlertDialog.Title>Delete Teacher</AlertDialog.Title><AlertDialog.Description>Delete {deleteTarget?.name}? This cannot be undone.</AlertDialog.Description></AlertDialog.Header>
 		{#if deleteError}<p class="text-sm text-destructive px-4">{deleteError}</p>{/if}
-		<AlertDialog.Footer><AlertDialog.Cancel disabled={deleteLoading}>Cancel</AlertDialog.Cancel><AlertDialog.Action onclick={handleDelete} class="bg-error-500 hover:bg-error-600" disabled={deleteLoading}>Delete</AlertDialog.Action></AlertDialog.Footer>
+		<AlertDialog.Footer><AlertDialog.Cancel disabled={deleteLoading}>Cancel</AlertDialog.Cancel><AlertDialog.Action onclick={handleDelete} class="bg-destructive hover:bg-destructive/90" disabled={deleteLoading}>Delete</AlertDialog.Action></AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
 
