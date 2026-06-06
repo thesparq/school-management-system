@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔨 HF-11: Frontend User Management Rework — Spec Written**
+  Refactor monolithic `UserTable.svelte` into 4 role-specific table components + shared sub-components. Update create/edit forms for all 4 roles with new backend profile fields (name parts, passport with presigned R2 upload + preview, DOB, qualifications, role title, students array). Fix parent group fetch in Authentik, add parent page header + create button. Unify all error/empty/loading states behind StatusCard. Spec: `docs/specs/hotfix-11-frontend-user-management-rework.md`.
+
 ## Completed
 
 - **✅ HF-10: User Management Refactor — Complete**
