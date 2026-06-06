@@ -6,6 +6,7 @@
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { addToast } from '$lib/stores/toast';
 
 	interface TermItem {
@@ -52,8 +53,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
-	<h1 class="text-2xl font-display font-bold text-primary-700">Terms</h1>
+<div class="space-y-6">
+	<PageHeader title="Terms" />
 
 	{#if data.termsError}
 		<StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => window.location.reload()} />

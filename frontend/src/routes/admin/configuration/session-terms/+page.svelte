@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import AppButton from '$lib/components/ui/app-button.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import {
 		Dialog,
@@ -104,27 +105,18 @@
 	}
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6">
-	<h1 class="text-2xl font-display font-bold text-primary-700">Session Terms</h1>
+<div class="space-y-6">
+	<PageHeader title="Session Terms" createLabel="Create Session Term" onCreate={() => showCreateDialog = true} />
 
 	{#if data.sessionTermsError}
 		<StatusCard variant="error" title="Failed to load data" description={data.sessionTermsError} onRetry={() => window.location.reload()} />
 	{:else if sessionTerms.length === 0}
-		<div class="space-y-4">
-			<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
-			<div class="flex justify-start">
-				<AppButton variant="default" onclick={() => showCreateDialog = true}>Create Session Term</AppButton>
-			</div>
-		</div>
+		<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
 	{:else}
 		<div class="space-y-4">
 			{#if !hasActive}
 				<StatusCard variant="warning" title="No active session term" description="Teacher assignments cannot be scoped to a term. Activate a session term below." />
 			{/if}
-
-			<div class="flex justify-end">
-				<AppButton variant="default" onclick={() => showCreateDialog = true}>Create Session Term</AppButton>
-			</div>
 
 			<Card>
 				<CardContent class="p-0">

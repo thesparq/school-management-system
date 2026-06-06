@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ParentUserTable from './ParentUserTable.svelte';
-	import AppButton from '$lib/components/ui/app-button.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import type { UserRow } from '$lib/types/user';
 
 	let { data } = $props();
@@ -15,9 +15,6 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-display font-bold text-primary-700">Parent Users</h1>
-		<AppButton onclick={() => showCreateDialog = true}>Create Parent</AppButton>
-	</div>
+	<PageHeader title="Parent Users" createLabel="Create Parent" onCreate={() => showCreateDialog = true} />
 	<ParentUserTable bind:users bind:allGroups bind:showCreateDialog groupPk={data.groupPk ?? ''} {isLoading} {hasError} {errorMessage} />
 </div>

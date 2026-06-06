@@ -1,6 +1,6 @@
 <script lang="ts">
 	import StudentUserTable from './StudentUserTable.svelte';
-	import AppButton from '$lib/components/ui/app-button.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import type { UserRow } from '$lib/types/user';
 
 	let { data } = $props();
@@ -15,9 +15,6 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-display font-bold text-primary-700">Student Users</h1>
-		<AppButton onclick={() => showCreateDialog = true}>Create Student</AppButton>
-	</div>
+	<PageHeader title="Student Users" createLabel="Create Student" onCreate={() => showCreateDialog = true} />
 	<StudentUserTable bind:users bind:allGroups bind:showCreateDialog groupPk={data.groupPk ?? ''} {isLoading} {hasError} {errorMessage} />
 </div>

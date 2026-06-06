@@ -9,7 +9,7 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
+<div class="space-y-6">
   <h1 class="text-2xl font-display font-bold text-primary-700">{data.classLevelName}</h1>
 
   {#if $navigating && (!data.subjects || data.subjects.length === 0)}
