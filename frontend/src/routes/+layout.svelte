@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import logo from '$lib/assets/logo.jpg';
-	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
 	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage, BreadcrumbLink, BreadcrumbSeparator } from '$lib/components/ui/breadcrumb';
@@ -10,7 +9,7 @@
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { page, navigating } from '$app/stores';
-	import { useSidebar } from '$lib/components/ui/sidebar/context.svelte.js';
+	import SidebarLogo from '$lib/components/SidebarLogo.svelte';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -20,12 +19,6 @@
 	let sidebarOpen = $state(true);
 	let isLoggingOut = $state(false);
 	let error = $state('');
-	const sb = useSidebar();
-
-	$effect(() => {
-		$page.url.pathname;
-		sb.setOpenMobile(false);
-	});
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
@@ -105,12 +98,8 @@
 {/if}
 
 <SidebarProvider open={sidebarOpen} onOpenChange={(v) => sidebarOpen = v}>
-	<Sidebar>
-		<SidebarHeader>
-				<div class="flex items-center gap-2 px-4 py-2">
-					<img src={logo} alt="School MS" class="h-8" />
-				</div>
-			</SidebarHeader>
+		<Sidebar>
+			<SidebarLogo />
 
 		<SidebarContent>
 			<SidebarGroup>
