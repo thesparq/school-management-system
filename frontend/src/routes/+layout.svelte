@@ -12,6 +12,7 @@
 	import { page, navigating } from '$app/stores';
 	import SidebarLogo from '$lib/components/SidebarLogo.svelte';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 
@@ -197,16 +198,12 @@
 		<header class="flex h-14 items-center gap-4 border-b border-border px-4">
 			<SidebarTrigger />
 			<Separator orientation="vertical" class="h-6" />
-			<div
-				class="transition-all duration-300 ease-in-out"
-				class:opacity-0={sidebarOpen}
-				class:opacity-100={!sidebarOpen}
-				class:scale-75={sidebarOpen}
-				class:scale-100={!sidebarOpen}
-				class:pointer-events-none={sidebarOpen}
-			>
-				<img src={logo} alt="School MS" class="h-8" />
-			</div>
+			{#if !sidebarOpen}
+				<div transition:fade={{ duration: 200 }} class="flex items-center gap-4">
+					<img src={logo} alt="School MS" class="h-8" />
+					<Separator orientation="vertical" class="h-6" />
+				</div>
+			{/if}
 			<Breadcrumb>
 				<BreadcrumbList>
 					{#each ($page.data.breadcrumbs ?? [{ label: 'Dashboard' }]) as crumb, i (i)}
