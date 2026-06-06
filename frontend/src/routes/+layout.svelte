@@ -112,11 +112,11 @@
 							{/snippet}
 						</SidebarMenuButton>
 					</SidebarMenuItem>
-					{#if data.user.roles.includes('teachers')}
+					{#if data.user.roles.includes('teacher')}
 						<SidebarMenuItem>
 							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/my-classes')}>
 								{#snippet child({ props })}
-									<a href="/" {...props}>My Classes</a>
+									<a href="/my-classes" {...props}>My Classes</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
