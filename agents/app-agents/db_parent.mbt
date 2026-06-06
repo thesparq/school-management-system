@@ -11,7 +11,7 @@ pub fn db_parent_fetch_student_profiles(config : SharedConfig, student_ids : Arr
     }
   }
   let ids_list = "[" + student_ids.map(fn(id) { escape_surreal_string(id) }).join(", ") + "]"
-  surreal_query(config, "SELECT meta::id(id) AS id, display_name, current_class.name AS class_level FROM student_profile WHERE meta::id(id) IN " + ids_list + " AND deleted_at IS NONE ORDER BY display_name ASC")
+  surreal_query(config, "SELECT meta::id(id) AS id, display_name, current_class.name AS current_class FROM student_profile WHERE meta::id(id) IN " + ids_list + " AND deleted_at IS NONE ORDER BY display_name ASC")
 }
 
 pub fn db_parent_count_subjects_for_class(config : SharedConfig, class_level_id : String) -> Result[Int, AppError] {

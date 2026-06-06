@@ -5,7 +5,7 @@ fn try_parse_parent_students(json_str : String) -> Array[ParentStudentInfo]? {
     for i in arr { match i { Object(obj) => { items.push(ParentStudentInfo::{
       id: match obj.get("id") { Some(String(s)) => s; _ => continue },
       display_name: match obj.get("display_name") { Some(String(s)) => s; _ => continue },
-      class_level: match obj.get("class_level") { Some(String(s)) => s; _ => "" },
+      current_class: match obj.get("current_class") { Some(String(s)) => s; _ => "" },
       subject_count: match obj.get("subject_count") { Some(Number(n, ..)) => n.to_int(); _ => 0 },
     }) }; _ => () } }
     if items.length() > 0 { Some(items) } else { None }
@@ -30,12 +30,12 @@ pub fn parent_fetch_my_students(cache : CacheSystem, config : SharedConfig, pare
   for item in profiles {
     match item {
       Object(o) => {
-        let cl = match o.get("class_level") { Some(String(s)) => s; _ => "" }
+        let cl = match o.get("current_class") { Some(String(s)) => s; _ => "" }
         let count = match db_parent_count_subjects_for_class(config, cl) { Ok(n) => n; Err(_) => 0 }
         items.push(ParentStudentInfo::{
           id: match o.get("id") { Some(String(s)) => s; _ => continue },
           display_name: match o.get("display_name") { Some(String(s)) => s; _ => "" },
-          class_level: cl,
+          current_class: cl,
           subject_count: count,
         })
       }

@@ -8,7 +8,7 @@ fn parse_profile(json_str : String) -> StudentProfile? {
       middle_name: match obj.get("middle_name") { Some(String(s)) => Some(s); _ => None },
       display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
       date_of_birth: match obj.get("date_of_birth") { Some(String(s)) => s; _ => "" },
-      class_level: match obj.get("class_level") { Some(String(s)) => s; _ => "" },
+      current_class: match obj.get("current_class") { Some(String(s)) => s; _ => "" },
       passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
     })
     _ => None
@@ -44,7 +44,7 @@ pub fn student_get_class_level(
   match cache.get(cache_key, now) {
     Some(json_str) =>
       match parse_profile(json_str) {
-        Some(p) if p.class_level != "" => return Ok(p.class_level)
+        Some(p) if p.current_class != "" => return Ok(p.current_class)
         _ => ()
       }
     None => ()
@@ -56,9 +56,9 @@ pub fn student_get_class_level(
   if arr.length() > 0 {
     let row = arr[0].stringify()
     match parse_profile(row) {
-      Some(p) if p.class_level != "" => {
+      Some(p) if p.current_class != "" => {
         cache.set(cache_key, row, CACHE_TTL, [], now)
-        return Ok(p.class_level)
+        return Ok(p.current_class)
       }
       _ => ()
     }

@@ -5,6 +5,6 @@
 struct ParentStudentInfo {
   id : String
   display_name : String
-  class_level : String
+  current_class : String
   subject_count : Int
 } derive(ToJson, FromJson)

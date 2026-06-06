@@ -18,7 +18,7 @@ const PUBLIC_URL_BASE = process.env.R2_PUBLIC_URL!;
 
 export function getR2Key(profileType: string, userId: string, contentType: string): { key: string; ext: string } {
 	const ext = contentType === 'image/png' ? 'png' : 'jpg';
-	return { key: `${profileType}/${userId}/passport.${ext}`, ext };
+	return { key: `passports/${profileType}/${userId}.${ext}`, ext };
 }
 
 export function validateUploadRequest(contentType: string, fileSize: number): string | null {

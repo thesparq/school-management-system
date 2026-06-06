@@ -16,7 +16,7 @@ struct StudentProfile {
   middle_name : String?
   display_name : String
   date_of_birth : String
-  class_level : String
+  current_class : String
   passport : String
 } derive(ToJson, FromJson)
 

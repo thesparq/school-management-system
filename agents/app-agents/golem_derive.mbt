@@ -12,7 +12,7 @@ impl @schema.HasElementSchema for ParentStudentInfo with element_schema() {
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
     (
-      "class_level",
+      "current_class",
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
     (
@@ -26,9 +26,9 @@ impl @schema.HasElementSchema for ParentStudentInfo with element_schema() {
 impl @schema.FromExtractor for ParentStudentInfo with from_extractor(e) {
   let id :String = @schema.extract_field(e, 0)
   let display_name :String = @schema.extract_field(e, 1)
-  let class_level :String = @schema.extract_field(e, 2)
+  let current_class :String = @schema.extract_field(e, 2)
   let subject_count :Int = @schema.extract_field(e, 3)
-  { id, display_name, class_level, subject_count }
+  { id, display_name, current_class, subject_count }
 }
 
 ///|
@@ -41,7 +41,7 @@ impl @schema.ToElementValue for ParentStudentInfo with to_element_value(self) {
   @schema.make_record_value([
     @schema.to_element_value_as(self.id),
     @schema.to_element_value_as(self.display_name),
-    @schema.to_element_value_as(self.class_level),
+    @schema.to_element_value_as(self.current_class),
     @schema.to_element_value_as(self.subject_count),
   ])
 }
@@ -708,7 +708,7 @@ impl @schema.HasElementSchema for StudentProfile with element_schema() {
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
     (
-      "class_level",
+      "current_class",
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
     (
@@ -725,7 +725,7 @@ impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
   let middle_name :String? = @schema.extract_field(e, 2)
   let display_name :String = @schema.extract_field(e, 3)
   let date_of_birth :String = @schema.extract_field(e, 4)
-  let class_level :String = @schema.extract_field(e, 5)
+  let current_class :String = @schema.extract_field(e, 5)
   let passport :String = @schema.extract_field(e, 6)
   {
     surname,
@@ -733,7 +733,7 @@ impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
     middle_name,
     display_name,
     date_of_birth,
-    class_level,
+    current_class,
     passport,
   }
 }
@@ -751,7 +751,7 @@ impl @schema.ToElementValue for StudentProfile with to_element_value(self) {
     @schema.to_element_value_as(self.middle_name),
     @schema.to_element_value_as(self.display_name),
     @schema.to_element_value_as(self.date_of_birth),
-    @schema.to_element_value_as(self.class_level),
+    @schema.to_element_value_as(self.current_class),
     @schema.to_element_value_as(self.passport),
   ])
 }
