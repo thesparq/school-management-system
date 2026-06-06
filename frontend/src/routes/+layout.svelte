@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import logo from '$lib/assets/logo.svg';
 	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
@@ -87,7 +88,10 @@
 	});
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<link rel="icon" href={favicon} />
+	<title>{$page.data.title ?? 'School Management System'}</title>
+</svelte:head>
 
 {#if $navigating}
 	<div class="fixed top-0 left-0 right-0 z-50 h-2 bg-secondary-500 animate-pulse"></div>
@@ -96,10 +100,10 @@
 <SidebarProvider open={sidebarOpen} onOpenChange={(v) => sidebarOpen = v}>
 	<Sidebar>
 		<SidebarHeader>
-			<div class="flex items-center gap-2 px-4 py-2">
-				<span class="text-lg font-display font-bold text-primary-700">School</span>
-			</div>
-		</SidebarHeader>
+				<div class="flex items-center gap-2 px-4 py-2">
+					<img src={logo} alt="School MS" class="h-8" />
+				</div>
+			</SidebarHeader>
 
 		<SidebarContent>
 			<SidebarGroup>
