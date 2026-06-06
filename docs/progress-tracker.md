@@ -2,12 +2,10 @@
 
 Update this file after every meaningful implementation change.
 
-## In Progress
-
-- **🔨 HF-12: UI Consistency & Branding Unification — Spec Written**
-  Full frontend audit completed across all pages (admin, LMS, teacher, layout). Spec covers: school branding (favicon, logo, title), dark mode toggle, `PageHeader` component for consistent page headers, `StatusCard` everywhere (removing all raw `Alert` and custom HTML), container width unification (`space-y-6`), mobile responsiveness fixes, data fetching unification (`proxyToStudent` instead of raw `fetch`), bug fixes (My Classes link, sidebar role check), removal of dead `$derived`+`$state` wrappers. Spec: `docs/specs/hotfix-12-ui-consistency-branding.md`.
-
 ## Completed
+
+- **✅ HF-12: UI Consistency & Branding Unification — Complete**
+  Applied `PageHeader` component across all pages (4 user mgmt, session terms, terms, root page, LMS terms). Replaced `Alert` and custom HTML with `StatusCard` in LMS term page. Removed dual toast+StatusCard pattern on root page. Unified all container widths to `space-y-6`. Added `ThemeToggle` (dark mode with localStorage + `prefers-color-scheme`). School branding: custom SVG favicon + logo in sidebar header, page title via `<svelte:head>`, `theme-color` meta. Fixed bugs: My Classes link (`href="/"` → `href="/my-classes"`), sidebar teacher role check (`'teachers'` → `'teacher'`). Unified LMS data fetching to use `proxyToStudent` instead of raw `fetch`. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-12-ui-consistency-branding.md`.
 
 - **✅ HF-11: Frontend User Management Rework — Complete**
   Refactored monolithic 997-line `UserTable.svelte` into 4 role-specific table components: `StudentUserTable.svelte` (columns: Name, Email, Class, Auth, Activate, Edit, Delete), `TeacherUserTable.svelte` (plus Assign + class assignment dialog), `AdminUserTable.svelte`, `ParentUserTable.svelte` (with student multi-select). Created 3 shared sub-components: `PassportUpload.svelte` (drag-drop + presigned R2 upload + 200x200 preview), `NameFields.svelte` (surname/first_name/middle_name), `CredentialsSelect.svelte` (teacher qualifications multi-select). All create/edit forms updated with new backend fields: name parts, display_name computation, DOB, class level, passport upload with preview, qualifications, role title, linked students. Edit dialogs pre-load profile from backend. Authentik group fetch fixed to include `parent`. Parent page rewritten with header + create button. All error/empty/loading states unified behind `StatusCard`. Old `UserTable.svelte` deleted. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-11-frontend-user-management-rework.md`.
