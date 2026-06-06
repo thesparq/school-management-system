@@ -2,6 +2,11 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **🔨 HF-12: UI Consistency & Branding Unification — Spec Written**
+  Full frontend audit completed across all pages (admin, LMS, teacher, layout). Spec covers: school branding (favicon, logo, title), dark mode toggle, `PageHeader` component for consistent page headers, `StatusCard` everywhere (removing all raw `Alert` and custom HTML), container width unification (`space-y-6`), mobile responsiveness fixes, data fetching unification (`proxyToStudent` instead of raw `fetch`), bug fixes (My Classes link, sidebar role check), removal of dead `$derived`+`$state` wrappers. Spec: `docs/specs/hotfix-12-ui-consistency-branding.md`.
+
 ## Completed
 
 - **✅ HF-11: Frontend User Management Rework — Complete**
