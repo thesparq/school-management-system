@@ -1,54 +1,47 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Lesson, BreadcrumbItem } from '$lib/types';
+import { proxyToStudent } from '$lib/server/golem';
 
-async function resolveTermName(termId: string, fetch: typeof globalThis.fetch): Promise<string> {
+async function resolveTermName(termId: string, userId: string): Promise<string> {
 	try {
-		const res = await fetch('/api/student/terms');
-		if (!res.ok) return 'Term';
-		const json = await res.json();
-		const terms: { id: string; name: string }[] = json.data ?? [];
-		const match = terms.find((t) => t.id === termId);
-		return match?.name ?? 'Term';
+		const r = await proxyToStudent(userId, '/terms');
+		if (r.error) return 'Term';
+		const terms: { id: string; name: string }[] = JSON.parse(r.data);
+		return terms.find((t) => t.id === termId)?.name ?? 'Term';
 	} catch {
 		return 'Term';
 	}
 }
 
-async function resolveSubjectName(subjectId: string, fetch: typeof globalThis.fetch): Promise<string> {
+async function resolveSubjectName(subjectId: string, userId: string): Promise<string> {
 	try {
-		const res = await fetch('/api/student/subjects');
-		if (!res.ok) return 'Subject';
-		const json = await res.json();
-		const subjects: { id: string; name: string }[] = json.data ?? [];
-		const match = subjects.find((s) => s.id === subjectId);
-		return match?.name ?? 'Subject';
+		const r = await proxyToStudent(userId, '/subjects');
+		if (r.error) return 'Subject';
+		const subjects: { id: string; name: string }[] = JSON.parse(r.data);
+		return subjects.find((s) => s.id === subjectId)?.name ?? 'Subject';
 	} catch {
 		return 'Subject';
 	}
 }
 
-export const load: PageServerLoad = async ({ params, locals, fetch }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const userId = locals.user?.id;
-	if (!userId) {
-		redirect(302, '/');
-	}
+	if (!userId) redirect(302, '/');
 
 	const subjectId = params.subjectId;
 	const termId = params.termId;
 
 	const [subjectName, termName] = await Promise.all([
-		resolveSubjectName(subjectId, fetch),
-		resolveTermName(termId, fetch)
+		resolveSubjectName(subjectId, userId),
+		resolveTermName(termId, userId)
 	]);
 
-	const lessonsRes = await fetch(`/api/student/lessons?subject_id=${subjectId}&term_id=${termId}`);
-	if (!lessonsRes.ok) {
-		const err = await lessonsRes.json().catch(() => ({ error: { message: 'Failed to fetch lessons' } }));
+	const lessonsResult = await proxyToStudent(userId, '/lessons', { subject_id: subjectId, term_id: termId });
+	if (lessonsResult.error) {
 		return {
-			lessons: [],
-			termName,
-			lessonsError: err.error?.message ?? 'Unknown error',
+			lessons: [], termName,
+			lessonsError: lessonsResult.error.message ?? 'Unknown error',
 			breadcrumbs: [
 				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
@@ -59,13 +52,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 
 	let lessons: Lesson[];
 	try {
-		const lessonsJson = await lessonsRes.json();
-		lessons = lessonsJson.data ?? [];
+		lessons = JSON.parse(lessonsResult.data);
 	} catch {
 		return {
-			lessons: [],
-			termName,
-			lessonsError: 'Invalid response from server.',
+			lessons: [], termName, lessonsError: 'Invalid response.',
 			breadcrumbs: [
 				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
@@ -75,13 +65,11 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 	}
 
 	return {
-		lessons,
-		termName,
-		lessonsError: null,
-    breadcrumbs: [
-      { label: 'Subjects', href: '/' } as BreadcrumbItem,
-      { label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
-      { label: termName } as BreadcrumbItem
-    ]
+		lessons, termName, lessonsError: null,
+		breadcrumbs: [
+			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
+			{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
+			{ label: termName } as BreadcrumbItem
+		]
 	};
 };
