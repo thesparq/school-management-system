@@ -10,6 +10,7 @@
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { page, navigating } from '$app/stores';
+	import { useSidebar } from '$lib/components/ui/sidebar/context.svelte.js';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -19,6 +20,12 @@
 	let sidebarOpen = $state(true);
 	let isLoggingOut = $state(false);
 	let error = $state('');
+	const sb = useSidebar();
+
+	$effect(() => {
+		$page.url.pathname;
+		sb.setOpenMobile(false);
+	});
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
