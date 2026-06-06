@@ -82,3 +82,14 @@ export interface BreadcrumbItem {
   label: string;
   href?: string;
 }
+
+export interface CredentialInfo {
+	id: string;
+	name: string;
+	active: boolean;
+}
+
+export interface StudentListItem {
+	id: string;
+	display_name: string;
+}
