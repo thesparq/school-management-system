@@ -7,6 +7,26 @@ Update this file after every meaningful implementation change.
 - **✅ HF-12: UI Consistency & Branding Unification — Complete**
   Applied `PageHeader` component across all pages (4 user mgmt, session terms, terms, root page, LMS terms). Replaced `Alert` and custom HTML with `StatusCard` in LMS term page. Removed dual toast+StatusCard pattern on root page. Unified all container widths to `space-y-6`. Added `ThemeToggle` (dark mode with localStorage + `prefers-color-scheme`). School branding: custom SVG favicon + logo in sidebar header, page title via `<svelte:head>`, `theme-color` meta. Fixed bugs: My Classes link (`href="/"` → `href="/my-classes"`), sidebar teacher role check (`'teachers'` → `'teacher'`). Unified LMS data fetching to use `proxyToStudent` instead of raw `fetch`. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-12-ui-consistency-branding.md`.
 
+- **✅ HF-13: UI Polish, Branding & Edit Dialog Lazy-Load — Complete**
+  **Branding:** Replaced SVG placeholders with actual school logo (`logo.jpg` for sidebar/header, `favicon.png` for favicon). Sidebar logo changes: expanded state shows full logo at `h-10` centered; collapsed state shows nothing in sidebar (slides off-screen), full logo transitions into top bar between SidebarTrigger and breadcrumb with smooth fade+scale animation and vertical separator. `SidebarLogo.svelte` component handles both logo rendering and mobile sidebar auto-close (`$effect` watching `$page.url.pathname` → `sb.setOpenMobile(false)`).
+  
+  **Semantic CSS token migration:** Replaced all raw Tailwind color classes across 19 files with shadcn semantic tokens: `text-surface-*` → `text-foreground`/`text-muted-foreground`/`text-sidebar-foreground`/`text-card-foreground`, `text-error-500` → `text-destructive`, `bg-surface-100` → `bg-muted`/`bg-accent`, `bg-white` → `bg-background`, `border-surface-*` → `border-border`/`border-input`, `bg-error-500` → `bg-destructive`.
+  
+  **New UI patterns:**
+  - `PageSkeleton.svelte` component with 3 layout variants (`list`/`grid`/`card`) integrated across all pages
+  - Edit dialog lazy-load: opens immediately with spinner + "Loading profile data..." + disabled Save button until fetch completes (all 4 UserTables)
+  - Top loading bar slimmed from `h-2` to `h-0.5`, uses `bg-secondary-400` (brighter amber in light mode)
+  - Amber accent on active lesson tab indicator (`border-secondary-500`)
+  - Global cursor CSS in `app.css` (`@layer base`)
+  - Mobile sidebar auto-close on navigation via `SidebarLogo.svelte`'s `$effect`
+  
+  **Infrastructure:**
+  - Dark theme flash prevention: sync `<script>` in `app.html` applies dark class before first paint
+  - Removed broken `useSidebar()` call from `+layout.svelte` (context not available at script level) — moved to child component `SidebarLogo.svelte`
+  - 502 error investigation: root cause is SurrealDB cloud instance unreachable from dev machine (no local SurrealDB, no network access to `vivid-island-te-*.surreal.cloud`). `/ping` works (no DB dependency), all DB-backed endpoints timeout after Golem retries exhaust → 502 through proxy.
+  
+  Build: `pnpm check` 0 errors, 37 warnings (pre-existing). 7 commits. Spec: `docs/specs/hotfix-13-ui-polish-branding.md`.
+
 - **✅ HF-11: Frontend User Management Rework — Complete**
   Refactored monolithic 997-line `UserTable.svelte` into 4 role-specific table components: `StudentUserTable.svelte` (columns: Name, Email, Class, Auth, Activate, Edit, Delete), `TeacherUserTable.svelte` (plus Assign + class assignment dialog), `AdminUserTable.svelte`, `ParentUserTable.svelte` (with student multi-select). Created 3 shared sub-components: `PassportUpload.svelte` (drag-drop + presigned R2 upload + 200x200 preview), `NameFields.svelte` (surname/first_name/middle_name), `CredentialsSelect.svelte` (teacher qualifications multi-select). All create/edit forms updated with new backend fields: name parts, display_name computation, DOB, class level, passport upload with preview, qualifications, role title, linked students. Edit dialogs pre-load profile from backend. Authentik group fetch fixed to include `parent`. Parent page rewritten with header + create button. All error/empty/loading states unified behind `StatusCard`. Old `UserTable.svelte` deleted. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-11-frontend-user-management-rework.md`.
 

@@ -63,7 +63,7 @@ The following must never be modified without explicit, direct instruction in the
 
 Before marking a unit as complete, verify every item on this list. If any item fails, fix it before proceeding.
 
-1. **Build check:** Run the build command for the affected project (`moon build` for `shared/` and `agents/`, `pnpm build` for `frontend/`). The build must succeed with no errors and no new warnings.
+1. **Build check:** Run the build command for the affected project (`moon build` for `shared/` and `agents/`, `pnpm check && pnpm build` for `frontend/`). The build must succeed with no errors and no new warnings.
 2. **No regressions:** All previously working routes, agent methods, and RPC calls remain functional. If a change could affect existing behaviour, explain why it does not.
 3. **Invariants preserved:** Review the invariants section in `architecture.md`. Confirm the change does not violate any invariant. If it does, stop and raise the conflict.
 4. **Documentation updated:** The relevant context file reflects the change. No stale or contradictory statements remain.

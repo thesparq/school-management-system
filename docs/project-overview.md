@@ -90,16 +90,22 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Read-only access enforced per student — cannot access unlinked students.
 
 ### General Features
-- Light mode (default) with professional blue‑amber palette; dark mode toggle with system preference detection.
-- School branding: custom SVG favicon and logo in sidebar header.
-- Responsive layout: collapsible sidebar, breadcrumb navigation, mobile-friendly tables and forms.
-- Sidebar: Navigation group (LMS, My Classes — teachers, My Children — parents), Configuration group (Session Terms, Terms — admin only), Users group (Students, Teachers, Parents, Admin — admin only).
+- Light mode (default) with professional blue‑amber palette; dark mode toggle with system preference detection and sync `<script>` in `app.html` preventing flash on load/navigation.
+- School branding: actual school photo as `logo.jpg` in sidebar header (and top bar when sidebar collapses), `favicon.png` for favicon and collapsed-state icon.
+- Responsive layout: collapsible sidebar (offcanvas on mobile, shrink-to-icon on desktop), breadcrumb navigation, mobile-friendly tables and forms.
+- Collapsed sidebar: full logo transitions into the top bar (between sidebar trigger and breadcrumb) with smooth opacity+scale animation.
+- Sidebar: Navigation group (LMS, My Classes — teachers, My Children — parents), Configuration group (Session Terms, Terms — admin only), Users group (Students, Teachers, Parents, Admin — admin only). Mobile sidebar auto-closes on navigation.
 - All data access via agents; SvelteKit never touches databases directly.
 - JWT‑based authentication, no server‑side sessions.
 - Agent durable memory (unified `caches` map per agent) for cached data; SurrealDB for canonical entity data.
+- All UI uses shadcn semantic CSS tokens (`text-foreground`, `bg-background`, `border-border`, `text-destructive`, etc.) from `app.css` `@theme inline` block — no raw Tailwind color classes.
+- Top loading bar (`h-0.5 bg-secondary-400/500`) appears on navigation as secondary indicator; PageSkeleton component (list/grid/card layouts) as primary per-page loading state.
 - Toast notifications for transient operation feedback (success, info, warning, error).
 - StatusCard component for all persistent page-level states (error, empty, info, warning).
 - PageHeader component for consistent page heading + action layout across all pages.
+- PageSkeleton component for consistent loading states: `list` (table placeholder rows), `grid` (card skeleton grid), `card` (single card skeleton).
+- Edit dialogs lazy-load profile data: dialog opens immediately with spinner + "Loading profile data..." and disabled Save button until data arrives.
+- Global cursor-pointer CSS on all clickable elements (buttons, links, checkboxes, radio buttons, selects); `cursor-not-allowed` on disabled elements.
 
 ## In Scope (MVP)
 

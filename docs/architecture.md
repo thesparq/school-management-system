@@ -99,6 +99,10 @@ school-management/
   │   │   └── api/             # Proxy routes to Golem agent endpoints
     │   └── lib/
     │       ├── components/      # shadcn-svelte components + LessonPage.svelte + accordion/checkbox
+    │       │       ├── SidebarLogo.svelte  # Logo with collapsed-state header integration + mobile sidebar auto-close
+    │       │       ├── PageHeader.svelte    # Consistent page heading + action layout
+    │       │       └── ui/skeleton/
+    │       │           └── PageSkeleton.svelte  # Reusable loading skeleton (list/grid/card layouts)
     │       └── utils.ts
     └── static/
 ```
@@ -198,7 +202,7 @@ Every line of code lives in one of three security domains. A request never skips
 
 ### Frontend (SvelteKit — `frontend/`)
 
-- **Rendering**: Svelte 5 components with runes (`$state`, `$derived`, `$effect`); shadcn-svelte primitives; Tailwind CSS v4 utilities configured via `@theme` in `app.css`.
+- **Rendering**: Svelte 5 components with runes (`$state`, `$derived`, `$effect`); shadcn-svelte primitives; Tailwind CSS v4 utilities configured via `@theme` in `app.css`. All UI uses shadcn semantic CSS tokens (`text-foreground`, `text-muted-foreground`, `bg-background`, `bg-muted`, `bg-accent`, `border-border`, `border-input`, `text-destructive`, `bg-destructive`, `text-card-foreground`, `text-sidebar-foreground`) — raw Tailwind color classes (e.g. `text-surface-*`, `bg-white`, `border-surface-*`) are never used for UI surfaces; they are replaced by their semantic equivalents.
 - **Server-side hooks** (`src/hooks.server.ts`): Validates the Authentik JWT on every request using Authentik's JWKS endpoint, extracts the internal `user_id` and roles, and stores them in `locals` for downstream load functions and actions.
 - **API routes** (`src/routes/api/`): Thin proxy handlers. They read `user_id` from `locals`, construct a request to the target Golem agent's HTTP endpoint, and return the response. They never query a database.
 - **MoonBit modules**: Imported via `mbt:shared/…` prefix. Used for shared validation, data transformations, and type definitions that must be identical on both frontend and backend. The `vite-plugin-moonbit` plugin resolves these imports from the workspace `_build/` directory.
@@ -684,6 +688,16 @@ Users                   ← admin only
   └── Admin
 ```
 
+## Sidebar Collapsed UX
+
+The sidebar uses shadcn-svelte's `SidebarProvider` with `collapsible="offcanvas"` (default). When collapsed:
+
+- **Sidebar slides off-screen** (both desktop offcanvas and mobile sheet).
+- **Full logo transitions to top bar** — `SidebarLogo.svelte` (rendered inside `<Sidebar>`) watches `sb.state` (from `useSidebar()` context). When `collapsed`, it renders nothing in the sidebar; the `+layout.svelte` header shows the full logo (`logo.jpg`) between the `SidebarTrigger` and the breadcrumb via `{#if !sidebarOpen}` with `transition:fade`.
+- **Visual separator** — a `<Separator orientation="vertical" />` sits between the logo and the breadcrumb when the logo is visible.
+- **Mobile auto-close** — `SidebarLogo.svelte` has an `$effect` watching `$page.url.pathname` that calls `sb.setOpenMobile(false)`, closing the mobile sidebar sheet after any navigation.
+- **State persistence** — sidebar open/close state is saved to and restored from `localStorage('sidebar_state')`.
+
 ## Session Term Management (HF-04)
 
 Admin users can manage session terms via **Configuration > Session Terms**. A session term links a school session (e.g., "2024") to an academic term (e.g., "Noel Term"). Only one session term can be active at a time.
@@ -707,6 +721,24 @@ Global toast notification system (`lib/stores/toast.ts`, `lib/components/ui/toas
 ### AppButton
 
 `AppButton.svelte` (`$lib/components/ui/app-button.svelte`) — wraps the shadcn-svelte `Button` with a unified `loading` prop. When true, shows an animated SVG spinner icon next to the button text and auto-disables the button. All other props (`variant`, `size`, `onclick`, `disabled`, `class`, etc.) pass through to the underlying Button. Used across all 10 app-level Button consumers — eliminates manual `disabled={loading}` + ad-hoc spinner patterns. Text swap (`{loading ? 'Saving...' : 'Save'}`) is still controlled by the caller.
+
+### PageSkeleton
+
+`PageSkeleton.svelte` (`$lib/components/ui/skeleton/PageSkeleton.svelte`) — reusable loading skeleton with three layout variants:
+- **`list`**: Alternating row skeletons mimicking table rows with avatar/square/circle shapes.
+- **`grid`**: 4-column responsive card skeleton grid matching the subject/class card layout.
+- **`card`**: Single card skeleton for detail pages.
+
+Used as primary per-page loading state across all routes (dashboard, LMS pages, my-classes pages, user tables). The top loading bar (`h-0.5 bg-secondary-400/500` in `+layout.svelte`) serves as a secondary global navigation indicator.
+
+### Edit Dialog Lazy-Load
+
+All 4 `UserTable` components (Student, Teacher, Admin, Parent) use an optimistic opening pattern:
+1. Dialog opens immediately on "Edit" click.
+2. Shows `<p class="text-sm text-muted-foreground"><span class="animate-spin">...</span> Loading profile data...</p>`.
+3. Save button is disabled until the profile fetch completes.
+4. Once data arrives, the form is populated, the spinner text is replaced, and Save becomes enabled.
+5. If fetch fails, the error is shown inline and the user can still fill fields manually.
 
 ### AlertDialog
 

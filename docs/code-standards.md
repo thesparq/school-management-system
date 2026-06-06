@@ -33,10 +33,12 @@
 ## Styling
 
 - **Use design tokens defined in `app.css`.** All colours, spacing, border radii, and fonts must be referenced via Tailwind utility classes that map to the project’s `@theme` tokens. Hardcoded hex values, pixel sizes, or arbitrary values (e.g. `bg-[#123abc]`) are forbidden.
+- **Prefer shadcn semantic tokens for UI surfaces.** Use `text-foreground`/`text-muted-foreground`/`bg-background`/`bg-muted`/`bg-accent`/`border-border`/`text-destructive`/`bg-destructive` for all UI elements. Avoid raw theme color classes (`text-surface-*`, `bg-white`, `bg-surface-*`, `border-surface-*`, `text-error-*`, `bg-error-*`) in component templates.
 - **Follow the semantic colour scale.** `primary-*` for main actions and navigation, `secondary-*` for highlights and badges, `success-*` for completion states, `error-*` for destructive actions or overdue indicators, and `surface-*` for backgrounds and cards. Never swap these meanings.
 - **shadcn-svelte components are the foundation.** New UI elements should be built by composing existing shadcn-svelte primitives (Button, Card, Dialog, Table, etc.). Custom CSS is allowed only for layout refinements, not to recreate an existing component from scratch.
-- **Dark mode must use Tailwind’s `dark:` variant.** Any component that changes appearance in dark mode should use the `dark:` modifier with the corresponding token. Never write separate dark-mode CSS files or duplicate components.
+- **Dark mode must use Tailwind’s `dark:` variant.** Any component that changes appearance in dark mode should use the `dark:` modifier with the corresponding token. Never write separate dark-mode CSS files or duplicate components. A sync `<script>` in `app.html` applies the `dark` class before first paint to prevent flash.
 - **Responsive design uses the default breakpoints.** Build mobile-first. Use `sm:`, `md:`, `lg:`, and `xl:` prefixes as needed. The sidebar collapse at small screens is the standard pattern.
+- **Global cursor classes:** `@layer base` in `app.css` applies `cursor-pointer` to all buttons, links, checkboxes, radio buttons, and selects; `cursor-not-allowed` to disabled elements.
 
 ## API Routes (SvelteKit → Golem)
 
@@ -219,7 +221,9 @@ school-management/
     │   │   │       └── session-terms/
     │   │   └── api/           # Proxy routes to Golem gateway
     │   └── lib/
-    │       ├── components/    # shadcn-svelte components + LessonPage.svelte (shared lesson page) + accordion/ + checkbox/
+    │       ├── components/    # shadcn-svelte components + LessonPage.svelte + SidebarLogo.svelte + PageHeader.svelte
+    │       │   └── ui/skeleton/
+    │       │       └── PageSkeleton.svelte  # Reusable loading skeleton (list/grid/card)
     │       └── utils.ts       # Small helper functions
     └── static/
 ```

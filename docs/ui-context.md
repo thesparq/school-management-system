@@ -102,6 +102,7 @@ Dark mode is activated by adding the `.dark` class to `<html>`. A `ThemeToggle` 
 
 - On first visit: checks `localStorage('theme')`, falls back to `prefers-color-scheme`
 - On toggle: flips `.dark` class on `<html>`, persists preference to `localStorage`
+- **Flash prevention:** A sync `<script>` in `app.html` reads `localStorage.theme` and applies the `dark` class before the first paint, preventing a white flash on dark-mode pages.
 - All existing `dark:` Tailwind variants work automatically — no separate color palette needed
 
 Dark mode tokens invert the shadcn semantic colors (`--background`, `--foreground`, `--card`, etc.) while preserving the `@theme` color scales (`primary-*`, `surface-*`, etc.) for component use.
@@ -218,11 +219,17 @@ Skeleton loading: 4-6 skeleton cards matching the grid layout during `$navigatin
 
 ### Favicon
 
-Custom SVG favicon (`src/lib/assets/favicon.svg`): primary-blue rounded square with white "SM" initials. Injected via `<svelte:head><link rel="icon" href={favicon} /></svelte:head>` in layout.
+`static/favicon.png`: school crest/logo as favicon. Served via `<link rel="icon" href="/favicon.png">` in `app.html`.
 
 ### Logo
 
-SVG logo (`src/lib/assets/logo.svg`): primary-blue rounded square icon + "School MS" text in Inter Display bold. Used in sidebar header.
+`src/lib/assets/logo.jpg`: photographic image of the school logo (building icon + school name text). Used in:
+- **Sidebar header** (expanded state): `h-10`, centered in `SidebarLogo.svelte`
+- **Top bar** (collapsed sidebar): `h-8` with `transition:fade`, appears between `SidebarTrigger` and breadcrumb when sidebar collapses
+
+### Collapsed Sidebar Icon
+
+`/favicon.png` is used as the collapsed sidebar placeholder (the sidebar itself is off-screen; the icon appears in the top bar).
 
 ### Page Title
 
@@ -267,7 +274,65 @@ Pre-loads existing `passport` URL from profile and shows thumbnail. User can rep
 
 ---
 
-## AI & Accent Color Variants
+## Semantic CSS Tokens
+
+All UI surfaces use shadcn's semantic CSS tokens (defined in `app.css` `@theme inline` block) instead of raw theme color classes:
+
+| Token | Purpose | Replaces |
+|-------|---------|----------|
+| `text-foreground` | Primary body text | `text-surface-800` / `text-primary-800` |
+| `text-muted-foreground` | Secondary/muted text | `text-surface-700` / `text-surface-500` |
+| `text-sidebar-foreground` | Sidebar text | `text-surface-800` (in sidebar) |
+| `text-card-foreground` | Card body text | `text-surface-700` |
+| `text-destructive` | Error/warning labels | `text-error-500` |
+| `bg-background` | Page background | `bg-white` / `bg-surface-50` |
+| `bg-muted` | Muted card/input backgrounds | `bg-surface-100` |
+| `bg-accent` | Hover/selection backgrounds | `bg-surface-100` / `bg-primary-50` |
+| `bg-destructive` | Destructive button/delete styling | `bg-error-500` |
+| `border-border` | Default borders | `border-surface-200` |
+| `border-input` | Input field borders | `border-surface-200` / `border-surface-300` |
+
+Dark mode counterparts are handled automatically via Tailwind's `dark:` variant on the same tokens. **Do not** use `text-surface-*`, `bg-white`, `bg-surface-*`, `border-surface-*`, `text-error-*`, `bg-error-*` for UI surfaces — always use the semantic equivalent.
+
+## PageSkeleton
+
+`PageSkeleton.svelte` (`$lib/components/ui/skeleton/PageSkeleton.svelte`) provides three layout variants for loading states:
+
+- **`list`**: Alternating row shapes (avatar + text lines) mimicking table/rows. Used in user tables, lesson lists, term lists.
+- **`grid`**: 4-column responsive skeleton card grid. Used in dashboard subject/class card grids.
+- **`card`**: Single skeleton card with title + text lines. Used in lesson detail pages.
+
+```svelte
+<PageSkeleton variant="grid" count={6} />
+<PageSkeleton variant="list" count={5} />
+<PageSkeleton variant="card" />
+```
+
+## Top Loading Bar
+
+A thin amber bar (`h-0.5 bg-secondary-400 dark:bg-secondary-500 animate-pulse`) fixed at the top of the viewport (`fixed top-0 left-0 right-0 z-50`) during navigation. Rendered in `+layout.svelte`:
+
+```svelte
+{#if $navigating}
+  <div class="fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-400 dark:bg-secondary-500 animate-pulse"></div>
+{/if}
+```
+
+Acts as a secondary global navigation indicator. Per-page loading is handled by `PageSkeleton`.
+
+## Mobile Sidebar Auto-Close
+
+`SidebarLogo.svelte` watches `$page.url.pathname` via `$effect` and calls `sb.setOpenMobile(false)` on change. This ensures the mobile sidebar sheet closes automatically after any navigation, preventing the sheet from remaining open when the user lands on a new page. The component is rendered inside `<Sidebar>` (child of `<SidebarProvider>`), so `useSidebar()` context is available.
+
+## Edit Dialog Lazy-Load Pattern
+
+All 4 role-specific UserTables use an optimistic dialog opening for edit operations:
+
+1. **Open immediately** — `showEditDialog = true` is set on click, no loading delay.
+2. **Show loading state** — `<p class="text-sm text-muted-foreground"><span class="animate-spin">...</span> Loading profile data...</p>` replaces the form content.
+3. **Disable Save** — `<AppButton onclick={handleSave} loading={saving} disabled={!profileLoaded}>Save</AppButton>` — `profileLoaded` starts `false` and is set `true` after the fetch completes.
+4. **Populate on data** — When the profile fetch response arrives, the form fields are populated, spinner text is replaced, Save becomes enabled.
+5. **Graceful degradation** — If fetch fails, the error is shown inline but the form remains open; the user can still fill fields manually and Save.
 
 No special AI accent color is required for the MVP. The primary blue is sufficient for AI-related UI elements (e.g., an AI sparkle icon can remain blue). If a distinct "AI" identity is needed later, introduce a **purple/violet** accent (`#8b5cf6` – `#7c3aed`) reserved only for AI-generated content labels, badges, and subtle glows; it must never replace the semantic colors for success or error.
 
