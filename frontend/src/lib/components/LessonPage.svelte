@@ -201,8 +201,8 @@
       <button
         onclick={() => activeTab = tab}
         class="px-4 py-2 text-sm border-b-2 transition cursor-pointer"
-        class:border-primary-500={activeTab === tab}
-        class:text-primary-700={activeTab === tab}
+        class:border-secondary-500={activeTab === tab}
+        class:text-secondary-700={activeTab === tab}
         class:font-medium={activeTab === tab}
         class:border-transparent={activeTab !== tab}
         class:text-surface-500={activeTab !== tab}
