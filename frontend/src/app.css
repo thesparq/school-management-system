@@ -179,4 +179,17 @@
 	html {
 		@apply font-sans;
 	}
+	button:not(:disabled),
+	a[href],
+	[role="button"]:not(:disabled),
+	summary,
+	input[type="checkbox"],
+	input[type="radio"],
+	select {
+		cursor: pointer;
+	}
+	button:disabled,
+	a[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
 }
