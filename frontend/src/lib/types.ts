@@ -65,6 +65,7 @@ export interface LessonContentSection {
 }
 
 export interface TeacherSubjectPair {
+  edge_id: string;
   class_level_id: string;
   class_level_name: string;
   subject_id: string;
