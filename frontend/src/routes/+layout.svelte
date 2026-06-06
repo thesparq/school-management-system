@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { page, navigating } from '$app/stores';
 	import { onMount } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -218,6 +219,8 @@
 			</Breadcrumb>
 
       <div class="flex-1"></div>
+
+			<ThemeToggle />
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
