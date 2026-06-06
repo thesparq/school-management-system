@@ -4,7 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
@@ -153,7 +153,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 	};
 </script>
 
-{#if isLoading}<div class="space-y-3">{#each Array(5) as _}<Skeleton class="h-12" />{/each}</div>
+{#if isLoading}<PageSkeleton layout="list" rows={5} />
 {:else if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}<StatusCard variant="info" title="No teachers yet" description="Create the first teacher to get started." />
 {:else}

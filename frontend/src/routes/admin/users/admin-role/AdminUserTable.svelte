@@ -3,7 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
@@ -54,7 +54,7 @@
 	function openDeleteDialog(userObj: UserRow) { deleteTarget = { pk: userObj.pk, uuid: userObj.uuid, name: userObj.name || userObj.username }; deleteError = ''; deleteDialogOpen = true; }
 </script>
 
-{#if isLoading}<div class="space-y-3">{#each Array(5) as _}<Skeleton class="h-12" />{/each}</div>
+{#if isLoading}<PageSkeleton layout="list" rows={5} />
 {:else if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}<StatusCard variant="info" title="No admins yet" description="Create the first admin to get started." />
 {:else}

@@ -4,7 +4,7 @@
 	import AppButton from '$lib/components/ui/app-button.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
 
@@ -39,11 +39,7 @@
 	<div class="space-y-6">
 		{#if $navigating && (!data.teacherClasses || data.teacherClasses.length === 0)}
 			<PageHeader title="My Classes" />
-			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each Array(6) as _}
-					<Skeleton class="h-32" />
-				{/each}
-			</div>
+			<PageSkeleton layout="grid" rows={6} />
 		{:else if data.teacherClassesError}
 			<StatusCard variant="error" title="Failed to load classes" description={data.teacherClassesError} onRetry={() => goto('/')} />
 		{:else if (!data.teacherClasses || data.teacherClasses.length === 0)}
@@ -74,11 +70,7 @@
 	<div class="space-y-6">
 		{#if $navigating && (!data.subjects || data.subjects.length === 0)}
 			<PageHeader title="Your Subjects" />
-			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each Array(12) as _}
-					<Skeleton class="h-28" />
-				{/each}
-			</div>
+			<PageSkeleton layout="grid" rows={12} />
 		{:else if data.subjectsErrorCode === 'NOT_INITIALIZED'}
 			<StatusCard variant="info" title="Account Not Initialized" description={data.subjectsError ?? ''} />
 		{:else if data.subjectsError}

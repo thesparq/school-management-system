@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Skeleton } from '$lib/components/ui/skeleton';
+  import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
@@ -13,11 +14,7 @@
   <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName} — Lessons</h1>
 
   {#if $navigating && (!data.lessons || data.lessons.length === 0)}
-    <div class="space-y-3">
-      {#each Array(5) as _}
-        <Skeleton class="h-16" />
-      {/each}
-    </div>
+    <PageSkeleton layout="list" rows={5} />
   {:else if data.lessonsError}
     <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId)} />
   {:else if data.lessons.length === 0}

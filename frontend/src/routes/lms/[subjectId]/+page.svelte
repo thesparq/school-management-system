@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Skeleton } from '$lib/components/ui/skeleton';
+  import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { page, navigating } from '$app/stores';
@@ -14,11 +14,7 @@
   <PageHeader title={data.subjectName} />
 
   {#if $navigating && (!data.terms || data.terms.length === 0)}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {#each Array(3) as _}
-        <Skeleton class="h-28 w-full" />
-      {/each}
-    </div>
+    <PageSkeleton layout="grid" rows={3} />
   {:else if data.termsError}
     <StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => goto('/lms/' + $page.params.subjectId)} />
   {:else if data.terms.length === 0}

@@ -3,8 +3,8 @@
   import type { Lesson } from '$lib/types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Switch } from '$lib/components/ui/switch/index.js';
+  import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
-  import { Skeleton } from '$lib/components/ui/skeleton';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
   import { addToast } from '$lib/stores/toast';
@@ -49,11 +49,7 @@
   <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName} — Lessons</h1>
 
   {#if $navigating && (!lessons || lessons.length === 0)}
-    <div class="space-y-3">
-      {#each Array(5) as _}
-        <Skeleton class="h-16" />
-      {/each}
-    </div>
+    <PageSkeleton layout="list" rows={5} />
   {:else if data.lessonsError}
     <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => goto('/my-classes/' + $page.params.classId + '/' + $page.params.subjectId + '/' + $page.params.termId)} />
   {:else if lessons.length === 0}
