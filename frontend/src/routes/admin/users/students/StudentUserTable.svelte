@@ -262,7 +262,7 @@
 					<TableCell>
 						<div class="flex gap-2">
 							<AppButton variant="outline" size="sm" onclick={() => openEditDialog(userObj)}>Edit</AppButton>
-							<AppButton variant="outline" size="sm" class="text-error-500" onclick={() => openDeleteDialog(userObj)}>Delete</AppButton>
+							<AppButton variant="outline" size="sm" class="text-destructive" onclick={() => openDeleteDialog(userObj)}>Delete</AppButton>
 						</div>
 					</TableCell>
 				</TableRow>
@@ -276,32 +276,32 @@
 	<DialogContent class="sm:max-w-lg">
 		<DialogHeader><DialogTitle>Create Student</DialogTitle><DialogDescription>Fill in the student details below.</DialogDescription></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label for="c-username">Username <span class="text-error-500">*</span></Label><Input id="c-username" bind:value={createForm.username} required minlength={3} /></div>
+			<div class="space-y-2"><Label for="c-username">Username <span class="text-destructive">*</span></Label><Input id="c-username" bind:value={createForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
-			<div class="space-y-2"><Label for="c-email">Email <span class="text-error-500">*</span></Label><Input id="c-email" type="email" bind:value={createForm.email} required /></div>
+			<div class="space-y-2"><Label for="c-email">Email <span class="text-destructive">*</span></Label><Input id="c-email" type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2">
-				<Label for="c-password">Password <span class="text-error-500">*</span></Label>
+				<Label for="c-password">Password <span class="text-destructive">*</span></Label>
 				<div class="flex gap-2">
 					<Input id="c-password" type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required minlength={8} />
 					<AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton>
 					<AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton>
 				</div>
 			</div>
-			<div class="space-y-2"><Label for="c-dob">Date of Birth <span class="text-error-500">*</span></Label><Input id="c-dob" type="date" bind:value={createForm.dob} required /></div>
+			<div class="space-y-2"><Label for="c-dob">Date of Birth <span class="text-destructive">*</span></Label><Input id="c-dob" type="date" bind:value={createForm.dob} required /></div>
 			<div class="space-y-2">
-				<Label for="c-class">Class Level <span class="text-error-500">*</span></Label>
+				<Label for="c-class">Class Level <span class="text-destructive">*</span></Label>
 				{#if classLevelsLoading}
-					<div class="text-sm text-surface-400">Loading...</div>
+					<div class="text-sm text-muted-foreground">Loading...</div>
 				{:else}
-					<select id="c-class" bind:value={createForm.classLevel} required class="w-full rounded-md border border-surface-200 bg-white px-3 py-2 text-sm dark:bg-surface-900">
+					<select id="c-class" bind:value={createForm.classLevel} required class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:bg-surface-900">
 						<option value="" disabled>Select class...</option>
 						{#each classLevels as cl}<option value={cl.name}>{cl.name}</option>{/each}
 					</select>
 				{/if}
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
-			{#if createError}<p class="text-sm text-error-500">{createError}</p>{/if}
+			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
 		</div>
 	</DialogContent>
@@ -312,10 +312,10 @@
 	<DialogContent class="sm:max-w-lg">
 		<DialogHeader><DialogTitle>Edit Student</DialogTitle><DialogDescription>Update the student details.</DialogDescription></DialogHeader>
 		<div class="space-y-4">
-			{#if editProfileLoading}<div class="text-sm text-surface-400">Loading profile...</div>{/if}
-			<div class="space-y-2"><Label for="e-username">Username <span class="text-error-500">*</span></Label><Input id="e-username" bind:value={editForm.username} required minlength={3} /></div>
+			{#if editProfileLoading}<div class="text-sm text-muted-foreground">Loading profile...</div>{/if}
+			<div class="space-y-2"><Label for="e-username">Username <span class="text-destructive">*</span></Label><Input id="e-username" bind:value={editForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
-			<div class="space-y-2"><Label for="e-email">Email <span class="text-error-500">*</span></Label><Input id="e-email" type="email" bind:value={editForm.email} required /></div>
+			<div class="space-y-2"><Label for="e-email">Email <span class="text-destructive">*</span></Label><Input id="e-email" type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2">
 				<Label for="e-password">Password</Label>
 				<div class="flex gap-2">
@@ -324,16 +324,16 @@
 					<AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton>
 				</div>
 			</div>
-			<div class="space-y-2"><Label for="e-dob">Date of Birth <span class="text-error-500">*</span></Label><Input id="e-dob" type="date" bind:value={editForm.dob} required /></div>
+			<div class="space-y-2"><Label for="e-dob">Date of Birth <span class="text-destructive">*</span></Label><Input id="e-dob" type="date" bind:value={editForm.dob} required /></div>
 			<div class="space-y-2">
-				<Label for="e-class">Class Level <span class="text-error-500">*</span></Label>
-				<select id="e-class" bind:value={editForm.classLevel} required class="w-full rounded-md border border-surface-200 bg-white px-3 py-2 text-sm dark:bg-surface-900">
+				<Label for="e-class">Class Level <span class="text-destructive">*</span></Label>
+				<select id="e-class" bind:value={editForm.classLevel} required class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:bg-surface-900">
 					<option value="" disabled>Select class...</option>
 					{#each classLevels as cl}<option value={cl.name} selected={cl.name === editForm.classLevel}>{cl.name}</option>{/each}
 				</select>
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
-			{#if editError}<p class="text-sm text-error-500">{editError}</p>{/if}
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading}>Save</AppButton></div>
 		</div>
 	</DialogContent>
@@ -343,7 +343,7 @@
 <AlertDialog.Root open={deleteDialogOpen} onOpenChange={(v: boolean) => v ? null : deleteDialogOpen = false}>
 	<AlertDialog.Content>
 		<AlertDialog.Header><AlertDialog.Title>Delete Student</AlertDialog.Title><AlertDialog.Description>Are you sure you want to delete {deleteTarget?.name}? This action cannot be undone.</AlertDialog.Description></AlertDialog.Header>
-		{#if deleteError}<p class="text-sm text-error-500 px-4">{deleteError}</p>{/if}
+		{#if deleteError}<p class="text-sm text-destructive px-4">{deleteError}</p>{/if}
 		<AlertDialog.Footer><AlertDialog.Cancel disabled={deleteLoading}>Cancel</AlertDialog.Cancel><AlertDialog.Action onclick={handleDelete} class="bg-error-500 hover:bg-error-600" disabled={deleteLoading}>Delete</AlertDialog.Action></AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

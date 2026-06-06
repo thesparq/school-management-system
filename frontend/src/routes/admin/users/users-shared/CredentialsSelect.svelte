@@ -55,7 +55,7 @@
 	<Label>Qualifications</Label>
 
 	{#if loading}
-		<div class="text-sm text-surface-400">Loading credentials...</div>
+		<div class="text-sm text-muted-foreground">Loading credentials...</div>
 	{:else}
 		<div class="flex flex-wrap gap-1.5">
 			{#each selectedItems as item (item.id)}
@@ -78,7 +78,7 @@
 				onblur={() => setTimeout(() => (dropdownOpen = false), 150)}
 			/>
 			{#if dropdownOpen && filtered.length > 0}
-				<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-white shadow-lg dark:bg-surface-900">
+				<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">
 					{#each filtered as c (c.id)}
 						<button
 							type="button"

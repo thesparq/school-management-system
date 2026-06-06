@@ -136,13 +136,13 @@
 		</div>
 	{:else if !disabled}
 		<label
-			class="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-surface-200 p-8 text-center transition hover:border-primary-300 hover:bg-primary-50/50 dark:hover:border-primary-700 dark:hover:bg-primary-950/10"
+			class="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-8 text-center transition hover:border-primary-300 hover:bg-primary-50/50 dark:hover:border-primary-700 dark:hover:bg-primary-950/10"
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
 			</svg>
-			<span class="text-sm font-medium text-surface-600 dark:text-surface-400">Click or drag passport photo</span>
-			<span class="text-xs text-surface-400">JPEG or PNG, max 5 MB</span>
+			<span class="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Click or drag passport photo</span>
+			<span class="text-xs text-muted-foreground">JPEG or PNG, max 5 MB</span>
 			<input
 				type="file"
 				accept="image/jpeg,image/png"

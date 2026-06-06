@@ -59,20 +59,20 @@
 {:else if !hasUsers}<StatusCard variant="info" title="No admins yet" description="Create the first admin to get started." />
 {:else}
 	<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role Title</TableHead><TableHead>Auth Status</TableHead><TableHead>Activate</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
-		<TableBody>{#each users as u (u.pk)}<TableRow><TableCell>{u.name || u.username}</TableCell><TableCell>{u.email || '\u2014'}</TableCell><TableCell></TableCell><TableCell><Badge variant={u.is_active ? 'default' : 'secondary'}>{u.is_active ? 'Active' : 'Inactive'}</Badge></TableCell><TableCell>{#if authStates[u.pk] === 'loading'}<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>{:else}<AppButton variant="outline" size="sm" onclick={() => toggleAuth(u.pk, !u.is_active)}>{u.is_active ? 'Deactivate' : 'Activate'}</AppButton>{/if}</TableCell><TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(u)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-error-500" onclick={() => openDeleteDialog(u)}>Delete</AppButton></div></TableCell></TableRow>{/each}</TableBody></Table>
+		<TableBody>{#each users as u (u.pk)}<TableRow><TableCell>{u.name || u.username}</TableCell><TableCell>{u.email || '\u2014'}</TableCell><TableCell></TableCell><TableCell><Badge variant={u.is_active ? 'default' : 'secondary'}>{u.is_active ? 'Active' : 'Inactive'}</Badge></TableCell><TableCell>{#if authStates[u.pk] === 'loading'}<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>{:else}<AppButton variant="outline" size="sm" onclick={() => toggleAuth(u.pk, !u.is_active)}>{u.is_active ? 'Deactivate' : 'Activate'}</AppButton>{/if}</TableCell><TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(u)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-destructive" onclick={() => openDeleteDialog(u)}>Delete</AppButton></div></TableCell></TableRow>{/each}</TableBody></Table>
 {/if}
 
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Create Admin</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label>Username <span class="text-error-500">*</span></Label><Input bind:value={createForm.username} required /></div>
+			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={createForm.username} required /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
-			<div class="space-y-2"><Label>Email <span class="text-error-500">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
-			<div class="space-y-2"><Label>Password <span class="text-error-500">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
+			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
+			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Role Title</Label><Input bind:value={createForm.roleTitle} placeholder="e.g. Bursar, Receptionist" /></div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
-			{#if createError}<p class="text-sm text-error-500">{createError}</p>{/if}
+			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
 		</div>
 	</DialogContent>
@@ -80,14 +80,14 @@
 
 <Dialog open={editDialogOpen} onOpenChange={(v: boolean) => v ? null : closeEdit()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Edit Admin</DialogTitle></DialogHeader>
-		<div class="space-y-4">{#if editProfileLoading}<div class="text-sm text-surface-400">Loading...</div>{/if}
-			<div class="space-y-2"><Label>Username <span class="text-error-500">*</span></Label><Input bind:value={editForm.username} required /></div>
+		<div class="space-y-4">{#if editProfileLoading}<div class="text-sm text-muted-foreground">Loading...</div>{/if}
+			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={editForm.username} required /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
-			<div class="space-y-2"><Label>Email <span class="text-error-500">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
+			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Role Title</Label><Input bind:value={editForm.roleTitle} /></div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
-			{#if editError}<p class="text-sm text-error-500">{editError}</p>{/if}
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading}>Save</AppButton></div>
 		</div>
 	</DialogContent>
@@ -95,7 +95,7 @@
 
 <AlertDialog.Root open={deleteDialogOpen} onOpenChange={(v: boolean) => v ? null : deleteDialogOpen = false}>
 	<AlertDialog.Content><AlertDialog.Header><AlertDialog.Title>Delete Admin</AlertDialog.Title><AlertDialog.Description>Delete {deleteTarget?.name}? Cannot be undone.</AlertDialog.Description></AlertDialog.Header>
-		{#if deleteError}<p class="text-sm text-error-500 px-4">{deleteError}</p>{/if}
+		{#if deleteError}<p class="text-sm text-destructive px-4">{deleteError}</p>{/if}
 		<AlertDialog.Footer><AlertDialog.Cancel disabled={deleteLoading}>Cancel</AlertDialog.Cancel><AlertDialog.Action onclick={handleDelete} class="bg-error-500 hover:bg-error-600" disabled={deleteLoading}>Delete</AlertDialog.Action></AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>

@@ -190,8 +190,8 @@
 		<SidebarFooter>
 			<Separator />
 			<div class="p-4">
-				<p class="text-sm font-medium text-surface-800">{data.user.name}</p>
-				<p class="text-xs text-surface-700">{data.user.email}</p>
+				<p class="text-sm font-medium text-sidebar-foreground">{data.user.name}</p>
+				<p class="text-xs text-muted-foreground">{data.user.email}</p>
 			</div>
 		</SidebarFooter>
 	</Sidebar>
@@ -248,7 +248,7 @@
 			</DropdownMenu>
 
 			{#if error}
-				<p class="text-xs text-error-500">{error}</p>
+				<p class="text-xs text-destructive">{error}</p>
 			{/if}
 		</header>
 

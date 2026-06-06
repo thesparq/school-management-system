@@ -167,7 +167,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 						{#if authStates[userObj.pk] === 'loading'}<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
 						{:else}<AppButton variant="outline" size="sm" onclick={() => toggleAuth(userObj.pk, !userObj.is_active)}>{userObj.is_active ? 'Deactivate' : 'Activate'}</AppButton>{/if}
 					</TableCell>
-					<TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(userObj)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-error-500" onclick={() => openDeleteDialog(userObj)}>Delete</AppButton></div></TableCell>
+					<TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(userObj)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-destructive" onclick={() => openDeleteDialog(userObj)}>Delete</AppButton></div></TableCell>
 					<TableCell><AppButton variant="outline" size="sm" onclick={() => openClassAssign(userObj)}>Assign</AppButton></TableCell>
 				</TableRow>
 			{/each}
@@ -179,15 +179,15 @@ import type { TeacherSubjectPair } from '$lib/types';
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Create Teacher</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label>Username <span class="text-error-500">*</span></Label><Input bind:value={createForm.username} required minlength={3} /></div>
+			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={createForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
-			<div class="space-y-2"><Label>Email <span class="text-error-500">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
-			<div class="space-y-2"><Label>Password <span class="text-error-500">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required minlength={8} /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
+			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
+			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required minlength={8} /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Date Employed</Label><Input type="date" bind:value={createForm.dateEmployed} /></div>
 			<CredentialsSelect bind:selected={createForm.qualifications} />
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
-			{#if createError}<p class="text-sm text-error-500">{createError}</p>{/if}
+			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
 		</div>
 	</DialogContent>
@@ -198,15 +198,15 @@ import type { TeacherSubjectPair } from '$lib/types';
 <Dialog open={editDialogOpen} onOpenChange={(v: boolean) => v ? null : closeEdit()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Edit Teacher</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			{#if editProfileLoading}<div class="text-sm text-surface-400">Loading...</div>{/if}
-			<div class="space-y-2"><Label>Username <span class="text-error-500">*</span></Label><Input bind:value={editForm.username} required /></div>
+			{#if editProfileLoading}<div class="text-sm text-muted-foreground">Loading...</div>{/if}
+			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={editForm.username} required /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
-			<div class="space-y-2"><Label>Email <span class="text-error-500">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
+			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Date Employed</Label><Input type="date" bind:value={editForm.dateEmployed} /></div>
 			<CredentialsSelect bind:selected={editForm.qualifications} />
-			<div class="space-y-2"><Label>Passport Photo <span class="text-error-500">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
-			{#if editError}<p class="text-sm text-error-500">{editError}</p>{/if}
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
 			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading}>Save</AppButton></div>
 		</div>
 	</DialogContent>
@@ -215,7 +215,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 <!-- Delete -->
 <AlertDialog.Root open={deleteDialogOpen} onOpenChange={(v: boolean) => v ? null : deleteDialogOpen = false}>
 	<AlertDialog.Content><AlertDialog.Header><AlertDialog.Title>Delete Teacher</AlertDialog.Title><AlertDialog.Description>Delete {deleteTarget?.name}? This cannot be undone.</AlertDialog.Description></AlertDialog.Header>
-		{#if deleteError}<p class="text-sm text-error-500 px-4">{deleteError}</p>{/if}
+		{#if deleteError}<p class="text-sm text-destructive px-4">{deleteError}</p>{/if}
 		<AlertDialog.Footer><AlertDialog.Cancel disabled={deleteLoading}>Cancel</AlertDialog.Cancel><AlertDialog.Action onclick={handleDelete} class="bg-error-500 hover:bg-error-600" disabled={deleteLoading}>Delete</AlertDialog.Action></AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
@@ -224,11 +224,11 @@ import type { TeacherSubjectPair } from '$lib/types';
 <Dialog open={classAssignDialogOpen} onOpenChange={(v: boolean) => v ? null : classAssignDialogOpen = false}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Assign Classes</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			{#if activeSessionTermLoading}<p class="text-sm text-surface-400">Loading session term...</p>
+			{#if activeSessionTermLoading}<p class="text-sm text-muted-foreground">Loading session term...</p>
 			{:else if activeSessionTerm}
-				<div class="text-sm text-surface-600">Active session: <span class="font-medium">{activeSessionTerm.session} — {activeSessionTerm.term_name}</span></div>
+				<div class="text-sm text-muted-foreground">Active session: <span class="font-medium">{activeSessionTerm.session} — {activeSessionTerm.term_name}</span></div>
 				{@const pk = classAssignTeacherPk}
-				{#if teacherPairsLoading[pk]}<p class="text-sm text-surface-400">Loading...</p>{:else}
+				{#if teacherPairsLoading[pk]}<p class="text-sm text-muted-foreground">Loading...</p>{:else}
 					<div class="flex flex-wrap gap-1.5">
 						{#each currentTeacherPairs[pk] ?? [] as pair (pair.edge_id)}
 							<Badge variant="secondary" class="gap-1">{pair.class_level_name} / {pair.subject_name}<button type="button" onclick={() => currentTeacherPairs[pk] = (currentTeacherPairs[pk] ?? []).filter((p: TeacherSubjectPair) => p.edge_id !== pair.edge_id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>
@@ -237,7 +237,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 					<div class="relative"><Input bind:value={subjectPairSearch[pk]} placeholder="Search class subjects..." onfocus={() => subjectPairDropdownOpen[pk] = true} onblur={() => setTimeout(() => subjectPairDropdownOpen[pk] = false, 150)} />
 						{#if subjectPairDropdownOpen[pk]}
 							{@const fp = filteredSubjectPairs(subjectPairSearch[pk] ?? '', pk)}
-							{#if fp.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-white shadow-lg dark:bg-surface-900">{#each fp as p (p.edge_id)}<button type="button" onmousedown={() => addSubjectPair(pk, p)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{p.class_level_name} / {p.subject_name} {#if p.subject_code}<span class="text-surface-400">[{p.subject_code}]</span>{/if}</button>{/each}</div>{/if}
+							{#if fp.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each fp as p (p.edge_id)}<button type="button" onmousedown={() => addSubjectPair(pk, p)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{p.class_level_name} / {p.subject_name} {#if p.subject_code}<span class="text-muted-foreground">[{p.subject_code}]</span>{/if}</button>{/each}</div>{/if}
 						{/if}
 					</div>
 				{/if}

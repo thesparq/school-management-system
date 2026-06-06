@@ -134,13 +134,13 @@
 							{#each sessionTerms as st (st.id)}
 								<TableRow>
 									<TableCell class="font-medium">{st.session}</TableCell>
-									<TableCell class="text-surface-700">{st.term_name}</TableCell>
+									<TableCell class="text-muted-foreground">{st.term_name}</TableCell>
 									<TableCell>
 										<Badge variant={st.active ? 'default' : 'secondary'}>
 											{st.active ? 'Active' : 'Inactive'}
 										</Badge>
 									</TableCell>
-									<TableCell class="text-surface-700 text-sm">{formatDate(st.created_at)}</TableCell>
+									<TableCell class="text-muted-foreground text-sm">{formatDate(st.created_at)}</TableCell>
 									<TableCell>
 										<AppButton
 											variant="outline"
@@ -200,12 +200,12 @@
 					type="checkbox"
 					checked={createForm.active}
 					onchange={(e) => createForm.active = e.currentTarget.checked}
-					class="h-4 w-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+					class="h-4 w-4 rounded border-input text-primary-600 focus:ring-primary-500 cursor-pointer"
 				/>
 				<Label for="st-active">Set as active session term</Label>
 			</div>
 			{#if createError}
-				<p class="text-sm text-error-500">{createError}</p>
+				<p class="text-sm text-destructive">{createError}</p>
 			{/if}
 			<div class="flex justify-end gap-2">
 				<AppButton

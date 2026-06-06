@@ -20,7 +20,7 @@
 
 <button
 	onclick={toggle}
-	class="rounded-md p-2 text-surface-600 hover:bg-surface-100 dark:text-surface-400 dark:hover:bg-surface-800"
+	class="rounded-md p-2 text-muted-foreground hover:bg-accent dark:text-muted-foreground dark:hover:bg-accent"
 	aria-label="Toggle theme"
 >
 	{#if dark}

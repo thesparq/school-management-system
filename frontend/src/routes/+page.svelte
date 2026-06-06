@@ -60,7 +60,7 @@
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<p class="text-sm text-surface-700 dark:text-surface-400">
+								<p class="text-sm text-muted-foreground dark:text-muted-foreground">
 									{group.subjects.length} {group.subjects.length === 1 ? 'subject' : 'subjects'}
 								</p>
 							</CardContent>
@@ -111,7 +111,7 @@
 	<div class="space-y-6">
 		<div>
 			<PageHeader title="Dashboard" />
-			<p class="mt-1 text-sm text-surface-700">Welcome</p>
+			<p class="mt-1 text-sm text-muted-foreground">Welcome</p>
 		</div>
 
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -120,7 +120,7 @@
 					<CardTitle class="text-base">Quick Actions</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<p class="text-sm text-surface-700">Dashboard widgets will appear here.</p>
+					<p class="text-sm text-muted-foreground">Dashboard widgets will appear here.</p>
 				</CardContent>
 			</Card>
 
@@ -138,7 +138,7 @@
 					{/if}
 
 					{#if pingError}
-						<p class="text-sm text-error-500">{pingError}</p>
+						<p class="text-sm text-destructive">{pingError}</p>
 					{/if}
 				</CardContent>
 			</Card>

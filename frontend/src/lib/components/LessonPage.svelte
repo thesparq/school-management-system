@@ -196,7 +196,7 @@
 </script>
 
 <div class="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
-  <div class="flex border-b border-surface-200 mb-6">
+  <div class="flex border-b border-border mb-6">
     {#each tabs as tab}
       <button
         onclick={() => activeTab = tab}
@@ -206,7 +206,7 @@
         class:font-medium={activeTab === tab}
         class:border-transparent={activeTab !== tab}
         class:text-surface-500={activeTab !== tab}
-        class:hover:text-surface-700={activeTab !== tab}
+        class:hover:text-muted-foreground={activeTab !== tab}
       >
         {tabLabels[tab]}
       </button>
@@ -219,7 +219,7 @@
         <div use:scrollSpy class="min-w-0 flex-1 space-y-8 pb-16">
 
           <div class="space-y-3">
-              <AppButton variant="ghost" class="-ml-3 text-surface-400 hover:text-surface-600" onclick={() => goto(backHref)}>
+              <AppButton variant="ghost" class="-ml-3 text-muted-foreground hover:text-muted-foreground" onclick={() => goto(backHref)}>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -231,7 +231,7 @@
             <div class="flex items-start justify-between gap-6">
               <div class="space-y-2">
                 <h1 class="text-3xl font-display font-bold text-primary-700 leading-tight">{stripBold(lesson.topic_title ?? '')}</h1>
-                <p class="text-sm text-surface-400 font-medium tracking-wide uppercase">{lesson.subject_name ?? 'Subject'} &middot; {lesson.term_name ?? 'Term'}</p>
+                <p class="text-sm text-muted-foreground font-medium tracking-wide uppercase">{lesson.subject_name ?? 'Subject'} &middot; {lesson.term_name ?? 'Term'}</p>
               </div>
               {#if lesson.week != null}
                 <Badge variant="outline" class="shrink-0 px-3 py-1 text-sm">Week {lesson.week}</Badge>
@@ -244,13 +244,13 @@
             <Card class="border-primary-100">
               <CardHeader class="pb-2 px-6"><CardTitle class="text-xl font-display font-bold text-primary-700">Learning Objectives</CardTitle></CardHeader>
               <CardContent class="pt-4 px-6">
-                <ul class="space-y-4 text-surface-700">
+                <ul class="space-y-4 text-muted-foreground">
                   {#each objectives as objective, idx (objective.objective)}
                     <li class="flex items-start gap-4">
                       <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">{idx + 1}</span>
                       <div class="flex-1 space-y-1.5">
                         <p class="leading-relaxed">{stripBold(objective.objective)}</p>
-                        <Badge variant="outline" class="text-xs text-surface-400 border-surface-200">{objective.taxonomy_level}</Badge>
+                        <Badge variant="outline" class="text-xs text-muted-foreground border-border">{objective.taxonomy_level}</Badge>
                       </div>
                     </li>
                   {/each}
@@ -270,15 +270,15 @@
                   {/if}
                   {#if section.body}
                     <CardContent class="pt-4 space-y-5 px-6">
-                      <p class="leading-relaxed text-surface-700 whitespace-pre-wrap">{stripBold(section.body)}</p>
+                      <p class="leading-relaxed text-muted-foreground whitespace-pre-wrap">{stripBold(section.body)}</p>
                       {#if section.sub_points && section.sub_points.length > 0}
                         <ul class="space-y-4 pl-5">
                           {#each section.sub_points as sp (sp.sub_number)}
                             {@const fmt = formatSubPoint(sp.text)}
-                            <li class="flex items-start gap-3 text-sm text-surface-600">
+                            <li class="flex items-start gap-3 text-sm text-muted-foreground">
                               <span class="shrink-0 font-semibold text-primary-600 w-8 text-right text-xs leading-5">{cleanNum(sp.sub_number)}</span>
                               <div class="flex-1 leading-relaxed">
-                                {#if fmt.label}<strong class="font-semibold text-surface-700">{fmt.label}</strong> {fmt.rest}{:else}{fmt.rest}{/if}
+                                {#if fmt.label}<strong class="font-semibold text-muted-foreground">{fmt.label}</strong> {fmt.rest}{:else}{fmt.rest}{/if}
                               </div>
                             </li>
                           {/each}
@@ -297,7 +297,7 @@
             <Card class="border-amber-200 bg-amber-50/40">
               <CardHeader class="pb-2 px-6"><CardTitle class="text-xl font-display font-bold text-amber-800">Key Points</CardTitle></CardHeader>
               <CardContent class="pt-4 px-6">
-                <ul class="space-y-3 text-surface-700">
+                <ul class="space-y-3 text-muted-foreground">
                   {#each keyPoints as point}
                     <li class="flex items-start gap-3 leading-relaxed">
                       <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
@@ -320,12 +320,12 @@
           <div class="absolute right-full top-1/2 -translate-y-1/2 transition-all duration-200"
                class:opacity-100={sideNavOpen} class:translate-x-0={sideNavOpen}
                class:opacity-0={!sideNavOpen} class:translate-x-2={!sideNavOpen} class:pointer-events-none={!sideNavOpen}>
-            <div class="w-52 bg-white dark:bg-surface-900 border border-surface-200 rounded-lg shadow-lg p-3 space-y-2">
+            <div class="w-52 bg-background dark:bg-surface-900 border border-border rounded-lg shadow-lg p-3 space-y-2">
               {#each sectionHeadings as heading}
                 <button onclick={() => scrollToSection(heading.id)}
                   class="text-sm text-left w-full block cursor-pointer truncate leading-snug"
                   class:text-primary-600={activeSection === heading.id} class:font-medium={activeSection === heading.id}
-                  class:text-surface-600={activeSection !== heading.id}>{heading.label}</button>
+                  class:text-muted-foreground={activeSection !== heading.id}>{heading.label}</button>
               {/each}
             </div>
           </div>
@@ -351,12 +351,12 @@
         </button>
         {#if sideNavMobileOpen}
           <div class="fixed inset-0" role="button" tabindex="-1" onclick={() => { sideNavMobileOpen = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { sideNavMobileOpen = false; } }}></div>
-          <div class="absolute bottom-16 right-0 bg-white dark:bg-surface-900 border border-surface-200 rounded-lg shadow-xl p-3 space-y-2 min-w-44 max-w-64">
+          <div class="absolute bottom-16 right-0 bg-background dark:bg-surface-900 border border-border rounded-lg shadow-xl p-3 space-y-2 min-w-44 max-w-64">
             {#each sectionHeadings as heading}
               <button onclick={() => scrollToSection(heading.id)}
                 class="text-sm text-left w-full block cursor-pointer truncate leading-snug py-1"
                 class:text-primary-600={activeSection === heading.id} class:font-medium={activeSection === heading.id}
-                class:text-surface-600={activeSection !== heading.id}>{heading.label}</button>
+                class:text-muted-foreground={activeSection !== heading.id}>{heading.label}</button>
             {/each}
           </div>
         {/if}
@@ -386,7 +386,7 @@
                   <Accordion.Trigger class="text-sm font-medium">
                     <div class="flex items-center gap-3">
                       <span>{a.title}</span>
-                      <span class="text-xs text-surface-400 font-normal">{a.mcqQuestions.length} MCQ, {a.theoryQuestions.length} Theory</span>
+                      <span class="text-xs text-muted-foreground font-normal">{a.mcqQuestions.length} MCQ, {a.theoryQuestions.length} Theory</span>
                     </div>
                   </Accordion.Trigger>
                   <Accordion.Content class="pt-2 pl-4 space-y-4">
@@ -395,8 +395,8 @@
                         <h4 class="text-xs font-semibold text-surface-500 uppercase mb-2">MCQ Questions</h4>
                         <div class="space-y-2">
                           {#each a.mcqQuestions as q}
-                            <div class="flex items-start gap-3 py-1 border-l-2 border-surface-200 pl-3">
-                              <span class="text-sm text-surface-700">{q.question}</span>
+                            <div class="flex items-start gap-3 py-1 border-l-2 border-border pl-3">
+                              <span class="text-sm text-muted-foreground">{q.question}</span>
                             </div>
                           {/each}
                         </div>
@@ -407,8 +407,8 @@
                         <h4 class="text-xs font-semibold text-surface-500 uppercase mb-2">Theoretical Questions</h4>
                         <div class="space-y-2">
                           {#each a.theoryQuestions as q}
-                            <div class="flex items-start gap-3 py-1 border-l-2 border-surface-200 pl-3">
-                              <span class="text-sm text-surface-700">{q.question}</span>
+                            <div class="flex items-start gap-3 py-1 border-l-2 border-border pl-3">
+                              <span class="text-sm text-muted-foreground">{q.question}</span>
                             </div>
                           {/each}
                         </div>
@@ -437,19 +437,19 @@
                 <Accordion.Trigger class="text-sm font-medium">
                   <div class="flex items-center gap-3">
                     <span>{g.title}</span>
-                    <span class="text-xs text-surface-400 font-normal">{g.submissions.length} submissions</span>
+                    <span class="text-xs text-muted-foreground font-normal">{g.submissions.length} submissions</span>
                   </div>
                 </Accordion.Trigger>
                 <Accordion.Content class="pt-2 pl-4 space-y-1">
                   {#each g.submissions as s}
-                    <div class="flex items-center justify-between py-2 px-3 rounded border border-surface-200">
+                    <div class="flex items-center justify-between py-2 px-3 rounded border border-border">
                       <div class="flex items-center gap-3">
-                        <span class="text-sm text-surface-700 font-medium">{s.name}</span>
+                        <span class="text-sm text-muted-foreground font-medium">{s.name}</span>
                         {#if s.status === 'submitted'}
                           <Badge variant="outline" class="text-xs bg-success-50 text-success-600 border-success-200">Submitted</Badge>
-                          <span class="text-xs text-surface-400">{s.timeAgo}</span>
+                          <span class="text-xs text-muted-foreground">{s.timeAgo}</span>
                         {:else}
-                          <Badge variant="outline" class="text-xs bg-surface-100 text-surface-500">Not Submitted</Badge>
+                          <Badge variant="outline" class="text-xs bg-muted text-surface-500">Not Submitted</Badge>
   {/if}
                       </div>
                       <AppButton variant="outline" size="sm" disabled={s.status !== 'submitted'}>Grade</AppButton>
@@ -484,14 +484,14 @@
           {#if mcqQuestions && mcqQuestions.length > 0 || theoryQuestions && theoryQuestions.length > 0}
             <Accordion.Root type="multiple" value={[]}>
               <Accordion.Item value="mcq">
-                <Accordion.Trigger class="text-base font-medium py-4 sticky top-0 bg-white dark:bg-surface-950 z-10">MCQ Questions ({mcqQuestions?.length ?? 0})</Accordion.Trigger>
+                <Accordion.Trigger class="text-base font-medium py-4 sticky top-0 bg-background dark:bg-surface-950 z-10">MCQ Questions ({mcqQuestions?.length ?? 0})</Accordion.Trigger>
                 <Accordion.Content class="pt-3 space-y-4">
                   {#if mcqQuestions && mcqQuestions.length > 0}
                     {#each mcqQuestions as q, i}
                       <div class="flex items-start gap-4 py-3 px-2 rounded hover:bg-surface-50">
                         <Checkbox checked={selectedMcq.has(i)} onCheckedChange={() => toggleMcq(i)} />
                         <div class="flex-1 min-w-0 space-y-2">
-                          <p class="text-sm text-surface-800 leading-relaxed">{q.question}</p>
+                          <p class="text-sm text-foreground leading-relaxed">{q.question}</p>
                           <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-surface-500">
                             <span>A. {q.option_a}</span>
                             <span>B. {q.option_b}</span>
@@ -501,23 +501,23 @@
                       </div>
                     {/each}
                   {:else}
-                    <p class="text-sm text-surface-400 text-center py-8">No MCQ questions available for this lesson.</p>
+                    <p class="text-sm text-muted-foreground text-center py-8">No MCQ questions available for this lesson.</p>
                   {/if}
                 </Accordion.Content>
               </Accordion.Item>
 
               <Accordion.Item value="theory">
-                <Accordion.Trigger class="text-base font-medium py-4 sticky top-0 bg-white dark:bg-surface-950 z-10">Theoretical Questions ({theoryQuestions?.length ?? 0})</Accordion.Trigger>
+                <Accordion.Trigger class="text-base font-medium py-4 sticky top-0 bg-background dark:bg-surface-950 z-10">Theoretical Questions ({theoryQuestions?.length ?? 0})</Accordion.Trigger>
                 <Accordion.Content class="pt-3 space-y-3">
                   {#if theoryQuestions && theoryQuestions.length > 0}
                     {#each theoryQuestions as q, i}
                       <div class="flex items-start gap-4 py-3 px-2 rounded hover:bg-surface-50">
                         <Checkbox checked={selectedTheory.has(i)} onCheckedChange={() => toggleTheory(i)} />
-                        <p class="text-sm text-surface-800 leading-relaxed">{q.question}</p>
+                        <p class="text-sm text-foreground leading-relaxed">{q.question}</p>
                       </div>
                     {/each}
                   {:else}
-                    <p class="text-sm text-surface-400 text-center py-8">No theoretical questions available for this lesson.</p>
+                    <p class="text-sm text-muted-foreground text-center py-8">No theoretical questions available for this lesson.</p>
                   {/if}
                 </Accordion.Content>
               </Accordion.Item>

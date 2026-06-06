@@ -34,7 +34,7 @@
 		error: {
 			bg: 'bg-error-50 border-error-200',
 			bar: 'bg-error-500',
-			iconColor: 'text-error-500',
+			iconColor: 'text-destructive',
 			iconPath: 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z'
 		}
 	};
@@ -86,14 +86,14 @@
 		<path stroke-linecap="round" stroke-linejoin="round" d={v.iconPath} />
 	</svg>
 	<div class="flex-1 min-w-0">
-		<p class="text-sm font-medium text-surface-800">{toast.title}</p>
+		<p class="text-sm font-medium text-foreground">{toast.title}</p>
 		{#if toast.description}
-			<p class="text-xs text-surface-600 mt-0.5">{toast.description}</p>
+			<p class="text-xs text-muted-foreground mt-0.5">{toast.description}</p>
 		{/if}
 	</div>
 	<button
 		type="button"
-		class="shrink-0 text-surface-400 hover:text-surface-600 cursor-pointer"
+		class="shrink-0 text-muted-foreground hover:text-muted-foreground cursor-pointer"
 		onclick={() => { cancelAnimationFrame(frame); clearTimeout(timer); dismiss(); }}
 	>
 		<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

@@ -15,11 +15,11 @@
 
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 	<div class="space-y-2">
-		<Label for="surname">Surname <span class="text-error-500">*</span></Label>
+		<Label for="surname">Surname <span class="text-destructive">*</span></Label>
 		<Input id="surname" bind:value={surname} required placeholder="Okonkwo" />
 	</div>
 	<div class="space-y-2">
-		<Label for="first_name">First Name <span class="text-error-500">*</span></Label>
+		<Label for="first_name">First Name <span class="text-destructive">*</span></Label>
 		<Input id="first_name" bind:value={firstName} required placeholder="Chukwuemeka" />
 	</div>
 	<div class="space-y-2">

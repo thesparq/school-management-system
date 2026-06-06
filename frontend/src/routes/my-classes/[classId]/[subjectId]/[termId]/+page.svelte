@@ -59,9 +59,9 @@
   {:else if lessons.length === 0}
     <StatusCard variant="info" title="No Lessons Available" description="No lessons are available for this term yet." />
   {:else}
-    <div class="flex items-center gap-10 pb-1 border-b border-surface-200">
-      <span class="flex-1 min-w-0 text-xs font-medium uppercase text-surface-400 tracking-wider pl-1">Lesson</span>
-      <span class="shrink-0 w-44 text-xs font-medium uppercase text-surface-400 tracking-wider">Visible</span>
+    <div class="flex items-center gap-10 pb-1 border-b border-border">
+      <span class="flex-1 min-w-0 text-xs font-medium uppercase text-muted-foreground tracking-wider pl-1">Lesson</span>
+      <span class="shrink-0 w-44 text-xs font-medium uppercase text-muted-foreground tracking-wider">Visible</span>
     </div>
     <div class="space-y-3">
       {#each lessons as lesson (lesson.id)}
