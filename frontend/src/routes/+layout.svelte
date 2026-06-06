@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import logo from '$lib/assets/logo.jpg';
 	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
@@ -196,6 +197,16 @@
 		<header class="flex h-14 items-center gap-4 border-b border-border px-4">
 			<SidebarTrigger />
 			<Separator orientation="vertical" class="h-6" />
+			<div
+				class="transition-all duration-300 ease-in-out"
+				class:opacity-0={sidebarOpen}
+				class:opacity-100={!sidebarOpen}
+				class:scale-75={sidebarOpen}
+				class:scale-100={!sidebarOpen}
+				class:pointer-events-none={sidebarOpen}
+			>
+				<img src={logo} alt="School MS" class="h-8" />
+			</div>
 			<Breadcrumb>
 				<BreadcrumbList>
 					{#each ($page.data.breadcrumbs ?? [{ label: 'Dashboard' }]) as crumb, i (i)}
