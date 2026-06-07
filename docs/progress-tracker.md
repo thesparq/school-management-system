@@ -49,6 +49,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-14: Qualifications Configuration CRUD — Complete**
+  New "Qualifications" tab under admin Configuration. Backend: `db_admin_delete_credential` (hard DELETE from `credentials` table), `admin_delete_credential` handler (JSON body with `id`), `POST /delete-credential` agent endpoint. Frontend API: `POST /api/admin/credentials` (create), `DELETE /api/admin/credentials/[id]` (delete). Frontend page: `/admin/configuration/qualifications` with table list, create dialog (name input), delete confirmation (AlertDialog). Sidebar menu item under Configuration group. Build: `pnpm check` 0 errors, `moon check --target wasm` 0 errors. 4 commits.
+
 - **✅ Unit 21: Teacher Agent — Term & Lesson Toggle — Complete**
   Added `toggle_term_active` and `toggle_lesson_active` endpoints to Teacher Agent with fire-and-forget cache invalidation to affected Student Agents. Backend: `POST /toggle-term-active` updates `terms.active` in SurrealDB, queries `teacher_assignment` → `user_profile` for affected students, fires `trigger_invalidate_cache` per student. `POST /toggle-lesson-active` discovers lesson's class/subject/term via `SELECT FROM ONLY lessons`, updates `lessons.active`, fires two invalidations (`lessons:{subj}|{term}` + `lesson:{id}`) per student. Frontend: installed shadcn-svelte `Switch` component, created `POST /api/teacher/toggle-term` and `POST /api/teacher/toggle-lesson` proxy routes. Updated subject page (`[classId]/[subjectId]`) and lesson list page (`[classId]/[subjectId]/[termId]`) — all terms/lessons now render at full opacity as clickable cards with Switch toggles; inactive items show amber "Hidden from students" badge. Removed `opacity-50 pointer-events-none` + lock icon pattern. Optimistic UI updates with toast feedback and rollback on error. Spec: `docs/specs/21-teacher-term-lesson-toggle.md`.
 

@@ -59,7 +59,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 	let subjectPairDropdownOpen = $state<Record<number, boolean>>({});
 	let teacherSubjectLoading = $state<Record<number, string>>({});
 	let teacherPairsLoading = $state<Record<number, boolean>>({});
-	let activeSessionTerm = $state<{ id: string; session: string; term_name: string } | null>(null);
+	let activeSessionTerm = $state<{ id: string; session_name: string; term_name: string } | null>(null);
 	let activeSessionTermLoading = $state(false);
 
 	let displayName = $derived([createForm.surname, createForm.firstName, createForm.middleName].filter(Boolean).join(' '));
@@ -226,7 +226,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 		<div class="space-y-4">
 			{#if activeSessionTermLoading}<p class="text-sm text-muted-foreground">Loading session term...</p>
 			{:else if activeSessionTerm}
-				<div class="text-sm text-muted-foreground">Active session: <span class="font-medium">{activeSessionTerm.session} — {activeSessionTerm.term_name}</span></div>
+				<div class="text-sm text-muted-foreground">Active session: <span class="font-medium">{activeSessionTerm.session_name} — {activeSessionTerm.term_name}</span></div>
 				{@const pk = classAssignTeacherPk}
 				{#if teacherPairsLoading[pk]}<p class="text-sm text-muted-foreground">Loading...</p>{:else}
 					<div class="flex flex-wrap gap-1.5">

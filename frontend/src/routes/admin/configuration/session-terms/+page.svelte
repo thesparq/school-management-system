@@ -29,7 +29,7 @@
 
 	interface SessionTerm {
 		id: string;
-		session: string;
+		session_name: string;
 		term_name: string;
 		active: boolean;
 		created_at: string;
@@ -43,7 +43,7 @@
 	});
 
 	let showCreateDialog = $state(false);
-	let createForm = $state({ session: '', termId: '', active: true });
+	let createForm = $state({ sessionName: '', termId: '', active: true });
 	let createLoading = $state(false);
 	let createError = $state('');
 	let activateLoading = $state<Record<string, boolean>>({});
@@ -58,7 +58,7 @@
 	}
 
 	async function handleCreate() {
-		if (!createForm.session || !createForm.termId) return;
+		if (!createForm.sessionName || !createForm.termId) return;
 		createLoading = true;
 		createError = '';
 		try {
@@ -66,14 +66,14 @@
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
-					session: createForm.session,
+					session_name: createForm.sessionName,
 					term_id: createForm.termId,
 					active: createForm.active
 				})
 			});
 			const body = await res.json();
 			if (!res.ok || body.error) throw new Error(body.error?.message || 'Create failed');
-			addToast('success', 'Session term created', `${createForm.session} has been added.`);
+			addToast('success', 'Session term created', `${createForm.sessionName} has been added.`);
 			showCreateDialog = false;
 			await goto('/admin/configuration/session-terms', { invalidateAll: true });
 		} catch (err) {
@@ -133,7 +133,7 @@
 						<TableBody>
 							{#each sessionTerms as st (st.id)}
 								<TableRow>
-									<TableCell class="font-medium">{st.session}</TableCell>
+									<TableCell class="font-medium">{st.session_name}</TableCell>
 									<TableCell class="text-muted-foreground">{st.term_name}</TableCell>
 									<TableCell>
 										<Badge variant={st.active ? 'default' : 'secondary'}>
@@ -173,7 +173,7 @@
 		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleCreate(); }}>
 			<div class="space-y-2">
 				<Label for="st-session">Session</Label>
-				<Input id="st-session" bind:value={createForm.session} placeholder="e.g. 2024" required />
+				<Input id="st-session" bind:value={createForm.sessionName} placeholder="e.g. 2024" required />
 			</div>
 			<div class="space-y-2">
 				<Label for="st-term">Term</Label>
@@ -219,7 +219,7 @@
 					type="submit"
 					variant="default"
 					loading={createLoading}
-					disabled={!createForm.session || !createForm.termId}
+					disabled={!createForm.sessionName || !createForm.termId}
 				>
 					{createLoading ? 'Creating...' : 'Create'}
 				</AppButton>

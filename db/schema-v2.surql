@@ -394,13 +394,13 @@ SELECT count() FROM credentials GROUP ALL;
 DEFINE TABLE session_term SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 
-DEFINE FIELD session     ON session_term TYPE string;
-DEFINE FIELD term        ON session_term TYPE record<terms>;
-DEFINE FIELD active      ON session_term TYPE bool DEFAULT false;
-DEFINE FIELD created_at  ON session_term TYPE datetime DEFAULT time::now();
-DEFINE FIELD deleted_at  ON session_term TYPE option<datetime>;
+DEFINE FIELD session_name ON session_term TYPE string;
+DEFINE FIELD term         ON session_term TYPE record<terms>;
+DEFINE FIELD active       ON session_term TYPE bool DEFAULT false;
+DEFINE FIELD created_at   ON session_term TYPE datetime DEFAULT time::now();
+DEFINE FIELD deleted_at   ON session_term TYPE option<datetime>;
 
-DEFINE INDEX idx_st_combo ON session_term COLUMNS session, term UNIQUE;
+DEFINE INDEX idx_st_combo ON session_term COLUMNS session_name, term UNIQUE;
 
 ----------------
 -- Step 10: teacher_assignment table (replaces AdminAgent.teacher_assignments)

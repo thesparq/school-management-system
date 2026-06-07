@@ -12,7 +12,7 @@ fn try_parse_session_terms(json_str : String) -> Array[SessionTermInfo]? {
                 Some(String(s)) => s
                 _ => continue
               },
-              session: match obj.get("session") {
+              session_name: match obj.get("session_name") {
                 Some(String(s)) => s
                 _ => continue
               },
@@ -536,7 +536,7 @@ pub fn admin_fetch_active_session_term_detail(
             Some(String(s)) => s
             _ => ""
           },
-          session: match obj.get("session") {
+          session_name: match obj.get("session_name") {
             Some(String(s)) => s
             _ => ""
           },
@@ -616,7 +616,7 @@ pub fn admin_fetch_session_terms(
             Some(String(s)) => s
             _ => continue
           },
-          session: match o.get("session") {
+          session_name: match o.get("session_name") {
             Some(String(s)) => s
             _ => continue
           },
@@ -653,7 +653,7 @@ pub fn admin_create_session_term(
     Object(o) => o
     _ => return Err(validation_error("Body must be an object"))
   }
-  let session = match obj.get("session") {
+  let session = match obj.get("session_name") {
     Some(String(s)) => s
     _ => return Err(validation_error("Session is required"))
   }
@@ -701,7 +701,7 @@ pub fn admin_create_session_term(
             Some(String(s)) => s
             _ => ""
           },
-          session,
+          session_name: session,
           term_name,
           active,
           created_at: created_at_val,

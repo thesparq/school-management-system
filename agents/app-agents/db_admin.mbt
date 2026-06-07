@@ -734,7 +734,7 @@ pub fn db_admin_fetch_active_session_term_detail(
   config : SharedConfig,
 ) -> Result[Array[Json], AppError] {
   surreal_query(
-    config, "SELECT id, session, term.name AS term_name FROM session_term WHERE active = true LIMIT 1",
+    config, "SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1",
   )
 }
 
@@ -752,7 +752,7 @@ pub fn db_admin_fetch_session_terms(
   config : SharedConfig,
 ) -> Result[Array[Json], AppError] {
   surreal_query(
-    config, "SELECT id, session, term.name AS term_name, active, created_at FROM session_term ORDER BY created_at DESC",
+    config, "SELECT id, session_name, term.name AS term_name, active, created_at FROM session_term ORDER BY created_at DESC",
   )
 }
 
@@ -776,10 +776,10 @@ pub fn db_admin_create_session_term(
   let active_lit = if active { "true" } else { "false" }
   surreal_query(
     config,
-    "CREATE session_term SET session = $session, term = $term_id, active = " +
+    "CREATE session_term SET session_name = $session_name, term = $term_id, active = " +
     active_lit +
     ", created_at = time::now()",
-    bindings={ "session": session, "term_id": term_id },
+    bindings={ "session_name": session, "term_id": term_id },
   )
 }
 

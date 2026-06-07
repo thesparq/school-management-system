@@ -84,7 +84,7 @@ struct CreateUserResponse {
 #derive.golem_schema
 struct SessionTermDetail {
   id : String
-  session : String
+  session_name : String
   term_name : String
 } derive(ToJson, FromJson)
 
@@ -92,7 +92,7 @@ struct SessionTermDetail {
 #derive.golem_schema
 struct SessionTermInfo {
   id : String
-  session : String
+  session_name : String
   term_name : String
   active : Bool
   created_at : String
