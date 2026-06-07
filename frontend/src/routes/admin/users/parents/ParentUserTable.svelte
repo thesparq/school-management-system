@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppButton from '$lib/components/ui/app-button.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import SearchSelect from '$lib/components/ui/search-select/search-select.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
@@ -20,9 +21,6 @@
 
 	let studentList = $state<StudentListItem[]>([]);
 	let studentListLoading = $state(true);
-	let studentSearch = $state('');
-	let studentDropdownOpen = $state(false);
-
 	let createForm = $state({ username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], isActive: true });
 	let createLoading = $state(false); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], currentPassport: '' });
@@ -36,15 +34,12 @@
 
 	onMount(async () => { try { const r = await fetch('/api/admin/students/list'); const b = await r.json(); studentList = b?.data ?? []; } catch { studentList = []; } finally { studentListLoading = false; } });
 
-	let filteredStudents = $derived(studentList.filter(s => !createForm.students.includes(s.id) && s.display_name.toLowerCase().includes(studentSearch.toLowerCase())));
-	let editFiltered = $derived(studentList.filter(s => !editForm.students.includes(s.id) && s.display_name.toLowerCase().includes(studentSearch.toLowerCase())));
-
 	let selectedStudentNames = $derived(studentList.filter(s => createForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
 	let editSelectedNames = $derived(studentList.filter(s => editForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
 
-	function addStudent(id: string) { createForm.students = [...createForm.students, id]; studentSearch = ''; studentDropdownOpen = false; }
+	function addStudent(id: string) { createForm.students = [...createForm.students, id]; }
 	function removeStudent(id: string) { createForm.students = createForm.students.filter(s => s !== id); }
-	function addEditStudent(id: string) { editForm.students = [...editForm.students, id]; studentSearch = ''; studentDropdownOpen = false; }
+	function addEditStudent(id: string) { editForm.students = [...editForm.students, id]; }
 	function removeEditStudent(id: string) { editForm.students = editForm.students.filter(s => s !== id); }
 
 	async function handleCreate() {
@@ -89,7 +84,16 @@
 				<Label>Linked Students <span class="text-destructive">*</span></Label>
 				{#if studentListLoading}<p class="text-sm text-muted-foreground">Loading students...</p>{:else}
 					<div class="flex flex-wrap gap-1.5">{#each selectedStudentNames as student}<Badge variant="secondary" class="gap-1">{student.name}<button type="button" onclick={() => removeStudent(student.id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
-					<div class="relative"><Input bind:value={studentSearch} placeholder="Search students..." onfocus={() => studentDropdownOpen = true} onblur={() => setTimeout(() => studentDropdownOpen = false, 150)} />{#if studentDropdownOpen && filteredStudents.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each filteredStudents as s (s.id)}<button type="button" onmousedown={() => addStudent(s.id)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{s.display_name}</button>{/each}</div>{/if}</div>
+					<SearchSelect
+						items={studentList}
+						placeholder="Search students..."
+						filterFn={(s: StudentListItem, q: string) => !createForm.students.includes(s.id) && s.display_name.toLowerCase().includes(q.toLowerCase())}
+						onSelect={(s: StudentListItem) => addStudent(s.id)}
+					>
+						{#snippet children({ item }: { item: StudentListItem })}
+							{item.display_name}
+						{/snippet}
+					</SearchSelect>
 				{/if}
 			</div>
 			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
@@ -109,7 +113,16 @@
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Linked Students <span class="text-destructive">*</span></Label>
 				<div class="flex flex-wrap gap-1.5">{#each editSelectedNames as student}<Badge variant="secondary" class="gap-1">{student.name}<button type="button" onclick={() => removeEditStudent(student.id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
-				<div class="relative"><Input bind:value={studentSearch} placeholder="Search students..." onfocus={() => studentDropdownOpen = true} onblur={() => setTimeout(() => studentDropdownOpen = false, 150)} />{#if studentDropdownOpen && editFiltered.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each editFiltered as s (s.id)}<button type="button" onmousedown={() => addEditStudent(s.id)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{s.display_name}</button>{/each}</div>{/if}</div>
+				<SearchSelect
+					items={studentList}
+					placeholder="Search students..."
+					filterFn={(s: StudentListItem, q: string) => !editForm.students.includes(s.id) && s.display_name.toLowerCase().includes(q.toLowerCase())}
+					onSelect={(s: StudentListItem) => addEditStudent(s.id)}
+				>
+					{#snippet children({ item }: { item: StudentListItem })}
+						{item.display_name}
+					{/snippet}
+				</SearchSelect>
 			</div>
 			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}

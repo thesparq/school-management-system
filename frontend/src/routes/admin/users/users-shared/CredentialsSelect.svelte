@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Label } from '$lib/components/ui/label';
-	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
+	import SearchSelect from '$lib/components/ui/search-select/search-select.svelte';
 	import type { CredentialInfo } from '$lib/types';
 	import { onMount } from 'svelte';
 
@@ -13,8 +13,6 @@
 
 	let credentials = $state<CredentialInfo[]>([]);
 	let loading = $state(true);
-	let search = $state('');
-	let dropdownOpen = $state(false);
 
 	onMount(async () => {
 		try {
@@ -28,22 +26,12 @@
 		}
 	});
 
-	let filtered = $derived(
-		credentials.filter(
-			(c) =>
-				!selected.includes(c.id) &&
-				c.name.toLowerCase().includes(search.toLowerCase())
-		)
-	);
-
 	let selectedItems = $derived(
 		credentials.filter((c) => selected.includes(c.id))
 	);
 
 	function add(id: string) {
 		selected = [...selected, id];
-		search = '';
-		dropdownOpen = false;
 	}
 
 	function remove(id: string) {
@@ -70,26 +58,15 @@
 			{/each}
 		</div>
 
-		<div class="relative">
-			<Input
-				bind:value={search}
-				placeholder="Search credentials..."
-				onfocus={() => (dropdownOpen = true)}
-				onblur={() => setTimeout(() => (dropdownOpen = false), 150)}
-			/>
-			{#if dropdownOpen && filtered.length > 0}
-				<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">
-					{#each filtered as c (c.id)}
-						<button
-							type="button"
-							onmousedown={() => add(c.id)}
-							class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50 dark:hover:bg-primary-950/30"
-						>
-							{c.name}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
+		<SearchSelect
+			items={credentials}
+			placeholder="Search credentials..."
+			filterFn={(c: CredentialInfo, q: string) => !selected.includes(c.id) && c.name.toLowerCase().includes(q.toLowerCase())}
+			onSelect={(c: CredentialInfo) => add(c.id)}
+		>
+			{#snippet children({ item }: { item: CredentialInfo })}
+				{item.name}
+			{/snippet}
+		</SearchSelect>
 	{/if}
 </div>

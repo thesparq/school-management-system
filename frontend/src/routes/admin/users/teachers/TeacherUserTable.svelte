@@ -12,6 +12,7 @@
 	import PassportUpload from '../users-shared/PassportUpload.svelte';
 	import NameFields from '../users-shared/NameFields.svelte';
 	import CredentialsSelect from '../users-shared/CredentialsSelect.svelte';
+	import SearchSelect from '$lib/components/ui/search-select/search-select.svelte';
 	import { addToast } from '$lib/stores/toast';
 import type { UserRow } from '$lib/types/user';
 import type { TeacherSubjectPair } from '$lib/types';
@@ -56,7 +57,6 @@ import type { TeacherSubjectPair } from '$lib/types';
 	let currentTeacherPairs = $state<Record<number, TeacherSubjectPair[]>>({});
 	let selectedSubjectPair = $state<Record<number, TeacherSubjectPair | null>>({});
 	let subjectPairSearch = $state<Record<number, string>>({});
-	let subjectPairDropdownOpen = $state<Record<number, boolean>>({});
 	let teacherSubjectLoading = $state<Record<number, string>>({});
 	let teacherPairsLoading = $state<Record<number, boolean>>({});
 	let activeSessionTerm = $state<{ id: string; session_name: string; term_name: string } | null>(null);
@@ -128,10 +128,31 @@ import type { TeacherSubjectPair } from '$lib/types';
 
 	async function openClassAssign(userObj: UserRow) {
 		const pk = userObj.pk; const uuid = userObj.uuid;
-		classAssignTeacherUuid = uuid; classAssignTeacherPk = pk; teacherPairsLoading[pk] = true; selectedSubjectPair[pk] = null; subjectPairSearch[pk] = '';
-		try { const res = await fetch(`/api/admin/teacher/${uuid}/subjects`); const body = await res.json(); currentTeacherPairs[pk] = body?.data ?? []; } catch { currentTeacherPairs[pk] = []; } finally { teacherPairsLoading[pk] = false; }
-		if (!activeSessionTerm) { activeSessionTermLoading = true; try { const res = await fetch('/api/admin/active-session-term'); const body = await res.json(); activeSessionTerm = body?.data ?? null; } catch { } finally { activeSessionTermLoading = false; } }
+		classAssignTeacherUuid = uuid; classAssignTeacherPk = pk;
+		selectedSubjectPair[pk] = null; subjectPairSearch[pk] = '';
+		currentTeacherPairs[pk] = [];
+		teacherPairsLoading[pk] = true;
+
 		classAssignDialogOpen = true;
+
+		if (!activeSessionTerm) {
+			activeSessionTermLoading = true;
+			fetch('/api/admin/active-session-term')
+				.then(r => r.json())
+				.then(body => { activeSessionTerm = body?.data ?? null; })
+				.catch(() => {})
+				.finally(() => { activeSessionTermLoading = false; });
+		}
+
+		try {
+			const res = await fetch(`/api/admin/teacher/${uuid}/subjects`);
+			const body = await res.json();
+			currentTeacherPairs[pk] = body?.data ?? [];
+		} catch {
+			currentTeacherPairs[pk] = [];
+		} finally {
+			teacherPairsLoading[pk] = false;
+		}
 	}
 
 	async function handleSaveTeacherSubjects(pk: number) {
@@ -142,15 +163,8 @@ import type { TeacherSubjectPair } from '$lib/types';
 	}
 
 	function addSubjectPair(pk: number, pair: TeacherSubjectPair) {
-		currentTeacherPairs[pk] = [...(currentTeacherPairs[pk] ?? []), pair]; selectedSubjectPair[pk] = null; subjectPairSearch[pk] = ''; subjectPairDropdownOpen[pk] = false;
+		currentTeacherPairs[pk] = [...(currentTeacherPairs[pk] ?? []), pair]; selectedSubjectPair[pk] = null; subjectPairSearch[pk] = '';
 	}
-
-	let filteredSubjectPairs = (search: string, pk: number) => {
-		const added = currentTeacherPairs[pk] ?? [];
-		const addedSet = new Set(added.map((p: TeacherSubjectPair) => `${p.class_level_id}||${p.subject_id}`));
-		const q = search.toLowerCase().replace(/\s+/g, '');
-		return allSubjectPairs.filter((p: TeacherSubjectPair) => !addedSet.has(`${p.class_level_id}||${p.subject_id}`) && (!q || `${p.class_level_name} ${p.subject_name}`.toLowerCase().replace(/\s+/g, '').includes(q)));
-	};
 </script>
 
 {#if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
@@ -234,12 +248,23 @@ import type { TeacherSubjectPair } from '$lib/types';
 							<Badge variant="secondary" class="gap-1">{pair.class_level_name} / {pair.subject_name}<button type="button" onclick={() => currentTeacherPairs[pk] = (currentTeacherPairs[pk] ?? []).filter((p: TeacherSubjectPair) => p.edge_id !== pair.edge_id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>
 						{/each}
 					</div>
-					<div class="relative"><Input bind:value={subjectPairSearch[pk]} placeholder="Search class subjects..." onfocus={() => subjectPairDropdownOpen[pk] = true} onblur={() => setTimeout(() => subjectPairDropdownOpen[pk] = false, 150)} />
-						{#if subjectPairDropdownOpen[pk]}
-							{@const fp = filteredSubjectPairs(subjectPairSearch[pk] ?? '', pk)}
-							{#if fp.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each fp as p (p.edge_id)}<button type="button" onmousedown={() => addSubjectPair(pk, p)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{p.class_level_name} / {p.subject_name} {#if p.subject_code}<span class="text-muted-foreground">[{p.subject_code}]</span>{/if}</button>{/each}</div>{/if}
-						{/if}
-					</div>
+					<SearchSelect
+						items={allSubjectPairs}
+						bind:search={subjectPairSearch[pk]}
+						placeholder="Search class subjects..."
+						filterFn={(p: TeacherSubjectPair, q: string) => {
+							const added = currentTeacherPairs[pk] ?? [];
+							const addedSet = new Set(added.map((a: TeacherSubjectPair) => `${a.class_level_id}||${a.subject_id}`));
+							const lower = q.toLowerCase().replace(/\s+/g, '');
+							return !addedSet.has(`${p.class_level_id}||${p.subject_id}`) && (!lower || `${p.class_level_name} ${p.subject_name}`.toLowerCase().replace(/\s+/g, '').includes(lower));
+						}}
+						onSelect={(p: TeacherSubjectPair) => addSubjectPair(pk, p)}
+					>
+						{#snippet children({ item }: { item: TeacherSubjectPair })}
+							{item.class_level_name} / {item.subject_name}
+							{#if item.subject_code}<span class="text-muted-foreground">[{item.subject_code}]</span>{/if}
+						{/snippet}
+					</SearchSelect>
 				{/if}
 				<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={() => classAssignDialogOpen = false}>Cancel</AppButton><AppButton onclick={() => handleSaveTeacherSubjects(pk)} loading={teacherSubjectLoading[pk] === 'saving'}>Save</AppButton></div>
 			{:else}<p class="text-sm text-amber-600">No active session term. Set one in Configuration → Session Terms.</p>
