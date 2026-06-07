@@ -144,6 +144,13 @@
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/qualifications')}>
+								{#snippet child({ props })}
+									<a href="/admin/configuration/qualifications" {...props}>Qualifications</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroup>
 			{/if}
