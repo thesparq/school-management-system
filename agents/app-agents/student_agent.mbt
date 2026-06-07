@@ -107,7 +107,14 @@ pub fn StudentAgent::get_lesson(
     Ok(_) => ()
   }
   let now = @wallClock.now().seconds
-  match student_fetch_lesson(self.cache, self.config.value, lesson_id, now) {
+  match
+    student_fetch_lesson(
+      self.cache,
+      self.config.value,
+      self.student_id,
+      lesson_id,
+      now,
+    ) {
     Ok(lc) => Ok(lc)
     Err(e) => Err(e.to_json_string())
   }

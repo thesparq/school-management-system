@@ -12,9 +12,9 @@ Add a "Qualifications" tab under admin Configuration for managing teacher creden
 
 Returns JSON array of `{ id: string, name: string, active: bool }`.
 
-**POST `/create-credential`** — Create a new credential
+**POST `/create-credential?name=<name>`** — Create a new credential
 
-Request body: `{ name: string }`
+Query parameter: `name` (string)
 
 Creates a record in the `credentials` table via SurrealDB INSERT.
 

@@ -338,7 +338,23 @@ pub fn parent_fetch_student_lesson(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
-  let arr = match db_parent_fetch_student_lesson_content(config, lesson_id) {
+  let profile = match db_admin_fetch_student_profile(config, student_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  if profile.length() == 0 {
+    return Err(not_found_error("Student profile"))
+  }
+  let cl = match profile[0] {
+    Object(o) =>
+      match o.get("current_class") {
+        Some(String(s)) => s
+        _ => return Err(not_found_error("Class level"))
+      }
+    _ => return Err(not_found_error("Student profile"))
+  }
+  let arr = match
+    db_parent_fetch_student_lesson_content(config, lesson_id, cl) {
     Ok(a) => a
     Err(e) => return Err(e)
   }

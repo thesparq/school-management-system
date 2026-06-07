@@ -53,10 +53,11 @@ pub fn db_student_fetch_lessons(
 pub fn db_student_fetch_lesson_content(
   config : SharedConfig,
   lesson_id : String,
+  class_level : String,
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT id, topic_title, week, topic.has_subject.out AS subject_id, topic.has_subject.out.name AS subject_name, topic.term AS term_id, topic.term.name AS term_name, objectives, content_sections, key_points, mcq_questions, theoretical_questions FROM lessons WHERE id = $lesson_id AND active = true",
-    bindings={ "lesson_id": lesson_id },
+    "SELECT id, topic_title, week, topic.has_subject.out AS subject_id, topic.has_subject.out.name AS subject_name, topic.term AS term_id, topic.term.name AS term_name, objectives, content_sections, key_points, mcq_questions, theoretical_questions FROM lessons WHERE id = $lesson_id AND topic.has_subject.in = $class_level AND active = true",
+    bindings={ "lesson_id": lesson_id, "class_level": class_level },
   )
 }

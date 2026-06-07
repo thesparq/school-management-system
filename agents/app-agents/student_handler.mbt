@@ -376,10 +376,15 @@ pub fn student_fetch_lessons(
 pub fn student_fetch_lesson(
   cache : CacheSystem,
   config : SharedConfig,
+  student_id : String,
   lesson_id : String,
   now : UInt64,
 ) -> Result[LessonContent?, AppError] {
-  let cache_key = "lesson:" + lesson_id
+  let cl = match student_get_class_level(cache, config, student_id, now) {
+    Ok(c) => c
+    Err(e) => return Err(e)
+  }
+  let cache_key = "lesson:" + lesson_id + "|" + cl
   match cache.get(cache_key, now) {
     Some(json_str) =>
       match json_parse_object_safe(json_str) {
@@ -388,7 +393,8 @@ pub fn student_fetch_lesson(
       }
     None => ()
   }
-  let result_arr = match db_student_fetch_lesson_content(config, lesson_id) {
+  let result_arr = match
+    db_student_fetch_lesson_content(config, lesson_id, cl) {
     Ok(arr) => arr
     Err(e) => return Err(e)
   }
