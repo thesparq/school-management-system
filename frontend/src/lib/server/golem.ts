@@ -212,6 +212,8 @@ export function mapErrorCodeToHttpStatus(code: string): number {
 		case 'NOT_FOUND': return 404;
 		case 'ALREADY_EXISTS': return 409;
 		case 'NOT_INITIALIZED': return 403;
+		case 'DEADLINE_EXCEEDED': return 410;
+		case 'RESUBMISSION_LIMIT': return 429;
 		case 'AUTHENTIK_ERROR':
 		case 'SURREALDB_ERROR':
 		case 'GATEWAY_ERROR': return 502;

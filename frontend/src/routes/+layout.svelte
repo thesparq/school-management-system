@@ -9,18 +9,20 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { page, navigating } from '$app/stores';
-	import SidebarLogo from '$lib/components/SidebarLogo.svelte';
-	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import type { LayoutData } from './$types';
-	import type { Snippet } from 'svelte';
+  import { page, navigating } from '$app/stores';
+  import SidebarLogo from '$lib/components/SidebarLogo.svelte';
+  import { Badge } from '$lib/components/ui/badge';
+  import { onMount } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import type { LayoutData } from './$types';
+  import type { Snippet } from 'svelte';
 
-	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+  let { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	let sidebarOpen = $state(true);
-	let isLoggingOut = $state(false);
-	let error = $state('');
+  let sidebarOpen = $state(true);
+  let isLoggingOut = $state(false);
+  let error = $state('');
+  let activeSessionTerm = $state<string | null>(null);
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
@@ -62,6 +64,13 @@
 	}
 
 	onMount(() => {
+		fetch('/api/student/active-session-term').then(async (res) => {
+			if (res.ok) {
+				const json = await res.json();
+				activeSessionTerm = json.data ?? null;
+			}
+		}).catch(() => {});
+
 		const origFetch = window.fetch.bind(window);
 		window.fetch = async (input, init) => {
 			const res = await origFetch(input, init);
@@ -229,6 +238,12 @@
 			</Breadcrumb>
 
       <div class="flex-1"></div>
+
+			{#if activeSessionTerm}
+				<Badge class="text-xs bg-secondary-100 text-secondary-700 border-secondary-300 dark:bg-secondary-900 dark:text-secondary-300 dark:border-secondary-700">
+					{activeSessionTerm}
+				</Badge>
+			{/if}
 
 			<ThemeToggle />
 

@@ -139,3 +139,112 @@ pub fn StudentAgent::invalidate_cache(
   }
   "OK"
 }
+
+///|
+#derive.endpoint(get="/assessments?lesson_id={lesson_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_lesson_assessments(
+  self : Self,
+  incoming_key : String,
+  lesson_id : String,
+) -> Result[Array[LessonAssessmentInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match
+    student_fetch_lesson_assessments(
+      self.config.value,
+      self.student_id,
+      lesson_id,
+    ) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/general-assessments?session_term_id={session_term_id}&subject_id={subject_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_general_assessments(
+  self : Self,
+  incoming_key : String,
+  session_term_id : String,
+  subject_id : String,
+) -> Result[Array[GeneralAssessmentInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match
+    student_fetch_general_assessments(
+      self.config.value,
+      self.student_id,
+      session_term_id,
+      subject_id,
+    ) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/submit-assessment")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::submit_assessment(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[SubmissionInfo, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match
+    student_submit_assessment(self.config.value, self.student_id, body_json) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/my-grades?assessment_type={assessment_type}&assessment_id={assessment_id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_my_grades(
+  self : Self,
+  incoming_key : String,
+  assessment_type : String,
+  assessment_id : String,
+) -> Result[SubmissionInfo?, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match
+    student_fetch_my_grades(
+      self.config.value,
+      self.student_id,
+      assessment_type,
+      assessment_id,
+    ) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/active-session-term")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn StudentAgent::get_active_session_term(
+  self : Self,
+  incoming_key : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match student_get_active_session_term(self.config.value) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}

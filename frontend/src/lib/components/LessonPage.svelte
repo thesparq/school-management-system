@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { LessonContent, LessonObjective, LessonContentSection, McqQuestion, TheoreticalQuestion } from '$lib/types';
+  import type {
+    LessonContent, LessonObjective, LessonContentSection, McqQuestion, TheoreticalQuestion,
+    LessonAssessmentInfo, SubmissionInfo
+  } from '$lib/types';
   import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { Skeleton } from '$lib/components/ui/skeleton';
@@ -10,8 +13,12 @@
   import { Checkbox } from '$lib/components/ui/checkbox/index.js';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
+  import GradeAssessmentModal from './GradeAssessmentModal.svelte';
+  import SubmitAssessmentModal from './SubmitAssessmentModal.svelte';
   import { fade } from 'svelte/transition';
   import { goto } from '$app/navigation';
+  import { addToast } from '$lib/stores/toast';
+  import { onMount } from 'svelte';
 
   let { lesson, isTeacher = false, backHref }: {
     lesson: LessonContent;
@@ -26,10 +33,29 @@
   let activeSection = $state('lesson-top');
   let closeTimer: ReturnType<typeof setTimeout> | undefined = $state();
 
-  let assessmentModalOpen = $state(false);
+  // Real data state
+  let loadingAssessments = $state(true);
+  let assessmentsError = $state<string | null>(null);
+  let assessments = $state<LessonAssessmentInfo[]>([]);
+
+  let loadingSubmissions = $state(true);
+  let submissionsError = $state<string | null>(null);
+  let submissionsByAssessment = $state<Record<string, SubmissionInfo[]>>({});
+
+  // Create assessment modal
+  let createModalOpen = $state(false);
   let assessmentTitle = $state('');
   let selectedMcq = $state(new Set<number>());
   let selectedTheory = $state(new Set<number>());
+  let creating = $state(false);
+
+  // Grade modal
+  let gradeModalOpen = $state(false);
+  let currentGradeSubmission = $state<SubmissionInfo | null>(null);
+
+  // Submit modal
+  let submitModalOpen = $state(false);
+  let currentSubmitAssessment = $state<LessonAssessmentInfo | null>(null);
 
   let expandedAssessment = $state<string | undefined>(undefined);
   let expandedGradingAssessment = $state<string | undefined>(undefined);
@@ -40,59 +66,145 @@
 
   const tabLabels = { lesson: 'Lesson', assessments: 'Assessments', grading: 'Grading' } as const;
 
-  function openAssessmentModal() {
+  async function loadAssessments() {
+    loadingAssessments = true;
+    assessmentsError = null;
+    try {
+      const endpoint = isTeacher ? '/api/teacher/lesson-assessments' : '/api/student/assessments';
+      const res = await fetch(`${endpoint}?lesson_id=${encodeURIComponent(lesson.id)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Failed to load assessments' } }));
+        throw new Error(err.error?.message ?? 'Failed to load assessments');
+      }
+      const json = await res.json();
+      assessments = (json.data ?? []) as LessonAssessmentInfo[];
+    } catch (e) {
+      assessmentsError = e instanceof Error ? e.message : 'Unknown error';
+      assessments = [];
+    } finally {
+      loadingAssessments = false;
+    }
+  }
+
+  async function loadSubmissions() {
+    if (!isTeacher) return;
+    loadingSubmissions = true;
+    submissionsError = null;
+    try {
+      const all: Record<string, SubmissionInfo[]> = {};
+      for (const a of assessments) {
+        const res = await fetch(`/api/teacher/submissions?assessment_type=lesson&assessment_id=${encodeURIComponent(a.id)}`);
+        if (res.ok) {
+          const json = await res.json();
+          all[a.id] = (json.data ?? []) as SubmissionInfo[];
+        } else {
+          all[a.id] = [];
+        }
+      }
+      submissionsByAssessment = all;
+    } catch (e) {
+      submissionsError = e instanceof Error ? e.message : 'Unknown error';
+    } finally {
+      loadingSubmissions = false;
+    }
+  }
+
+  function getSubmittedCount(assessmentId: string): number {
+    return (submissionsByAssessment[assessmentId] ?? []).filter(s => s.status === 'submitted').length;
+  }
+
+  onMount(() => {
+    loadAssessments();
+  });
+
+  $effect(() => {
+    if (assessments.length > 0 && isTeacher) {
+      loadSubmissions();
+    }
+  });
+
+  function openCreateModal() {
     assessmentTitle = '';
     selectedMcq = new Set();
     selectedTheory = new Set();
-    assessmentModalOpen = true;
+    createModalOpen = true;
   }
 
-  // Placeholder data
-  const assessmentPlaceholders = [
-    {
-      id: 'a1',
-      title: 'Week 1 Quiz',
-      mcqQuestions: [
-        { question: 'Sample MCQ 1 — This is a preview of how real assessment questions will appear.', option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' },
-        { question: 'Sample MCQ 2 — Teachers can create assessments by selecting questions from the lesson.', option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' },
-        { question: 'Sample MCQ 3 — This is placeholder content for the UI structure.', option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' },
-      ],
-      theoryQuestions: [
-        { question: 'Sample Theory Q1 — Explain the main concepts covered in this lesson in your own words.' },
-        { question: 'Sample Theory Q2 — Describe how these principles apply to real-world scenarios.' },
-      ],
-    },
-    {
-      id: 'a2',
-      title: 'Mid-Term Review',
-      mcqQuestions: [
-        { question: 'Sample MCQ 4 — Select the most appropriate answer from the options below.', option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' },
-        { question: 'Sample MCQ 5 — This demonstrates the accordion layout for assessment question listing.', option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' },
-      ],
-      theoryQuestions: [
-        { question: 'Sample Theory Q3 — Provide a detailed analysis of the topic discussed in class.' },
-      ],
-    },
-  ];
+  async function handleCreateAssessment() {
+    if (!assessmentTitle.trim()) return;
+    creating = true;
+    const questions: Record<string, unknown>[] = [];
+    let idx = 0;
 
-  const gradingPlaceholders = [
-    {
-      id: 'g1',
-      title: 'Week 1 Quiz',
-      submissions: [
-        { name: 'Jane Doe', status: 'submitted', timeAgo: '2 days ago' },
-        { name: 'John Smith', status: 'submitted', timeAgo: '1 day ago' },
-        { name: 'Mary Johnson', status: 'not_submitted', timeAgo: null },
-      ],
-    },
-    {
-      id: 'g2',
-      title: 'Mid-Term Review',
-      submissions: [
-        { name: 'Jane Doe', status: 'submitted', timeAgo: '3 days ago' },
-      ],
-    },
-  ];
+    for (const mcqIdx of selectedMcq) {
+      const q = mcqQuestions?.[mcqIdx];
+      if (q) {
+        questions.push({
+          question_index: idx++,
+          question_type: 'mcq',
+          source_index: mcqIdx,
+          question_text: q.question,
+          option_a: q.option_a,
+          option_b: q.option_b,
+          option_c: q.option_c,
+          correct_answer: q.correct_answer,
+          allocated_mark: 1,
+        });
+      }
+    }
+    for (const theoryIdx of selectedTheory) {
+      const q = theoryQuestions?.[theoryIdx];
+      if (q) {
+        questions.push({
+          question_index: idx++,
+          question_type: 'theory',
+          source_index: theoryIdx,
+          question_text: q.question,
+          allocated_mark: 5,
+        });
+      }
+    }
+
+    const body = {
+      lesson_id: lesson.id,
+      title: assessmentTitle.trim(),
+      questions,
+      max_resubmissions: 1,
+    };
+
+    try {
+      const res = await fetch('/api/teacher/create-lesson-assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: 'Failed to create assessment' } }));
+        throw new Error(err.error?.message ?? 'Failed to create assessment');
+      }
+      addToast('success', 'Assessment created', `"${assessmentTitle.trim()}" has been created.`);
+      createModalOpen = false;
+      loadAssessments();
+    } catch (e) {
+      addToast('error', 'Failed to create assessment', e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      creating = false;
+    }
+  }
+
+  function openGradeModal(submission: SubmissionInfo) {
+    currentGradeSubmission = submission;
+    gradeModalOpen = true;
+  }
+
+  function openSubmitModal(assessment: LessonAssessmentInfo) {
+    currentSubmitAssessment = assessment;
+    submitModalOpen = true;
+  }
+
+  function getMySubmission(assessmentId: string): SubmissionInfo | undefined {
+    return submissionsByAssessment[assessmentId]?.[0];
+  }
 
   // Helpers
   const SECTION_IDS = { objectives: 'section-objectives', keyPoints: 'section-key-points' };
@@ -372,53 +484,75 @@
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-display font-bold text-primary-700">Assessments</h2>
           {#if isTeacher}
-            <AppButton onclick={openAssessmentModal}>Create Assessment</AppButton>
+            <AppButton onclick={openCreateModal}>Create Assessment</AppButton>
           {/if}
         </div>
 
-        {#if !isTeacher}
-          <StatusCard variant="info" title="Your Assignments" description="Assigned assessments will appear here. Check back when your teacher creates one." />
+        {#if loadingAssessments}
+          <div class="space-y-3">
+            <Skeleton class="h-12 w-full" />
+            <Skeleton class="h-12 w-full" />
+          </div>
+        {:else if assessmentsError}
+          <StatusCard variant="error" title="Failed to load assessments" description={assessmentsError} onRetry={loadAssessments} />
+        {:else if assessments.length === 0}
+          <StatusCard variant="info" title={isTeacher ? 'No Assessments' : 'Your Assignments'} description={isTeacher ? 'Create your first assessment for this lesson.' : 'Assigned assessments will appear here. Check back when your teacher creates one.'} />
         {:else}
-          {#if assessmentPlaceholders.length > 0}
-            <Accordion.Root type="single" bind:value={expandedAssessment}>
-              {#each assessmentPlaceholders as a (a.id)}
-                <Accordion.Item value={a.id}>
-                  <Accordion.Trigger class="text-sm font-medium">
-                    <div class="flex items-center gap-3">
-                      <span>{a.title}</span>
-                      <span class="text-xs text-muted-foreground font-normal">{a.mcqQuestions.length} MCQ, {a.theoryQuestions.length} Theory</span>
-                    </div>
-                  </Accordion.Trigger>
-                  <Accordion.Content class="pt-2 pl-4 space-y-4">
-                    {#if a.mcqQuestions.length > 0}
-                      <div>
-                        <h4 class="text-xs font-semibold text-surface-500 uppercase mb-2">MCQ Questions</h4>
-                        <div class="space-y-2">
-                          {#each a.mcqQuestions as q}
-                            <div class="flex items-start gap-3 py-1 border-l-2 border-border pl-3">
-                              <span class="text-sm text-muted-foreground">{q.question}</span>
-                            </div>
-                          {/each}
+          <Accordion.Root type="single" bind:value={expandedAssessment}>
+            {#each assessments as a (a.id)}
+              <Accordion.Item value={a.id}>
+                <Accordion.Trigger class="text-sm font-medium">
+                  <div class="flex items-center gap-3">
+                    <span>{a.title}</span>
+                    <span class="text-xs text-muted-foreground font-normal">
+                      {a.questions.length} question{a.questions.length !== 1 ? 's' : ''}
+                      {#if a.deadline}
+                        &middot; Due {new Date(a.deadline).toLocaleDateString()}
+                      {/if}
+                    </span>
+                    {#if !a.active}
+                      <span class="text-xs text-amber-600 font-normal">Inactive</span>
+                    {/if}
+                  </div>
+                </Accordion.Trigger>
+                <Accordion.Content class="pt-2 pl-4 space-y-4">
+                  {#if a.description}
+                    <p class="text-sm text-muted-foreground">{a.description}</p>
+                  {/if}
+
+                  <div class="space-y-2">
+                    {#each a.questions as q, i}
+                      <div class="flex items-start gap-3 py-1 border-l-2 border-border pl-3">
+                        <span class="text-xs font-medium text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+                        <div class="min-w-0">
+                          <span class="text-sm text-muted-foreground">{q.question_text}</span>
+                          <span class="text-xs text-muted-foreground ml-2">
+                            ({q.question_type === 'mcq' ? 'MCQ' : 'Theory'} &middot; {q.allocated_mark} mark{q.allocated_mark !== 1 ? 's' : ''})
+                          </span>
                         </div>
                       </div>
-                    {/if}
-                    {#if a.theoryQuestions.length > 0}
-                      <div>
-                        <h4 class="text-xs font-semibold text-surface-500 uppercase mb-2">Theoretical Questions</h4>
-                        <div class="space-y-2">
-                          {#each a.theoryQuestions as q}
-                            <div class="flex items-start gap-3 py-1 border-l-2 border-border pl-3">
-                              <span class="text-sm text-muted-foreground">{q.question}</span>
-                            </div>
-                          {/each}
-                        </div>
+                    {/each}
+                  </div>
+
+                  {#if !isTeacher}
+                    {@const mySub = getMySubmission(a.id)}
+                    {#if mySub}
+                      <div class="flex items-center gap-3 pt-2">
+                        <Badge class="text-xs bg-success-50 text-success-600 border-success-200">
+                          Submitted &middot; Iteration {mySub.iteration}
+                        </Badge>
+                        {#if mySub.grade_released_at}
+                          <span class="text-sm font-medium text-foreground">Score: {mySub.scored_mark ?? '-'}/{mySub.total_mark}</span>
+                        {/if}
                       </div>
+                    {:else}
+                      <AppButton size="sm" onclick={() => openSubmitModal(a)}>Take Assessment</AppButton>
                     {/if}
-                  </Accordion.Content>
-                </Accordion.Item>
-              {/each}
-            </Accordion.Root>
-          {/if}
+                  {/if}
+                </Accordion.Content>
+              </Accordion.Item>
+            {/each}
+          </Accordion.Root>
         {/if}
       </div>
     </div>
@@ -430,37 +564,72 @@
       <div class="space-y-6">
         <h2 class="text-xl font-display font-bold text-primary-700">Grading</h2>
 
-        {#if gradingPlaceholders.length > 0}
+        {#if loadingSubmissions || loadingAssessments}
+          <div class="space-y-3">
+            <Skeleton class="h-12 w-full" />
+            <Skeleton class="h-12 w-full" />
+          </div>
+        {:else if submissionsError}
+          <StatusCard variant="error" title="Failed to load submissions" description={submissionsError} />
+        {:else if assessments.length === 0}
+          <StatusCard variant="info" title="No Submissions" description="Create an assessment first to see student submissions." />
+        {:else}
           <Accordion.Root type="single" bind:value={expandedGradingAssessment}>
-            {#each gradingPlaceholders as g (g.id)}
-              <Accordion.Item value={g.id}>
+            {#each assessments as a (a.id)}
+              {@const subs = submissionsByAssessment[a.id] ?? []}
+              {@const submittedCount = subs.filter(s => s.status === 'submitted').length}
+              <Accordion.Item value={a.id}>
                 <Accordion.Trigger class="text-sm font-medium">
                   <div class="flex items-center gap-3">
-                    <span>{g.title}</span>
-                    <span class="text-xs text-muted-foreground font-normal">{g.submissions.length} submissions</span>
+                    <span>{a.title}</span>
+                    <span class="text-xs text-muted-foreground font-normal">{submittedCount} submission{submittedCount !== 1 ? 's' : ''}</span>
                   </div>
                 </Accordion.Trigger>
                 <Accordion.Content class="pt-2 pl-4 space-y-1">
-                  {#each g.submissions as s}
-                    <div class="flex items-center justify-between py-2 px-3 rounded border border-border">
-                      <div class="flex items-center gap-3">
-                        <span class="text-sm text-muted-foreground font-medium">{s.name}</span>
-                        {#if s.status === 'submitted'}
-                          <Badge variant="outline" class="text-xs bg-success-50 text-success-600 border-success-200">Submitted</Badge>
-                          <span class="text-xs text-muted-foreground">{s.timeAgo}</span>
-                        {:else}
-                          <Badge variant="outline" class="text-xs bg-muted text-surface-500">Not Submitted</Badge>
-  {/if}
+                  {#if subs.length === 0}
+                    <p class="text-sm text-muted-foreground py-3">No submissions yet.</p>
+                  {:else}
+                    {#each subs as s}
+                      <div class="flex items-center justify-between py-2 px-3 rounded border border-border">
+                        <div class="flex items-center gap-3">
+                          <span class="text-sm text-muted-foreground font-medium">{s.student_name ?? 'Unknown Student'}</span>
+                          {#if s.status === 'submitted'}
+                            <Badge variant="outline" class="text-xs bg-success-50 text-success-600 border-success-200">Submitted</Badge>
+                            <span class="text-xs text-muted-foreground">Iteration {s.iteration}</span>
+                            {#if s.scored_mark != null}
+                              <span class="text-xs text-muted-foreground">{s.scored_mark}/{s.total_mark}</span>
+                            {/if}
+                          {:else}
+                            <Badge variant="outline" class="text-xs bg-muted text-surface-500-500">Not Submitted</Badge>
+                          {/if}
+                        </div>
+                        <div class="flex items-center gap-2">
+                          {#if s.grade_released_at}
+                            <Badge class="text-xs bg-success-50 text-success-600">Grades Released</Badge>
+                          {:else if s.status === 'submitted'}
+                            <AppButton variant="outline" size="sm" onclick={() => openGradeModal(s)}>Grade</AppButton>
+                            <AppButton variant="ghost" size="sm" onclick={async () => {
+                              try {
+                                const r = await fetch('/api/teacher/release-grades', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ submission_id: s.id }),
+                                });
+                                if (r.ok) {
+                                  addToast('success', 'Grades released', 'Student can now see their grades.');
+                                  loadSubmissions();
+                                }
+                              } catch {}
+                            }}>Release</AppButton>
+                          {/if}
+                        </div>
                       </div>
-                      <AppButton variant="outline" size="sm" disabled={s.status !== 'submitted'}>Grade</AppButton>
-                    </div>
-                  {/each}
+                    {/each}
+                  {/if}
                 </Accordion.Content>
               </Accordion.Item>
             {/each}
           </Accordion.Root>
-        {:else}
-          <StatusCard variant="info" title="No Submissions" description="No submissions to grade yet." />
         {/if}
       </div>
     </div>
@@ -468,7 +637,7 @@
 
   <!-- Create Assessment Modal (teacher only) -->
   {#if isTeacher}
-    <Dialog.Root bind:open={assessmentModalOpen}>
+    <Dialog.Root bind:open={createModalOpen}>
       <Dialog.Content class="sm:max-w-5xl max-h-[92vh] flex flex-col">
         <Dialog.Header>
           <Dialog.Title>Create Assessment</Dialog.Title>
@@ -529,9 +698,39 @@
 
         <Dialog.Footer>
           <Dialog.Close>Cancel</Dialog.Close>
-          <AppButton disabled={!assessmentTitle.trim()} onclick={() => { assessmentModalOpen = false; }}>Create</AppButton>
+          <AppButton disabled={!assessmentTitle.trim() || creating} onclick={handleCreateAssessment}>
+            {creating ? 'Creating...' : 'Create'}
+          </AppButton>
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
   {/if}
+
+  {#if currentGradeSubmission}
+    <GradeAssessmentModal
+      open={gradeModalOpen}
+      submission={currentGradeSubmission}
+      onGradeComplete={() => {
+        gradeModalOpen = false;
+        currentGradeSubmission = null;
+        loadSubmissions();
+      }}
+    />
+  {/if}
+
+  {#if currentSubmitAssessment}
+    <SubmitAssessmentModal
+      open={submitModalOpen}
+      assessmentId={currentSubmitAssessment.id}
+      assessmentType="lesson"
+      title={currentSubmitAssessment.title}
+      questions={currentSubmitAssessment.questions}
+      onSubmitComplete={() => {
+        submitModalOpen = false;
+        currentSubmitAssessment = null;
+        loadAssessments();
+      }}
+    />
+  {/if}
+
 </div>

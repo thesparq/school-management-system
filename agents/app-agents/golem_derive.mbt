@@ -24,10 +24,10 @@ impl @schema.HasElementSchema for ParentStudentInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ParentStudentInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let display_name : String = @schema.extract_field(e, 1)
-  let current_class : String = @schema.extract_field(e, 2)
-  let subject_count : Int = @schema.extract_field(e, 3)
+  let id :String = @schema.extract_field(e, 0)
+  let display_name :String = @schema.extract_field(e, 1)
+  let current_class :String = @schema.extract_field(e, 2)
+  let subject_count :Int = @schema.extract_field(e, 3)
   { id, display_name, current_class, subject_count }
 }
 
@@ -47,6 +47,698 @@ impl @schema.ToElementValue for ParentStudentInfo with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for AssessmentQuestion with element_schema() {
+  @schema.make_record_schema([
+    (
+      "question_index",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "question_type",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "question_text",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "option_a",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "option_b",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "option_c",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "correct_answer",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "allocated_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "source_question_index",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for AssessmentQuestion with from_extractor(e) {
+  let question_index :Int = @schema.extract_field(e, 0)
+  let question_type :String = @schema.extract_field(e, 1)
+  let question_text :String = @schema.extract_field(e, 2)
+  let option_a :String? = @schema.extract_field(e, 3)
+  let option_b :String? = @schema.extract_field(e, 4)
+  let option_c :String? = @schema.extract_field(e, 5)
+  let correct_answer :String? = @schema.extract_field(e, 6)
+  let allocated_mark :Int = @schema.extract_field(e, 7)
+  let source_question_index :Int = @schema.extract_field(e, 8)
+  {
+    question_index,
+    question_type,
+    question_text,
+    option_a,
+    option_b,
+    option_c,
+    correct_answer,
+    allocated_mark,
+    source_question_index,
+  }
+}
+
+///|
+impl @schema.FromElementValue for AssessmentQuestion with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for AssessmentQuestion with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.question_index),
+    @schema.to_element_value_as(self.question_type),
+    @schema.to_element_value_as(self.question_text),
+    @schema.to_element_value_as(self.option_a),
+    @schema.to_element_value_as(self.option_b),
+    @schema.to_element_value_as(self.option_c),
+    @schema.to_element_value_as(self.correct_answer),
+    @schema.to_element_value_as(self.allocated_mark),
+    @schema.to_element_value_as(self.source_question_index),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for LessonAssessmentInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "lesson",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "description",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "questions",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[AssessmentQuestion]]),
+      ),
+    ),
+    (
+      "total_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "max_resubmissions",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "deadline",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "active",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+    (
+      "scheduled_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "created_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for LessonAssessmentInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let lesson :String = @schema.extract_field(e, 1)
+  let title :String = @schema.extract_field(e, 2)
+  let description :String? = @schema.extract_field(e, 3)
+  let questions :Array[AssessmentQuestion] = @schema.extract_field(e, 4)
+  let total_mark :Int = @schema.extract_field(e, 5)
+  let max_resubmissions :Int = @schema.extract_field(e, 6)
+  let deadline :String? = @schema.extract_field(e, 7)
+  let active :Bool = @schema.extract_field(e, 8)
+  let scheduled_at :String? = @schema.extract_field(e, 9)
+  let created_at :String = @schema.extract_field(e, 10)
+  {
+    id,
+    lesson,
+    title,
+    description,
+    questions,
+    total_mark,
+    max_resubmissions,
+    deadline,
+    active,
+    scheduled_at,
+    created_at,
+  }
+}
+
+///|
+impl @schema.FromElementValue for LessonAssessmentInfo with from_element_value(
+  v,
+) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for LessonAssessmentInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.lesson),
+    @schema.to_element_value_as(self.title),
+    @schema.to_element_value_as(self.description),
+    @schema.to_element_value_as(self.questions),
+    @schema.to_element_value_as(self.total_mark),
+    @schema.to_element_value_as(self.max_resubmissions),
+    @schema.to_element_value_as(self.deadline),
+    @schema.to_element_value_as(self.active),
+    @schema.to_element_value_as(self.scheduled_at),
+    @schema.to_element_value_as(self.created_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for GeneralAssessmentInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "session_term",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "subject",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "description",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "percentage_weight",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "questions",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[AssessmentQuestion]?]),
+      ),
+    ),
+    (
+      "compositions",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[CompositionInfo]?]),
+      ),
+    ),
+    (
+      "total_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "max_resubmissions",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "deadline",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "active",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+    (
+      "scheduled_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "created_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for GeneralAssessmentInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let session_term :String = @schema.extract_field(e, 1)
+  let subject :String = @schema.extract_field(e, 2)
+  let title :String = @schema.extract_field(e, 3)
+  let description :String? = @schema.extract_field(e, 4)
+  let percentage_weight :Int = @schema.extract_field(e, 5)
+  let questions :Array[AssessmentQuestion]? = @schema.extract_field(e, 6)
+  let compositions :Array[CompositionInfo]? = @schema.extract_field(e, 7)
+  let total_mark :Int = @schema.extract_field(e, 8)
+  let max_resubmissions :Int = @schema.extract_field(e, 9)
+  let deadline :String? = @schema.extract_field(e, 10)
+  let active :Bool = @schema.extract_field(e, 11)
+  let scheduled_at :String? = @schema.extract_field(e, 12)
+  let created_at :String = @schema.extract_field(e, 13)
+  {
+    id,
+    session_term,
+    subject,
+    title,
+    description,
+    percentage_weight,
+    questions,
+    compositions,
+    total_mark,
+    max_resubmissions,
+    deadline,
+    active,
+    scheduled_at,
+    created_at,
+  }
+}
+
+///|
+impl @schema.FromElementValue for GeneralAssessmentInfo with from_element_value(
+  v,
+) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for GeneralAssessmentInfo with to_element_value(
+  self,
+) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.session_term),
+    @schema.to_element_value_as(self.subject),
+    @schema.to_element_value_as(self.title),
+    @schema.to_element_value_as(self.description),
+    @schema.to_element_value_as(self.percentage_weight),
+    @schema.to_element_value_as(self.questions),
+    @schema.to_element_value_as(self.compositions),
+    @schema.to_element_value_as(self.total_mark),
+    @schema.to_element_value_as(self.max_resubmissions),
+    @schema.to_element_value_as(self.deadline),
+    @schema.to_element_value_as(self.active),
+    @schema.to_element_value_as(self.scheduled_at),
+    @schema.to_element_value_as(self.created_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for CompositionInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "lesson_assessment",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "lesson_assessment_title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "lesson_assessment_total_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+    (
+      "weight_pct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Float])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for CompositionInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let lesson_assessment :String = @schema.extract_field(e, 1)
+  let lesson_assessment_title :String? = @schema.extract_field(e, 2)
+  let lesson_assessment_total_mark :Int? = @schema.extract_field(e, 3)
+  let weight_pct :Float = @schema.extract_field(e, 4)
+  {
+    id,
+    lesson_assessment,
+    lesson_assessment_title,
+    lesson_assessment_total_mark,
+    weight_pct,
+  }
+}
+
+///|
+impl @schema.FromElementValue for CompositionInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for CompositionInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.lesson_assessment),
+    @schema.to_element_value_as(self.lesson_assessment_title),
+    @schema.to_element_value_as(self.lesson_assessment_total_mark),
+    @schema.to_element_value_as(self.weight_pct),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for SubmissionAnswer with element_schema() {
+  @schema.make_record_schema([
+    (
+      "question_index",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "answer_type",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "answer_text",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "allocated_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "scored_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+    (
+      "correct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool?])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SubmissionAnswer with from_extractor(e) {
+  let question_index :Int = @schema.extract_field(e, 0)
+  let answer_type :String = @schema.extract_field(e, 1)
+  let answer_text :String = @schema.extract_field(e, 2)
+  let allocated_mark :Int = @schema.extract_field(e, 3)
+  let scored_mark :Int? = @schema.extract_field(e, 4)
+  let correct :Bool? = @schema.extract_field(e, 5)
+  {
+    question_index,
+    answer_type,
+    answer_text,
+    allocated_mark,
+    scored_mark,
+    correct,
+  }
+}
+
+///|
+impl @schema.FromElementValue for SubmissionAnswer with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SubmissionAnswer with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.question_index),
+    @schema.to_element_value_as(self.answer_type),
+    @schema.to_element_value_as(self.answer_text),
+    @schema.to_element_value_as(self.allocated_mark),
+    @schema.to_element_value_as(self.scored_mark),
+    @schema.to_element_value_as(self.correct),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for SubmissionInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "assessment_type",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "assessment_id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "student",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "student_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+    (
+      "iteration",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "status",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "submitted_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "answers",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[SubmissionAnswer]]),
+      ),
+    ),
+    (
+      "total_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "scored_mark",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int?])),
+    ),
+    (
+      "grade_released_at",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String?])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for SubmissionInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let assessment_type :String = @schema.extract_field(e, 1)
+  let assessment_id :String = @schema.extract_field(e, 2)
+  let student :String = @schema.extract_field(e, 3)
+  let student_name :String? = @schema.extract_field(e, 4)
+  let iteration :Int = @schema.extract_field(e, 5)
+  let status :String = @schema.extract_field(e, 6)
+  let submitted_at :String = @schema.extract_field(e, 7)
+  let answers :Array[SubmissionAnswer] = @schema.extract_field(e, 8)
+  let total_mark :Int = @schema.extract_field(e, 9)
+  let scored_mark :Int? = @schema.extract_field(e, 10)
+  let grade_released_at :String? = @schema.extract_field(e, 11)
+  {
+    id,
+    assessment_type,
+    assessment_id,
+    student,
+    student_name,
+    iteration,
+    status,
+    submitted_at,
+    answers,
+    total_mark,
+    scored_mark,
+    grade_released_at,
+  }
+}
+
+///|
+impl @schema.FromElementValue for SubmissionInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for SubmissionInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.assessment_type),
+    @schema.to_element_value_as(self.assessment_id),
+    @schema.to_element_value_as(self.student),
+    @schema.to_element_value_as(self.student_name),
+    @schema.to_element_value_as(self.iteration),
+    @schema.to_element_value_as(self.status),
+    @schema.to_element_value_as(self.submitted_at),
+    @schema.to_element_value_as(self.answers),
+    @schema.to_element_value_as(self.total_mark),
+    @schema.to_element_value_as(self.scored_mark),
+    @schema.to_element_value_as(self.grade_released_at),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for CompositionGradeBreakdown with element_schema(
+  
+) {
+  @schema.make_record_schema([
+    (
+      "lesson_assessment_title",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "scored_pct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Float?])),
+    ),
+    (
+      "weight_pct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Float])),
+    ),
+    (
+      "graded",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for CompositionGradeBreakdown with from_extractor(e) {
+  let lesson_assessment_title :String = @schema.extract_field(e, 0)
+  let scored_pct :Float? = @schema.extract_field(e, 1)
+  let weight_pct :Float = @schema.extract_field(e, 2)
+  let graded :Bool = @schema.extract_field(e, 3)
+  { lesson_assessment_title, scored_pct, weight_pct, graded }
+}
+
+///|
+impl @schema.FromElementValue for CompositionGradeBreakdown with from_element_value(
+  v,
+) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for CompositionGradeBreakdown with to_element_value(
+  self,
+) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.lesson_assessment_title),
+    @schema.to_element_value_as(self.scored_pct),
+    @schema.to_element_value_as(self.weight_pct),
+    @schema.to_element_value_as(self.graded),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for CompositionGradeResult with element_schema() {
+  @schema.make_record_schema([
+    (
+      "total_scored_pct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Float?])),
+    ),
+    (
+      "total_weight_pct",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Float])),
+    ),
+    (
+      "breakdown",
+      @schema.schema_of_tag(
+        (
+          @schema.TypeTag::{  }
+          : @schema.TypeTag[Array[CompositionGradeBreakdown]]
+        ),
+      ),
+    ),
+    (
+      "all_graded",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for CompositionGradeResult with from_extractor(e) {
+  let total_scored_pct :Float? = @schema.extract_field(e, 0)
+  let total_weight_pct :Float = @schema.extract_field(e, 1)
+  let breakdown :Array[CompositionGradeBreakdown] = @schema.extract_field(e, 2)
+  let all_graded :Bool = @schema.extract_field(e, 3)
+  { total_scored_pct, total_weight_pct, breakdown, all_graded }
+}
+
+///|
+impl @schema.FromElementValue for CompositionGradeResult with from_element_value(
+  v,
+) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for CompositionGradeResult with to_element_value(
+  self,
+) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.total_scored_pct),
+    @schema.to_element_value_as(self.total_weight_pct),
+    @schema.to_element_value_as(self.breakdown),
+    @schema.to_element_value_as(self.all_graded),
+  ])
+}
+
+///|
+impl @schema.HasElementSchema for PercentageSummary with element_schema() {
+  @schema.make_record_schema([
+    (
+      "current",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+    (
+      "remaining",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Int])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for PercentageSummary with from_extractor(e) {
+  let current :Int = @schema.extract_field(e, 0)
+  let remaining :Int = @schema.extract_field(e, 1)
+  { current, remaining }
+}
+
+///|
+impl @schema.FromElementValue for PercentageSummary with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for PercentageSummary with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.current),
+    @schema.to_element_value_as(self.remaining),
+  ])
+}
+
+///|
 impl @schema.HasElementSchema for ClassLevelInfo with element_schema() {
   @schema.make_record_schema([
     (
@@ -62,8 +754,8 @@ impl @schema.HasElementSchema for ClassLevelInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ClassLevelInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
   { id, name }
 }
 
@@ -128,16 +820,16 @@ impl @schema.HasElementSchema for StudentProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for StudentProfileInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let surname : String = @schema.extract_field(e, 1)
-  let first_name : String = @schema.extract_field(e, 2)
-  let middle_name : String? = @schema.extract_field(e, 3)
-  let display_name : String = @schema.extract_field(e, 4)
-  let date_of_birth : String = @schema.extract_field(e, 5)
-  let class_enrolled : String = @schema.extract_field(e, 6)
-  let current_class : String = @schema.extract_field(e, 7)
-  let passport : String = @schema.extract_field(e, 8)
-  let created_at : String = @schema.extract_field(e, 9)
+  let id :String = @schema.extract_field(e, 0)
+  let surname :String = @schema.extract_field(e, 1)
+  let first_name :String = @schema.extract_field(e, 2)
+  let middle_name :String? = @schema.extract_field(e, 3)
+  let display_name :String = @schema.extract_field(e, 4)
+  let date_of_birth :String = @schema.extract_field(e, 5)
+  let class_enrolled :String = @schema.extract_field(e, 6)
+  let current_class :String = @schema.extract_field(e, 7)
+  let passport :String = @schema.extract_field(e, 8)
+  let created_at :String = @schema.extract_field(e, 9)
   {
     id,
     surname,
@@ -219,15 +911,15 @@ impl @schema.HasElementSchema for TeacherProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherProfileInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let surname : String = @schema.extract_field(e, 1)
-  let first_name : String = @schema.extract_field(e, 2)
-  let middle_name : String? = @schema.extract_field(e, 3)
-  let display_name : String = @schema.extract_field(e, 4)
-  let qualifications : Array[String]? = @schema.extract_field(e, 5)
-  let date_employed : String? = @schema.extract_field(e, 6)
-  let passport : String = @schema.extract_field(e, 7)
-  let created_at : String = @schema.extract_field(e, 8)
+  let id :String = @schema.extract_field(e, 0)
+  let surname :String = @schema.extract_field(e, 1)
+  let first_name :String = @schema.extract_field(e, 2)
+  let middle_name :String? = @schema.extract_field(e, 3)
+  let display_name :String = @schema.extract_field(e, 4)
+  let qualifications :Array[String]? = @schema.extract_field(e, 5)
+  let date_employed :String? = @schema.extract_field(e, 6)
+  let passport :String = @schema.extract_field(e, 7)
+  let created_at :String = @schema.extract_field(e, 8)
   {
     id,
     surname,
@@ -301,14 +993,14 @@ impl @schema.HasElementSchema for AdminProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for AdminProfileInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let surname : String = @schema.extract_field(e, 1)
-  let first_name : String = @schema.extract_field(e, 2)
-  let middle_name : String? = @schema.extract_field(e, 3)
-  let display_name : String = @schema.extract_field(e, 4)
-  let role_title : String? = @schema.extract_field(e, 5)
-  let passport : String = @schema.extract_field(e, 6)
-  let created_at : String = @schema.extract_field(e, 7)
+  let id :String = @schema.extract_field(e, 0)
+  let surname :String = @schema.extract_field(e, 1)
+  let first_name :String = @schema.extract_field(e, 2)
+  let middle_name :String? = @schema.extract_field(e, 3)
+  let display_name :String = @schema.extract_field(e, 4)
+  let role_title :String? = @schema.extract_field(e, 5)
+  let passport :String = @schema.extract_field(e, 6)
+  let created_at :String = @schema.extract_field(e, 7)
   {
     id,
     surname,
@@ -374,12 +1066,12 @@ impl @schema.HasElementSchema for ParentProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ParentProfileInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let display_name : String = @schema.extract_field(e, 2)
-  let students : Array[String] = @schema.extract_field(e, 3)
-  let passport : String = @schema.extract_field(e, 4)
-  let created_at : String = @schema.extract_field(e, 5)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let display_name :String = @schema.extract_field(e, 2)
+  let students :Array[String] = @schema.extract_field(e, 3)
+  let passport :String = @schema.extract_field(e, 4)
+  let created_at :String = @schema.extract_field(e, 5)
   { id, name, display_name, students, passport, created_at }
 }
 
@@ -420,9 +1112,9 @@ impl @schema.HasElementSchema for CredentialInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for CredentialInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let active : Bool = @schema.extract_field(e, 2)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let active :Bool = @schema.extract_field(e, 2)
   { id, name, active }
 }
 
@@ -478,13 +1170,13 @@ impl @schema.HasElementSchema for CreateUserResponse with element_schema() {
 
 ///|
 impl @schema.FromExtractor for CreateUserResponse with from_extractor(e) {
-  let pk : Int = @schema.extract_field(e, 0)
-  let uuid : String = @schema.extract_field(e, 1)
-  let username : String = @schema.extract_field(e, 2)
-  let name : String = @schema.extract_field(e, 3)
-  let email : String = @schema.extract_field(e, 4)
-  let is_active : Bool = @schema.extract_field(e, 5)
-  let groups : Array[String] = @schema.extract_field(e, 6)
+  let pk :Int = @schema.extract_field(e, 0)
+  let uuid :String = @schema.extract_field(e, 1)
+  let username :String = @schema.extract_field(e, 2)
+  let name :String = @schema.extract_field(e, 3)
+  let email :String = @schema.extract_field(e, 4)
+  let is_active :Bool = @schema.extract_field(e, 5)
+  let groups :Array[String] = @schema.extract_field(e, 6)
   { pk, uuid, username, name, email, is_active, groups }
 }
 
@@ -526,9 +1218,9 @@ impl @schema.HasElementSchema for SessionTermDetail with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SessionTermDetail with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let session_name : String = @schema.extract_field(e, 1)
-  let term_name : String = @schema.extract_field(e, 2)
+  let id :String = @schema.extract_field(e, 0)
+  let session_name :String = @schema.extract_field(e, 1)
+  let term_name :String = @schema.extract_field(e, 2)
   { id, session_name, term_name }
 }
 
@@ -574,11 +1266,11 @@ impl @schema.HasElementSchema for SessionTermInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SessionTermInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let session_name : String = @schema.extract_field(e, 1)
-  let term_name : String = @schema.extract_field(e, 2)
-  let active : Bool = @schema.extract_field(e, 3)
-  let created_at : String = @schema.extract_field(e, 4)
+  let id :String = @schema.extract_field(e, 0)
+  let session_name :String = @schema.extract_field(e, 1)
+  let term_name :String = @schema.extract_field(e, 2)
+  let active :Bool = @schema.extract_field(e, 3)
+  let created_at :String = @schema.extract_field(e, 4)
   { id, session_name, term_name, active, created_at }
 }
 
@@ -622,10 +1314,10 @@ impl @schema.HasElementSchema for TermSimple with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermSimple with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let active : Bool = @schema.extract_field(e, 2)
-  let sort_order : Int = @schema.extract_field(e, 3)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let active :Bool = @schema.extract_field(e, 2)
+  let sort_order :Int = @schema.extract_field(e, 3)
   { id, name, active, sort_order }
 }
 
@@ -664,9 +1356,9 @@ impl @schema.HasElementSchema for SubjectInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SubjectInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let code : String? = @schema.extract_field(e, 2)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let code :String? = @schema.extract_field(e, 2)
   { id, name, code }
 }
 
@@ -720,13 +1412,13 @@ impl @schema.HasElementSchema for StudentProfile with element_schema() {
 
 ///|
 impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
-  let surname : String = @schema.extract_field(e, 0)
-  let first_name : String = @schema.extract_field(e, 1)
-  let middle_name : String? = @schema.extract_field(e, 2)
-  let display_name : String = @schema.extract_field(e, 3)
-  let date_of_birth : String = @schema.extract_field(e, 4)
-  let current_class : String = @schema.extract_field(e, 5)
-  let passport : String = @schema.extract_field(e, 6)
+  let surname :String = @schema.extract_field(e, 0)
+  let first_name :String = @schema.extract_field(e, 1)
+  let middle_name :String? = @schema.extract_field(e, 2)
+  let display_name :String = @schema.extract_field(e, 3)
+  let date_of_birth :String = @schema.extract_field(e, 4)
+  let current_class :String = @schema.extract_field(e, 5)
+  let passport :String = @schema.extract_field(e, 6)
   {
     surname,
     first_name,
@@ -780,10 +1472,10 @@ impl @schema.HasElementSchema for TermInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let name : String = @schema.extract_field(e, 1)
-  let sort_order : Int = @schema.extract_field(e, 2)
-  let active : Bool = @schema.extract_field(e, 3)
+  let id :String = @schema.extract_field(e, 0)
+  let name :String = @schema.extract_field(e, 1)
+  let sort_order :Int = @schema.extract_field(e, 2)
+  let active :Bool = @schema.extract_field(e, 3)
   { id, name, sort_order, active }
 }
 
@@ -834,12 +1526,12 @@ impl @schema.HasElementSchema for LessonInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonInfo with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let topic_title : String? = @schema.extract_field(e, 1)
-  let week : Int? = @schema.extract_field(e, 2)
-  let active : Bool? = @schema.extract_field(e, 3)
-  let subject_name : String? = @schema.extract_field(e, 4)
-  let term_name : String? = @schema.extract_field(e, 5)
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week :Int? = @schema.extract_field(e, 2)
+  let active :Bool? = @schema.extract_field(e, 3)
+  let subject_name :String? = @schema.extract_field(e, 4)
+  let term_name :String? = @schema.extract_field(e, 5)
   { id, topic_title, week, active, subject_name, term_name }
 }
 
@@ -908,16 +1600,16 @@ impl @schema.HasElementSchema for LessonContent with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonContent with from_extractor(e) {
-  let id : String = @schema.extract_field(e, 0)
-  let topic_title : String? = @schema.extract_field(e, 1)
-  let week : Int? = @schema.extract_field(e, 2)
-  let subject_name : String? = @schema.extract_field(e, 3)
-  let term_name : String? = @schema.extract_field(e, 4)
-  let objectives : String? = @schema.extract_field(e, 5)
-  let content_sections : String? = @schema.extract_field(e, 6)
-  let key_points : String? = @schema.extract_field(e, 7)
-  let mcq_questions : String? = @schema.extract_field(e, 8)
-  let theoretical_questions : String? = @schema.extract_field(e, 9)
+  let id :String = @schema.extract_field(e, 0)
+  let topic_title :String? = @schema.extract_field(e, 1)
+  let week :Int? = @schema.extract_field(e, 2)
+  let subject_name :String? = @schema.extract_field(e, 3)
+  let term_name :String? = @schema.extract_field(e, 4)
+  let objectives :String? = @schema.extract_field(e, 5)
+  let content_sections :String? = @schema.extract_field(e, 6)
+  let key_points :String? = @schema.extract_field(e, 7)
+  let mcq_questions :String? = @schema.extract_field(e, 8)
+  let theoretical_questions :String? = @schema.extract_field(e, 9)
   {
     id,
     topic_title,
@@ -985,12 +1677,12 @@ impl @schema.HasElementSchema for TeacherSubjectPair with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherSubjectPair with from_extractor(e) {
-  let edge_id : String = @schema.extract_field(e, 0)
-  let class_level_id : String = @schema.extract_field(e, 1)
-  let class_level_name : String = @schema.extract_field(e, 2)
-  let subject_id : String = @schema.extract_field(e, 3)
-  let subject_name : String = @schema.extract_field(e, 4)
-  let subject_code : String? = @schema.extract_field(e, 5)
+  let edge_id :String = @schema.extract_field(e, 0)
+  let class_level_id :String = @schema.extract_field(e, 1)
+  let class_level_name :String = @schema.extract_field(e, 2)
+  let subject_id :String = @schema.extract_field(e, 3)
+  let subject_name :String = @schema.extract_field(e, 4)
+  let subject_code :String? = @schema.extract_field(e, 5)
   {
     edge_id,
     class_level_id,
@@ -1040,9 +1732,9 @@ impl @schema.HasElementSchema for TeacherClassGroup with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherClassGroup with from_extractor(e) {
-  let class_level_id : String = @schema.extract_field(e, 0)
-  let class_level_name : String = @schema.extract_field(e, 1)
-  let subjects : Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
+  let class_level_id :String = @schema.extract_field(e, 0)
+  let class_level_name :String = @schema.extract_field(e, 1)
+  let subjects :Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
   { class_level_id, class_level_name, subjects }
 }
 
@@ -1062,7 +1754,7 @@ impl @schema.ToElementValue for TeacherClassGroup with to_element_value(self) {
 
 ///|
 impl @config.ConfigField for SharedConfig with collect_entries(path) {
-  let entries : Array[@common.AgentConfigDeclaration] = []
+  let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()
   fp0.push("surreal_host")
   entries.append(
@@ -1134,49 +1826,49 @@ impl @config.ConfigField for SharedConfig with collect_entries(path) {
 impl @config.ConfigField for SharedConfig with load(path) {
   let fp0 = path.copy()
   fp0.push("surreal_host")
-  let surreal_host : @config.Secret[String] = @config.load_field(
+  let surreal_host :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp0,
   )
   let fp1 = path.copy()
   fp1.push("surreal_ns")
-  let surreal_ns : @config.Secret[String] = @config.load_field(
+  let surreal_ns :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp1,
   )
   let fp2 = path.copy()
   fp2.push("surreal_database")
-  let surreal_database : @config.Secret[String] = @config.load_field(
+  let surreal_database :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp2,
   )
   let fp3 = path.copy()
   fp3.push("surreal_username")
-  let surreal_username : @config.Secret[String] = @config.load_field(
+  let surreal_username :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp3,
   )
   let fp4 = path.copy()
   fp4.push("surreal_password")
-  let surreal_password : @config.Secret[String] = @config.load_field(
+  let surreal_password :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp4,
   )
   let fp5 = path.copy()
   fp5.push("authentik_host")
-  let authentik_host : @config.Secret[String] = @config.load_field(
+  let authentik_host :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp5,
   )
   let fp6 = path.copy()
   fp6.push("authentik_api_token")
-  let authentik_api_token : @config.Secret[String] = @config.load_field(
+  let authentik_api_token :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp6,
   )
   let fp7 = path.copy()
   fp7.push("auth_key")
-  let auth_key : @config.Secret[String] = @config.load_field(
+  let auth_key :@config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp7,
   )
@@ -1191,3 +1883,4 @@ impl @config.ConfigField for SharedConfig with load(path) {
     auth_key,
   }
 }
+

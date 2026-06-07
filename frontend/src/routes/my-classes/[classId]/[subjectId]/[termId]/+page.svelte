@@ -3,22 +3,41 @@
   import type { Lesson } from '$lib/types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Switch } from '$lib/components/ui/switch/index.js';
+  import { Badge } from '$lib/components/ui/badge';
   import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
   import { addToast } from '$lib/stores/toast';
+  import { onMount } from 'svelte';
 
-	let { data }: { data: PageData } = $props();
+  let { data }: { data: PageData } = $props();
 
-	let lessonsSource = $derived(data.lessons);
-	let lessons = $state<Lesson[]>(lessonsSource);
+  let lessonsSource = $derived(data.lessons);
+  let lessons = $state<Lesson[]>(lessonsSource);
+  let assessmentCounts = $state<Record<string, number>>({});
 
-	$effect(() => {
-		lessons = lessonsSource;
-	});
+  $effect(() => {
+    lessons = lessonsSource;
+  });
 
-	async function handleToggleLesson(lessonId: string, newActive: boolean) {
+  onMount(() => loadAssessmentCounts());
+
+  async function loadAssessmentCounts() {
+    const counts: Record<string, number> = {};
+    for (const lesson of lessons) {
+      try {
+        const res = await fetch(`/api/teacher/lesson-assessments?lesson_id=${encodeURIComponent(lesson.id)}`);
+        if (res.ok) {
+          const json = await res.json();
+          counts[lesson.id] = (json.data ?? []).length;
+        }
+      } catch { /* ignore */ }
+    }
+    assessmentCounts = counts;
+  }
+
+  async function handleToggleLesson(lessonId: string, newActive: boolean) {
     const idx = lessons.findIndex(l => l.id === lessonId);
     if (idx === -1) return;
     const prev = lessons[idx].active;
@@ -70,6 +89,15 @@
                     <CardTitle class="font-display text-base text-primary-700 dark:text-primary-300">
                       Week {lesson.week}: {lesson.topic_title ?? 'Untitled Lesson'}
                     </CardTitle>
+                    <div class="flex items-center gap-2 mt-1.5">
+                      {#if (assessmentCounts[lesson.id] ?? 0) > 0}
+                        <Badge variant="outline" class="text-xs bg-primary-50 text-primary-600 border-primary-200">
+                          {assessmentCounts[lesson.id]} assessment{assessmentCounts[lesson.id] !== 1 ? 's' : ''}
+                        </Badge>
+                      {:else}
+                        <span class="text-xs text-muted-foreground">No assessments</span>
+                      {/if}
+                    </div>
                   </div>
                 </div>
               </CardHeader>

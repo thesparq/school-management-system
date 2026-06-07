@@ -94,3 +94,97 @@ export interface StudentListItem {
 	id: string;
 	display_name: string;
 }
+
+export interface AssessmentQuestion {
+	question_index: number;
+	question_type: string;
+	question_text: string;
+	option_a: string | null;
+	option_b: string | null;
+	option_c: string | null;
+	correct_answer: string | null;
+	allocated_mark: number;
+	source_question_index: number;
+}
+
+export interface LessonAssessmentInfo {
+	id: string;
+	lesson: string;
+	title: string;
+	description: string | null;
+	questions: AssessmentQuestion[];
+	total_mark: number;
+	max_resubmissions: number;
+	deadline: string | null;
+	active: boolean;
+	scheduled_at: string | null;
+	created_at: string;
+}
+
+export interface CompositionInfo {
+	id: string;
+	lesson_assessment: string;
+	lesson_assessment_title: string | null;
+	lesson_assessment_total_mark: number | null;
+	weight_pct: number;
+}
+
+export interface GeneralAssessmentInfo {
+	id: string;
+	session_term: string;
+	subject: string;
+	title: string;
+	description: string | null;
+	percentage_weight: number;
+	questions: AssessmentQuestion[] | null;
+	compositions: CompositionInfo[] | null;
+	total_mark: number;
+	max_resubmissions: number;
+	deadline: string | null;
+	active: boolean;
+	scheduled_at: string | null;
+	created_at: string;
+}
+
+export interface SubmissionAnswer {
+	question_index: number;
+	answer_type: string;
+	answer_text: string;
+	allocated_mark: number;
+	scored_mark: number | null;
+	correct: boolean | null;
+}
+
+export interface SubmissionInfo {
+	id: string;
+	assessment_type: string;
+	assessment_id: string;
+	student: string;
+	student_name: string | null;
+	iteration: number;
+	status: string;
+	submitted_at: string;
+	answers: SubmissionAnswer[];
+	total_mark: number;
+	scored_mark: number | null;
+	grade_released_at: string | null;
+}
+
+export interface CompositionGradeBreakdown {
+	lesson_assessment_title: string;
+	scored_pct: number | null;
+	weight_pct: number;
+	graded: boolean;
+}
+
+export interface CompositionGradeResult {
+	total_scored_pct: number | null;
+	total_weight_pct: number;
+	breakdown: CompositionGradeBreakdown[];
+	all_graded: boolean;
+}
+
+export interface PercentageSummary {
+	current: number;
+	remaining: number;
+}

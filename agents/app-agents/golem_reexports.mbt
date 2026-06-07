@@ -64,3 +64,4 @@ pub fn wasmExportLoadPostReturn(p0 : Int) -> Unit {
 pub fn wasmExportInvokePostReturn(p0 : Int) -> Unit {
   @gen.wasmExportInvokePostReturn(p0)
 }
+

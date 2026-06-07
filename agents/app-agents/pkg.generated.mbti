@@ -95,6 +95,8 @@ pub fn build_headers(Array[(String, String)]) -> Result[@golemcloud/golem_sdk/in
 
 pub fn cabi_realloc(Int, Int, Int, Int) -> Int
 
+pub fn compute_composition_grade(SharedConfig, String, String) -> Result[CompositionGradeResult, AppError]
+
 pub fn db_admin_activate_session_term(SharedConfig, String) -> Result[Unit, AppError]
 
 pub fn db_admin_create_admin_profile(SharedConfig, String, String, String, String?, String, String?, String) -> Result[Unit, AppError]
@@ -177,6 +179,30 @@ pub fn db_admin_update_student_profile(SharedConfig, String, String, String, Str
 
 pub fn db_admin_update_teacher_profile(SharedConfig, String, String, String, String?, String, Array[String]?, String?, String) -> Result[Unit, AppError]
 
+pub fn db_create_composition(SharedConfig, String, String, Float) -> Result[Array[Json], AppError]
+
+pub fn db_create_general_assessment(SharedConfig, String, String, String, String, Int, String, Int, Int, String, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_create_lesson_assessment(SharedConfig, String, String, String, String, Int, Int, String, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_active_session_term(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_assessment_by_id(SharedConfig, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_compositions(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_general_assessments(SharedConfig, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_lesson_assessments(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_lesson_meta(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_submission(SharedConfig, String, String, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_submission_by_id(SharedConfig, String) -> Result[Array[Json], AppError]
+
+pub fn db_fetch_submissions_for_assessment(SharedConfig, String, String) -> Result[Array[Json], AppError]
+
 pub fn db_parent_count_subjects_for_class(SharedConfig, String) -> Result[Int, AppError]
 
 pub fn db_parent_fetch_profile(SharedConfig, String) -> Result[Array[Json], AppError]
@@ -191,6 +217,8 @@ pub fn db_parent_fetch_student_subjects(SharedConfig, String) -> Result[Array[Js
 
 pub fn db_parent_fetch_student_terms(SharedConfig) -> Result[Array[Json], AppError]
 
+pub fn db_release_grades(SharedConfig, String) -> Result[Array[Json], AppError]
+
 pub fn db_student_fetch_lesson_content(SharedConfig, String, String) -> Result[Array[Json], AppError]
 
 pub fn db_student_fetch_lessons(SharedConfig, String, String, String) -> Result[Array[Json], AppError]
@@ -200,6 +228,8 @@ pub fn db_student_fetch_profile(SharedConfig, String) -> Result[Array[Json], App
 pub fn db_student_fetch_subjects(SharedConfig, String) -> Result[Array[Json], AppError]
 
 pub fn db_student_fetch_terms(SharedConfig) -> Result[Array[Json], AppError]
+
+pub fn db_sum_percentage_weights(SharedConfig, String, String, String) -> Result[Array[Json], AppError]
 
 pub fn db_teacher_fetch_class_groups(SharedConfig, String, String) -> Result[Array[Json], AppError]
 
@@ -212,6 +242,16 @@ pub fn db_teacher_fetch_lessons(SharedConfig, String, String, String) -> Result[
 pub fn db_teacher_fetch_terms(SharedConfig) -> Result[Array[Json], AppError]
 
 pub fn db_teacher_update_record_active(SharedConfig, String, Bool) -> Result[Unit, AppError]
+
+pub fn db_toggle_assessment_active(SharedConfig, String, String, Bool) -> Result[Array[Json], AppError]
+
+pub fn db_update_submission_answers(SharedConfig, String, String, Int) -> Result[Array[Json], AppError]
+
+pub fn db_update_submission_marks(SharedConfig, String, Int) -> Result[Array[Json], AppError]
+
+pub fn db_upsert_submission(SharedConfig, String, String, String, String, Int, String, String, Int, String, String) -> Result[Array[Json], AppError]
+
+pub fn deadline_exceeded_error() -> AppError
 
 pub fn escape_json_string(String) -> String
 
@@ -237,25 +277,55 @@ pub fn resolve_authentik_cfg(SharedConfig) -> Result[AuthentikCfg, AppError]
 
 pub fn resolve_surreal_cfg(SharedConfig) -> Result[SurrealCfg, AppError]
 
+pub fn resubmission_limit_error() -> AppError
+
+pub fn student_fetch_general_assessments(SharedConfig, String, String, String) -> Result[Array[GeneralAssessmentInfo], AppError]
+
 pub fn student_fetch_lesson(CacheSystem, SharedConfig, String, String, UInt64) -> Result[LessonContent?, AppError]
 
+pub fn student_fetch_lesson_assessments(SharedConfig, String, String) -> Result[Array[LessonAssessmentInfo], AppError]
+
 pub fn student_fetch_lessons(CacheSystem, SharedConfig, String, String, String, UInt64) -> Result[Array[LessonInfo], AppError]
+
+pub fn student_fetch_my_grades(SharedConfig, String, String, String) -> Result[SubmissionInfo?, AppError]
 
 pub fn student_fetch_subjects(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[SubjectInfo], AppError]
 
 pub fn student_fetch_terms(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[TermInfo], AppError]
 
+pub fn student_get_active_session_term(SharedConfig) -> Result[String, AppError]
+
 pub fn student_get_class_level(CacheSystem, SharedConfig, String, UInt64) -> Result[String, AppError]
+
+pub fn student_submit_assessment(SharedConfig, String, String) -> Result[SubmissionInfo, AppError]
 
 pub fn surreal_error(String, String?) -> AppError
 
 pub fn surreal_query(SharedConfig, String, bindings? : Map[String, String]) -> Result[Array[Json], AppError]
 
+pub fn teacher_create_general_assessment(SharedConfig, String) -> Result[GeneralAssessmentInfo, AppError]
+
+pub fn teacher_create_lesson_assessment(SharedConfig, String) -> Result[LessonAssessmentInfo, AppError]
+
 pub fn teacher_fetch_classes(CacheSystem, SharedConfig, String, UInt64) -> Result[Array[TeacherClassGroup], AppError]
+
+pub fn teacher_fetch_general_assessments(SharedConfig, String, String) -> Result[Array[GeneralAssessmentInfo], AppError]
+
+pub fn teacher_fetch_lesson_assessments(SharedConfig, String) -> Result[Array[LessonAssessmentInfo], AppError]
 
 pub fn teacher_fetch_lessons(CacheSystem, SharedConfig, String, String, String, UInt64) -> Result[Array[LessonInfo], AppError]
 
+pub fn teacher_fetch_submissions(SharedConfig, String, String) -> Result[Array[SubmissionInfo], AppError]
+
 pub fn teacher_fetch_terms(CacheSystem, SharedConfig, UInt64) -> Result[Array[TermInfo], AppError]
+
+pub fn teacher_get_percentage_summary(SharedConfig, String, String) -> Result[PercentageSummary, AppError]
+
+pub fn teacher_grade_submission(SharedConfig, String) -> Result[SubmissionInfo, AppError]
+
+pub fn teacher_release_grades(SharedConfig, String) -> Result[SubmissionInfo, AppError]
+
+pub fn teacher_toggle_assessment(SharedConfig, String, String, Bool) -> Result[String, AppError]
 
 pub fn teacher_toggle_lesson(CacheSystem, SharedConfig, String, Bool) -> Result[Unit, AppError]
 
@@ -499,6 +569,8 @@ pub struct AppError {
 }
 pub fn AppError::to_json_string(Self) -> String
 
+type AssessmentQuestion derive(ToJson, @json.FromJson)
+
 pub(all) struct AuthentikCfg {
   host : String
   api_token : String
@@ -515,6 +587,12 @@ pub fn CacheSystem::set(Self, String, String, UInt64, Array[String], UInt64) -> 
 
 type ClassLevelInfo derive(ToJson, @json.FromJson)
 
+type CompositionGradeBreakdown derive(ToJson, @json.FromJson)
+
+type CompositionGradeResult derive(ToJson, @json.FromJson)
+
+type CompositionInfo derive(ToJson, @json.FromJson)
+
 type CreateUserResponse derive(ToJson, @json.FromJson)
 
 type CredentialInfo derive(ToJson, @json.FromJson)
@@ -527,7 +605,13 @@ pub enum ErrorCode {
   AuthentikError
   SurrealDBError
   InternalError
+  DeadlineExceeded
+  ResubmissionLimit
 }
+
+type GeneralAssessmentInfo derive(ToJson, @json.FromJson)
+
+type LessonAssessmentInfo derive(ToJson, @json.FromJson)
 
 type LessonContent derive(ToJson, @json.FromJson)
 
@@ -587,6 +671,8 @@ type ParentProfileInfo derive(ToJson, @json.FromJson)
 
 type ParentStudentInfo derive(ToJson, @json.FromJson)
 
+type PercentageSummary derive(ToJson, @json.FromJson)
+
 type SessionTermDetail derive(ToJson, @json.FromJson)
 
 type SessionTermInfo derive(ToJson, @json.FromJson)
@@ -603,12 +689,17 @@ pub(all) struct SharedConfig {
 }
 
 type StudentAgent
+pub fn StudentAgent::get_active_session_term(Self, String) -> Result[String, String]
+pub fn StudentAgent::get_general_assessments(Self, String, String, String) -> Result[Array[GeneralAssessmentInfo], String]
 pub fn StudentAgent::get_lesson(Self, String, String) -> Result[LessonContent?, String]
+pub fn StudentAgent::get_lesson_assessments(Self, String, String) -> Result[Array[LessonAssessmentInfo], String]
 pub fn StudentAgent::get_lessons(Self, String, String, String) -> Result[Array[LessonInfo], String]
+pub fn StudentAgent::get_my_grades(Self, String, String, String) -> Result[SubmissionInfo?, String]
 pub fn StudentAgent::get_subjects(Self, String) -> Result[Array[SubjectInfo], String]
 pub fn StudentAgent::get_terms(Self, String) -> Result[Array[TermInfo], String]
 pub fn StudentAgent::invalidate_cache(Self, String, String) -> String
 pub fn StudentAgent::ping(Self, String) -> String
+pub fn StudentAgent::submit_assessment(Self, String, String) -> Result[SubmissionInfo, String]
 
 pub(all) struct StudentAgentClient {
   client : @rpc.AgentClient
@@ -653,6 +744,10 @@ type StudentProfileInfo derive(ToJson, @json.FromJson)
 
 type SubjectInfo derive(ToJson, @json.FromJson)
 
+type SubmissionAnswer derive(ToJson, @json.FromJson)
+
+type SubmissionInfo derive(ToJson, @json.FromJson)
+
 pub(all) struct SurrealCfg {
   host : String
   ns : String
@@ -662,11 +757,20 @@ pub(all) struct SurrealCfg {
 }
 
 type TeacherAgent
+pub fn TeacherAgent::create_general_assessment(Self, String, String) -> Result[GeneralAssessmentInfo, String]
+pub fn TeacherAgent::create_lesson_assessment(Self, String, String) -> Result[LessonAssessmentInfo, String]
+pub fn TeacherAgent::get_general_assessments(Self, String, String, String) -> Result[Array[GeneralAssessmentInfo], String]
+pub fn TeacherAgent::get_lesson_assessments(Self, String, String) -> Result[Array[LessonAssessmentInfo], String]
 pub fn TeacherAgent::get_lessons(Self, String, String, String, String) -> Result[Array[LessonInfo], String]
 pub fn TeacherAgent::get_my_classes(Self, String) -> Result[Array[TeacherClassGroup], String]
+pub fn TeacherAgent::get_percentage_summary(Self, String, String, String) -> Result[PercentageSummary, String]
+pub fn TeacherAgent::get_submissions(Self, String, String, String) -> Result[Array[SubmissionInfo], String]
 pub fn TeacherAgent::get_terms(Self, String) -> Result[Array[TermInfo], String]
+pub fn TeacherAgent::grade_submission(Self, String, String) -> Result[SubmissionInfo, String]
 pub fn TeacherAgent::invalidate_cache(Self, String, String) -> String
 pub fn TeacherAgent::ping(Self, String) -> String
+pub fn TeacherAgent::release_grades(Self, String, String) -> Result[SubmissionInfo, String]
+pub fn TeacherAgent::toggle_assessment(Self, String, String, String, Bool) -> Result[String, String]
 pub fn TeacherAgent::toggle_lesson_active(Self, String, String, Bool) -> Result[String, String]
 
 pub(all) struct TeacherAgentClient {

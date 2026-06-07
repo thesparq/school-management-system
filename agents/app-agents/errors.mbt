@@ -7,6 +7,8 @@ pub enum ErrorCode {
   AuthentikError
   SurrealDBError
   InternalError
+  DeadlineExceeded
+  ResubmissionLimit
 }
 
 ///|
@@ -26,6 +28,8 @@ fn AppError::to_code_string(self : AppError) -> String {
     AuthentikError => "AUTHENTIK_ERROR"
     SurrealDBError => "SURREALDB_ERROR"
     InternalError => "INTERNAL_ERROR"
+    DeadlineExceeded => "DEADLINE_EXCEEDED"
+    ResubmissionLimit => "RESUBMISSION_LIMIT"
   }
 }
 
@@ -78,4 +82,22 @@ pub fn not_found_error(resource : String) -> AppError {
 ///|
 pub fn validation_error(msg : String) -> AppError {
   AppError::{ code: ValidationError, message: msg, debug: None }
+}
+
+///|
+pub fn deadline_exceeded_error() -> AppError {
+  AppError::{
+    code: DeadlineExceeded,
+    message: "Assessment deadline has passed",
+    debug: None,
+  }
+}
+
+///|
+pub fn resubmission_limit_error() -> AppError {
+  AppError::{
+    code: ResubmissionLimit,
+    message: "Resubmission limit reached",
+    debug: None,
+  }
 }
