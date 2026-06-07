@@ -23,7 +23,7 @@
 			wrapper: 'bg-amber-100 dark:bg-amber-900/20'
 		},
 		error: {
-			icon: 'text-error-500',
+			icon: 'text-destructive',
 			wrapper: 'bg-error-100 dark:bg-error-900/20'
 		}
 	};
@@ -42,13 +42,13 @@
 		</svg>
 	</div>
 	<div>
-		<p class="text-lg font-medium text-surface-800">{title}</p>
-		<p class="mt-1 text-sm text-surface-600 max-w-sm mx-auto">{description}</p>
+		<p class="text-lg font-medium text-card-foreground">{title}</p>
+		<p class="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">{description}</p>
 	</div>
 	{#if onRetry}
 		<button
 			onclick={onRetry}
-			class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-surface-100 transition-colors cursor-pointer"
+			class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-muted transition-colors cursor-pointer"
 		>
 			Retry
 		</button>

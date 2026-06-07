@@ -72,30 +72,50 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Grade submissions (score + feedback) pushed back to student.
 
 ### Admin Features
-- User management: role-based tabs (Students, Teachers, Admin), list from Authentik, initialize/activate/deactivate users.
+- User management: role-based tabs (Students, Teachers, Parents, Admin), list from Authentik, initialize/activate/deactivate users.
+- Four role-specialized profile tables: student (surname, first_name, middle_name, DOB, class_enrolled, current_class, passport), teacher (qualifications, date_employed), admin (role_title), parent (name, linked students).
+- Passport photo upload per user via Cloudflare R2 presigned URLs with preview.
+- Credentials management: create/update qualification entries for teacher profiles.
 - Golem initialization creates durable agent; Authentik activation/deactivation controls login permission.
 - Reset passwords and manage group membership via Authentik API.
 - Manage teacher‑class‑subject assignments; updates rosters in real time.
 - Session term management: create and activate session terms (session + academic term pairs) via Configuration panel.
+- Term toggle: activate/deactivate curriculum terms with cascading cache invalidation.
 - (Future) AI content generation/regeneration.
 
+### Parent Features
+- Login to portal and see linked students (from parent profile's `students` array).
+- Click any linked student to access full student LMS mirror (subjects → terms → lessons → lesson content).
+- Submit assignments on behalf of a student (write mirror via RPC to StudentAgent).
+- Read-only access enforced per student — cannot access unlinked students.
+
 ### General Features
-- Light mode (default) with professional blue‑amber palette; optional dark mode toggle.
-- Responsive layout: collapsible sidebar, breadcrumb navigation.
-- Sidebar: Navigation group (LMS, My Classes), Configuration group (Session Terms — admin only), Users group (role-based tabs).
+- Light mode (default) with professional blue‑amber palette; dark mode toggle with system preference detection and sync `<script>` in `app.html` preventing flash on load/navigation.
+- School branding: actual school photo as `logo.jpg` in sidebar header (and top bar when sidebar collapses), `favicon.png` for favicon and collapsed-state icon.
+- Responsive layout: collapsible sidebar (offcanvas on mobile, shrink-to-icon on desktop), breadcrumb navigation, mobile-friendly tables and forms.
+- Collapsed sidebar: full logo transitions into the top bar (between sidebar trigger and breadcrumb) with smooth opacity+scale animation.
+- Sidebar: Navigation group (LMS, My Classes — teachers, My Children — parents), Configuration group (Session Terms, Terms — admin only), Users group (Students, Teachers, Parents, Admin — admin only). Mobile sidebar auto-closes on navigation.
 - All data access via agents; SvelteKit never touches databases directly.
 - JWT‑based authentication, no server‑side sessions.
 - Agent durable memory (unified `caches` map per agent) for cached data; SurrealDB for canonical entity data.
-- Toast notifications for transient operation feedback (success, info, warning, error) with progress bar and pause-on-hover.
-- StatusCard component for page-level empty, error, and info states.
+- All UI uses shadcn semantic CSS tokens (`text-foreground`, `bg-background`, `border-border`, `text-destructive`, etc.) from `app.css` `@theme inline` block — no raw Tailwind color classes.
+- Top loading bar (`h-0.5 bg-secondary-400/500`) appears on navigation as secondary indicator; PageSkeleton component (list/grid/card layouts) as primary per-page loading state.
+- Toast notifications for transient operation feedback (success, info, warning, error).
+- StatusCard component for all persistent page-level states (error, empty, info, warning).
+- PageHeader component for consistent page heading + action layout across all pages.
+- PageSkeleton component for consistent loading states: `list` (table placeholder rows), `grid` (card skeleton grid), `card` (single card skeleton).
+- Edit dialogs lazy-load profile data: dialog opens immediately with spinner + "Loading profile data..." and disabled Save button until data arrives.
+- Global cursor-pointer CSS on all clickable elements (buttons, links, checkboxes, radio buttons, selects); `cursor-not-allowed` on disabled elements.
 
 ## In Scope (MVP)
 
 - Authentik integration (OIDC) with JWT validation in SvelteKit.
 - SvelteKit as auth proxy and UI server; MoonBit for shared logic.
 - Golem Cloud backend with:
-  - Durable Admin Agent (central registry, user initialization, relationships, HTTP-accessible).
-  - Durable User Agents (student, teacher, admin) with TTL-cached state, each HTTP-accessible.
+  - Durable Admin Agent (central registry, role-specialized user CRUD, credentials, relationships, HTTP-accessible).
+  - Durable User Agents (student, teacher, admin, parent) with TTL-cached state, each HTTP-accessible.
+- Cloudflare R2 passport photo storage via presigned URLs with saga compensation on create failure.
+- Parent portal: multi-student read-only LMS mirror with write proxy for assignment submission.
 - Display AI‑generated lesson content from SurrealDB.
 - Teacher selection of assessment questions and creation of assignments with deadlines.
 - Student submission of answers (text‑only).
@@ -110,9 +130,8 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 ## Out of Scope (MVP)
 
 - Automatic lesson generation or AI integration (content already in DB).
-- File uploads for assignments (e.g., essays, attachments).
+- File uploads for assignment submissions (e.g., essays, attachments).
 - Real‑time collaboration or streaming (WebSockets/SSE).
-- Parent portal features beyond login (viewing grades, etc.).
 - Comprehensive reporting or analytics.
 - Billing, payments, or school fee management.
 - Attendance tracking, timetable, or other non‑LMS modules.

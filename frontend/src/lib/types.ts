@@ -65,6 +65,7 @@ export interface LessonContentSection {
 }
 
 export interface TeacherSubjectPair {
+  edge_id: string;
   class_level_id: string;
   class_level_name: string;
   subject_id: string;
@@ -81,4 +82,15 @@ export interface TeacherClassGroup {
 export interface BreadcrumbItem {
   label: string;
   href?: string;
+}
+
+export interface CredentialInfo {
+	id: string;
+	name: string;
+	active: boolean;
+}
+
+export interface StudentListItem {
+	id: string;
+	display_name: string;
 }

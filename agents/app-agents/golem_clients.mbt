@@ -6,17 +6,23 @@ pub(all) struct AdminAgentClient {
 }
 
 ///|
-pub fn AdminAgentClient::get(_admin_id : String) -> AdminAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
+pub fn AdminAgentClient::get(
+  _admin_id : String,
+) -> AdminAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(_admin_id),
+  ])
   let client = @rpc.AgentClient::get("AdminAgent", constructor_data)
   { client, }
 }
 
 ///|
-pub fn AdminAgentClient::new_phantom(_admin_id : String) -> AdminAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
+pub fn AdminAgentClient::new_phantom(
+  _admin_id : String,
+) -> AdminAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(_admin_id),
+  ])
   let client = @rpc.AgentClient::new_phantom("AdminAgent", constructor_data)
   { client, }
 }
@@ -26,15 +32,19 @@ pub fn AdminAgentClient::get_phantom(
   _admin_id : String,
   phantom_id : @rpcTypes.Uuid,
 ) -> AdminAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(_admin_id)])
-  let client = 
-    @rpc.AgentClient::get_phantom("AdminAgent", constructor_data, phantom_id)
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(_admin_id),
+  ])
+  let client = @rpc.AgentClient::get_phantom(
+    "AdminAgent", constructor_data, phantom_id,
+  )
   { client, }
 }
 
 ///|
-pub fn AdminAgentClient::get_agent_id(self : AdminAgentClient) -> String raise @common.AgentError {
+pub fn AdminAgentClient::get_agent_id(
+  self : AdminAgentClient,
+) -> String raise @common.AgentError {
   self.client.get_agent_id()
 }
 
@@ -80,13 +90,14 @@ pub fn[T] AdminAgentClient::scoped_get_phantom(
 }
 
 ///|
-pub fn AdminAgentClient::ping(self : AdminAgentClient, incoming_key : String) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+pub fn AdminAgentClient::ping(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> String raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -96,12 +107,10 @@ pub fn AdminAgentClient::trigger_ping(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -110,13 +119,11 @@ pub fn AdminAgentClient::schedule_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -125,161 +132,1365 @@ pub fn AdminAgentClient::schedule_cancelable_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::get_profile(
+pub fn AdminAgentClient::create_student(
   self : AdminAgentClient,
   incoming_key : String,
-  target_user_id : String,
-) -> Result[UserProfileInfo, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  body_json : String,
+) -> Result[CreateUserResponse, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "create_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
 
 ///|
-pub fn AdminAgentClient::trigger_get_profile(
+pub fn AdminAgentClient::trigger_create_student(
   self : AdminAgentClient,
   incoming_key : String,
-  target_user_id : String,
+  body_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.invoke(
+    "create_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::schedule_get_profile(
+pub fn AdminAgentClient::schedule_create_student(
   self : AdminAgentClient,
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
-  target_user_id : String,
+  body_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::schedule_cancelable_get_profile(
+pub fn AdminAgentClient::schedule_cancelable_create_student(
   self : AdminAgentClient,
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
-  target_user_id : String,
+  body_json : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::soft_delete_profile(
+pub fn AdminAgentClient::create_teacher(
   self : AdminAgentClient,
   incoming_key : String,
-  target_user_id : String,
+  body_json : String,
+) -> Result[CreateUserResponse, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "create_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_teacher(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "create_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::create_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[CreateUserResponse, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "create_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "create_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::create_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[CreateUserResponse, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "create_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "create_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::edit_student(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
 ) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "soft_delete_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "edit_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
 
 ///|
-pub fn AdminAgentClient::trigger_soft_delete_profile(
+pub fn AdminAgentClient::trigger_edit_student(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "edit_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_edit_student(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "edit_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_edit_student(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "edit_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::edit_teacher(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "edit_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_edit_teacher(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "edit_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_edit_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "edit_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_edit_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "edit_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::edit_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "edit_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_edit_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "edit_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_edit_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "edit_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_edit_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "edit_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::edit_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "edit_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_edit_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "edit_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_edit_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "edit_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_edit_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "edit_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::delete_student(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "delete_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_delete_student(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "delete_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_delete_student(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "delete_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_delete_student(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "delete_student",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::delete_teacher(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "delete_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_delete_teacher(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "delete_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_delete_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "delete_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_delete_teacher(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "delete_teacher",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::delete_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "delete_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_delete_admin(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "delete_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_delete_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "delete_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_delete_admin(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "delete_admin",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::delete_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "delete_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_delete_parent(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "delete_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_delete_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "delete_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_delete_parent(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "delete_parent",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_student_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Result[StudentProfileInfo, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_student_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_student_profile(
   self : AdminAgentClient,
   incoming_key : String,
   target_user_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "soft_delete_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.invoke(
+    "get_student_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::schedule_soft_delete_profile(
+pub fn AdminAgentClient::schedule_get_student_profile(
   self : AdminAgentClient,
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
   target_user_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "soft_delete_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_student_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
 }
 
 ///|
-pub fn AdminAgentClient::schedule_cancelable_soft_delete_profile(
+pub fn AdminAgentClient::schedule_cancelable_get_student_profile(
   self : AdminAgentClient,
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
   target_user_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "soft_delete_profile",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_user_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_student_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_teacher_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Result[TeacherProfileInfo, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_teacher_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_teacher_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "get_teacher_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_teacher_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_teacher_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_teacher_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_teacher_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_admin_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Result[AdminProfileInfo, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_admin_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_admin_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "get_admin_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_admin_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_admin_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_admin_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_admin_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_parent_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Result[ParentProfileInfo, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_parent_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_parent_profile(
+  self : AdminAgentClient,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "get_parent_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_parent_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_parent_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_parent_profile(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  target_user_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_parent_profile",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_user_id),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_credentials(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Result[Array[CredentialInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_credentials",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_credentials(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "get_credentials",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_credentials(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_credentials",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_credentials(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_credentials",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::create_credential(
+  self : AdminAgentClient,
+  incoming_key : String,
+  name : String,
+) -> Result[CredentialInfo, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "create_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(name),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_credential(
+  self : AdminAgentClient,
+  incoming_key : String,
+  name : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "create_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(name),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_credential(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  name : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(name),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_credential(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  name : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(name),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::delete_credential(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "delete_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_delete_credential(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "delete_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_delete_credential(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "delete_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_delete_credential(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "delete_credential",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::get_students_list(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Result[Array[StudentProfileInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "get_students_list",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_students_list(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "get_students_list",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_students_list(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_students_list",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_students_list(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_students_list",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::set_user_active_status(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "set_user_active_status",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_set_user_active_status(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "set_user_active_status",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_set_user_active_status(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "set_user_active_status",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_set_user_active_status(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "set_user_active_status",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
@@ -287,12 +1498,10 @@ pub fn AdminAgentClient::get_class_levels(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Result[Array[ClassLevelInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_class_levels",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_class_levels",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -302,12 +1511,10 @@ pub fn AdminAgentClient::trigger_get_class_levels(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_class_levels",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_class_levels",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -316,13 +1523,11 @@ pub fn AdminAgentClient::schedule_get_class_levels(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_class_levels",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_class_levels",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -331,13 +1536,11 @@ pub fn AdminAgentClient::schedule_cancelable_get_class_levels(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_class_levels",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_class_levels",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -345,12 +1548,10 @@ pub fn AdminAgentClient::get_available_class_subjects(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Result[Array[TeacherSubjectPair], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_available_class_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_available_class_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -360,12 +1561,10 @@ pub fn AdminAgentClient::trigger_get_available_class_subjects(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_available_class_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_available_class_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -374,13 +1573,11 @@ pub fn AdminAgentClient::schedule_get_available_class_subjects(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_available_class_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_available_class_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -389,13 +1586,11 @@ pub fn AdminAgentClient::schedule_cancelable_get_available_class_subjects(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_available_class_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_available_class_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -404,15 +1599,13 @@ pub fn AdminAgentClient::get_teacher_subjects(
   incoming_key : String,
   target_teacher_id : String,
 ) -> Result[Array[TeacherSubjectPair], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -423,15 +1616,13 @@ pub fn AdminAgentClient::trigger_get_teacher_subjects(
   incoming_key : String,
   target_teacher_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-      ]),
-    )
+  self.client.invoke(
+    "get_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+    ]),
+  )
 }
 
 ///|
@@ -441,16 +1632,14 @@ pub fn AdminAgentClient::schedule_get_teacher_subjects(
   incoming_key : String,
   target_teacher_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+    ]),
+  )
 }
 
 ///|
@@ -460,16 +1649,14 @@ pub fn AdminAgentClient::schedule_cancelable_get_teacher_subjects(
   incoming_key : String,
   target_teacher_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+    ]),
+  )
 }
 
 ///|
@@ -479,16 +1666,14 @@ pub fn AdminAgentClient::set_teacher_subjects(
   target_teacher_id : String,
   pairs_json : String,
 ) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "set_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-        @schema.to_element_value_as(pairs_json),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "set_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+      @schema.to_element_value_as(pairs_json),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -500,16 +1685,14 @@ pub fn AdminAgentClient::trigger_set_teacher_subjects(
   target_teacher_id : String,
   pairs_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "set_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-        @schema.to_element_value_as(pairs_json),
-      ]),
-    )
+  self.client.invoke(
+    "set_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+      @schema.to_element_value_as(pairs_json),
+    ]),
+  )
 }
 
 ///|
@@ -520,17 +1703,15 @@ pub fn AdminAgentClient::schedule_set_teacher_subjects(
   target_teacher_id : String,
   pairs_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "set_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-        @schema.to_element_value_as(pairs_json),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "set_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+      @schema.to_element_value_as(pairs_json),
+    ]),
+  )
 }
 
 ///|
@@ -541,17 +1722,15 @@ pub fn AdminAgentClient::schedule_cancelable_set_teacher_subjects(
   target_teacher_id : String,
   pairs_json : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "set_teacher_subjects",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(target_teacher_id),
-        @schema.to_element_value_as(pairs_json),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "set_teacher_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(target_teacher_id),
+      @schema.to_element_value_as(pairs_json),
+    ]),
+  )
 }
 
 ///|
@@ -559,12 +1738,10 @@ pub fn AdminAgentClient::get_active_session_term(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Result[SessionTermDetail, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_active_session_term",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_active_session_term",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -574,12 +1751,10 @@ pub fn AdminAgentClient::trigger_get_active_session_term(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_active_session_term",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_active_session_term",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -588,13 +1763,11 @@ pub fn AdminAgentClient::schedule_get_active_session_term(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_active_session_term",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_active_session_term",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -603,13 +1776,11 @@ pub fn AdminAgentClient::schedule_cancelable_get_active_session_term(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_active_session_term",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_active_session_term",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -617,12 +1788,10 @@ pub fn AdminAgentClient::get_terms(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Result[Array[TermSimple], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -632,12 +1801,10 @@ pub fn AdminAgentClient::trigger_get_terms(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -646,13 +1813,11 @@ pub fn AdminAgentClient::schedule_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -661,13 +1826,11 @@ pub fn AdminAgentClient::schedule_cancelable_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -675,12 +1838,10 @@ pub fn AdminAgentClient::get_session_terms(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Result[Array[SessionTermInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_session_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_session_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -690,12 +1851,10 @@ pub fn AdminAgentClient::trigger_get_session_terms(
   self : AdminAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_session_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_session_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -704,13 +1863,11 @@ pub fn AdminAgentClient::schedule_get_session_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_session_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_session_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -719,13 +1876,11 @@ pub fn AdminAgentClient::schedule_cancelable_get_session_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_session_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_session_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -734,15 +1889,13 @@ pub fn AdminAgentClient::create_session_term(
   incoming_key : String,
   body_json : String,
 ) -> Result[SessionTermInfo, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "create_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "create_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -753,15 +1906,13 @@ pub fn AdminAgentClient::trigger_create_session_term(
   incoming_key : String,
   body_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "create_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
+  self.client.invoke(
+    "create_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
@@ -771,16 +1922,14 @@ pub fn AdminAgentClient::schedule_create_session_term(
   incoming_key : String,
   body_json : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "create_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "create_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
@@ -790,16 +1939,14 @@ pub fn AdminAgentClient::schedule_cancelable_create_session_term(
   incoming_key : String,
   body_json : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "create_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "create_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(body_json),
+    ]),
+  )
 }
 
 ///|
@@ -808,15 +1955,13 @@ pub fn AdminAgentClient::activate_session_term(
   incoming_key : String,
   session_term_id : String,
 ) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "activate_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(session_term_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "activate_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(session_term_id),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -827,15 +1972,13 @@ pub fn AdminAgentClient::trigger_activate_session_term(
   incoming_key : String,
   session_term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "activate_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(session_term_id),
-      ]),
-    )
+  self.client.invoke(
+    "activate_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(session_term_id),
+    ]),
+  )
 }
 
 ///|
@@ -845,16 +1988,14 @@ pub fn AdminAgentClient::schedule_activate_session_term(
   incoming_key : String,
   session_term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "activate_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(session_term_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "activate_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(session_term_id),
+    ]),
+  )
 }
 
 ///|
@@ -864,16 +2005,14 @@ pub fn AdminAgentClient::schedule_cancelable_activate_session_term(
   incoming_key : String,
   session_term_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "activate_session_term",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(session_term_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "activate_session_term",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(session_term_id),
+    ]),
+  )
 }
 
 ///|
@@ -883,16 +2022,14 @@ pub fn AdminAgentClient::toggle_term_active(
   term_id : String,
   active : Bool,
 ) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "toggle_term_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(term_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -904,16 +2041,14 @@ pub fn AdminAgentClient::trigger_toggle_term_active(
   term_id : String,
   active : Bool,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.invoke(
+    "toggle_term_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(term_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
 ///|
@@ -924,17 +2059,15 @@ pub fn AdminAgentClient::schedule_toggle_term_active(
   term_id : String,
   active : Bool,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "toggle_term_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(term_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
 ///|
@@ -945,17 +2078,15 @@ pub fn AdminAgentClient::schedule_cancelable_toggle_term_active(
   term_id : String,
   active : Bool,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "toggle_term_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(term_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "toggle_term_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(term_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
 ///|
@@ -964,15 +2095,13 @@ pub fn AdminAgentClient::invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -983,15 +2112,13 @@ pub fn AdminAgentClient::trigger_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.invoke(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1001,16 +2128,14 @@ pub fn AdminAgentClient::schedule_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1020,312 +2145,14 @@ pub fn AdminAgentClient::schedule_cancelable_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::create_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Result[CreateUserResponse, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "create_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-  let elements = @extractor.extract_tuple(result)
-  @schema.from_element_value_as(elements[0])
-}
-
-///|
-pub fn AdminAgentClient::trigger_create_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "create_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_create_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "create_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_cancelable_create_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "create_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::edit_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "edit_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-  let elements = @extractor.extract_tuple(result)
-  @schema.from_element_value_as(elements[0])
-}
-
-///|
-pub fn AdminAgentClient::trigger_edit_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "edit_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_edit_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "edit_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_cancelable_edit_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "edit_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::delete_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "delete_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-  let elements = @extractor.extract_tuple(result)
-  @schema.from_element_value_as(elements[0])
-}
-
-///|
-pub fn AdminAgentClient::trigger_delete_user_in_authentik(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "delete_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_delete_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "delete_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_cancelable_delete_user_in_authentik(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "delete_user_in_authentik",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::set_user_active_status(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "set_user_active_status",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-  let elements = @extractor.extract_tuple(result)
-  @schema.from_element_value_as(elements[0])
-}
-
-///|
-pub fn AdminAgentClient::trigger_set_user_active_status(
-  self : AdminAgentClient,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "set_user_active_status",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_set_user_active_status(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "set_user_active_status",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
-}
-
-///|
-pub fn AdminAgentClient::schedule_cancelable_set_user_active_status(
-  self : AdminAgentClient,
-  scheduled_at : @wallClock.Datetime,
-  incoming_key : String,
-  body_json : String,
-) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "set_user_active_status",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(body_json),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1334,17 +2161,23 @@ pub(all) struct StudentAgentClient {
 }
 
 ///|
-pub fn StudentAgentClient::get(student_id : String) -> StudentAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(student_id)])
+pub fn StudentAgentClient::get(
+  student_id : String,
+) -> StudentAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(student_id),
+  ])
   let client = @rpc.AgentClient::get("StudentAgent", constructor_data)
   { client, }
 }
 
 ///|
-pub fn StudentAgentClient::new_phantom(student_id : String) -> StudentAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(student_id)])
+pub fn StudentAgentClient::new_phantom(
+  student_id : String,
+) -> StudentAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(student_id),
+  ])
   let client = @rpc.AgentClient::new_phantom("StudentAgent", constructor_data)
   { client, }
 }
@@ -1354,20 +2187,26 @@ pub fn StudentAgentClient::get_phantom(
   student_id : String,
   phantom_id : @rpcTypes.Uuid,
 ) -> StudentAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(student_id)])
-  let client = 
-    @rpc.AgentClient::get_phantom("StudentAgent", constructor_data, phantom_id)
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(student_id),
+  ])
+  let client = @rpc.AgentClient::get_phantom(
+    "StudentAgent", constructor_data, phantom_id,
+  )
   { client, }
 }
 
 ///|
-pub fn StudentAgentClient::get_agent_id(self : StudentAgentClient) -> String raise @common.AgentError {
+pub fn StudentAgentClient::get_agent_id(
+  self : StudentAgentClient,
+) -> String raise @common.AgentError {
   self.client.get_agent_id()
 }
 
 ///|
-pub fn StudentAgentClient::phantom_id(self : StudentAgentClient) -> @rpcTypes.Uuid? {
+pub fn StudentAgentClient::phantom_id(
+  self : StudentAgentClient,
+) -> @rpcTypes.Uuid? {
   self.client.phantom_id()
 }
 
@@ -1412,12 +2251,10 @@ pub fn StudentAgentClient::ping(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1427,12 +2264,10 @@ pub fn StudentAgentClient::trigger_ping(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1441,13 +2276,11 @@ pub fn StudentAgentClient::schedule_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1456,13 +2289,11 @@ pub fn StudentAgentClient::schedule_cancelable_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1470,12 +2301,10 @@ pub fn StudentAgentClient::get_subjects(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> Result[Array[SubjectInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1485,12 +2314,10 @@ pub fn StudentAgentClient::trigger_get_subjects(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1499,13 +2326,11 @@ pub fn StudentAgentClient::schedule_get_subjects(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1514,13 +2339,11 @@ pub fn StudentAgentClient::schedule_cancelable_get_subjects(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_subjects",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_subjects",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1528,12 +2351,10 @@ pub fn StudentAgentClient::get_terms(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> Result[Array[TermInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1543,12 +2364,10 @@ pub fn StudentAgentClient::trigger_get_terms(
   self : StudentAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1557,13 +2376,11 @@ pub fn StudentAgentClient::schedule_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1572,13 +2389,11 @@ pub fn StudentAgentClient::schedule_cancelable_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1588,16 +2403,14 @@ pub fn StudentAgentClient::get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Result[Array[LessonInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1609,16 +2422,14 @@ pub fn StudentAgentClient::trigger_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.invoke(
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -1629,17 +2440,15 @@ pub fn StudentAgentClient::schedule_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -1650,17 +2459,15 @@ pub fn StudentAgentClient::schedule_cancelable_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -1669,15 +2476,13 @@ pub fn StudentAgentClient::get_lesson(
   incoming_key : String,
   lesson_id : String,
 ) -> Result[LessonContent?, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_lesson",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1688,15 +2493,13 @@ pub fn StudentAgentClient::trigger_get_lesson(
   incoming_key : String,
   lesson_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_lesson",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-      ]),
-    )
+  self.client.invoke(
+    "get_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
 }
 
 ///|
@@ -1706,16 +2509,14 @@ pub fn StudentAgentClient::schedule_get_lesson(
   incoming_key : String,
   lesson_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_lesson",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
 }
 
 ///|
@@ -1725,16 +2526,14 @@ pub fn StudentAgentClient::schedule_cancelable_get_lesson(
   incoming_key : String,
   lesson_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_lesson",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
 }
 
 ///|
@@ -1743,15 +2542,13 @@ pub fn StudentAgentClient::invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1762,15 +2559,13 @@ pub fn StudentAgentClient::trigger_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.invoke(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1780,16 +2575,14 @@ pub fn StudentAgentClient::schedule_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1799,16 +2592,14 @@ pub fn StudentAgentClient::schedule_cancelable_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -1817,17 +2608,23 @@ pub(all) struct TeacherAgentClient {
 }
 
 ///|
-pub fn TeacherAgentClient::get(teacher_id : String) -> TeacherAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(teacher_id)])
+pub fn TeacherAgentClient::get(
+  teacher_id : String,
+) -> TeacherAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(teacher_id),
+  ])
   let client = @rpc.AgentClient::get("TeacherAgent", constructor_data)
   { client, }
 }
 
 ///|
-pub fn TeacherAgentClient::new_phantom(teacher_id : String) -> TeacherAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(teacher_id)])
+pub fn TeacherAgentClient::new_phantom(
+  teacher_id : String,
+) -> TeacherAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(teacher_id),
+  ])
   let client = @rpc.AgentClient::new_phantom("TeacherAgent", constructor_data)
   { client, }
 }
@@ -1837,20 +2634,26 @@ pub fn TeacherAgentClient::get_phantom(
   teacher_id : String,
   phantom_id : @rpcTypes.Uuid,
 ) -> TeacherAgentClient raise @common.AgentError {
-  let constructor_data = 
-    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(teacher_id)])
-  let client = 
-    @rpc.AgentClient::get_phantom("TeacherAgent", constructor_data, phantom_id)
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(teacher_id),
+  ])
+  let client = @rpc.AgentClient::get_phantom(
+    "TeacherAgent", constructor_data, phantom_id,
+  )
   { client, }
 }
 
 ///|
-pub fn TeacherAgentClient::get_agent_id(self : TeacherAgentClient) -> String raise @common.AgentError {
+pub fn TeacherAgentClient::get_agent_id(
+  self : TeacherAgentClient,
+) -> String raise @common.AgentError {
   self.client.get_agent_id()
 }
 
 ///|
-pub fn TeacherAgentClient::phantom_id(self : TeacherAgentClient) -> @rpcTypes.Uuid? {
+pub fn TeacherAgentClient::phantom_id(
+  self : TeacherAgentClient,
+) -> @rpcTypes.Uuid? {
   self.client.phantom_id()
 }
 
@@ -1895,12 +2698,10 @@ pub fn TeacherAgentClient::ping(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1910,12 +2711,10 @@ pub fn TeacherAgentClient::trigger_ping(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1924,13 +2723,11 @@ pub fn TeacherAgentClient::schedule_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1939,13 +2736,11 @@ pub fn TeacherAgentClient::schedule_cancelable_ping(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "ping",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1953,12 +2748,10 @@ pub fn TeacherAgentClient::get_my_classes(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> Result[Array[TeacherClassGroup], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_my_classes",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_my_classes",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -1968,12 +2761,10 @@ pub fn TeacherAgentClient::trigger_get_my_classes(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_my_classes",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_my_classes",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1982,13 +2773,11 @@ pub fn TeacherAgentClient::schedule_get_my_classes(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_my_classes",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_my_classes",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -1997,13 +2786,11 @@ pub fn TeacherAgentClient::schedule_cancelable_get_my_classes(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_my_classes",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_my_classes",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -2011,12 +2798,10 @@ pub fn TeacherAgentClient::get_terms(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> Result[Array[TermInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -2026,12 +2811,10 @@ pub fn TeacherAgentClient::trigger_get_terms(
   self : TeacherAgentClient,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.invoke(
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -2040,13 +2823,11 @@ pub fn TeacherAgentClient::schedule_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -2055,13 +2836,11 @@ pub fn TeacherAgentClient::schedule_cancelable_get_terms(
   scheduled_at : @wallClock.Datetime,
   incoming_key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_terms",
-      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_terms",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
 }
 
 ///|
@@ -2072,17 +2851,15 @@ pub fn TeacherAgentClient::get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Result[Array[LessonInfo], String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(class_level_id),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(class_level_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -2095,17 +2872,15 @@ pub fn TeacherAgentClient::trigger_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(class_level_id),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.invoke(
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(class_level_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -2117,18 +2892,16 @@ pub fn TeacherAgentClient::schedule_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(class_level_id),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(class_level_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -2140,18 +2913,16 @@ pub fn TeacherAgentClient::schedule_cancelable_get_lessons(
   subject_id : String,
   term_id : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "get_lessons",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(class_level_id),
-        @schema.to_element_value_as(subject_id),
-        @schema.to_element_value_as(term_id),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "get_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(class_level_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
 }
 
 ///|
@@ -2160,15 +2931,13 @@ pub fn TeacherAgentClient::invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> String raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -2179,15 +2948,13 @@ pub fn TeacherAgentClient::trigger_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.invoke(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -2197,16 +2964,14 @@ pub fn TeacherAgentClient::schedule_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -2216,16 +2981,14 @@ pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(
   incoming_key : String,
   key : String,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "invalidate_cache",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(key),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
 }
 
 ///|
@@ -2235,16 +2998,14 @@ pub fn TeacherAgentClient::toggle_lesson_active(
   lesson_id : String,
   active : Bool,
 ) -> Result[String, String] raise @common.AgentError {
-  let result = self
-    .client
-    .invoke_and_await(
-      "toggle_lesson_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  let result = self.client.invoke_and_await(
+    "toggle_lesson_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
   let elements = @extractor.extract_tuple(result)
   @schema.from_element_value_as(elements[0])
 }
@@ -2256,16 +3017,14 @@ pub fn TeacherAgentClient::trigger_toggle_lesson_active(
   lesson_id : String,
   active : Bool,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .invoke(
-      "toggle_lesson_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.invoke(
+    "toggle_lesson_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
 ///|
@@ -2276,17 +3035,15 @@ pub fn TeacherAgentClient::schedule_toggle_lesson_active(
   lesson_id : String,
   active : Bool,
 ) -> Unit raise @common.AgentError {
-  self
-    .client
-    .schedule_invocation(
-      scheduled_at,
-      "toggle_lesson_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.schedule_invocation(
+    scheduled_at,
+    "toggle_lesson_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
 ///|
@@ -2297,16 +3054,558 @@ pub fn TeacherAgentClient::schedule_cancelable_toggle_lesson_active(
   lesson_id : String,
   active : Bool,
 ) -> @agentHost.CancellationToken raise @common.AgentError {
-  self
-    .client
-    .schedule_cancelable_invocation(
-      scheduled_at,
-      "toggle_lesson_active",
-      @rpcTypes.DataValue::Tuple([
-        @schema.to_element_value_as(incoming_key),
-        @schema.to_element_value_as(lesson_id),
-        @schema.to_element_value_as(active),
-      ]),
-    )
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "toggle_lesson_active",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(lesson_id),
+      @schema.to_element_value_as(active),
+    ]),
+  )
 }
 
+///|
+pub(all) struct ParentAgentClient {
+  client : @rpc.AgentClient
+}
+
+///|
+pub fn ParentAgentClient::get(
+  parent_id : String,
+) -> ParentAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(parent_id),
+  ])
+  let client = @rpc.AgentClient::get("ParentAgent", constructor_data)
+  { client, }
+}
+
+///|
+pub fn ParentAgentClient::new_phantom(
+  parent_id : String,
+) -> ParentAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(parent_id),
+  ])
+  let client = @rpc.AgentClient::new_phantom("ParentAgent", constructor_data)
+  { client, }
+}
+
+///|
+pub fn ParentAgentClient::get_phantom(
+  parent_id : String,
+  phantom_id : @rpcTypes.Uuid,
+) -> ParentAgentClient raise @common.AgentError {
+  let constructor_data = @rpcTypes.DataValue::Tuple([
+    @schema.to_element_value_as(parent_id),
+  ])
+  let client = @rpc.AgentClient::get_phantom(
+    "ParentAgent", constructor_data, phantom_id,
+  )
+  { client, }
+}
+
+///|
+pub fn ParentAgentClient::get_agent_id(
+  self : ParentAgentClient,
+) -> String raise @common.AgentError {
+  self.client.get_agent_id()
+}
+
+///|
+pub fn ParentAgentClient::phantom_id(
+  self : ParentAgentClient,
+) -> @rpcTypes.Uuid? {
+  self.client.phantom_id()
+}
+
+///|
+pub fn ParentAgentClient::drop(self : ParentAgentClient) -> Unit {
+  self.client.drop()
+}
+
+///|
+pub fn[T] ParentAgentClient::scoped(
+  parent_id : String,
+  f : (ParentAgentClient) -> T raise @common.AgentError,
+) -> T raise @common.AgentError {
+  let client = ParentAgentClient::get(parent_id)
+  defer client.drop()
+  f(client)
+}
+
+///|
+pub fn[T] ParentAgentClient::scoped_new_phantom(
+  parent_id : String,
+  f : (ParentAgentClient) -> T raise @common.AgentError,
+) -> T raise @common.AgentError {
+  let client = ParentAgentClient::new_phantom(parent_id)
+  defer client.drop()
+  f(client)
+}
+
+///|
+pub fn[T] ParentAgentClient::scoped_get_phantom(
+  parent_id : String,
+  phantom_id : @rpcTypes.Uuid,
+  f : (ParentAgentClient) -> T raise @common.AgentError,
+) -> T raise @common.AgentError {
+  let client = ParentAgentClient::get_phantom(parent_id, phantom_id)
+  defer client.drop()
+  f(client)
+}
+
+///|
+pub fn ParentAgentClient::ping(
+  self : ParentAgentClient,
+  incoming_key : String,
+) -> String raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_ping(
+  self : ParentAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_ping(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_ping(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "ping",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::my_students(
+  self : ParentAgentClient,
+  incoming_key : String,
+) -> Result[Array[ParentStudentInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "my_students",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_my_students(
+  self : ParentAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "my_students",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_my_students(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "my_students",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_my_students(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "my_students",
+    @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::student_subjects(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+) -> Result[Array[SubjectInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "student_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_student_subjects(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "student_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_student_subjects(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "student_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_student_subjects(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "student_subjects",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::student_terms(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+) -> Result[Array[TermInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "student_terms",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_student_terms(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "student_terms",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_student_terms(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "student_terms",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_student_terms(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "student_terms",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::student_lessons(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+  subject_id : String,
+  term_id : String,
+) -> Result[Array[LessonInfo], String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "student_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_student_lessons(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+  subject_id : String,
+  term_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "student_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_student_lessons(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+  subject_id : String,
+  term_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "student_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_student_lessons(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+  subject_id : String,
+  term_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "student_lessons",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(subject_id),
+      @schema.to_element_value_as(term_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::student_lesson(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+  lesson_id : String,
+) -> Result[LessonContent, String] raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "student_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_student_lesson(
+  self : ParentAgentClient,
+  incoming_key : String,
+  student_id : String,
+  lesson_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "student_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_student_lesson(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+  lesson_id : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "student_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_student_lesson(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  student_id : String,
+  lesson_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "student_lesson",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(student_id),
+      @schema.to_element_value_as(lesson_id),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::invalidate_cache(
+  self : ParentAgentClient,
+  incoming_key : String,
+  key : String,
+) -> String raise @common.AgentError {
+  let result = self.client.invoke_and_await(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn ParentAgentClient::trigger_invalidate_cache(
+  self : ParentAgentClient,
+  incoming_key : String,
+  key : String,
+) -> Unit raise @common.AgentError {
+  self.client.invoke(
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_invalidate_cache(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  key : String,
+) -> Unit raise @common.AgentError {
+  self.client.schedule_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
+}
+
+///|
+pub fn ParentAgentClient::schedule_cancelable_invalidate_cache(
+  self : ParentAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self.client.schedule_cancelable_invocation(
+    scheduled_at,
+    "invalidate_cache",
+    @rpcTypes.DataValue::Tuple([
+      @schema.to_element_value_as(incoming_key),
+      @schema.to_element_value_as(key),
+    ]),
+  )
+}

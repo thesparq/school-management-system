@@ -6,6 +6,7 @@
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { addToast } from '$lib/stores/toast';
 
 	interface TermItem {
@@ -52,8 +53,8 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
-	<h1 class="text-2xl font-display font-bold text-primary-700">Terms</h1>
+<div class="space-y-6">
+	<PageHeader title="Terms" />
 
 	{#if data.termsError}
 		<StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => window.location.reload()} />
@@ -82,7 +83,7 @@
 											onCheckedChange={(checked) => handleToggle(term.id, checked)}
 										/>
 										{#if toggling[term.id]}
-											<svg class="animate-spin h-4 w-4 text-surface-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<svg class="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 											</svg>

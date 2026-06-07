@@ -1,40 +1,19 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-	import UserTable from '../UserTable.svelte';
-	import AppButton from '$lib/components/ui/app-button.svelte';
+	import AdminUserTable from './AdminUserTable.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import type { UserRow } from '$lib/types/user';
 
-	let { data }: { data: PageData } = $props();
+	let { data } = $props();
 
-	let error: string | undefined = $derived(data.error);
-	let groupPk: string | undefined = $derived(data.groupPk);
-	let isLoading = $derived(!data.users && !data.error);
-	let hasError = $derived(!!data.error);
-
-	let users = $state<UserRow[]>((() => data.users as UserRow[])() || []);
-	let allGroups = $state<{pk: string; name: string}[]>((() => data.allGroups)() || []);
+	let users: UserRow[] = $state(data.users ?? []);
+	let allGroups: { pk: string; name: string }[] = $state(data.allGroups ?? []);
 	let showCreateDialog = $state(false);
+
+	let hasError = $state(!!data.error);
+	let errorMessage = $state(data.error ?? '');
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
-	<div class="flex justify-between items-start">
-		<div>
-			<h1 class="text-2xl font-display font-bold text-primary-700">Admin Users</h1>
-			<p class="mt-1 text-sm text-surface-700">Manage admin initialization and Authentik status</p>
-		</div>
-		<AppButton onclick={() => showCreateDialog = true} variant="default">
-			Create Admin
-		</AppButton>
-	</div>
-
-	<UserTable
-		bind:users
-		bind:allGroups
-		role="admin-role"
-		groupPk={groupPk ?? ''}
-		{isLoading}
-		{hasError}
-		bind:showCreateDialog
-		errorMessage={error || ''}
-	/>
+<div class="space-y-6">
+	<PageHeader title="Admin Users" createLabel="Create Admin" onCreate={() => showCreateDialog = true} />
+	<AdminUserTable bind:users bind:allGroups bind:showCreateDialog groupPk={data.groupPk ?? ''} {hasError} {errorMessage} />
 </div>

@@ -12,24 +12,86 @@ pub(all) struct SharedConfig {
 }
 
 ///|
-pub(all) struct SurrealCfg { host : String; ns : String; database : String; username : String; password : String }
+pub(all) struct SurrealCfg {
+  host : String
+  ns : String
+  database : String
+  username : String
+  password : String
+}
 
 ///|
-pub(all) struct AuthentikCfg { host : String; api_token : String }
+pub(all) struct AuthentikCfg {
+  host : String
+  api_token : String
+}
 
 ///|
-pub fn resolve_surreal_cfg(config : SharedConfig) -> Result[SurrealCfg, AppError] {
-  let host = config.surreal_host.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Surreal host missing", debug: None }) }
-  let ns = config.surreal_ns.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Surreal ns missing", debug: None }) }
-  let database = config.surreal_database.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Surreal database missing", debug: None }) }
-  let username = config.surreal_username.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Surreal username missing", debug: None }) }
-  let password = config.surreal_password.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Surreal password missing", debug: None }) }
+pub fn resolve_surreal_cfg(
+  config : SharedConfig,
+) -> Result[SurrealCfg, AppError] {
+  let host = config.surreal_host.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal host missing",
+        debug: None,
+      })
+  }
+  let ns = config.surreal_ns.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal ns missing",
+        debug: None,
+      })
+  }
+  let database = config.surreal_database.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal database missing",
+        debug: None,
+      })
+  }
+  let username = config.surreal_username.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal username missing",
+        debug: None,
+      })
+  }
+  let password = config.surreal_password.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Surreal password missing",
+        debug: None,
+      })
+  }
   Ok(SurrealCfg::{ host, ns, database, username, password })
 }
 
 ///|
-pub fn resolve_authentik_cfg(config : SharedConfig) -> Result[AuthentikCfg, AppError] {
-  let host = config.authentik_host.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Authentik host missing", debug: None }) }
-  let api_token = config.authentik_api_token.get() catch { _ => return Err(AppError::{ code: InternalError, message: "Authentik token missing", debug: None }) }
+pub fn resolve_authentik_cfg(
+  config : SharedConfig,
+) -> Result[AuthentikCfg, AppError] {
+  let host = config.authentik_host.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Authentik host missing",
+        debug: None,
+      })
+  }
+  let api_token = config.authentik_api_token.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Authentik token missing",
+        debug: None,
+      })
+  }
   Ok(AuthentikCfg::{ host, api_token })
 }

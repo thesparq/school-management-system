@@ -3,33 +3,12 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import AppButton from '$lib/components/ui/app-button.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { addToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
-
-	let lastTeacherError = $state('');
-	let lastSubjectError = $state('');
-
-	$effect(() => {
-		if (data.teacherClassesError && data.teacherClassesError !== lastTeacherError) {
-			lastTeacherError = data.teacherClassesError;
-			addToast('error', 'Failed to load classes', data.teacherClassesError);
-		}
-	});
-
-	$effect(() => {
-		if (data.subjectsError && data.subjectsError !== lastSubjectError) {
-			lastSubjectError = data.subjectsError;
-			if (data.subjectsErrorCode === 'NOT_INITIALIZED') {
-				addToast('warning', 'Account not initialized', data.subjectsError);
-			} else {
-				addToast('error', 'Failed to load subjects', data.subjectsError);
-			}
-		}
-	});
 
 	let pingResult = $state<string | null>(null);
 	let pingError = $state<string | null>(null);
@@ -57,20 +36,16 @@
 </script>
 
 {#if data.teacherClasses !== null || data.teacherClassesError !== null}
-	<div class="mx-auto max-w-6xl space-y-6">
+	<div class="space-y-6">
 		{#if $navigating && (!data.teacherClasses || data.teacherClasses.length === 0)}
-			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
-			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each Array(6) as _}
-					<Skeleton class="h-32" />
-				{/each}
-			</div>
+			<PageHeader title="My Classes" />
+			<PageSkeleton layout="grid" rows={6} />
 		{:else if data.teacherClassesError}
 			<StatusCard variant="error" title="Failed to load classes" description={data.teacherClassesError} onRetry={() => goto('/')} />
 		{:else if (!data.teacherClasses || data.teacherClasses.length === 0)}
 			<StatusCard variant="info" title="No Classes Assigned" description="No classes have been assigned to you yet. Please contact your school administrator." />
 		{:else}
-			<h1 class="text-2xl font-display font-bold text-primary-700">My Classes</h1>
+			<PageHeader title="My Classes" />
 			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 				{#each (data.teacherClasses || []) as group (group.class_level_id)}
 					<a href="/my-classes/{group.class_level_id}">
@@ -81,7 +56,7 @@
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<p class="text-sm text-surface-700 dark:text-surface-400">
+								<p class="text-sm text-muted-foreground dark:text-muted-foreground">
 									{group.subjects.length} {group.subjects.length === 1 ? 'subject' : 'subjects'}
 								</p>
 							</CardContent>
@@ -92,14 +67,10 @@
 		{/if}
 	</div>
 {:else if data.subjects !== null || data.subjectsError !== null}
-	<div class="mx-auto max-w-6xl space-y-6">
+	<div class="space-y-6">
 		{#if $navigating && (!data.subjects || data.subjects.length === 0)}
-			<h1 class="text-2xl font-display font-bold text-primary-700">Your Subjects</h1>
-			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each Array(12) as _}
-					<Skeleton class="h-28" />
-				{/each}
-			</div>
+			<PageHeader title="Your Subjects" />
+			<PageSkeleton layout="grid" rows={12} />
 		{:else if data.subjectsErrorCode === 'NOT_INITIALIZED'}
 			<StatusCard variant="info" title="Account Not Initialized" description={data.subjectsError ?? ''} />
 		{:else if data.subjectsError}
@@ -108,7 +79,7 @@
 			<StatusCard variant="info" title="No Subjects Assigned" description="No subjects have been assigned to you yet. Please contact your school administrator." />
 		{:else if data.subjects && data.subjects.length > 0}
 			<div>
-				<h1 class="text-2xl font-display font-bold text-primary-700">Your Subjects</h1>
+				<PageHeader title="Your Subjects" />
 			</div>
 			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 				{#each data.subjects as subject (subject.id)}
@@ -129,10 +100,10 @@
 		{/if}
 	</div>
 {:else}
-	<div class="mx-auto max-w-4xl space-y-6">
+	<div class="space-y-6">
 		<div>
-			<h1 class="text-2xl font-display font-bold text-primary-700">Dashboard</h1>
-			<p class="mt-1 text-sm text-surface-700">Welcome</p>
+			<PageHeader title="Dashboard" />
+			<p class="mt-1 text-sm text-muted-foreground">Welcome</p>
 		</div>
 
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -141,7 +112,7 @@
 					<CardTitle class="text-base">Quick Actions</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<p class="text-sm text-surface-700">Dashboard widgets will appear here.</p>
+					<p class="text-sm text-muted-foreground">Dashboard widgets will appear here.</p>
 				</CardContent>
 			</Card>
 
@@ -159,7 +130,7 @@
 					{/if}
 
 					{#if pingError}
-						<p class="text-sm text-error-500">{pingError}</p>
+						<p class="text-sm text-destructive">{pingError}</p>
 					{/if}
 				</CardContent>
 			</Card>

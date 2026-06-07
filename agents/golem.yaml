@@ -64,6 +64,7 @@ httpApi:
           AdminAgent: {}
           StudentAgent: {}
           TeacherAgent: {}
+          ParentAgent: {}
 
 secretDefaults:
   local:

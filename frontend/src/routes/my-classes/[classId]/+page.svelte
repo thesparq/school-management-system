@@ -2,22 +2,18 @@
   import type { PageData } from './$types';
   import { Card, CardHeader, CardTitle } from '$lib/components/ui/card';
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
-  import { Skeleton } from '$lib/components/ui/skeleton';
+  import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 </script>
 
-<div class="mx-auto max-w-6xl space-y-6">
+<div class="space-y-6">
   <h1 class="text-2xl font-display font-bold text-primary-700">{data.classLevelName}</h1>
 
   {#if $navigating && (!data.subjects || data.subjects.length === 0)}
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {#each Array(6) as _}
-        <Skeleton class="h-28" />
-      {/each}
-    </div>
+    <PageSkeleton layout="grid" rows={6} />
   {:else if data.subjectsError}
     <StatusCard variant="error" title="Failed to load subjects" description={data.subjectsError} onRetry={() => goto('/my-classes/' + $page.params.classId)} />
   {:else if data.subjects.length === 0}

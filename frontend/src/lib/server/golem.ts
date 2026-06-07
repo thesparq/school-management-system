@@ -201,6 +201,10 @@ export function proxyToTeacher(userId: string, path: string, extraParams?: Recor
 	return proxyFetch(buildUrl(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
 }
 
+export function proxyToParent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/parent/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
 export function mapErrorCodeToHttpStatus(code: string): number {
 	switch (code) {
 		case 'VALIDATION_ERROR': return 400;

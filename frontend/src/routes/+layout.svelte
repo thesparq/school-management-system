@@ -1,15 +1,18 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
+	import logo from '$lib/assets/logo.jpg';
+	import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from '$lib/components/ui/sidebar';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '$lib/components/ui/dropdown-menu';
 	import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbPage, BreadcrumbLink, BreadcrumbSeparator } from '$lib/components/ui/breadcrumb';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { page, navigating } from '$app/stores';
+	import SidebarLogo from '$lib/components/SidebarLogo.svelte';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 
@@ -87,19 +90,18 @@
 	});
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<link rel="icon" href="/favicon.png" />
+	<title>{$page.data.title ?? 'School Management System'}</title>
+</svelte:head>
 
 {#if $navigating}
-	<div class="fixed top-0 left-0 right-0 z-50 h-2 bg-secondary-500 animate-pulse"></div>
+	<div class="fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-[0_1px_4px_rgba(0,0,0,0.15)]"></div>
 {/if}
 
 <SidebarProvider open={sidebarOpen} onOpenChange={(v) => sidebarOpen = v}>
-	<Sidebar>
-		<SidebarHeader>
-			<div class="flex items-center gap-2 px-4 py-2">
-				<span class="text-lg font-display font-bold text-primary-700">School</span>
-			</div>
-		</SidebarHeader>
+		<Sidebar>
+			<SidebarLogo />
 
 		<SidebarContent>
 			<SidebarGroup>
@@ -112,11 +114,11 @@
 							{/snippet}
 						</SidebarMenuButton>
 					</SidebarMenuItem>
-					{#if data.user.roles.includes('teachers')}
+					{#if data.user.roles.includes('teacher')}
 						<SidebarMenuItem>
 							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/my-classes')}>
 								{#snippet child({ props })}
-									<a href="/" {...props}>My Classes</a>
+									<a href="/my-classes" {...props}>My Classes</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
@@ -139,6 +141,13 @@
 							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/terms')}>
 								{#snippet child({ props })}
 									<a href="/admin/configuration/terms" {...props}>Terms</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/qualifications')}>
+								{#snippet child({ props })}
+									<a href="/admin/configuration/qualifications" {...props}>Qualifications</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
@@ -165,6 +174,13 @@
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/parents')}>
+								{#snippet child({ props })}
+									<a href="/admin/users/parents" {...props}>Parents</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
 							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/admin-role')}>
 								{#snippet child({ props })}
 									<a href="/admin/users/admin-role" {...props}>Admin</a>
@@ -179,8 +195,8 @@
 		<SidebarFooter>
 			<Separator />
 			<div class="p-4">
-				<p class="text-sm font-medium text-surface-800">{data.user.name}</p>
-				<p class="text-xs text-surface-700">{data.user.email}</p>
+				<p class="text-sm font-medium text-sidebar-foreground">{data.user.name}</p>
+				<p class="text-xs text-muted-foreground">{data.user.email}</p>
 			</div>
 		</SidebarFooter>
 	</Sidebar>
@@ -189,6 +205,12 @@
 		<header class="flex h-14 items-center gap-4 border-b border-border px-4">
 			<SidebarTrigger />
 			<Separator orientation="vertical" class="h-6" />
+			{#if !sidebarOpen}
+				<div transition:fade={{ duration: 200 }} class="flex items-center gap-4">
+					<img src={logo} alt="School MS" class="h-8" />
+					<Separator orientation="vertical" class="h-6" />
+				</div>
+			{/if}
 			<Breadcrumb>
 				<BreadcrumbList>
 					{#each ($page.data.breadcrumbs ?? [{ label: 'Dashboard' }]) as crumb, i (i)}
@@ -207,6 +229,8 @@
 			</Breadcrumb>
 
       <div class="flex-1"></div>
+
+			<ThemeToggle />
 
 			<DropdownMenu>
 				<DropdownMenuTrigger>
@@ -235,7 +259,7 @@
 			</DropdownMenu>
 
 			{#if error}
-				<p class="text-xs text-error-500">{error}</p>
+				<p class="text-xs text-destructive">{error}</p>
 			{/if}
 		</header>
 

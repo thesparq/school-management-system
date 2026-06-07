@@ -8,9 +8,9 @@ export const POST: RequestHandler = async (event) => {
 	if (!user.roles.includes('admin')) error(403, 'Forbidden');
 
 	const body = await event.request.json().catch(() => null);
-	if (!body || !body.session || !body.term_id) {
+	if (!body || !body.session_name || !body.term_id) {
 		return new Response(
-			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Session and term are required' } }),
+			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Session name and term are required' } }),
 			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
@@ -18,7 +18,7 @@ export const POST: RequestHandler = async (event) => {
 	const proxy = adminProxy(user);
 	const result = await proxy('/create-session-term', undefined, 'POST', {
 		body_json: JSON.stringify({
-			session: body.session,
+			session_name: body.session_name,
 			term_id: body.term_id,
 			active: body.active ?? false
 		})

@@ -87,10 +87,13 @@ Report which test number fails and we'll dig in.
 
 | # | Test | How | Expected |
 |---|------|-----|----------|
-| 49 | Sidebar collapse | Click sidebar toggle | Sidebar collapses; state persists on reload |
+| 49 | Sidebar collapse | Click sidebar toggle | Sidebar collapses; logo appears in top bar between trigger and breadcrumb; state persists on reload |
 | 50 | Breadcrumbs | Navigate deep (Subject → Term → Lesson) | Breadcrumb trail updates correctly |
-| 51 | Loading skeletons | Visit a slow page | Skeleton loading states, not blank/spinner |
+| 51 | Loading skeletons | Visit a slow page | PageSkeleton loading states (list/grid/card), not blank/spinner |
 | 52 | Responsive layout | Resize browser to tablet width | Sidebar becomes sheet overlay |
+| 53 | Collapsed sidebar logo | Collapse sidebar via toggle | Full logo fades in next to sidebar trigger, vertical separator before breadcrumb |
+| 54 | Mobile sidebar auto-close | Open sidebar on mobile, tap a nav link | Sidebar sheet closes automatically after navigation |
+| 55 | Dark mode flash prevention | Enable dark mode, refresh page | No white flash — page loads in dark mode immediately |
 
 ---
 

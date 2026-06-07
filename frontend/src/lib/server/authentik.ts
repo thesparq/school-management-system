@@ -247,7 +247,7 @@ async function getTargetGroupPks(): Promise<Set<string>> {
 	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
 	if (!host || !token) return new Set();
 
-	const targetNames = ['admin', 'student', 'teacher'];
+	const targetNames = ['admin', 'student', 'teacher', 'parent'];
 	const targetPks = new Set<string>();
 
 	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;

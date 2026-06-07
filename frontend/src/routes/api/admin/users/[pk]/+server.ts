@@ -1,43 +1,35 @@
 import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
+const DELETE_PATH: Record<string, string> = {
+	student: '/delete-student',
+	teacher: '/delete-teacher',
+	admin: '/delete-admin',
+	parent: '/delete-parent'
+};
+
 export const DELETE: RequestHandler = async (event) => {
 	const user = event.locals.user;
-	if (!user) {
-		return new Response(
-			JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }),
-			{ status: 401, headers: { 'content-type': 'application/json' } }
-		);
-	}
-	if (!user.roles.includes('admin')) {
-		return new Response(
-			JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Forbidden' } }),
-			{ status: 403, headers: { 'content-type': 'application/json' } }
-		);
+	if (!user || !user.roles.includes('admin')) {
+		return new Response(JSON.stringify({ error: { code: 'AUTH_FAILURE', message: 'Not authorized' } }), {
+			status: 401, headers: { 'content-type': 'application/json' }
+		});
 	}
 
-	const targetPk = Number(event.params.pk);
-	if (isNaN(targetPk) || targetPk < 1) {
-		return new Response(
-			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing user pk' } }),
-			{ status: 400, headers: { 'content-type': 'application/json' } }
-		);
-	}
+	const authentik_pk = event.params.pk;
+	const uuid = event.url.searchParams.get('uuid');
+	const role = event.url.searchParams.get('role');
 
-	const targetUuid = event.url.searchParams.get('uuid');
-	if (!targetUuid) {
-		return new Response(
-			JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Missing uuid query param' } }),
-			{ status: 400, headers: { 'content-type': 'application/json' } }
-		);
+	if (!authentik_pk || !uuid || !role || !DELETE_PATH[role]) {
+		return new Response(JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'pk, uuid, and valid role are required' } }), {
+			status: 400, headers: { 'content-type': 'application/json' }
+		});
 	}
 
 	const proxy = adminProxy(user);
-	const agentBody = JSON.stringify({
-		authentik_pk: targetPk,
-		target_user_id: targetUuid
+	const result = await proxy(DELETE_PATH[role], undefined, 'POST', {
+		body_json: JSON.stringify({ authentik_pk: Number(authentik_pk), target_user_id: uuid })
 	});
-	const result = await proxy('/delete-user', undefined, 'POST', { body_json: agentBody });
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
@@ -46,8 +38,7 @@ export const DELETE: RequestHandler = async (event) => {
 		});
 	}
 
-	return new Response(
-		JSON.stringify({ data: { deleted: true } }),
-		{ status: 200, headers: { 'content-type': 'application/json' } }
-	);
+	return new Response(JSON.stringify({ data: { uuid } }), {
+		status: 200, headers: { 'content-type': 'application/json' }
+	});
 };

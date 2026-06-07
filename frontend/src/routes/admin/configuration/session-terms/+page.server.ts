@@ -4,7 +4,7 @@ import { adminProxy } from '$lib/server/golem';
 
 interface SessionTerm {
 	id: string;
-	session: string;
+	session_name: string;
 	term_name: string;
 	active: boolean;
 	created_at: string;

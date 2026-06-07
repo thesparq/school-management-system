@@ -1,6 +1,7 @@
 -- ============================================================
--- HF-01 — SurrealDB Schema v2
+-- SurrealDB Schema v2
 -- Idiomatic graph/document schema for lesson + topics data.
+-- HF-10: Role-specialized profile tables + credentials lookup.
 -- Idempotent: safe to re-run.
 -- Does NOT modify or remove lesson_content (deprecated).
 --
@@ -20,6 +21,11 @@
 
 REMOVE TABLE session_term;
 REMOVE TABLE teacher_assignment;
+REMOVE TABLE parent_profile;
+REMOVE TABLE admin_profile;
+REMOVE TABLE teacher_profile;
+REMOVE TABLE student_profile;
+REMOVE TABLE credentials;
 REMOVE TABLE user_profile;
 REMOVE TABLE topics;
 REMOVE TABLE lessons;
@@ -280,39 +286,124 @@ GROUP ALL;
 SELECT count() FROM lesson_content GROUP ALL;
 
 ----------------
--- Step 6: user_profile table (replaces AdminAgent.initialized_users + StudentAgent.profile)
+-- Step 6: Role-specialized profile tables (HF-10)
+-- Record IDs = {table}:{auth_uuid} — no separate auth_id field.
+-- Replaces monolithic user_profile table.
+----------------
 
-DEFINE TABLE user_profile SCHEMAFULL
+DEFINE TABLE IF NOT EXISTS student_profile SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 
-DEFINE FIELD IF NOT EXISTS auth_id      ON user_profile TYPE string;
-DEFINE FIELD IF NOT EXISTS role         ON user_profile TYPE string
-  ASSERT $value IN ["admin", "teacher", "student"];
-DEFINE FIELD IF NOT EXISTS class_level ON user_profile TYPE option<record<class_levels>>;
-DEFINE FIELD IF NOT EXISTS created_at   ON user_profile TYPE datetime DEFAULT time::now();
-DEFINE FIELD IF NOT EXISTS updated_at   ON user_profile TYPE option<datetime>;
-DEFINE FIELD IF NOT EXISTS deleted_at   ON user_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS surname        ON student_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS first_name     ON student_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS middle_name    ON student_profile TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS display_name   ON student_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS date_of_birth  ON student_profile TYPE datetime
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS class_enrolled ON student_profile TYPE record<class_levels>
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS current_class  ON student_profile TYPE record<class_levels>
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS passport       ON student_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS created_at     ON student_profile TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at     ON student_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS deleted_at     ON student_profile TYPE option<datetime>;
 
-DEFINE INDEX IF NOT EXISTS idx_user_profile_auth_id
-  ON user_profile COLUMNS auth_id UNIQUE;
+DEFINE TABLE IF NOT EXISTS teacher_profile SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS surname       ON teacher_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS first_name    ON teacher_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS middle_name   ON teacher_profile TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS display_name  ON teacher_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS qualifications ON teacher_profile TYPE option<array<record<credentials>>>;
+DEFINE FIELD IF NOT EXISTS date_employed ON teacher_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS passport      ON teacher_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS created_at    ON teacher_profile TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at    ON teacher_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS deleted_at    ON teacher_profile TYPE option<datetime>;
+
+DEFINE TABLE IF NOT EXISTS admin_profile SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS surname      ON admin_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS first_name   ON admin_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS middle_name  ON admin_profile TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS display_name ON admin_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS role_title   ON admin_profile TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS passport     ON admin_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS created_at   ON admin_profile TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at   ON admin_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS deleted_at   ON admin_profile TYPE option<datetime>;
+
+DEFINE TABLE IF NOT EXISTS parent_profile SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS name         ON parent_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS display_name ON parent_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS students     ON parent_profile TYPE array<record<student_profile>>
+  ASSERT array::len($value) > 0;
+DEFINE FIELD IF NOT EXISTS passport     ON parent_profile TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS created_at   ON parent_profile TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at   ON parent_profile TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS deleted_at   ON parent_profile TYPE option<datetime>;
 
 ----------------
--- Step 7: session_term table — school period unit
+-- Step 7: credentials — teacher qualification lookup table
+-- Record ID: credentials:{slug}
+----------------
+
+DEFINE TABLE IF NOT EXISTS credentials SCHEMAFULL
+  PERMISSIONS FOR select, create, update, delete NONE;
+
+DEFINE FIELD IF NOT EXISTS name   ON credentials TYPE string
+  ASSERT $value != NONE;
+DEFINE FIELD IF NOT EXISTS active ON credentials TYPE bool DEFAULT true;
+
+DEFINE INDEX IF NOT EXISTS idx_credentials_name ON credentials COLUMNS name UNIQUE;
+
+----------------
+-- Step 8: Verification — new profile tables
+----------------
+
+SELECT count() FROM student_profile GROUP ALL;
+SELECT count() FROM teacher_profile GROUP ALL;
+SELECT count() FROM admin_profile GROUP ALL;
+SELECT count() FROM parent_profile GROUP ALL;
+SELECT count() FROM credentials GROUP ALL;
+
+----------------
+-- Step 9: session_term table — school period unit
 -- Every result, assignment, fee, payment, etc. references this.
 
 DEFINE TABLE session_term SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 
-DEFINE FIELD session     ON session_term TYPE string;
-DEFINE FIELD term        ON session_term TYPE record<terms>;
-DEFINE FIELD active      ON session_term TYPE bool DEFAULT false;
-DEFINE FIELD created_at  ON session_term TYPE datetime DEFAULT time::now();
-DEFINE FIELD deleted_at  ON session_term TYPE option<datetime>;
+DEFINE FIELD session_name ON session_term TYPE string;
+DEFINE FIELD term         ON session_term TYPE record<terms>;
+DEFINE FIELD active       ON session_term TYPE bool DEFAULT false;
+DEFINE FIELD created_at   ON session_term TYPE datetime DEFAULT time::now();
+DEFINE FIELD deleted_at   ON session_term TYPE option<datetime>;
 
-DEFINE INDEX idx_st_combo ON session_term COLUMNS session, term UNIQUE;
+DEFINE INDEX idx_st_combo ON session_term COLUMNS session_name, term UNIQUE;
 
 ----------------
--- Step 8: teacher_assignment table (replaces AdminAgent.teacher_assignments)
+-- Step 10: teacher_assignment table (replaces AdminAgent.teacher_assignments)
 -- Uses record<has_subject> edge for graph-native queries with dot-traversal.
 
 DEFINE TABLE teacher_assignment SCHEMAFULL

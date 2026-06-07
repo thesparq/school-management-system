@@ -48,14 +48,13 @@ pub fn CacheSystem::get(
 ) -> String? {
   match self.store.get(key) {
     None => None
-    Some(entry) => {
+    Some(entry) =>
       if now >= entry.expires_at {
         self.store.remove(key)
         None
       } else {
         Some(entry.value)
       }
-    }
   }
 }
 
