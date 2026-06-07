@@ -14,7 +14,7 @@
 	import type { UserRow } from '$lib/types/user';
 	import type { StudentListItem } from '$lib/types';
 
-	let { users = $bindable([] as UserRow[]), allGroups = $bindable([] as { pk: string; name: string }[]), showCreateDialog = $bindable(false), groupPk = '', isLoading = false, hasError = false, errorMessage = '' } = $props();
+	let { users = $bindable([] as UserRow[]), allGroups = $bindable([] as { pk: string; name: string }[]), showCreateDialog = $bindable(false), groupPk = '', hasError = false, errorMessage = '' } = $props();
 	let hasUsers = $derived(users.length > 0);
 	let authStates = $state<Record<number, string>>({});
 
@@ -39,8 +39,8 @@
 	let filteredStudents = $derived(studentList.filter(s => !createForm.students.includes(s.id) && s.display_name.toLowerCase().includes(studentSearch.toLowerCase())));
 	let editFiltered = $derived(studentList.filter(s => !editForm.students.includes(s.id) && s.display_name.toLowerCase().includes(studentSearch.toLowerCase())));
 
-	let selectedStudentNames = $derived(studentList.filter(s => createForm.students.includes(s.id)).map(s => s.display_name));
-	let editSelectedNames = $derived(studentList.filter(s => editForm.students.includes(s.id)).map(s => s.display_name));
+	let selectedStudentNames = $derived(studentList.filter(s => createForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
+	let editSelectedNames = $derived(studentList.filter(s => editForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
 
 	function addStudent(id: string) { createForm.students = [...createForm.students, id]; studentSearch = ''; studentDropdownOpen = false; }
 	function removeStudent(id: string) { createForm.students = createForm.students.filter(s => s !== id); }
@@ -60,19 +60,18 @@
 		editLoading = true; editError = '';
 		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'parent', editForm.uuid); if (!u) { editLoading = false; return; } passportUrl = u; }
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authentik_pk: editForm.authentikPk, username: editForm.username, name: editForm.name, display_name: editForm.name, email: editForm.email, password: editForm.password || undefined, role: 'parent', students: editForm.students, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); addToast('success', 'Parent updated', editForm.username); closeEdit(); }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editForm.name, email: editForm.email } : u); addToast('success', 'Parent updated', editForm.username); closeEdit(); }
 		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editLoading = false; }
 	}
 
 	async function handleDelete() { if (!deleteTarget) return; deleteLoading = true; deleteError = ''; try { const r = await fetch(`/api/admin/users/${deleteTarget.pk}?uuid=${deleteTarget.uuid}&role=parent`, { method: 'DELETE' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.filter(u => u.pk !== deleteTarget!.pk); addToast('success', 'Parent deleted', deleteTarget!.name); deleteDialogOpen = false; deleteTarget = null; } catch (e) { deleteError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Delete failed', deleteError); } finally { deleteLoading = false; } }
-	async function toggleAuth(pk: number, activate: boolean) { authStates[pk] = 'loading'; try { const r = await fetch(`/api/admin/users/${pk}/${activate ? 'activate' : 'deactivate'}-authentik`, { method: 'POST' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.map(u => u.pk === pk ? { ...u, is_active: activate } : u); addToast('info', activate ? 'Activated' : 'Deactivated', ''); } catch (e) { addToast('error', 'Failed', e instanceof Error ? e.message : ''); } finally { delete authStates[pk]; } }
+	async function toggleAuth(pk: number, activate: boolean) { authStates = { ...authStates, [pk]: 'loading' }; try { const r = await fetch(`/api/admin/users/${pk}/${activate ? 'activate' : 'deactivate'}-authentik`, { method: 'POST' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.map(u => u.pk === pk ? { ...u, is_active: activate } : u); addToast('info', activate ? 'Activated' : 'Deactivated', ''); } catch (e) { addToast('error', 'Failed', e instanceof Error ? e.message : ''); } finally { const { [pk]: _, ...rest } = authStates; authStates = rest; } }
 
 	async function openEditDialog(userObj: UserRow) { editForm = { uuid: userObj.uuid, authentikPk: userObj.pk, username: userObj.username, name: '', email: userObj.email, password: '', showPassword: false, students: [], currentPassport: '' }; editDialogOpen = true; editProfileLoading = true; try { const r = await fetch(`/api/admin/users/${userObj.uuid}/profile?role=parent`); const b = await r.json(); const p = b?.data; if (p) { editForm.name = p.name ?? ''; editForm.students = p.students ?? []; editForm.currentPassport = p.passport ?? ''; } } catch { } finally { editProfileLoading = false; } }
 	function openDeleteDialog(userObj: UserRow) { deleteTarget = { pk: userObj.pk, uuid: userObj.uuid, name: userObj.name || userObj.username }; deleteError = ''; deleteDialogOpen = true; }
 </script>
 
-{#if isLoading}<PageSkeleton layout="list" rows={5} />
-{:else if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
+{#if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}<StatusCard variant="info" title="No parents yet" description="Create the first parent to get started." />
 {:else}
 	<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Students</TableHead><TableHead>Auth Status</TableHead><TableHead>Activate</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
@@ -89,7 +88,7 @@
 			<div class="space-y-2">
 				<Label>Linked Students <span class="text-destructive">*</span></Label>
 				{#if studentListLoading}<p class="text-sm text-muted-foreground">Loading students...</p>{:else}
-					<div class="flex flex-wrap gap-1.5">{#each selectedStudentNames as name}<Badge variant="secondary" class="gap-1">{name}<button type="button" onclick={() => removeStudent(studentList.find(s => s.display_name === name)?.id ?? '')} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
+					<div class="flex flex-wrap gap-1.5">{#each selectedStudentNames as student}<Badge variant="secondary" class="gap-1">{student.name}<button type="button" onclick={() => removeStudent(student.id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
 					<div class="relative"><Input bind:value={studentSearch} placeholder="Search students..." onfocus={() => studentDropdownOpen = true} onblur={() => setTimeout(() => studentDropdownOpen = false, 150)} />{#if studentDropdownOpen && filteredStudents.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each filteredStudents as s (s.id)}<button type="button" onmousedown={() => addStudent(s.id)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{s.display_name}</button>{/each}</div>{/if}</div>
 				{/if}
 			</div>
@@ -109,7 +108,7 @@
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Linked Students <span class="text-destructive">*</span></Label>
-				<div class="flex flex-wrap gap-1.5">{#each editSelectedNames as name}<Badge variant="secondary" class="gap-1">{name}<button type="button" onclick={() => removeEditStudent(studentList.find(s => s.display_name === name)?.id ?? '')} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
+				<div class="flex flex-wrap gap-1.5">{#each editSelectedNames as student}<Badge variant="secondary" class="gap-1">{student.name}<button type="button" onclick={() => removeEditStudent(student.id)} class="ml-0.5 rounded-full hover:bg-surface-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></Badge>{/each}</div>
 				<div class="relative"><Input bind:value={studentSearch} placeholder="Search students..." onfocus={() => studentDropdownOpen = true} onblur={() => setTimeout(() => studentDropdownOpen = false, 150)} />{#if studentDropdownOpen && editFiltered.length > 0}<div class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background shadow-lg dark:bg-surface-900">{#each editFiltered as s (s.id)}<button type="button" onmousedown={() => addEditStudent(s.id)} class="w-full px-3 py-2 text-left text-sm hover:bg-primary-50">{s.display_name}</button>{/each}</div>{/if}</div>
 			</div>
 			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>

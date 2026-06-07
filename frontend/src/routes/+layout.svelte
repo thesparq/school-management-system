@@ -96,7 +96,7 @@
 </svelte:head>
 
 {#if $navigating}
-	<div class="fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-400 dark:bg-secondary-500 animate-pulse"></div>
+	<div class="fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-[0_1px_4px_rgba(0,0,0,0.15)]"></div>
 {/if}
 
 <SidebarProvider open={sidebarOpen} onOpenChange={(v) => sidebarOpen = v}>

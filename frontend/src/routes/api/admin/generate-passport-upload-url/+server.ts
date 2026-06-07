@@ -29,9 +29,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const { uploadUrl, publicUrl } = await generatePresignedUploadUrl(profileType, userId, contentType);
+		const { uploadUrl, publicUrl } = await generatePresignedUploadUrl(profileType, userId, contentType, fileSize);
 		return json({ uploadUrl, publicUrl });
 	} catch (e) {
-		return json({ error: { code: 'VALIDATION_ERROR', message: e instanceof Error ? e.message : 'Upload failed' } }, { status: 400 });
+		return json({ error: { code: 'SERVER_ERROR', message: e instanceof Error ? e.message : 'Upload failed' } }, { status: 500 });
 	}
 };

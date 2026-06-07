@@ -291,8 +291,6 @@ SELECT count() FROM lesson_content GROUP ALL;
 -- Replaces monolithic user_profile table.
 ----------------
 
-REMOVE TABLE user_profile;
-
 DEFINE TABLE IF NOT EXISTS student_profile SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 

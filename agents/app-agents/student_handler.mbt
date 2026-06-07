@@ -2,15 +2,37 @@
 fn parse_profile(json_str : String) -> StudentProfile? {
   let val = @json.parse(json_str) catch { _ => return None }
   match val {
-    Object(obj) => Some(StudentProfile::{
-      surname: match obj.get("surname") { Some(String(s)) => s; _ => "" },
-      first_name: match obj.get("first_name") { Some(String(s)) => s; _ => "" },
-      middle_name: match obj.get("middle_name") { Some(String(s)) => Some(s); _ => None },
-      display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
-      date_of_birth: match obj.get("date_of_birth") { Some(String(s)) => s; _ => "" },
-      current_class: match obj.get("current_class") { Some(String(s)) => s; _ => "" },
-      passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
-    })
+    Object(obj) =>
+      Some(StudentProfile::{
+        surname: match obj.get("surname") {
+          Some(String(s)) => s
+          _ => ""
+        },
+        first_name: match obj.get("first_name") {
+          Some(String(s)) => s
+          _ => ""
+        },
+        middle_name: match obj.get("middle_name") {
+          Some(String(s)) => Some(s)
+          _ => None
+        },
+        display_name: match obj.get("display_name") {
+          Some(String(s)) => s
+          _ => ""
+        },
+        date_of_birth: match obj.get("date_of_birth") {
+          Some(String(s)) => s
+          _ => ""
+        },
+        current_class: match obj.get("current_class") {
+          Some(String(s)) => s
+          _ => ""
+        },
+        passport: match obj.get("passport") {
+          Some(String(s)) => s
+          _ => ""
+        },
+      })
     _ => None
   }
 }

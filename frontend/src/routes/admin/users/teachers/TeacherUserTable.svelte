@@ -21,7 +21,6 @@ import type { TeacherSubjectPair } from '$lib/types';
 		allGroups = $bindable([] as { pk: string; name: string }[]),
 		showCreateDialog = $bindable(false),
 		groupPk = '',
-		isLoading = false,
 		hasError = false,
 		errorMessage = ''
 	} = $props();
@@ -76,7 +75,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dateEmployed: '', qualifications: [], isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
-	onMount(async () => { try { const res = await fetch('/api/admin/class-subjects'); const body = await res.json(); allSubjectPairs = body?.data ?? []; } catch { allSubjectPairs = []; } finally { subjectPairsLoading = false; } });
+	onMount(async () => { try { const res = await fetch('/api/admin/class-subjects'); const body = await res.json(); allSubjectPairs = body?.data ?? []; } catch { allSubjectPairs = []; addToast('error', 'Failed to load class-subjects', ''); } finally { subjectPairsLoading = false; } });
 
 	async function handleCreate() {
 		createLoading = true; createError = '';
@@ -102,6 +101,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 			const result = await res.json();
 			if (result.error) throw new Error(result.error.message ?? 'Failed');
+			users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editDisplayName, email: editForm.email } : u);
 			addToast('success', 'Teacher updated', editForm.username); closeEdit();
 		} catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); }
 		finally { editLoading = false; }
@@ -110,10 +110,10 @@ import type { TeacherSubjectPair } from '$lib/types';
 	async function handleDelete() { if (!deleteTarget) return; deleteLoading = true; deleteError = ''; try { const res = await fetch(`/api/admin/users/${deleteTarget.pk}?uuid=${deleteTarget.uuid}&role=teacher`, { method: 'DELETE' }); const result = await res.json(); if (result.error) throw new Error(result.error.message ?? 'Failed'); users = users.filter(u => u.pk !== deleteTarget!.pk); addToast('success', 'Teacher deleted', deleteTarget!.name); deleteDialogOpen = false; deleteTarget = null; } catch (e) { deleteError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Delete failed', deleteError); } finally { deleteLoading = false; } }
 
 	async function toggleAuth(pk: number, activate: boolean) {
-		authStates[pk] = 'loading';
+		authStates = { ...authStates, [pk]: 'loading' };
 		try { const res = await fetch(`/api/admin/users/${pk}/${activate ? 'activate' : 'deactivate'}-authentik`, { method: 'POST' }); const result = await res.json(); if (result.error) throw new Error(result.error.message ?? 'Failed'); users = users.map(u => u.pk === pk ? { ...u, is_active: activate } : u); addToast('info', activate ? 'User activated' : 'User deactivated', ''); }
 		catch (e) { addToast('error', 'Failed', e instanceof Error ? e.message : ''); }
-		finally { delete authStates[pk]; }
+		finally { const { [pk]: _, ...rest } = authStates; authStates = rest; }
 	}
 
 	async function openEditDialog(userObj: UserRow) {
@@ -135,10 +135,10 @@ import type { TeacherSubjectPair } from '$lib/types';
 	}
 
 	async function handleSaveTeacherSubjects(pk: number) {
-		teacherSubjectLoading[pk] = 'saving';
+		teacherSubjectLoading = { ...teacherSubjectLoading, [pk]: 'saving' };
 		try { const pairs = currentTeacherPairs[pk] ?? []; const body = pairs.map((p: TeacherSubjectPair) => ({ has_subject_id: p.edge_id, class_level_id: p.class_level_id, class_level_name: p.class_level_name, subject_id: p.subject_id, subject_name: p.subject_name, subject_code: p.subject_code ?? null })); const res = await fetch('/api/admin/teacher/subjects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_teacher_id: classAssignTeacherUuid, pairs_json: JSON.stringify(body) }) }); const result = await res.json(); if (result.error) throw new Error(result.error.message ?? 'Failed'); addToast('success', 'Subjects saved', ''); classAssignDialogOpen = false; }
 		catch (e) { addToast('error', 'Failed to save subjects', e instanceof Error ? e.message : ''); }
-		finally { delete teacherSubjectLoading[pk]; }
+		finally { const { [pk]: _, ...rest } = teacherSubjectLoading; teacherSubjectLoading = rest; }
 	}
 
 	function addSubjectPair(pk: number, pair: TeacherSubjectPair) {
@@ -153,8 +153,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 	};
 </script>
 
-{#if isLoading}<PageSkeleton layout="list" rows={5} />
-{:else if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
+{#if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}<StatusCard variant="info" title="No teachers yet" description="Create the first teacher to get started." />
 {:else}
 	<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Auth Status</TableHead><TableHead>Activate</TableHead><TableHead>Action</TableHead><TableHead>Classes</TableHead></TableRow></TableHeader>

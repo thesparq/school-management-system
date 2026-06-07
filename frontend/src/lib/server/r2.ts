@@ -4,17 +4,41 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
-const r2 = new S3Client({
-	region: 'auto',
-	endpoint: process.env.R2_ENDPOINT_URL!,
-	credentials: {
-		accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-		secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
-	}
-});
+let r2Client: S3Client | null = null;
+let bucketName: string | null = null;
+let publicUrlBase: string | null = null;
 
-const BUCKET = process.env.R2_BUCKET_NAME!;
-const PUBLIC_URL_BASE = process.env.R2_PUBLIC_URL!;
+function getR2Client(): S3Client {
+	if (r2Client) return r2Client;
+	const endpoint = process.env.R2_ENDPOINT_URL;
+	const keyId = process.env.R2_ACCESS_KEY_ID;
+	const secretKey = process.env.R2_SECRET_ACCESS_KEY;
+	if (!endpoint || !keyId || !secretKey) {
+		throw new Error('Missing R2 configuration: R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY must be set');
+	}
+	r2Client = new S3Client({
+		region: 'auto',
+		endpoint,
+		credentials: { accessKeyId: keyId, secretAccessKey: secretKey }
+	});
+	return r2Client;
+}
+
+function getBucket(): string {
+	if (bucketName) return bucketName;
+	const b = process.env.R2_BUCKET_NAME;
+	if (!b) throw new Error('Missing R2_BUCKET_NAME environment variable');
+	bucketName = b;
+	return bucketName;
+}
+
+function getPublicUrlBase(): string {
+	if (publicUrlBase) return publicUrlBase;
+	const u = process.env.R2_PUBLIC_URL;
+	if (!u) throw new Error('Missing R2_PUBLIC_URL environment variable');
+	publicUrlBase = u;
+	return publicUrlBase;
+}
 
 export function getR2Key(profileType: string, userId: string, contentType: string): { key: string; ext: string } {
 	const ext = contentType === 'image/png' ? 'png' : 'jpg';
@@ -27,23 +51,23 @@ export function validateUploadRequest(contentType: string, fileSize: number): st
 	return null;
 }
 
-export async function generatePresignedUploadUrl(profileType: string, userId: string, contentType: string) {
-	const error = validateUploadRequest(contentType, 0);
+export async function generatePresignedUploadUrl(profileType: string, userId: string, contentType: string, fileSize: number) {
+	const error = validateUploadRequest(contentType, fileSize);
 	if (error) throw new Error(error);
 	const { key } = getR2Key(profileType, userId, contentType);
 	const uploadUrl = await getSignedUrl(
-		r2,
-		new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+		getR2Client(),
+		new PutObjectCommand({ Bucket: getBucket(), Key: key, ContentType: contentType }),
 		{ expiresIn: 300 }
 	);
-	const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
+	const publicUrl = `${getPublicUrlBase()}/${key}`;
 	return { uploadUrl, publicUrl, key };
 }
 
 export async function deleteR2Object(profileType: string, userId: string, contentType: string) {
 	const { key } = getR2Key(profileType, userId, contentType);
 	try {
-		await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+		await getR2Client().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: key }));
 	} catch {
 		// ignore delete errors — file may not exist
 	}

@@ -13,7 +13,7 @@
 	import { addToast } from '$lib/stores/toast';
 	import type { UserRow } from '$lib/types/user';
 
-	let { users = $bindable([] as UserRow[]), allGroups = $bindable([] as { pk: string; name: string }[]), showCreateDialog = $bindable(false), groupPk = '', isLoading = false, hasError = false, errorMessage = '' } = $props();
+	let { users = $bindable([] as UserRow[]), allGroups = $bindable([] as { pk: string; name: string }[]), showCreateDialog = $bindable(false), groupPk = '', hasError = false, errorMessage = '' } = $props();
 	let hasUsers = $derived(users.length > 0);
 	let authStates = $state<Record<number, string>>({});
 	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true });
@@ -42,20 +42,19 @@
 		editLoading = true; editError = '';
 		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'admin', editForm.uuid); if (!u) { editLoading = false; return; } passportUrl = u; }
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authentik_pk: editForm.authentikPk, username: editForm.username, surname: editForm.surname, first_name: editForm.firstName, middle_name: editForm.middleName || undefined, display_name: editDisplayName, email: editForm.email, password: editForm.password || undefined, role: 'admin', role_title: editForm.roleTitle || undefined, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); addToast('success', 'Admin updated', editForm.username); closeEdit(); }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editDisplayName, email: editForm.email } : u); addToast('success', 'Admin updated', editForm.username); closeEdit(); }
 		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editLoading = false; }
 	}
 
 	async function handleDelete() { if (!deleteTarget) return; deleteLoading = true; deleteError = ''; try { const r = await fetch(`/api/admin/users/${deleteTarget.pk}?uuid=${deleteTarget.uuid}&role=admin`, { method: 'DELETE' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.filter(u => u.pk !== deleteTarget!.pk); addToast('success', 'Admin deleted', deleteTarget!.name); deleteDialogOpen = false; deleteTarget = null; } catch (e) { deleteError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Delete failed', deleteError); } finally { deleteLoading = false; } }
 
-	async function toggleAuth(pk: number, activate: boolean) { authStates[pk] = 'loading'; try { const r = await fetch(`/api/admin/users/${pk}/${activate ? 'activate' : 'deactivate'}-authentik`, { method: 'POST' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.map(u => u.pk === pk ? { ...u, is_active: activate } : u); addToast('info', activate ? 'Activated' : 'Deactivated', ''); } catch (e) { addToast('error', 'Failed', e instanceof Error ? e.message : ''); } finally { delete authStates[pk]; } }
+	async function toggleAuth(pk: number, activate: boolean) { authStates = { ...authStates, [pk]: 'loading' }; try { const r = await fetch(`/api/admin/users/${pk}/${activate ? 'activate' : 'deactivate'}-authentik`, { method: 'POST' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.map(u => u.pk === pk ? { ...u, is_active: activate } : u); addToast('info', activate ? 'Activated' : 'Deactivated', ''); } catch (e) { addToast('error', 'Failed', e instanceof Error ? e.message : ''); } finally { const { [pk]: _, ...rest } = authStates; authStates = rest; } }
 
 	async function openEditDialog(userObj: UserRow) { editForm = { uuid: userObj.uuid, authentikPk: userObj.pk, username: userObj.username, surname: '', firstName: '', middleName: '', email: userObj.email, password: '', showPassword: false, roleTitle: '', currentPassport: '' }; editDialogOpen = true; editProfileLoading = true; try { const r = await fetch(`/api/admin/users/${userObj.uuid}/profile?role=admin`); const b = await r.json(); const p = b?.data; if (p) { editForm.surname = p.surname ?? ''; editForm.firstName = p.first_name ?? ''; editForm.middleName = p.middle_name ?? ''; editForm.roleTitle = p.role_title ?? ''; editForm.currentPassport = p.passport ?? ''; } } catch { } finally { editProfileLoading = false; } }
 	function openDeleteDialog(userObj: UserRow) { deleteTarget = { pk: userObj.pk, uuid: userObj.uuid, name: userObj.name || userObj.username }; deleteError = ''; deleteDialogOpen = true; }
 </script>
 
-{#if isLoading}<PageSkeleton layout="list" rows={5} />
-{:else if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
+{#if hasError}<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}<StatusCard variant="info" title="No admins yet" description="Create the first admin to get started." />
 {:else}
 	<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role Title</TableHead><TableHead>Auth Status</TableHead><TableHead>Activate</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>

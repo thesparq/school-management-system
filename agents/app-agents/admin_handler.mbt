@@ -181,77 +181,233 @@ pub fn admin_fetch_student_profile(
   config : SharedConfig,
   target_user_id : String,
 ) -> Result[StudentProfileInfo, AppError] {
-  let arr = match db_admin_fetch_student_profile(config, target_user_id) { Ok(a) => a; Err(e) => return Err(e) }
+  let arr = match db_admin_fetch_student_profile(config, target_user_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) => Ok(StudentProfileInfo::{
-        id: match obj.get("id") { Some(String(s)) => s; _ => "" },
-        surname: match obj.get("surname") { Some(String(s)) => s; _ => "" },
-        first_name: match obj.get("first_name") { Some(String(s)) => s; _ => "" },
-        middle_name: match obj.get("middle_name") { Some(String(s)) => Some(s); _ => None },
-        display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
-        date_of_birth: match obj.get("date_of_birth") { Some(String(s)) => s; _ => "" },
-        class_enrolled: match obj.get("class_enrolled") { Some(String(s)) => s; _ => "" },
-        current_class: match obj.get("current_class") { Some(String(s)) => s; _ => "" },
-        passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
-        created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
-      })
+      Object(obj) =>
+        Ok(StudentProfileInfo::{
+          id: match obj.get("id") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          surname: match obj.get("surname") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          first_name: match obj.get("first_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          middle_name: match obj.get("middle_name") {
+            Some(String(s)) => Some(s)
+            _ => None
+          },
+          display_name: match obj.get("display_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          date_of_birth: match obj.get("date_of_birth") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          class_enrolled: match obj.get("class_enrolled") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          current_class: match obj.get("current_class") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          passport: match obj.get("passport") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          created_at: match obj.get("created_at") {
+            Some(String(s)) => s
+            _ => ""
+          },
+        })
       _ => Err(not_found_error("Student profile"))
     }
-  } else { Err(not_found_error("Student profile")) }
+  } else {
+    Err(not_found_error("Student profile"))
+  }
 }
-pub fn admin_fetch_teacher_profile(config : SharedConfig, target_user_id : String) -> Result[TeacherProfileInfo, AppError] {
-  let arr = match db_admin_fetch_teacher_profile(config, target_user_id) { Ok(a) => a; Err(e) => return Err(e) }
+
+///|
+pub fn admin_fetch_teacher_profile(
+  config : SharedConfig,
+  target_user_id : String,
+) -> Result[TeacherProfileInfo, AppError] {
+  let arr = match db_admin_fetch_teacher_profile(config, target_user_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) => Ok(TeacherProfileInfo::{
-        id: match obj.get("id") { Some(String(s)) => s; _ => "" },
-        surname: match obj.get("surname") { Some(String(s)) => s; _ => "" },
-        first_name: match obj.get("first_name") { Some(String(s)) => s; _ => "" },
-        middle_name: match obj.get("middle_name") { Some(String(s)) => Some(s); _ => None },
-        display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
-        qualifications: match obj.get("qualifications") { Some(Array(a)) => { let qs : Array[String] = []; for x in a { match x { String(s) => qs.push(s); _ => () } }; Some(qs) }; _ => None },
-        date_employed: match obj.get("date_employed") { Some(String(s)) => Some(s); _ => None },
-        passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
-        created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
-      })
+      Object(obj) =>
+        Ok(TeacherProfileInfo::{
+          id: match obj.get("id") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          surname: match obj.get("surname") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          first_name: match obj.get("first_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          middle_name: match obj.get("middle_name") {
+            Some(String(s)) => Some(s)
+            _ => None
+          },
+          display_name: match obj.get("display_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          qualifications: match obj.get("qualifications") {
+            Some(Array(a)) => {
+              let qs : Array[String] = []
+              for x in a {
+                match x {
+                  String(s) => qs.push(s)
+                  _ => ()
+                }
+              }
+              Some(qs)
+            }
+            _ => None
+          },
+          date_employed: match obj.get("date_employed") {
+            Some(String(s)) => Some(s)
+            _ => None
+          },
+          passport: match obj.get("passport") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          created_at: match obj.get("created_at") {
+            Some(String(s)) => s
+            _ => ""
+          },
+        })
       _ => Err(not_found_error("Teacher profile"))
     }
-  } else { Err(not_found_error("Teacher profile")) }
+  } else {
+    Err(not_found_error("Teacher profile"))
+  }
 }
-pub fn admin_fetch_admin_profile(config : SharedConfig, target_user_id : String) -> Result[AdminProfileInfo, AppError] {
-  let arr = match db_admin_fetch_admin_profile(config, target_user_id) { Ok(a) => a; Err(e) => return Err(e) }
+
+///|
+pub fn admin_fetch_admin_profile(
+  config : SharedConfig,
+  target_user_id : String,
+) -> Result[AdminProfileInfo, AppError] {
+  let arr = match db_admin_fetch_admin_profile(config, target_user_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) => Ok(AdminProfileInfo::{
-        id: match obj.get("id") { Some(String(s)) => s; _ => "" },
-        surname: match obj.get("surname") { Some(String(s)) => s; _ => "" },
-        first_name: match obj.get("first_name") { Some(String(s)) => s; _ => "" },
-        middle_name: match obj.get("middle_name") { Some(String(s)) => Some(s); _ => None },
-        display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
-        role_title: match obj.get("role_title") { Some(String(s)) => Some(s); _ => None },
-        passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
-        created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
-      })
+      Object(obj) =>
+        Ok(AdminProfileInfo::{
+          id: match obj.get("id") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          surname: match obj.get("surname") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          first_name: match obj.get("first_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          middle_name: match obj.get("middle_name") {
+            Some(String(s)) => Some(s)
+            _ => None
+          },
+          display_name: match obj.get("display_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          role_title: match obj.get("role_title") {
+            Some(String(s)) => Some(s)
+            _ => None
+          },
+          passport: match obj.get("passport") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          created_at: match obj.get("created_at") {
+            Some(String(s)) => s
+            _ => ""
+          },
+        })
       _ => Err(not_found_error("Admin profile"))
     }
-  } else { Err(not_found_error("Admin profile")) }
+  } else {
+    Err(not_found_error("Admin profile"))
+  }
 }
-pub fn admin_fetch_parent_profile(config : SharedConfig, target_user_id : String) -> Result[ParentProfileInfo, AppError] {
-  let arr = match db_admin_fetch_parent_profile(config, target_user_id) { Ok(a) => a; Err(e) => return Err(e) }
+
+///|
+pub fn admin_fetch_parent_profile(
+  config : SharedConfig,
+  target_user_id : String,
+) -> Result[ParentProfileInfo, AppError] {
+  let arr = match db_admin_fetch_parent_profile(config, target_user_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) => Ok(ParentProfileInfo::{
-        id: match obj.get("id") { Some(String(s)) => s; _ => "" },
-        name: match obj.get("name") { Some(String(s)) => s; _ => "" },
-        display_name: match obj.get("display_name") { Some(String(s)) => s; _ => "" },
-        students: match obj.get("students") { Some(Array(a)) => { let sids : Array[String] = []; for x in a { match x { String(s) => sids.push(s); _ => () } }; sids }; _ => [] },
-        passport: match obj.get("passport") { Some(String(s)) => s; _ => "" },
-        created_at: match obj.get("created_at") { Some(String(s)) => s; _ => "" },
-      })
+      Object(obj) =>
+        Ok(ParentProfileInfo::{
+          id: match obj.get("id") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          name: match obj.get("name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          display_name: match obj.get("display_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          students: match obj.get("students") {
+            Some(Array(a)) => {
+              let sids : Array[String] = []
+              for x in a {
+                match x {
+                  String(s) => sids.push(s)
+                  _ => ()
+                }
+              }
+              sids
+            }
+            _ => []
+          },
+          passport: match obj.get("passport") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          created_at: match obj.get("created_at") {
+            Some(String(s)) => s
+            _ => ""
+          },
+        })
       _ => Err(not_found_error("Parent profile"))
     }
-  } else { Err(not_found_error("Parent profile")) }
+  } else {
+    Err(not_found_error("Parent profile"))
+  }
 }
 
 ///|
@@ -310,6 +466,28 @@ pub fn admin_create_credential(
     }
   } else {
     Err(validation_error("Failed to create credential"))
+  }
+}
+
+///|
+pub fn admin_delete_credential(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[Unit, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let id = match obj.get("id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("id is required"))
+  }
+  match db_admin_delete_credential(config, id) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
   }
 }
 
@@ -487,8 +665,6 @@ pub fn admin_create_session_term(
     Some(True) => true
     _ => false
   }
-  cache.invalidate("active_session_term")
-  cache.invalidate("session_terms")
   let arr = if active {
     match
       @api.with_atomic_operation(fn() -> Result[Array[Json], AppError] {
@@ -507,6 +683,8 @@ pub fn admin_create_session_term(
       Err(e) => return Err(e)
     }
   }
+  cache.invalidate("active_session_term")
+  cache.invalidate("session_terms")
   if arr.length() > 0 {
     match arr[0] {
       Object(o) => {
@@ -542,8 +720,6 @@ pub fn admin_activate_session_term(
   config : SharedConfig,
   session_term_id : String,
 ) -> Result[Unit, AppError] {
-  cache.invalidate("active_session_term")
-  cache.invalidate("session_terms")
   match
     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
       match db_admin_deactivate_all_session_terms(config) {
@@ -552,7 +728,11 @@ pub fn admin_activate_session_term(
       }
       db_admin_activate_session_term(config, session_term_id)
     }) {
-    Ok(_) => Ok(())
+    Ok(_) => {
+      cache.invalidate("active_session_term")
+      cache.invalidate("session_terms")
+      Ok(())
+    }
     Err(e) => Err(e)
   }
 }
@@ -804,7 +984,13 @@ fn invalidate_agent_cache(
     }
   }
   if role == "parent" {
-    let _ = ParentAgentClient::scoped(target_id, fn(c) raise @common.AgentError { c.trigger_invalidate_cache(ak, "linked_students") }) catch { _ => () }
+    let _ = ParentAgentClient::scoped(target_id, fn(
+      c,
+    ) raise @common.AgentError {
+      c.trigger_invalidate_cache(ak, "linked_students")
+    }) catch {
+      _ => ()
+    }
   }
 }
 
@@ -1284,7 +1470,6 @@ pub fn admin_create_parent(
 }
 
 ///|
-
 fn apply_edit_saga(
   config : SharedConfig,
   target_user_id : String,
@@ -1339,15 +1524,50 @@ pub fn admin_edit_student(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
-  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
-  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
-  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
-  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
-  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
-  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
-  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
-  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let target_user_id = match obj.get("target_user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("target_user_id is required"))
+  }
+  let pk = match obj.get("authentik_pk") {
+    Some(Number(n, ..)) => n.to_int()
+    _ => return Err(validation_error("authentik_pk is required"))
+  }
+  let password = match obj.get("password") {
+    Some(String(s)) => if s == "" { None } else { Some(s) }
+    _ => None
+  }
+  let username = match obj.get("username") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Username is required"))
+  }
+  let email = match obj.get("email") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Email is required"))
+  }
+  let display_name = match obj.get("display_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("display_name is required"))
+  }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") {
+    Some(Array(arr)) => {
+      let pks : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => pks.push(s)
+          _ => ()
+        }
+      }
+      pks
+    }
+    _ => []
+  }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1447,15 +1667,50 @@ pub fn admin_edit_teacher(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
-  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
-  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
-  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
-  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
-  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
-  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
-  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
-  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let target_user_id = match obj.get("target_user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("target_user_id is required"))
+  }
+  let pk = match obj.get("authentik_pk") {
+    Some(Number(n, ..)) => n.to_int()
+    _ => return Err(validation_error("authentik_pk is required"))
+  }
+  let password = match obj.get("password") {
+    Some(String(s)) => if s == "" { None } else { Some(s) }
+    _ => None
+  }
+  let username = match obj.get("username") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Username is required"))
+  }
+  let email = match obj.get("email") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Email is required"))
+  }
+  let display_name = match obj.get("display_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("display_name is required"))
+  }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") {
+    Some(Array(arr)) => {
+      let pks : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => pks.push(s)
+          _ => ()
+        }
+      }
+      pks
+    }
+    _ => []
+  }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1512,15 +1767,50 @@ pub fn admin_edit_admin(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
-  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
-  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
-  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
-  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
-  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
-  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
-  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
-  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let target_user_id = match obj.get("target_user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("target_user_id is required"))
+  }
+  let pk = match obj.get("authentik_pk") {
+    Some(Number(n, ..)) => n.to_int()
+    _ => return Err(validation_error("authentik_pk is required"))
+  }
+  let password = match obj.get("password") {
+    Some(String(s)) => if s == "" { None } else { Some(s) }
+    _ => None
+  }
+  let username = match obj.get("username") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Username is required"))
+  }
+  let email = match obj.get("email") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Email is required"))
+  }
+  let display_name = match obj.get("display_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("display_name is required"))
+  }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") {
+    Some(Array(arr)) => {
+      let pks : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => pks.push(s)
+          _ => ()
+        }
+      }
+      pks
+    }
+    _ => []
+  }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
     _ => return Err(validation_error("Surname is required"))
@@ -1576,15 +1866,50 @@ pub fn admin_edit_parent(
   config : SharedConfig,
   body_json : String,
 ) -> Result[Unit, AppError] {
-  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON body")) }
-  let obj = match val { Object(o) => o; _ => return Err(validation_error("Body must be an object")) }
-  let target_user_id = match obj.get("target_user_id") { Some(String(s)) => s; _ => return Err(validation_error("target_user_id is required")) }
-  let pk = match obj.get("authentik_pk") { Some(Number(n, ..)) => n.to_int(); _ => return Err(validation_error("authentik_pk is required")) }
-  let password = match obj.get("password") { Some(String(s)) => if s == "" { None } else { Some(s) }; _ => None }
-  let username = match obj.get("username") { Some(String(s)) => s; _ => return Err(validation_error("Username is required")) }
-  let email = match obj.get("email") { Some(String(s)) => s; _ => return Err(validation_error("Email is required")) }
-  let display_name = match obj.get("display_name") { Some(String(s)) => s; _ => return Err(validation_error("display_name is required")) }
-  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") { Some(Array(arr)) => { let pks : Array[String] = []; for item in arr { match item { String(s) => pks.push(s); _ => () } }; pks }; _ => [] }
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let target_user_id = match obj.get("target_user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("target_user_id is required"))
+  }
+  let pk = match obj.get("authentik_pk") {
+    Some(Number(n, ..)) => n.to_int()
+    _ => return Err(validation_error("authentik_pk is required"))
+  }
+  let password = match obj.get("password") {
+    Some(String(s)) => if s == "" { None } else { Some(s) }
+    _ => None
+  }
+  let username = match obj.get("username") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Username is required"))
+  }
+  let email = match obj.get("email") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("Email is required"))
+  }
+  let display_name = match obj.get("display_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("display_name is required"))
+  }
+  let remove_group_pks : Array[String] = match obj.get("remove_group_pks") {
+    Some(Array(arr)) => {
+      let pks : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => pks.push(s)
+          _ => ()
+        }
+      }
+      pks
+    }
+    _ => []
+  }
   let passport_url = match obj.get("passport_url") {
     Some(String(s)) => s
     _ => return Err(validation_error("Passport is required"))

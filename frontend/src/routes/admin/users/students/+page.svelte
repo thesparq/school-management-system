@@ -11,10 +11,9 @@
 
 	let hasError = $state(!!data.error);
 	let errorMessage = $state(data.error ?? '');
-	let isLoading = $state(false);
 </script>
 
 <div class="space-y-6">
 	<PageHeader title="Student Users" createLabel="Create Student" onCreate={() => showCreateDialog = true} />
-	<StudentUserTable bind:users bind:allGroups bind:showCreateDialog groupPk={data.groupPk ?? ''} {isLoading} {hasError} {errorMessage} />
+	<StudentUserTable bind:users bind:allGroups bind:showCreateDialog groupPk={data.groupPk ?? ''} {hasError} {errorMessage} />
 </div>

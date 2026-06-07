@@ -10,6 +10,11 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const studentId = event.url.searchParams.get('student_id') || '';
+	if (!studentId) {
+		return new Response(JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'student_id is required' } }), {
+			status: 400, headers: { 'content-type': 'application/json' }
+		});
+	}
 	const result = await proxyToParent(user.id, '/student-subjects', { student_id: studentId });
 
 	if (result.error) {

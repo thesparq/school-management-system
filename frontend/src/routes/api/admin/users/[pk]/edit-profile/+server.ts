@@ -10,9 +10,14 @@ const EDIT_PATH: Record<string, string> = {
 
 export const POST: RequestHandler = async (event) => {
 	const user = event.locals.user;
-	if (!user || !user.roles.includes('admin')) {
-		return new Response(JSON.stringify({ error: { code: 'AUTH_FAILURE', message: 'Not authorized' } }), {
+	if (!user) {
+		return new Response(JSON.stringify({ error: { code: 'AUTH_FAILURE', message: 'Not authenticated' } }), {
 			status: 401, headers: { 'content-type': 'application/json' }
+		});
+	}
+	if (!user.roles.includes('admin')) {
+		return new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Admin access required' } }), {
+			status: 403, headers: { 'content-type': 'application/json' }
 		});
 	}
 
@@ -44,7 +49,7 @@ export const POST: RequestHandler = async (event) => {
 		authentik_pk: String(authentik_pk),
 		username,
 		email,
-		display_name: display_name || name || '',
+		display_name: display_name || `${first_name || ''} ${surname || ''}`.trim() || username,
 		password: password || undefined,
 		surname: surname || '',
 		first_name: first_name || '',

@@ -177,5 +177,7 @@ pub fn http_request(
   headers : @http_types.Fields,
   body : FixedArray[Byte]?,
 ) -> Result[(UInt, String), String] {
-  http_request_raw(host, http_method, scheme, path, headers, body, 15_000_000_000UL)
+  http_request_raw(
+    host, http_method, scheme, path, headers, body, 15_000_000_000UL,
+  )
 }

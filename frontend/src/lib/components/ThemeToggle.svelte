@@ -4,11 +4,7 @@
 	let dark = $state(false);
 
 	onMount(() => {
-		const stored = localStorage.getItem('theme');
-		if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-			dark = true;
-			document.documentElement.classList.add('dark');
-		}
+		dark = document.documentElement.classList.contains('dark');
 	});
 
 	function toggle() {

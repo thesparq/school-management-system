@@ -9,12 +9,13 @@ export const GET: RequestHandler = async (event) => {
 		});
 	}
 
-	const params: Record<string, string> = {};
-	params.student_id = event.url.searchParams.get("student_id") || "";
-	
-	
-
-	const result = await proxyToParent(user.id, '/student-terms', params);
+	const studentId = event.url.searchParams.get('student_id') || '';
+	if (!studentId) {
+		return new Response(JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'student_id is required' } }), {
+			status: 400, headers: { 'content-type': 'application/json' }
+		});
+	}
+	const result = await proxyToParent(user.id, '/student-terms', { student_id: studentId });
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
@@ -25,7 +26,7 @@ export const GET: RequestHandler = async (event) => {
 
 	try {
 		const parsed = JSON.parse(result.data);
-		return new Response(JSON.stringify({ data: Array.isArray(parsed) ? parsed : parsed }), {
+		return new Response(JSON.stringify({ data: Array.isArray(parsed) ? parsed : [] }), {
 			status: 200, headers: { 'content-type': 'application/json' }
 		});
 	} catch {

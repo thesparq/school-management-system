@@ -18,12 +18,16 @@ export const GET: RequestHandler = async (event) => {
 
 	try {
 		const parsed = JSON.parse(result.data);
+		if (!Array.isArray(parsed)) {
+			console.warn('Parent my-students API returned non-array data:', typeof parsed);
+		}
 		return new Response(JSON.stringify({ data: Array.isArray(parsed) ? parsed : [] }), {
 			status: 200, headers: { 'content-type': 'application/json' }
 		});
 	} catch {
-		return new Response(JSON.stringify({ data: [] }), {
-			status: 200, headers: { 'content-type': 'application/json' }
+		console.error('Failed to parse parent my-students response:', result.data);
+		return new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Invalid response format' } }), {
+			status: 500, headers: { 'content-type': 'application/json' }
 		});
 	}
 };

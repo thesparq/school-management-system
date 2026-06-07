@@ -5,7 +5,7 @@
   import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { page, navigating } from '$app/stores';
-  import { goto } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
 </script>
@@ -16,7 +16,7 @@
   {#if $navigating && (!data.lessons || data.lessons.length === 0)}
     <PageSkeleton layout="list" rows={5} />
   {:else if data.lessonsError}
-    <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => goto('/lms/' + $page.params.subjectId + '/' + $page.params.termId)} />
+    <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => invalidateAll()} />
   {:else if data.lessons.length === 0}
     <StatusCard variant="info" title="No Lessons Available" description="No lessons are available for this term yet." />
   {:else}

@@ -19,7 +19,6 @@
 		allGroups = $bindable([] as { pk: string; name: string }[]),
 		showCreateDialog = $bindable(false),
 		groupPk = '',
-		isLoading = false,
 		hasError = false,
 		errorMessage = ''
 	} = $props();
@@ -147,7 +146,7 @@
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 			const result = await res.json();
 			if (result.error) throw new Error(result.error.message ?? 'Failed to edit student');
-
+			users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editDisplayName, email: editForm.email } : u);
 			addToast('success', 'Student updated', editForm.username);
 			closeEdit();
 		} catch (e) {
@@ -173,7 +172,7 @@
 	}
 
 	async function handleActivate(pk: number) {
-		authStates[pk] = 'loading';
+		authStates = { ...authStates, [pk]: 'loading' };
 		try {
 			const res = await fetch(`/api/admin/users/${pk}/activate-authentik`, { method: 'POST' });
 			const result = await res.json();
@@ -182,11 +181,11 @@
 			addToast('info', 'User activated', '');
 		} catch (e) {
 			addToast('error', 'Activation failed', e instanceof Error ? e.message : '');
-		} finally { delete authStates[pk]; }
+		} finally { const { [pk]: _, ...rest } = authStates; authStates = rest; }
 	}
 
 	async function handleDeactivate(pk: number) {
-		authStates[pk] = 'loading';
+		authStates = { ...authStates, [pk]: 'loading' };
 		try {
 			const res = await fetch(`/api/admin/users/${pk}/deactivate-authentik`, { method: 'POST' });
 			const result = await res.json();
@@ -195,7 +194,7 @@
 			addToast('info', 'User deactivated', '');
 		} catch (e) {
 			addToast('error', 'Deactivation failed', e instanceof Error ? e.message : '');
-		} finally { delete authStates[pk]; }
+		} finally { const { [pk]: _, ...rest } = authStates; authStates = rest; }
 	}
 
 	async function openEditDialog(userObj: UserRow) {
@@ -225,9 +224,7 @@
 	}
 </script>
 
-{#if isLoading}
-	<PageSkeleton layout="list" rows={5} />
-{:else if hasError}
+{#if hasError}
 	<StatusCard variant="error" title="Failed to load users" description={errorMessage} onRetry={handleRetry} />
 {:else if !hasUsers}
 	<StatusCard variant="info" title="No students yet" description="Create the first student to get started." />

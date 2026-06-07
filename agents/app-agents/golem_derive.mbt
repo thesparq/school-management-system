@@ -24,10 +24,10 @@ impl @schema.HasElementSchema for ParentStudentInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ParentStudentInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let display_name :String = @schema.extract_field(e, 1)
-  let current_class :String = @schema.extract_field(e, 2)
-  let subject_count :Int = @schema.extract_field(e, 3)
+  let id : String = @schema.extract_field(e, 0)
+  let display_name : String = @schema.extract_field(e, 1)
+  let current_class : String = @schema.extract_field(e, 2)
+  let subject_count : Int = @schema.extract_field(e, 3)
   { id, display_name, current_class, subject_count }
 }
 
@@ -62,8 +62,8 @@ impl @schema.HasElementSchema for ClassLevelInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ClassLevelInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
   { id, name }
 }
 
@@ -128,16 +128,16 @@ impl @schema.HasElementSchema for StudentProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for StudentProfileInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let surname :String = @schema.extract_field(e, 1)
-  let first_name :String = @schema.extract_field(e, 2)
-  let middle_name :String? = @schema.extract_field(e, 3)
-  let display_name :String = @schema.extract_field(e, 4)
-  let date_of_birth :String = @schema.extract_field(e, 5)
-  let class_enrolled :String = @schema.extract_field(e, 6)
-  let current_class :String = @schema.extract_field(e, 7)
-  let passport :String = @schema.extract_field(e, 8)
-  let created_at :String = @schema.extract_field(e, 9)
+  let id : String = @schema.extract_field(e, 0)
+  let surname : String = @schema.extract_field(e, 1)
+  let first_name : String = @schema.extract_field(e, 2)
+  let middle_name : String? = @schema.extract_field(e, 3)
+  let display_name : String = @schema.extract_field(e, 4)
+  let date_of_birth : String = @schema.extract_field(e, 5)
+  let class_enrolled : String = @schema.extract_field(e, 6)
+  let current_class : String = @schema.extract_field(e, 7)
+  let passport : String = @schema.extract_field(e, 8)
+  let created_at : String = @schema.extract_field(e, 9)
   {
     id,
     surname,
@@ -219,15 +219,15 @@ impl @schema.HasElementSchema for TeacherProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherProfileInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let surname :String = @schema.extract_field(e, 1)
-  let first_name :String = @schema.extract_field(e, 2)
-  let middle_name :String? = @schema.extract_field(e, 3)
-  let display_name :String = @schema.extract_field(e, 4)
-  let qualifications :Array[String]? = @schema.extract_field(e, 5)
-  let date_employed :String? = @schema.extract_field(e, 6)
-  let passport :String = @schema.extract_field(e, 7)
-  let created_at :String = @schema.extract_field(e, 8)
+  let id : String = @schema.extract_field(e, 0)
+  let surname : String = @schema.extract_field(e, 1)
+  let first_name : String = @schema.extract_field(e, 2)
+  let middle_name : String? = @schema.extract_field(e, 3)
+  let display_name : String = @schema.extract_field(e, 4)
+  let qualifications : Array[String]? = @schema.extract_field(e, 5)
+  let date_employed : String? = @schema.extract_field(e, 6)
+  let passport : String = @schema.extract_field(e, 7)
+  let created_at : String = @schema.extract_field(e, 8)
   {
     id,
     surname,
@@ -301,14 +301,14 @@ impl @schema.HasElementSchema for AdminProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for AdminProfileInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let surname :String = @schema.extract_field(e, 1)
-  let first_name :String = @schema.extract_field(e, 2)
-  let middle_name :String? = @schema.extract_field(e, 3)
-  let display_name :String = @schema.extract_field(e, 4)
-  let role_title :String? = @schema.extract_field(e, 5)
-  let passport :String = @schema.extract_field(e, 6)
-  let created_at :String = @schema.extract_field(e, 7)
+  let id : String = @schema.extract_field(e, 0)
+  let surname : String = @schema.extract_field(e, 1)
+  let first_name : String = @schema.extract_field(e, 2)
+  let middle_name : String? = @schema.extract_field(e, 3)
+  let display_name : String = @schema.extract_field(e, 4)
+  let role_title : String? = @schema.extract_field(e, 5)
+  let passport : String = @schema.extract_field(e, 6)
+  let created_at : String = @schema.extract_field(e, 7)
   {
     id,
     surname,
@@ -374,12 +374,12 @@ impl @schema.HasElementSchema for ParentProfileInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for ParentProfileInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
-  let display_name :String = @schema.extract_field(e, 2)
-  let students :Array[String] = @schema.extract_field(e, 3)
-  let passport :String = @schema.extract_field(e, 4)
-  let created_at :String = @schema.extract_field(e, 5)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
+  let display_name : String = @schema.extract_field(e, 2)
+  let students : Array[String] = @schema.extract_field(e, 3)
+  let passport : String = @schema.extract_field(e, 4)
+  let created_at : String = @schema.extract_field(e, 5)
   { id, name, display_name, students, passport, created_at }
 }
 
@@ -420,9 +420,9 @@ impl @schema.HasElementSchema for CredentialInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for CredentialInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
-  let active :Bool = @schema.extract_field(e, 2)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
+  let active : Bool = @schema.extract_field(e, 2)
   { id, name, active }
 }
 
@@ -478,13 +478,13 @@ impl @schema.HasElementSchema for CreateUserResponse with element_schema() {
 
 ///|
 impl @schema.FromExtractor for CreateUserResponse with from_extractor(e) {
-  let pk :Int = @schema.extract_field(e, 0)
-  let uuid :String = @schema.extract_field(e, 1)
-  let username :String = @schema.extract_field(e, 2)
-  let name :String = @schema.extract_field(e, 3)
-  let email :String = @schema.extract_field(e, 4)
-  let is_active :Bool = @schema.extract_field(e, 5)
-  let groups :Array[String] = @schema.extract_field(e, 6)
+  let pk : Int = @schema.extract_field(e, 0)
+  let uuid : String = @schema.extract_field(e, 1)
+  let username : String = @schema.extract_field(e, 2)
+  let name : String = @schema.extract_field(e, 3)
+  let email : String = @schema.extract_field(e, 4)
+  let is_active : Bool = @schema.extract_field(e, 5)
+  let groups : Array[String] = @schema.extract_field(e, 6)
   { pk, uuid, username, name, email, is_active, groups }
 }
 
@@ -526,9 +526,9 @@ impl @schema.HasElementSchema for SessionTermDetail with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SessionTermDetail with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let session :String = @schema.extract_field(e, 1)
-  let term_name :String = @schema.extract_field(e, 2)
+  let id : String = @schema.extract_field(e, 0)
+  let session : String = @schema.extract_field(e, 1)
+  let term_name : String = @schema.extract_field(e, 2)
   { id, session, term_name }
 }
 
@@ -574,11 +574,11 @@ impl @schema.HasElementSchema for SessionTermInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SessionTermInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let session :String = @schema.extract_field(e, 1)
-  let term_name :String = @schema.extract_field(e, 2)
-  let active :Bool = @schema.extract_field(e, 3)
-  let created_at :String = @schema.extract_field(e, 4)
+  let id : String = @schema.extract_field(e, 0)
+  let session : String = @schema.extract_field(e, 1)
+  let term_name : String = @schema.extract_field(e, 2)
+  let active : Bool = @schema.extract_field(e, 3)
+  let created_at : String = @schema.extract_field(e, 4)
   { id, session, term_name, active, created_at }
 }
 
@@ -622,10 +622,10 @@ impl @schema.HasElementSchema for TermSimple with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermSimple with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
-  let active :Bool = @schema.extract_field(e, 2)
-  let sort_order :Int = @schema.extract_field(e, 3)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
+  let active : Bool = @schema.extract_field(e, 2)
+  let sort_order : Int = @schema.extract_field(e, 3)
   { id, name, active, sort_order }
 }
 
@@ -664,9 +664,9 @@ impl @schema.HasElementSchema for SubjectInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for SubjectInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
-  let code :String? = @schema.extract_field(e, 2)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
+  let code : String? = @schema.extract_field(e, 2)
   { id, name, code }
 }
 
@@ -720,13 +720,13 @@ impl @schema.HasElementSchema for StudentProfile with element_schema() {
 
 ///|
 impl @schema.FromExtractor for StudentProfile with from_extractor(e) {
-  let surname :String = @schema.extract_field(e, 0)
-  let first_name :String = @schema.extract_field(e, 1)
-  let middle_name :String? = @schema.extract_field(e, 2)
-  let display_name :String = @schema.extract_field(e, 3)
-  let date_of_birth :String = @schema.extract_field(e, 4)
-  let current_class :String = @schema.extract_field(e, 5)
-  let passport :String = @schema.extract_field(e, 6)
+  let surname : String = @schema.extract_field(e, 0)
+  let first_name : String = @schema.extract_field(e, 1)
+  let middle_name : String? = @schema.extract_field(e, 2)
+  let display_name : String = @schema.extract_field(e, 3)
+  let date_of_birth : String = @schema.extract_field(e, 4)
+  let current_class : String = @schema.extract_field(e, 5)
+  let passport : String = @schema.extract_field(e, 6)
   {
     surname,
     first_name,
@@ -780,10 +780,10 @@ impl @schema.HasElementSchema for TermInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TermInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let name :String = @schema.extract_field(e, 1)
-  let sort_order :Int = @schema.extract_field(e, 2)
-  let active :Bool = @schema.extract_field(e, 3)
+  let id : String = @schema.extract_field(e, 0)
+  let name : String = @schema.extract_field(e, 1)
+  let sort_order : Int = @schema.extract_field(e, 2)
+  let active : Bool = @schema.extract_field(e, 3)
   { id, name, sort_order, active }
 }
 
@@ -834,12 +834,12 @@ impl @schema.HasElementSchema for LessonInfo with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonInfo with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let topic_title :String? = @schema.extract_field(e, 1)
-  let week :Int? = @schema.extract_field(e, 2)
-  let active :Bool? = @schema.extract_field(e, 3)
-  let subject_name :String? = @schema.extract_field(e, 4)
-  let term_name :String? = @schema.extract_field(e, 5)
+  let id : String = @schema.extract_field(e, 0)
+  let topic_title : String? = @schema.extract_field(e, 1)
+  let week : Int? = @schema.extract_field(e, 2)
+  let active : Bool? = @schema.extract_field(e, 3)
+  let subject_name : String? = @schema.extract_field(e, 4)
+  let term_name : String? = @schema.extract_field(e, 5)
   { id, topic_title, week, active, subject_name, term_name }
 }
 
@@ -908,16 +908,16 @@ impl @schema.HasElementSchema for LessonContent with element_schema() {
 
 ///|
 impl @schema.FromExtractor for LessonContent with from_extractor(e) {
-  let id :String = @schema.extract_field(e, 0)
-  let topic_title :String? = @schema.extract_field(e, 1)
-  let week :Int? = @schema.extract_field(e, 2)
-  let subject_name :String? = @schema.extract_field(e, 3)
-  let term_name :String? = @schema.extract_field(e, 4)
-  let objectives :String? = @schema.extract_field(e, 5)
-  let content_sections :String? = @schema.extract_field(e, 6)
-  let key_points :String? = @schema.extract_field(e, 7)
-  let mcq_questions :String? = @schema.extract_field(e, 8)
-  let theoretical_questions :String? = @schema.extract_field(e, 9)
+  let id : String = @schema.extract_field(e, 0)
+  let topic_title : String? = @schema.extract_field(e, 1)
+  let week : Int? = @schema.extract_field(e, 2)
+  let subject_name : String? = @schema.extract_field(e, 3)
+  let term_name : String? = @schema.extract_field(e, 4)
+  let objectives : String? = @schema.extract_field(e, 5)
+  let content_sections : String? = @schema.extract_field(e, 6)
+  let key_points : String? = @schema.extract_field(e, 7)
+  let mcq_questions : String? = @schema.extract_field(e, 8)
+  let theoretical_questions : String? = @schema.extract_field(e, 9)
   {
     id,
     topic_title,
@@ -985,12 +985,12 @@ impl @schema.HasElementSchema for TeacherSubjectPair with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherSubjectPair with from_extractor(e) {
-  let edge_id :String = @schema.extract_field(e, 0)
-  let class_level_id :String = @schema.extract_field(e, 1)
-  let class_level_name :String = @schema.extract_field(e, 2)
-  let subject_id :String = @schema.extract_field(e, 3)
-  let subject_name :String = @schema.extract_field(e, 4)
-  let subject_code :String? = @schema.extract_field(e, 5)
+  let edge_id : String = @schema.extract_field(e, 0)
+  let class_level_id : String = @schema.extract_field(e, 1)
+  let class_level_name : String = @schema.extract_field(e, 2)
+  let subject_id : String = @schema.extract_field(e, 3)
+  let subject_name : String = @schema.extract_field(e, 4)
+  let subject_code : String? = @schema.extract_field(e, 5)
   {
     edge_id,
     class_level_id,
@@ -1040,9 +1040,9 @@ impl @schema.HasElementSchema for TeacherClassGroup with element_schema() {
 
 ///|
 impl @schema.FromExtractor for TeacherClassGroup with from_extractor(e) {
-  let class_level_id :String = @schema.extract_field(e, 0)
-  let class_level_name :String = @schema.extract_field(e, 1)
-  let subjects :Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
+  let class_level_id : String = @schema.extract_field(e, 0)
+  let class_level_name : String = @schema.extract_field(e, 1)
+  let subjects : Array[TeacherSubjectPair] = @schema.extract_field(e, 2)
   { class_level_id, class_level_name, subjects }
 }
 
@@ -1062,7 +1062,7 @@ impl @schema.ToElementValue for TeacherClassGroup with to_element_value(self) {
 
 ///|
 impl @config.ConfigField for SharedConfig with collect_entries(path) {
-  let entries :Array[@common.AgentConfigDeclaration] = []
+  let entries : Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()
   fp0.push("surreal_host")
   entries.append(
@@ -1134,49 +1134,49 @@ impl @config.ConfigField for SharedConfig with collect_entries(path) {
 impl @config.ConfigField for SharedConfig with load(path) {
   let fp0 = path.copy()
   fp0.push("surreal_host")
-  let surreal_host :@config.Secret[String] = @config.load_field(
+  let surreal_host : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp0,
   )
   let fp1 = path.copy()
   fp1.push("surreal_ns")
-  let surreal_ns :@config.Secret[String] = @config.load_field(
+  let surreal_ns : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp1,
   )
   let fp2 = path.copy()
   fp2.push("surreal_database")
-  let surreal_database :@config.Secret[String] = @config.load_field(
+  let surreal_database : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp2,
   )
   let fp3 = path.copy()
   fp3.push("surreal_username")
-  let surreal_username :@config.Secret[String] = @config.load_field(
+  let surreal_username : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp3,
   )
   let fp4 = path.copy()
   fp4.push("surreal_password")
-  let surreal_password :@config.Secret[String] = @config.load_field(
+  let surreal_password : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp4,
   )
   let fp5 = path.copy()
   fp5.push("authentik_host")
-  let authentik_host :@config.Secret[String] = @config.load_field(
+  let authentik_host : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp5,
   )
   let fp6 = path.copy()
   fp6.push("authentik_api_token")
-  let authentik_api_token :@config.Secret[String] = @config.load_field(
+  let authentik_api_token : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp6,
   )
   let fp7 = path.copy()
   fp7.push("auth_key")
-  let auth_key :@config.Secret[String] = @config.load_field(
+  let auth_key : @config.Secret[String] = @config.load_field(
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp7,
   )
@@ -1191,4 +1191,3 @@ impl @config.ConfigField for SharedConfig with load(path) {
     auth_key,
   }
 }
-
