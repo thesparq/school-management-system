@@ -401,6 +401,64 @@ pub fn AdminAgent::get_students_list(
           date_of_birth: "",
           class_enrolled: "",
           current_class: "",
+          class_name: match o.get("class_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          passport: "",
+          created_at: "",
+        })
+      _ => ()
+    }
+  }
+  Ok(items)
+}
+
+///|
+#derive.endpoint(get="/parents/list")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_parents_list(
+  self : Self,
+  incoming_key : String,
+) -> Result[Array[ParentProfileInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let arr = match db_admin_fetch_all_parent_profiles(self.config.value) {
+    Ok(a) => a
+    Err(e) => return Err(e.to_json_string())
+  }
+  let items : Array[ParentProfileInfo] = []
+  for item in arr {
+    match item {
+      Object(o) =>
+        items.push(ParentProfileInfo::{
+          id: match o.get("id") {
+            Some(String(s)) => s
+            _ => continue
+          },
+          name: match o.get("name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          display_name: match o.get("display_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          students: match o.get("students") {
+            Some(Array(a)) => {
+              let ids : Array[String] = []
+              for e in a {
+                match e {
+                  String(s) => ids.push(s)
+                  _ => ()
+                }
+              }
+              ids
+            }
+            _ => []
+          },
           passport: "",
           created_at: "",
         })
@@ -519,7 +577,9 @@ pub fn AdminAgent::get_active_session_term(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  match admin_fetch_active_session_term_detail(self.config.value) {
+  let now = @wallClock.now().seconds
+  match
+    admin_fetch_active_session_term_detail(self.cache, self.config.value, now) {
     Ok(detail) => Ok(detail)
     Err(e) => Err(e.to_json_string())
   }
@@ -593,6 +653,24 @@ pub fn AdminAgent::activate_session_term(
   match
     admin_activate_session_term(self.cache, self.config.value, session_term_id) {
     Ok(_) => Ok("ok")
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/edit-session-term")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::edit_session_term(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[SessionTermInfo, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_edit_session_term(self.cache, self.config.value, body_json) {
+    Ok(info) => Ok(info)
     Err(e) => Err(e.to_json_string())
   }
 }
