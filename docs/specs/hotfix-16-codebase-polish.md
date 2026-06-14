@@ -53,3 +53,28 @@ No way to change `session_name` or `term` after creation.
 - Backend: `db_admin.mbt` (+1 fn), `admin_handler.mbt` (+1 fn), `admin_agent.mbt` (+1 endpoint)
 - Frontend: `edit/+server.ts` (new proxy), `+page.svelte` (edit button + dialog)
 
+### Issue #2: Stale Active Session Term Badge
+
+**Root cause:** The active session term badge in the top bar fetched data once in `onMount`.
+After editing/activating a session term, the badge stayed stale because `onMount` never re-runs
+in a persistent layout. The backend cache was correctly invalidated, but the frontend never asked
+for fresh data.
+
+**Fix:** Replaced `onMount` fetch with `$effect` tracking `$page.url.pathname`.
+On every navigation, the badge re-fetches `/api/admin/active-session-term`.
+The agent responds from its 10-min TTL cache after the first post-invalidation fetch,
+so subsequent navigations are instant (no DB hit).
+
+**Change toast:** When the response differs from the previously known value
+(both non-null, different `id`), an info toast notifies the user:
+"Active session term updated — {session_name} — {term_name}"
+
+**File changed:** `frontend/src/routes/+layout.svelte`
+  - Imported `addToast` from `$lib/stores/toast`
+  - Split `onMount`: kept only the `window.fetch` 401 interceptor
+  - Added `$effect` watching `$page.url.pathname` for reactive badge fetch
+
+**Verification:** `pnpm check` — 0 errors, 38 warnings (pre-existing)
+
+**Status: Complete.** 1 commit.
+

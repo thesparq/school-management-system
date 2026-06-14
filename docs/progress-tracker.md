@@ -4,6 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-16 Issue #2: Stale Active Session Badge — Complete**
+  Replaced one-shot `onMount` active session term fetch with `$effect` tracking `$page.url.pathname`. Badge now re-fetches on every navigation; agent's 10-min cache absorbs DB load after first post-invalidation fetch. Info toast shown when active session term changes: "Active session term updated — {name} — {term}". `+layout.svelte` only — 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
+
 - **✅ HF-16 Issue #1: Session Term Editing — Complete**
   Added edit capability to session terms (all terms, regardless of active status). Backend: `db_admin_edit_session_term` in `db_admin.mbt` (UPDATE + SELECT with dot-traversal), `admin_edit_session_term` handler in `admin_handler.mbt` (parse/validate/DB-query/cache-invalidate), `POST /edit-session-term` endpoint in `admin_agent.mbt`. Frontend: `POST /api/admin/session-terms/edit` proxy route, "Edit" button on every row + edit dialog pre-populated with existing `session_name` and `term_id`. Build: `moon check --target wasm` 0 errors, `pnpm check` 0 errors. 5 commits. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 
