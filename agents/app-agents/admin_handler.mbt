@@ -221,6 +221,10 @@ pub fn admin_fetch_student_profile(
             Some(String(s)) => s
             _ => ""
           },
+          class_name: match obj.get("class_name") {
+            Some(String(s)) => s
+            _ => ""
+          },
           passport: match obj.get("passport") {
             Some(String(s)) => s
             _ => ""
@@ -521,17 +525,51 @@ pub fn admin_fetch_active_session_term_id(
 }
 
 ///|
+fn try_parse_session_term_detail(json_str : String) -> SessionTermDetail? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val {
+    Object(obj) =>
+      Some(SessionTermDetail::{
+        id: match obj.get("id") {
+          Some(String(s)) => s
+          _ => return None
+        },
+        session_name: match obj.get("session_name") {
+          Some(String(s)) => s
+          _ => return None
+        },
+        term_name: match obj.get("term_name") {
+          Some(String(s)) => s
+          _ => return None
+        },
+      })
+    _ => None
+  }
+}
+
+///|
 pub fn admin_fetch_active_session_term_detail(
+  cache : CacheSystem,
   config : SharedConfig,
+  now : UInt64,
 ) -> Result[SessionTermDetail, AppError] {
+  let cache_key = "active_session_term_detail"
+  match cache.get(cache_key, now) {
+    Some(json_str) =>
+      match try_parse_session_term_detail(json_str) {
+        Some(detail) => return Ok(detail)
+        None => ()
+      }
+    None => ()
+  }
   let arr = match db_admin_fetch_active_session_term_detail(config) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
   if arr.length() > 0 {
     match arr[0] {
-      Object(obj) =>
-        Ok(SessionTermDetail::{
+      Object(obj) => {
+        let detail = SessionTermDetail::{
           id: match obj.get("id") {
             Some(String(s)) => s
             _ => ""
@@ -544,7 +582,10 @@ pub fn admin_fetch_active_session_term_detail(
             Some(String(s)) => s
             _ => ""
           },
-        })
+        }
+        cache.set(cache_key, detail.to_json().stringify(), CACHE_TTL, [], now)
+        Ok(detail)
+      }
       _ => Err(not_found_error("Active session term"))
     }
   } else {
@@ -738,6 +779,67 @@ pub fn admin_activate_session_term(
 }
 
 ///|
+pub fn admin_edit_session_term(
+  cache : CacheSystem,
+  config : SharedConfig,
+  body_json : String,
+) -> Result[SessionTermInfo, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let id = match obj.get("id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("id is required"))
+  }
+  let session_name = match obj.get("session_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("session_name is required"))
+  }
+  let term_id = match obj.get("term_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("term_id is required"))
+  }
+  let arr = match db_admin_edit_session_term(config, id, session_name, term_id) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  cache.invalidate("active_session_term")
+  cache.invalidate("active_session_term_detail")
+  cache.invalidate("session_terms")
+  if arr.length() > 0 {
+    match arr[0] {
+      Object(o) => {
+        let term_name = match o.get("term_name") {
+          Some(String(s)) => s
+          _ => ""
+        }
+        let created_at_val = match o.get("created_at") {
+          Some(String(s)) => s
+          _ => ""
+        }
+        Ok(SessionTermInfo::{
+          id,
+          session_name,
+          term_name,
+          active: match o.get("active") {
+            Some(True) => true
+            _ => false
+          },
+          created_at: created_at_val,
+        })
+      }
+      _ => Err(validation_error("Failed to edit session term"))
+    }
+  } else {
+    Err(validation_error("Failed to edit session term"))
+  }
+}
+
+///|
 pub fn admin_toggle_term(
   config : SharedConfig,
   term_id : String,
@@ -906,21 +1008,16 @@ fn create_user_saga(
     (Int, String),
     AppError,
   ] {
-    let (pk_inner, uuid_inner) = match
+    match
       authentik_create_user(
         config, username, display_name, email, password, is_active, group_pk,
       ) {
       Ok(r) => {
         created_pk = r.0
-        r
+        Ok(r)
       }
-      Err(e) => return Err(e)
+      Err(e) => Err(e)
     }
-    match authentik_set_password(config, pk_inner, password) {
-      Ok(_) => ()
-      Err(e) => return Err(e)
-    }
-    Ok((pk_inner, uuid_inner))
   })
   match saga_result {
     Ok(r) => Ok(r)
@@ -1424,6 +1521,19 @@ pub fn admin_create_parent(
     Some(String(s)) => s
     _ => ""
   }
+  let student_ids : Array[String] = match obj.get("students") {
+    Some(Array(arr)) => {
+      let ids : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => ids.push(s)
+          _ => ()
+        }
+      }
+      ids
+    }
+    _ => []
+  }
   match validate_username(username) {
     Err(e) => return Err(e)
     Ok(_) => ()
@@ -1448,6 +1558,10 @@ pub fn admin_create_parent(
     Err(e) => return Err(e)
     Ok(_) => ()
   }
+  match validate_student_ids_not_empty(student_ids) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
   let (pk, uuid) = match
     create_user_saga(
       config, username, name, email, password, is_active, "parent", group_pk,
@@ -1457,7 +1571,11 @@ pub fn admin_create_parent(
   }
   match
     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
-      db_admin_create_parent_profile(config, uuid, name, passport_url)
+      match db_admin_create_parent_profile(config, uuid, name, passport_url) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+      db_admin_set_parent_students(config, uuid, student_ids)
     }) {
     Ok(_) => ()
     Err(e) => {
@@ -1910,6 +2028,19 @@ pub fn admin_edit_parent(
     }
     _ => []
   }
+  let student_ids : Array[String] = match obj.get("students") {
+    Some(Array(arr)) => {
+      let ids : Array[String] = []
+      for item in arr {
+        match item {
+          String(s) => ids.push(s)
+          _ => ()
+        }
+      }
+      ids
+    }
+    _ => []
+  }
   let passport_url = match obj.get("passport_url") {
     Some(String(s)) => s
     _ => return Err(validation_error("Passport is required"))
@@ -1924,9 +2055,14 @@ pub fn admin_edit_parent(
   }
   match
     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
-      db_admin_update_parent_profile(
-        config, target_user_id, display_name, passport_url,
-      )
+      match
+        db_admin_update_parent_profile(
+          config, target_user_id, display_name, passport_url,
+        ) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+      db_admin_set_parent_students(config, target_user_id, student_ids)
     }) {
     Ok(_) => ()
     Err(e) => return Err(e)
