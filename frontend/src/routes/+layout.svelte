@@ -12,6 +12,7 @@
   import { page, navigating } from '$app/stores';
   import SidebarLogo from '$lib/components/SidebarLogo.svelte';
   import { Badge } from '$lib/components/ui/badge';
+  import { addToast } from '$lib/stores/toast';
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import type { LayoutData } from './$types';
@@ -22,7 +23,7 @@
   let sidebarOpen = $state(true);
   let isLoggingOut = $state(false);
   let error = $state('');
-  let activeSessionTerm = $state<string | null>(null);
+  let activeSessionTerm = $state<{ id: string; session_name: string; term_name: string } | null>(null);
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
@@ -64,18 +65,10 @@
 	}
 
 	onMount(() => {
-		fetch('/api/student/active-session-term').then(async (res) => {
-			if (res.ok) {
-				const json = await res.json();
-				activeSessionTerm = json.data ?? null;
-			}
-		}).catch(() => {});
-
 		const origFetch = window.fetch.bind(window);
 		window.fetch = async (input, init) => {
 			const res = await origFetch(input, init);
 			if (res.status === 401) {
-				// Only intercept same-origin requests (not third-party APIs)
 				const reqUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : '';
 				const isSameOrigin = !reqUrl || new URL(reqUrl, window.location.origin).origin === window.location.origin;
 				if (isSameOrigin) {
@@ -87,7 +80,6 @@
 							return new Promise<Response>(() => {});
 						}
 					} catch {
-						// Response body not JSON — not our structured 401, pass through
 					}
 				}
 			}
@@ -96,6 +88,20 @@
 		return () => {
 			window.fetch = origFetch;
 		};
+	});
+
+	$effect(() => {
+		const _ = $page.url.pathname;
+		fetch('/api/admin/active-session-term').then(async (res) => {
+			if (res.ok) {
+				const json = await res.json();
+				const newTerm = json.data ?? null;
+				if (activeSessionTerm && newTerm && activeSessionTerm.id !== newTerm.id) {
+					addToast('info', 'Active session term updated', `${newTerm.session_name} — ${newTerm.term_name}`);
+				}
+				activeSessionTerm = newTerm;
+			}
+		}).catch(() => {});
 	});
 </script>
 
@@ -240,8 +246,8 @@
       <div class="flex-1"></div>
 
 			{#if activeSessionTerm}
-				<Badge class="text-xs bg-secondary-100 text-secondary-700 border-secondary-300 dark:bg-secondary-900 dark:text-secondary-300 dark:border-secondary-700">
-					{activeSessionTerm}
+				<Badge class="text-sm bg-secondary-100 text-secondary-700 border-secondary-300 dark:bg-secondary-900 dark:text-secondary-300 dark:border-secondary-700">
+					{activeSessionTerm.session_name} &mdash; {activeSessionTerm.term_name}
 				</Badge>
 			{/if}
 
