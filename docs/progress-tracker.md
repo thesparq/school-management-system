@@ -4,6 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-16 Issue #7: Passport Image Loading Spinner — Complete**
+  Added `imageLoading` state to `PassportUpload.svelte`. While the R2 passport image loads in edit mode, shows a centered spinner in a `bg-muted` placeholder instead of a broken/empty `<img>`. `onload`/`onerror` hide the spinner. Local files skip the spinner (ObjectURL is instant). 1 file, 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
+
 - **✅ HF-16 Issue #6: Stage-Aware Loading + Class Column Fix — Complete**
   Replaced `createLoading`/`editLoading` booleans with `createStep`/`editStep` state enums across all 4 user tables. Button text now reflects each stage: "Uploading passport..." → "Creating student..." → "Create Student". Edit only shows upload step if photo changed. Class column (StudentUserTable) and Students column (ParentUserTable) now show `<Skeleton>` while maps load instead of flashing `—`. After create/edit, maps are updated directly from form data — instant, zero-network-cost feedback. 4 files, 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 

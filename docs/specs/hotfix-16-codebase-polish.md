@@ -186,3 +186,20 @@ Edit flow: `"Uploading passport..."` (only if photo changed) → `"Saving..."` �
 
 **Status: Complete.** 1 commit.
 
+### Issue #7: Passport Image Loading Spinner in Edit Modal
+
+**Problem:** When opening the edit modal, the passport preview `<img>` rendered immediately
+with the R2 URL as `src`. While the browser fetched the remote image, it showed a
+broken/empty placeholder — unpolished UX.
+
+**Fix:** Added `imageLoading` state (`true` initially, reset to `true` when `currentUrl`
+changes). While loading, shows a centered spinner in a `bg-muted` placeholder box
+(`h-48 w-48`). On `onload`/`onerror`, hides the spinner and shows the image.
+Local file uploads via `ObjectURL` skip the spinner (instant render).
+
+**Files changed:** `PassportUpload.svelte` only
+
+**Verification:** `pnpm check` — 0 errors
+
+**Status: Complete.** 1 commit.
+
