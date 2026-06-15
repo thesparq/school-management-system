@@ -43,6 +43,17 @@ function errorResult(code: string, message: string): ProxyResult {
 	return { error: { code, message } };
 }
 
+function unwrapJsonMessage(message: string): string {
+	try {
+		const parsed = JSON.parse(message);
+		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+			if (parsed.message) return parsed.message;
+			if (parsed.errors?.[0]) return parsed.errors[0];
+		}
+	} catch {}
+	return message;
+}
+
 function extractErrorFromBody(raw: string): BackendError | null {
 	try {
 		const parsed = JSON.parse(raw);
@@ -55,7 +66,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 				if (inner.code) {
 					return {
 						code: inner.code,
-						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						message: unwrapJsonMessage(inner.message || inner.errors?.[0] || 'Unknown error'),
 						detail: inner.debug ?? null
 					};
 				}
@@ -72,7 +83,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 				if (inner.code) {
 					return {
 						code: inner.code,
-						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						message: unwrapJsonMessage(inner.message || inner.errors?.[0] || 'Unknown error'),
 						detail: inner.debug ?? null
 					};
 				}
@@ -87,7 +98,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 		if (parsed.code) {
 			return {
 				code: parsed.code,
-				message: parsed.message || parsed.errors?.[0] || 'Unknown error',
+				message: unwrapJsonMessage(parsed.message || parsed.errors?.[0] || 'Unknown error'),
 				detail: parsed.debug ?? null
 			};
 		}
@@ -96,7 +107,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 		if (parsed.error?.code) {
 			return {
 				code: parsed.error.code,
-				message: parsed.error.message,
+				message: unwrapJsonMessage(parsed.error.message),
 				detail: parsed.error.debug || parsed.error.detail || null
 			};
 		}
