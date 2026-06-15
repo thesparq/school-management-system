@@ -4,6 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-16 Issue #3: Toggle Term Active + Toast JSON Rendering — Complete**
+  **3a:** Fixed `db_teacher_update_record_active` in `db_teacher.mbt` — boolean `active` was passed via bindings which always wrap values in quotes, making SurrealDB see the string `"false"` instead of boolean `false`. Fixed by inlining boolean literal directly into SQL (same pattern as `db_admin_create_session_term`). **3b:** Added `unwrapJsonMessage()` helper in `golem.ts` that recursively unwraps nested JSON error messages. Applied at all 4 extraction points in `extractErrorFromBody`. Raw JSON like `{"code":"SURREALDB_ERROR",...}` now displays as clean message "Database query failed". Build: `moon check` 0 errors, `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
+
 - **✅ HF-16 Issue #2: Stale Active Session Badge — Complete**
   Replaced one-shot `onMount` active session term fetch with `$effect` tracking `$page.url.pathname`. Badge now re-fetches on every navigation; agent's 10-min cache absorbs DB load after first post-invalidation fetch. Info toast shown when active session term changes: "Active session term updated — {name} — {term}". `+layout.svelte` only — 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 

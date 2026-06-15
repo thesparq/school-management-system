@@ -78,3 +78,32 @@ so subsequent navigations are instant (no DB hit).
 
 **Status: Complete.** 1 commit.
 
+### Issue #3: Toggle Term Active Fails + Toast JSON Rendering
+
+**3a — Toggle term active fails with boolean type error:**
+Root cause: `db_teacher_update_record_active` in `db_teacher.mbt` converted `Bool` to string
+`"true"`/`"false"` and passed it via bindings. `surreal_query_internal` wraps all binding values
+in double-quotes, so SurrealDB received `active="false"` (JSON string) instead of `active=false`
+(JSON boolean). The schema field is `TYPE bool`, so SurrealDB rejected it.
+
+Fix: Inlined `active_lit = "true"/"false"` directly into the SQL string (like
+`db_admin_create_session_term` already does for booleans), removed `active` from bindings.
+
+**3b — Toasts render raw JSON instead of user-friendly message:**
+Root cause: `extractErrorFromBody` in `golem.ts` didn't detect when `message` was itself
+a nested JSON error string. SurrealDB errors get double-wrapped — the agent's `AppError.message`
+is set to the raw SurrealDB error JSON. This raw JSON propagated through `extractErrorFromBody`,
+through API routes, through `throw new Error()` in Svelte pages, all the way to the toast display.
+
+Fix: Added `unwrapJsonMessage()` helper in `golem.ts` that checks if a message string is valid JSON
+and recursively extracts `message` or `errors[0]` from it. Applied at all 4 extraction points in
+`extractErrorFromBody` (Formats 0–3).
+
+**Files changed:**
+- `agents/app-agents/db_teacher.mbt` — boolean inline into SQL
+- `frontend/src/lib/server/golem.ts` — `unwrapJsonMessage` + apply to all formats
+
+**Verification:** `moon check --target wasm` 0 errors, `pnpm check` 0 errors
+
+**Status: Complete.** 1 commit.
+
