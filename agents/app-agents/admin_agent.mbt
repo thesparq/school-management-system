@@ -350,18 +350,18 @@ pub fn AdminAgent::create_credential(
 }
 
 ///|
-#derive.endpoint(post="/delete-credential")
+#derive.endpoint(post="/delete-credential?id={id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
 pub fn AdminAgent::delete_credential(
   self : Self,
   incoming_key : String,
-  body_json : String,
+  id : String,
 ) -> Result[String, String] {
   match require_auth(self.config.value, incoming_key) {
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  match admin_delete_credential(self.config.value, body_json) {
+  match admin_delete_credential(self.config.value, id) {
     Ok(_) => Ok("ok")
     Err(e) => Err(e.to_json_string())
   }

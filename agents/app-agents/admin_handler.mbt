@@ -476,18 +476,10 @@ pub fn admin_create_credential(
 ///|
 pub fn admin_delete_credential(
   config : SharedConfig,
-  body_json : String,
+  id : String,
 ) -> Result[Unit, AppError] {
-  let val = @json.parse(body_json) catch {
-    _ => return Err(validation_error("Invalid JSON body"))
-  }
-  let obj = match val {
-    Object(o) => o
-    _ => return Err(validation_error("Body must be an object"))
-  }
-  let id = match obj.get("id") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("id is required"))
+  if id == "" {
+    return Err(validation_error("id is required"))
   }
   match db_admin_delete_credential(config, id) {
     Ok(_) => Ok(())

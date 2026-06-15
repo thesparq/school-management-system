@@ -73,7 +73,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 			} catch {
 				// inner wasn't valid JSON
 			}
-			return { code: 'AGENT_ERROR', message: parsed };
+			return { code: 'AGENT_ERROR', message: unwrapJsonMessage(parsed) };
 		}
 
 		// Format 1: Golem Err envelope {"Err": "<inner_json>"}
@@ -90,7 +90,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 			} catch {
 				// inner wasn't valid JSON — use raw Err string
 			}
-			return { code: 'AGENT_ERROR', message: parsed.Err };
+			return { code: 'AGENT_ERROR', message: unwrapJsonMessage(parsed.Err) };
 		}
 
 		// Format 2: Top-level {"code":"...","errors":[...]}
@@ -137,7 +137,7 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 		if (!res.ok) {
 			const extracted = extractErrorFromBody(raw);
 			if (extracted) return errorResult(extracted.code, extracted.message);
-			return errorResult('GATEWAY_ERROR', raw);
+			return errorResult('GATEWAY_ERROR', unwrapJsonMessage(raw));
 		}
 
 		// Gate 2: 2xx — parse Golem envelope
@@ -161,7 +161,7 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 					const errText = typeof errValue === 'string' ? errValue : JSON.stringify(errValue);
 					const extracted = extractErrorFromBody(errText);
 					if (extracted) return errorResult(extracted.code, extracted.message);
-					return errorResult('AGENT_ERROR', errText);
+					return errorResult('AGENT_ERROR', unwrapJsonMessage(errText));
 				}
 			}
 		} catch {
