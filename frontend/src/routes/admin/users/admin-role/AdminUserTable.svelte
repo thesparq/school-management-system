@@ -17,9 +17,9 @@
 	let hasUsers = $derived(users.length > 0);
 	let authStates = $state<Record<number, string>>({});
 	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true });
-	let createLoading = $state(false); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
+	let createStep = $state<'uploading' | 'creating' | null>(null); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', currentPassport: '' });
-	let editLoading = $state(false); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
+	let editStep = $state<'uploading' | 'saving' | null>(null); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
 	let deleteTarget = $state<{ pk: number; uuid: string; name: string } | null>(null); let deleteLoading = $state(false); let deleteError = $state(''); let deleteDialogOpen = $state(false);
 
 	let displayName = $derived([createForm.surname, createForm.firstName, createForm.middleName].filter(Boolean).join(' '));
@@ -31,19 +31,22 @@
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	async function handleCreate() {
-		createLoading = true; createError = '';
-		try { let passportUrl = ''; if (passportFile && passportUpload) { const u = await passportUpload.getPassportPublicUrl(passportFile, 'admin', ''); if (!u) { createLoading = false; return; } passportUrl = u; }
+		createStep = 'uploading'; createError = '';
+		try { let passportUrl = ''; if (passportFile && passportUpload) { const u = await passportUpload.getPassportPublicUrl(passportFile, 'admin', crypto.randomUUID()); if (!u) { createStep = null; return; } passportUrl = u; }
+			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
+			createStep = 'creating';
 			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: createForm.username, surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'admin', role_title: createForm.roleTitle || undefined, passport_url: passportUrl }) });
 			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; addToast('success', 'Admin created', createForm.username); closeCreate(); }
-		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createLoading = false; }
+		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
 
 	async function handleEdit() {
-		editLoading = true; editError = '';
-		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'admin', editForm.uuid); if (!u) { editLoading = false; return; } passportUrl = u; }
+		editStep = 'saving'; editError = '';
+		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { editStep = 'uploading'; const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'admin', editForm.uuid); if (!u) { editStep = null; return; } passportUrl = u; editStep = 'saving'; }
+			if (!passportUrl) { editError = 'Passport photo is required'; editStep = null; return; }
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authentik_pk: editForm.authentikPk, username: editForm.username, surname: editForm.surname, first_name: editForm.firstName, middle_name: editForm.middleName || undefined, display_name: editDisplayName, email: editForm.email, password: editForm.password || undefined, role: 'admin', role_title: editForm.roleTitle || undefined, passport_url: passportUrl }) });
 			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editDisplayName, email: editForm.email } : u); addToast('success', 'Admin updated', editForm.username); closeEdit(); }
-		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editLoading = false; }
+		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editStep = null; }
 	}
 
 	async function handleDelete() { if (!deleteTarget) return; deleteLoading = true; deleteError = ''; try { const r = await fetch(`/api/admin/users/${deleteTarget.pk}?uuid=${deleteTarget.uuid}&role=admin`, { method: 'DELETE' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.filter(u => u.pk !== deleteTarget!.pk); addToast('success', 'Admin deleted', deleteTarget!.name); deleteDialogOpen = false; deleteTarget = null; } catch (e) { deleteError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Delete failed', deleteError); } finally { deleteLoading = false; } }
@@ -69,10 +72,10 @@
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Role Title</Label><Input bind:value={createForm.roleTitle} placeholder="e.g. Bursar, Receptionist" /></div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createStep !== null} onFileSelect={(f) => passportFile = f} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
 			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createStep !== null}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createStep !== null} disabled={createStep !== null}>{createStep === 'uploading' ? 'Uploading passport...' : createStep === 'creating' ? 'Creating admin...' : 'Create Admin'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>
@@ -85,9 +88,9 @@
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>
 			<div class="space-y-2"><Label>Role Title</Label><Input bind:value={editForm.roleTitle} /></div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editStep !== null} onFileSelect={(f) => editPassportFile = f} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading} disabled={editLoading || editProfileLoading}>Save</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editStep !== null}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editStep !== null} disabled={editStep !== null || editProfileLoading}>{editStep === 'uploading' ? 'Uploading passport...' : editStep === 'saving' ? 'Saving...' : 'Save'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>

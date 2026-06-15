@@ -6,6 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '$lib/components/ui/dialog';
@@ -27,15 +28,17 @@
 	let authStates = $state<Record<number, string>>({});
 	let classLevels = $state<{ name: string }[]>([]);
 	let classLevelsLoading = $state(true);
+	let studentClassMap = $state<Record<string, string>>({});
+	let classMapLoading = $state(true);
 
 	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true });
-	let createLoading = $state(false);
+	let createStep = $state<'uploading' | 'creating' | null>(null);
 	let createError = $state('');
 	let passportFile = $state<File | null>(null);
 	let passportUpload: PassportUpload | undefined = $state();
 
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', currentPassport: '' });
-	let editLoading = $state(false);
+	let editStep = $state<'uploading' | 'saving' | null>(null);
 	let editError = $state('');
 	let editDialogOpen = $state(false);
 	let editProfileLoading = $state(false);
@@ -71,22 +74,36 @@
 			const body = await res.json();
 			classLevels = body?.data ?? [];
 		} catch { classLevels = []; } finally { classLevelsLoading = false; }
+
+		try {
+			const res = await fetch('/api/admin/students/list');
+			const body = await res.json();
+			const profiles: { id: string; class_name: string }[] = body?.data ?? [];
+			const map: Record<string, string> = {};
+			for (const p of profiles) {
+				const strippedId = p.id.replace(/^student_profile:/, '');
+				if (strippedId && p.class_name) map[strippedId] = p.class_name;
+			}
+			studentClassMap = map;
+		} catch { studentClassMap = {}; } finally { classMapLoading = false; }
 	});
 
 	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	async function handleCreate() {
-		createLoading = true; createError = '';
+		createStep = 'uploading'; createError = '';
 		try {
+			if (!passportFile) { createError = 'Passport photo is required'; createStep = null; return; }
 			let passportUrl = '';
 			const file = passportFile;
 			if (file && passportUpload) {
-				const url = await passportUpload.getPassportPublicUrl(file, 'student', '');
-				if (!url) { createLoading = false; return; }
+				const url = await passportUpload.getPassportPublicUrl(file, 'student', crypto.randomUUID());
+				if (!url) { createStep = null; return; }
 				passportUrl = url;
 			}
 
+			createStep = 'creating';
 			const body = {
 				username: createForm.username,
 				surname: createForm.surname,
@@ -109,24 +126,28 @@
 
 			const newUser = result.data;
 			users = [...users, { pk: newUser.pk, uuid: newUser.uuid, username: newUser.username, name: newUser.name, email: newUser.email, groups: newUser.groups, is_active: newUser.is_active }];
+			if (createForm.classLevel) studentClassMap = { ...studentClassMap, [newUser.uuid]: createForm.classLevel };
 			addToast('success', 'Student created', createForm.username);
 			closeCreate();
 		} catch (e) {
 			createError = e instanceof Error ? e.message : 'Failed to create student';
 			addToast('error', 'Create failed', createError);
-		} finally { createLoading = false; }
+		} finally { createStep = null; }
 	}
 
 	async function handleEdit() {
-		editLoading = true; editError = '';
+		editStep = 'saving'; editError = '';
 		try {
 			let passportUrl = editForm.currentPassport;
 			const file = editPassportFile;
 			if (file && editPassportUpload) {
+				editStep = 'uploading';
 				const url = await editPassportUpload.getPassportPublicUrl(file, 'student', editForm.uuid);
-				if (!url) { editLoading = false; return; }
+				if (!url) { editStep = null; return; }
 				passportUrl = url;
+				editStep = 'saving';
 			}
+			if (!passportUrl) { editError = 'Passport photo is required'; editStep = null; return; }
 
 			const body = {
 				authentik_pk: editForm.authentikPk,
@@ -147,12 +168,13 @@
 			const result = await res.json();
 			if (result.error) throw new Error(result.error.message ?? 'Failed to edit student');
 			users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editDisplayName, email: editForm.email } : u);
+			if (editForm.classLevel) studentClassMap = { ...studentClassMap, [editForm.uuid]: editForm.classLevel };
 			addToast('success', 'Student updated', editForm.username);
 			closeEdit();
 		} catch (e) {
 			editError = e instanceof Error ? e.message : 'Failed to edit student';
 			addToast('error', 'Edit failed', editError);
-		} finally { editLoading = false; }
+		} finally { editStep = null; }
 	}
 
 	async function handleDelete() {
@@ -209,7 +231,7 @@
 				editForm.surname = profile.surname ?? '';
 				editForm.firstName = profile.first_name ?? '';
 				editForm.middleName = profile.middle_name ?? '';
-				editForm.dob = profile.date_of_birth ?? '';
+				editForm.dob = profile.date_of_birth ? (profile.date_of_birth.length >= 10 ? profile.date_of_birth.substring(0, 10) : profile.date_of_birth) : '';
 				editForm.classLevel = profile.current_class ?? '';
 				editForm.currentPassport = profile.passport ?? '';
 			}
@@ -246,7 +268,13 @@
 				<TableRow>
 					<TableCell>{userObj.name || userObj.username} {#if userRole === 'SuperAdmin'}<Badge variant="secondary" class="ml-1 text-xs">SuperAdmin</Badge>{/if}</TableCell>
 					<TableCell>{userObj.email || '\u2014'}</TableCell>
-					<TableCell></TableCell>
+					<TableCell>
+					{#if classMapLoading}
+						<Skeleton class="h-4 w-20" />
+					{:else}
+						{studentClassMap[userObj.uuid] || '\u2014'}
+					{/if}
+				</TableCell>
 					<TableCell><Badge variant={userObj.is_active ? 'default' : 'secondary'}>{userObj.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
 					<TableCell>
 						{#if authStates[userObj.pk] === 'loading'}
@@ -297,10 +325,10 @@
 					</select>
 				{/if}
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createStep !== null} onFileSelect={(f) => passportFile = f} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
 			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createStep !== null}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createStep !== null} disabled={createStep !== null}>{createStep === 'uploading' ? 'Uploading passport...' : createStep === 'creating' ? 'Creating student...' : 'Create Student'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>
@@ -330,9 +358,9 @@
 					{#each classLevels as cl}<option value={cl.name} selected={cl.name === editForm.classLevel}>{cl.name}</option>{/each}
 				</select>
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editStep !== null} onFileSelect={(f) => editPassportFile = f} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading} disabled={editLoading || editProfileLoading}>Save</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editStep !== null}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editStep !== null} disabled={editStep !== null || editProfileLoading}>{editStep === 'uploading' ? 'Uploading passport...' : editStep === 'saving' ? 'Saving...' : 'Save'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>

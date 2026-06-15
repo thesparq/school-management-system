@@ -7,6 +7,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import PageSkeleton from '$lib/components/ui/skeleton/PageSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
@@ -21,10 +22,12 @@
 
 	let studentList = $state<StudentListItem[]>([]);
 	let studentListLoading = $state(true);
+	let parentStudentsMap = $state<Record<string, string[]>>({});
+	let studentsMapLoading = $state(true);
 	let createForm = $state({ username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], isActive: true });
-	let createLoading = $state(false); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
+	let createStep = $state<'uploading' | 'creating' | null>(null); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], currentPassport: '' });
-	let editLoading = $state(false); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
+	let editStep = $state<'uploading' | 'saving' | null>(null); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
 	let deleteTarget = $state<{ pk: number; uuid: string; name: string } | null>(null); let deleteLoading = $state(false); let deleteError = $state(''); let deleteDialogOpen = $state(false);
 
 	function generatePassword(): string { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let p = ''; const a = new Uint8Array(16); crypto.getRandomValues(a); for (let i = 0; i < 16; i++) p += c[a[i] % c.length]; return p; }
@@ -32,7 +35,19 @@
 	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', name: '', email: '', password: '', showPassword: false, students: [], isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
-	onMount(async () => { try { const r = await fetch('/api/admin/students/list'); const b = await r.json(); studentList = b?.data ?? []; } catch { studentList = []; } finally { studentListLoading = false; } });
+	onMount(async () => { try { const r = await fetch('/api/admin/students/list'); const b = await r.json(); studentList = b?.data ?? []; } catch { studentList = []; } finally { studentListLoading = false; }
+		try {
+			const r = await fetch('/api/admin/parents/list');
+			const b = await r.json();
+			const profiles: { id: string; students: string[] }[] = b?.data ?? [];
+			const map: Record<string, string[]> = {};
+			for (const p of profiles) {
+				const strippedId = p.id.replace(/^parent_profile:/, '');
+				if (strippedId) map[strippedId] = p.students ?? [];
+			}
+			parentStudentsMap = map;
+		} catch { parentStudentsMap = {}; } finally { studentsMapLoading = false; }
+	});
 
 	let selectedStudentNames = $derived(studentList.filter(s => createForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
 	let editSelectedNames = $derived(studentList.filter(s => editForm.students.includes(s.id)).map(s => ({ id: s.id, name: s.display_name })));
@@ -43,20 +58,23 @@
 	function removeEditStudent(id: string) { editForm.students = editForm.students.filter(s => s !== id); }
 
 	async function handleCreate() {
-		createLoading = true; createError = '';
-		try { let passportUrl = ''; if (passportFile && passportUpload) { const u = await passportUpload.getPassportPublicUrl(passportFile, 'parent', ''); if (!u) { createLoading = false; return; } passportUrl = u; }
-			if (createForm.students.length === 0) { createError = 'At least one student is required'; createLoading = false; return; }
+		createStep = 'uploading'; createError = '';
+		try { let passportUrl = ''; if (passportFile && passportUpload) { const u = await passportUpload.getPassportPublicUrl(passportFile, 'parent', crypto.randomUUID()); if (!u) { createStep = null; return; } passportUrl = u; }
+			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
+			if (createForm.students.length === 0) { createError = 'At least one student is required'; createStep = null; return; }
+			createStep = 'creating';
 			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: createForm.username, name: createForm.name, display_name: createForm.name, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'parent', students: createForm.students, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; addToast('success', 'Parent created', createForm.username); closeCreate(); }
-		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createLoading = false; }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; parentStudentsMap = { ...parentStudentsMap, [u.uuid]: createForm.students }; addToast('success', 'Parent created', createForm.username); closeCreate(); }
+		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
 
 	async function handleEdit() {
-		editLoading = true; editError = '';
-		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'parent', editForm.uuid); if (!u) { editLoading = false; return; } passportUrl = u; }
+		editStep = 'saving'; editError = '';
+		try { let passportUrl = editForm.currentPassport; if (editPassportFile && editPassportUpload) { editStep = 'uploading'; const u = await editPassportUpload.getPassportPublicUrl(editPassportFile, 'parent', editForm.uuid); if (!u) { editStep = null; return; } passportUrl = u; editStep = 'saving'; }
+			if (!passportUrl) { editError = 'Passport photo is required'; editStep = null; return; }
 			const res = await fetch(`/api/admin/users/${editForm.uuid}/edit-profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authentik_pk: editForm.authentikPk, username: editForm.username, name: editForm.name, display_name: editForm.name, email: editForm.email, password: editForm.password || undefined, role: 'parent', students: editForm.students, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editForm.name, email: editForm.email } : u); addToast('success', 'Parent updated', editForm.username); closeEdit(); }
-		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editLoading = false; }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); users = users.map(u => u.uuid === editForm.uuid ? { ...u, username: editForm.username, name: editForm.name, email: editForm.email } : u); parentStudentsMap = { ...parentStudentsMap, [editForm.uuid]: editForm.students }; addToast('success', 'Parent updated', editForm.username); closeEdit(); }
+		catch (e) { editError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Edit failed', editError); } finally { editStep = null; }
 	}
 
 	async function handleDelete() { if (!deleteTarget) return; deleteLoading = true; deleteError = ''; try { const r = await fetch(`/api/admin/users/${deleteTarget.pk}?uuid=${deleteTarget.uuid}&role=parent`, { method: 'DELETE' }); const j = await r.json(); if (j.error) throw new Error(j.error.message ?? 'Failed'); users = users.filter(u => u.pk !== deleteTarget!.pk); addToast('success', 'Parent deleted', deleteTarget!.name); deleteDialogOpen = false; deleteTarget = null; } catch (e) { deleteError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Delete failed', deleteError); } finally { deleteLoading = false; } }
@@ -70,7 +88,7 @@
 {:else if !hasUsers}<StatusCard variant="info" title="No parents yet" description="Create the first parent to get started." />
 {:else}
 	<Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Students</TableHead><TableHead>Auth Status</TableHead><TableHead>Activate</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
-		<TableBody>{#each users as u (u.pk)}<TableRow><TableCell>{u.name || u.username}</TableCell><TableCell>{u.email || '\u2014'}</TableCell><TableCell></TableCell><TableCell><Badge variant={u.is_active ? 'default' : 'secondary'}>{u.is_active ? 'Active' : 'Inactive'}</Badge></TableCell><TableCell>{#if authStates[u.pk] === 'loading'}<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>{:else}<AppButton variant="outline" size="sm" onclick={() => toggleAuth(u.pk, !u.is_active)}>{u.is_active ? 'Deactivate' : 'Activate'}</AppButton>{/if}</TableCell><TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(u)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-destructive" onclick={() => openDeleteDialog(u)}>Delete</AppButton></div></TableCell></TableRow>{/each}</TableBody></Table>
+		<TableBody>{#each users as u (u.pk)}<TableRow><TableCell>{u.name || u.username}</TableCell><TableCell>{u.email || '\u2014'}</TableCell><TableCell>{#if studentsMapLoading}<Skeleton class="h-4 w-24" />{:else}{@const ids = parentStudentsMap[u.uuid] ?? []}{ids.map((id: string) => studentList.find((s: { id: string; display_name: string }) => s.id === id)?.display_name).filter(Boolean).join(', ') || '\u2014'}{/if}</TableCell><TableCell><Badge variant={u.is_active ? 'default' : 'secondary'}>{u.is_active ? 'Active' : 'Inactive'}</Badge></TableCell><TableCell>{#if authStates[u.pk] === 'loading'}<div class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>{:else}<AppButton variant="outline" size="sm" onclick={() => toggleAuth(u.pk, !u.is_active)}>{u.is_active ? 'Deactivate' : 'Activate'}</AppButton>{/if}</TableCell><TableCell><div class="flex gap-2"><AppButton variant="outline" size="sm" onclick={() => openEditDialog(u)}>Edit</AppButton><AppButton variant="outline" size="sm" class="text-destructive" onclick={() => openDeleteDialog(u)}>Delete</AppButton></div></TableCell></TableRow>{/each}</TableBody></Table>
 {/if}
 
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
@@ -96,10 +114,10 @@
 					</SearchSelect>
 				{/if}
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={passportUpload} currentUrl={null} disabled={createStep !== null} onFileSelect={(f) => passportFile = f} /></div>
 			<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={createForm.isActive} class="rounded" /> Activate on creation</label>
 			{#if createError}<p class="text-sm text-destructive">{createError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createLoading}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createLoading}>Create</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeCreate} disabled={createStep !== null}>Cancel</AppButton><AppButton onclick={handleCreate} loading={createStep !== null} disabled={createStep !== null}>{createStep === 'uploading' ? 'Uploading passport...' : createStep === 'creating' ? 'Creating parent...' : 'Create Parent'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>
@@ -124,9 +142,9 @@
 					{/snippet}
 				</SearchSelect>
 			</div>
-			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editLoading} /></div>
+			<div class="space-y-2"><Label>Passport Photo <span class="text-destructive">*</span></Label><PassportUpload bind:this={editPassportUpload} currentUrl={editForm.currentPassport || null} disabled={editStep !== null} onFileSelect={(f) => editPassportFile = f} /></div>
 			{#if editError}<p class="text-sm text-destructive">{editError}</p>{/if}
-			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editLoading}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editLoading} disabled={editLoading || editProfileLoading}>Save</AppButton></div>
+			<div class="flex justify-end gap-2"><AppButton variant="outline" onclick={closeEdit} disabled={editStep !== null}>Cancel</AppButton><AppButton onclick={handleEdit} loading={editStep !== null} disabled={editStep !== null || editProfileLoading}>{editStep === 'uploading' ? 'Uploading passport...' : editStep === 'saving' ? 'Saving...' : 'Save'}</AppButton></div>
 		</div>
 	</DialogContent>
 </Dialog>
