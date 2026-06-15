@@ -3,18 +3,27 @@
 
 	let {
 		currentUrl = null,
-		disabled = false
+		disabled = false,
+		onFileSelect
 	}: {
 		currentUrl: string | null;
 		disabled: boolean;
+		onFileSelect?: (file: File | null) => void;
 	} = $props();
 
 	let publicUrl = $state<string | null>(currentUrl);
 	let contentType = $state<string | null>(null);
 	let uploading = $state(false);
+	let imageLoading = $state(true);
 	let error = $state<string | null>(null);
 	let previewUrl = $state<string | null>(currentUrl);
 	let fileInput: HTMLInputElement | undefined = $state();
+
+	$effect(() => {
+		publicUrl = currentUrl;
+		previewUrl = currentUrl;
+		if (currentUrl) imageLoading = true;
+	});
 
 	const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
 	const MAX_SIZE = 5 * 1024 * 1024;
@@ -38,8 +47,10 @@
 
 		error = null;
 		previewUrl = URL.createObjectURL(file);
+		imageLoading = false;
 		contentType = file.type;
 		publicUrl = null;
+		onFileSelect?.(file);
 	}
 
 	function handleRemove() {
@@ -47,6 +58,7 @@
 		contentType = null;
 		previewUrl = null;
 		error = null;
+		onFileSelect?.(null);
 		if (fileInput) fileInput.value = '';
 	}
 
@@ -116,7 +128,19 @@
 
 	{#if previewUrl}
 		<div class="relative inline-block">
-			<img src={previewUrl} alt="Passport preview" class="h-48 w-48 rounded-lg border object-cover" />
+			{#if imageLoading}
+				<div class="h-48 w-48 rounded-lg border bg-muted flex items-center justify-center">
+					<div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-300 border-t-primary-600"></div>
+				</div>
+			{/if}
+			<img
+				src={previewUrl}
+				alt="Passport preview"
+				class="h-48 w-48 rounded-lg border object-cover"
+				class:hidden={imageLoading}
+				onload={() => imageLoading = false}
+				onerror={() => imageLoading = false}
+			/>
 			{#if uploading}
 				<div class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/30">
 					<div class="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
