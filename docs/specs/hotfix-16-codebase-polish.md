@@ -107,3 +107,17 @@ and recursively extracts `message` or `errors[0]` from it. Applied at all 4 extr
 
 **Status: Complete.** 1 commit.
 
+### Issue #4: Active Session Badge Loading Indicator
+
+Added a small animated spinner next to the badge area while the active session term
+fetch is in flight. Shows before the badge appears on first load and during navigation.
+
+**Files changed:** `frontend/src/routes/+layout.svelte`
+  - Added `activeStLoading : Bool` state
+  - Set `true` before fetch, `false` in `.then()` and `.catch()`
+  - Rendered `<div>` with `animate-spin rounded-full border-2` spinner when loading + no badge yet
+
+**Verification:** `pnpm check` — 0 errors
+
+**Status: Complete.** 1 commit.
+
