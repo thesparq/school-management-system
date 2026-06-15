@@ -121,3 +121,40 @@ fetch is in flight. Shows before the badge appears on first load and during navi
 
 **Status: Complete.** 1 commit.
 
+### Issue #5: Delete Credential Failure + Comprehensive Error Formatting Fix
+
+**5a — Delete credential fails with `body_json` not found:**
+delete-credential used a different parameter-passing pattern than its sibling create-credential.
+Create used query params (`post="/create-credential?name={name}"`), but delete used a JSON body
+(`post="/delete-credential"` + `body_json`). The Golem gateway failed to deliver the body,
+producing "Failed parsing json body: [key 'body_json' not found]".
+
+Fix: Aligned delete-credential with create's pattern — changed to `post="/delete-credential?id={id}"`,
+removed `body_json` from both agent endpoint and handler, updated frontend proxy to pass `id` via
+`extraParams` instead of `body`.
+
+**5b — Comprehensive error formatting fix (two defensive layers):**
+
+**Layer 1 — Server-side (golem.ts):** Fixed 4 remaining gaps where raw JSON text escaped
+without unwrapping:
+  - Line 76: Format 0 without `.code` — `parsed` → `unwrapJsonMessage(parsed)`
+  - Line 93: Format 1 without `.code` — `parsed.Err` → `unwrapJsonMessage(parsed.Err)`
+  - Line 140: `GATEWAY_ERROR` fallback — `raw` → `unwrapJsonMessage(raw)`
+  - Line 164: `AGENT_ERROR` fallback — `errText` → `unwrapJsonMessage(errText)`
+
+**Layer 2 — Client-side defense-in-depth (toast.ts):** Added `sanitizeMessage()` in `addToast()`
+that checks if the description is a JSON error object and extracts the inner `message` or `errors[0]`.
+This automatically protects all 27+ existing toast call sites and all future ones
+without touching a single calling file.
+
+**Files changed:** 5
+  - `agents/app-agents/admin_agent.mbt` — endpoint annotation
+  - `agents/app-agents/admin_handler.mbt` — handler signature
+  - `frontend/src/routes/api/admin/credentials/[id]/+server.ts` — proxy call
+  - `frontend/src/lib/server/golem.ts` — 4 gap fixes
+  - `frontend/src/lib/stores/toast.ts` — `sanitizeMessage()` in `addToast()`
+
+**Verification:** `moon check --target wasm` 0 errors, `pnpm check` 0 errors
+
+**Status: Complete.** 1 commit.
+
