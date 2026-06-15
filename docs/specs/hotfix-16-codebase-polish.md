@@ -158,3 +158,31 @@ without touching a single calling file.
 
 **Status: Complete.** 1 commit.
 
+### Issue #6: Stage-Aware Loading Text + Class/Students Column Fix
+
+**6a — Stage-aware loading button text:**
+Replaced single `createLoading`/`editLoading` booleans with `createStep`/`editStep`
+state enums (`'uploading' | 'creating'/'saving' | null`) across all 4 user tables.
+Button text changes to reflect the current operation stage.
+
+Create flow: `"Uploading passport..."` (if file selected) → `"Creating student/teacher/admin/parent..."` → `"Create <Role>"` (idle)
+Edit flow: `"Uploading passport..."` (only if photo changed) → `"Saving..."` → `"Save"` (idle)
+
+**6b — Class/Students column skeleton loading + post-CRUD map update:**
+  - **StudentUserTable:** Class column shows `<Skeleton>` while `studentClassMap` loads,
+    then renders class name or `—`. After create/edit, directly sets
+    `studentClassMap[uuid] = classLevel` from the form — instant feedback, zero network cost.
+  - **ParentUserTable:** Students column shows `<Skeleton>` while `parentStudentsMap` loads,
+    then renders student names or `—`. After create/edit, directly sets
+    `parentStudentsMap[uuid] = students` from the form.
+
+**Files changed:** 4
+  - `StudentUserTable.svelte` — createStep/editStep, skeleton, post-CRUD map update
+  - `TeacherUserTable.svelte` — createStep/editStep
+  - `AdminUserTable.svelte` — createStep/editStep
+  - `ParentUserTable.svelte` — createStep/editStep, skeleton, post-CRUD map update
+
+**Verification:** `pnpm check` — 0 errors
+
+**Status: Complete.** 1 commit.
+

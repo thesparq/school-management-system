@@ -4,6 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-16 Issue #6: Stage-Aware Loading + Class Column Fix — Complete**
+  Replaced `createLoading`/`editLoading` booleans with `createStep`/`editStep` state enums across all 4 user tables. Button text now reflects each stage: "Uploading passport..." → "Creating student..." → "Create Student". Edit only shows upload step if photo changed. Class column (StudentUserTable) and Students column (ParentUserTable) now show `<Skeleton>` while maps load instead of flashing `—`. After create/edit, maps are updated directly from form data — instant, zero-network-cost feedback. 4 files, 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
+
 - **✅ HF-16 Issue #5: Delete Credential + Error Formatting Audit — Complete**
   **5a:** Aligned delete-credential with create-credential's query-param pattern (`post="/delete-credential?id={id}"` instead of `body_json`), fixing "Failed parsing json body" error. Changed agent endpoint (`admin_agent.mbt`), handler (`admin_handler.mbt`), and frontend proxy (`[id]/+server.ts`). **5b:** Comprehensive error formatting fix — two defensive layers. Server-side: applied `unwrapJsonMessage` to 4 remaining fallback paths in `golem.ts` (lines 76, 93, 140, 164). Client-side: added `sanitizeMessage()` in `addToast()` that auto-unwraps JSON error objects — protects all 27+ toast sites without touching individual files. Build: `moon check` 0 errors, `pnpm check` 0 errors. 5 files, 1 commit. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 
