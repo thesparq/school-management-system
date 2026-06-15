@@ -24,6 +24,7 @@
   let isLoggingOut = $state(false);
   let error = $state('');
   let activeSessionTerm = $state<{ id: string; session_name: string; term_name: string } | null>(null);
+  let activeStLoading = $state(false);
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
@@ -92,6 +93,7 @@
 
 	$effect(() => {
 		const _ = $page.url.pathname;
+		activeStLoading = true;
 		fetch('/api/admin/active-session-term').then(async (res) => {
 			if (res.ok) {
 				const json = await res.json();
@@ -101,7 +103,10 @@
 				}
 				activeSessionTerm = newTerm;
 			}
-		}).catch(() => {});
+			activeStLoading = false;
+		}).catch(() => {
+			activeStLoading = false;
+		});
 	});
 </script>
 
@@ -245,6 +250,9 @@
 
       <div class="flex-1"></div>
 
+			{#if activeStLoading}
+				<div class="h-5 w-5 animate-spin rounded-full border-2 border-secondary-300 border-t-secondary-600 dark:border-secondary-700 dark:border-t-secondary-400"></div>
+			{/if}
 			{#if activeSessionTerm}
 				<Badge class="text-sm bg-secondary-100 text-secondary-700 border-secondary-300 dark:bg-secondary-900 dark:text-secondary-300 dark:border-secondary-700">
 					{activeSessionTerm.session_name} &mdash; {activeSessionTerm.term_name}
