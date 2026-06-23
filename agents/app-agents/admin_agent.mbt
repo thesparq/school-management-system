@@ -596,7 +596,8 @@ pub fn AdminAgent::get_terms(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  match admin_fetch_terms(self.config.value) {
+  match
+    admin_fetch_terms(self.cache, self.config.value, @wallClock.now().seconds) {
     Ok(arr) => Ok(arr)
     Err(e) => Err(e.to_json_string())
   }
@@ -688,7 +689,7 @@ pub fn AdminAgent::toggle_term_active(
     Err(e) => return Err(e.to_json_string())
     Ok(_) => ()
   }
-  match admin_toggle_term(self.config.value, term_id, active) {
+  match admin_toggle_term(self.cache, self.config.value, term_id, active) {
     Ok(_) => Ok("ok")
     Err(e) => Err(e.to_json_string())
   }

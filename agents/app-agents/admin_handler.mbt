@@ -540,6 +540,46 @@ fn try_parse_session_term_detail(json_str : String) -> SessionTermDetail? {
 }
 
 ///|
+fn try_parse_admin_terms(json_str : String) -> Array[TermSimple]? {
+  let val = @json.parse(json_str) catch { _ => return None }
+  match val {
+    Array(arr) => {
+      let items : Array[TermSimple] = []
+      for item in arr {
+        match item {
+          Object(o) =>
+            items.push(TermSimple::{
+              id: match o.get("id") {
+                Some(String(s)) => s
+                _ => continue
+              },
+              name: match o.get("name") {
+                Some(String(s)) => s
+                _ => continue
+              },
+              active: match o.get("active") {
+                Some(True) => true
+                _ => false
+              },
+              sort_order: match o.get("sort_order") {
+                Some(Number(d, ..)) => d.to_int()
+                _ => 0
+              },
+            })
+          _ => continue
+        }
+      }
+      if items.length() > 0 {
+        Some(items)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 pub fn admin_fetch_active_session_term_detail(
   cache : CacheSystem,
   config : SharedConfig,
@@ -587,11 +627,32 @@ pub fn admin_fetch_active_session_term_detail(
 
 ///|
 pub fn admin_fetch_terms(
+  cache : CacheSystem,
   config : SharedConfig,
+  now : UInt64,
 ) -> Result[Array[TermSimple], AppError] {
+  let cache_key = "terms"
+  match cache.get(cache_key, now) {
+    Some(json_str) =>
+      match try_parse_admin_terms(json_str) {
+        Some(items) => return Ok(items)
+        None => ()
+      }
+    None => ()
+  }
   let arr = match db_admin_fetch_terms(config) {
     Ok(a) => a
-    Err(e) => return Err(e)
+    Err(e) => {
+      match cache.get(cache_key, now) {
+        Some(json_str) =>
+          match try_parse_admin_terms(json_str) {
+            Some(items) => return Ok(items)
+            None => ()
+          }
+        None => ()
+      }
+      return Err(e)
+    }
   }
   let items : Array[TermSimple] = []
   for item in arr {
@@ -618,6 +679,7 @@ pub fn admin_fetch_terms(
       _ => ()
     }
   }
+  cache.set(cache_key, items.to_json().stringify(), CACHE_TTL, [], now)
   Ok(items)
 }
 
@@ -795,7 +857,8 @@ pub fn admin_edit_session_term(
     Some(String(s)) => s
     _ => return Err(validation_error("term_id is required"))
   }
-  let arr = match db_admin_edit_session_term(config, id, session_name, term_id) {
+  let arr = match
+    db_admin_edit_session_term(config, id, session_name, term_id) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
@@ -833,6 +896,7 @@ pub fn admin_edit_session_term(
 
 ///|
 pub fn admin_toggle_term(
+  cache : CacheSystem,
   config : SharedConfig,
   term_id : String,
   active : Bool,
@@ -841,6 +905,7 @@ pub fn admin_toggle_term(
     Ok(_) => ()
     Err(e) => return Err(e)
   }
+  cache.invalidate("terms")
   let students = match db_admin_fetch_users_by_role(config, "student") {
     Ok(a) => a
     Err(_) => []
