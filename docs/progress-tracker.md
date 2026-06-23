@@ -4,6 +4,9 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ HF-16 Issue #8: Cache Terms Endpoint — Complete**
+  Added `CacheSystem` with 600s TTL + stale-fallback to `admin_fetch_terms` (key `"terms"`). Updated `AdminAgent::get_terms` to pass cache. Added `try_parse_admin_terms` helper. Added cache invalidation in `admin_toggle_term`. Student/teacher agents were already cached — this closed the gap on the admin side. Terms page now hits DB at most once per 10 minutes. 2 files, 1 commit. `moon check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
+
 - **✅ HF-16 Issue #7: Passport Image Loading Spinner — Complete**
   Added `imageLoading` state to `PassportUpload.svelte`. While the R2 passport image loads in edit mode, shows a centered spinner in a `bg-muted` placeholder instead of a broken/empty `<img>`. `onload`/`onerror` hide the spinner. Local files skip the spinner (ObjectURL is instant). 1 file, 1 commit. `pnpm check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 

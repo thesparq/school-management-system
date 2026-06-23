@@ -203,3 +203,23 @@ Local file uploads via `ObjectURL` skip the spinner (instant render).
 
 **Status: Complete.** 1 commit.
 
+### Issue #8: Cache Terms Endpoint to Prevent DB Throttle Errors
+
+**Problem:** Admin terms page (`GET /terms`) hit SurrealDB on every request with no caching,
+causing "Database query failed" timeouts on SurrealDB Cloud free tier throttling.
+Student and teacher agents already cached their term data — only the admin's endpoint was uncached.
+
+**Fix:**
+  - Rewrote `admin_fetch_terms` with `CacheSystem` (key: `"terms"`, TTL: 600s),
+    stale-fallback on DB error
+  - Updated `AdminAgent::get_terms` to pass `self.cache` and `@wallClock.now().seconds`
+  - Added `try_parse_admin_terms` helper (renamed to avoid collision with `teacher_handler.mbt`)
+  - Updated `admin_toggle_term` to accept `cache : CacheSystem` and invalidate `"terms"`
+  - Updated `AdminAgent::toggle_term_active` to pass `self.cache`
+
+**Files changed:** 2 (`admin_handler.mbt`, `admin_agent.mbt`)
+
+**Verification:** `moon check --target wasm` 0 errors
+
+**Status: Complete.** 1 commit.
+
