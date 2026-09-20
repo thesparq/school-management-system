@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -14,7 +14,7 @@ export const GET: RequestHandler = async (event) => {
     return new Response(JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing session_term_id or subject_id query params.' } }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
 
-  const result = await proxyToStudent(userId, '/general-assessments', { session_term_id, subject_id });
+  const result = await proxyToCoreApi(userId, '/student/general-assessments', { session_term_id, subject_id });
   if (result.error) {
     return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
   }

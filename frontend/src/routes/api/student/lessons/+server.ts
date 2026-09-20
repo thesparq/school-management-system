@@ -1,4 +1,5 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { getCached } from '$lib/server/cache';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -19,25 +20,33 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToStudent(userId, '/lessons', { subject_id: subjectId, term_id: termId });
-
-	if (result.error) {
-		const status = mapErrorCodeToHttpStatus(result.error.code);
-		return new Response(JSON.stringify(result), { status, headers: { 'content-type': 'application/json' } });
-	}
-
-	let lessons: unknown;
 	try {
-		lessons = JSON.parse(result.data);
-	} catch {
-		return new Response(
-			JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse gateway response' } }),
-			{ status: 502, headers: { 'content-type': 'application/json' } }
+		const lessons = await getCached(
+			`lessons-${subjectId}-${termId}`,
+			async () => {
+				const result = await proxyToCoreApi(userId, '/student/lessons', { subject_id: subjectId, term_id: termId });
+				if (result.error) {
+					throw new Error(JSON.stringify(result));
+				}
+				return JSON.parse(result.data);
+			},
+			[`lesson-list`]
 		);
-	}
 
-	return new Response(
-		JSON.stringify({ data: lessons }),
-		{ status: 200, headers: { 'content-type': 'application/json' } }
-	);
+		return new Response(
+			JSON.stringify({ data: lessons }),
+			{ status: 200, headers: { 'content-type': 'application/json' } }
+		);
+	} catch (e: any) {
+		let result;
+		try {
+			result = JSON.parse(e.message);
+			return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
+		} catch {
+			return new Response(
+				JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse agent response' } }),
+				{ status: 502, headers: { 'content-type': 'application/json' } }
+			);
+		}
+	}
 };

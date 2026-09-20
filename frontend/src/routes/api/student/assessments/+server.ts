@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -13,7 +13,7 @@ export const GET: RequestHandler = async (event) => {
     return new Response(JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing lesson_id query param.' } }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
 
-  const result = await proxyToStudent(userId, '/assessments', { lesson_id });
+  const result = await proxyToCoreApi(userId, '/student/assessments', { lesson_id });
   if (result.error) {
     return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
   }

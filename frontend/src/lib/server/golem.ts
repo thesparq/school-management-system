@@ -117,12 +117,13 @@ function extractErrorFromBody(raw: string): BackendError | null {
 	return null;
 }
 
-async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>): Promise<ProxyResult> {
+async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>): Promise<ProxyResult> {
 	try {
 		const fetchInit: RequestInit = {
 			method,
 			headers: {
-				'X-Golem-Auth-Key': getAuthKey()
+				'X-Golem-Auth-Key': getAuthKey(),
+				...extraHeaders
 			}
 		};
 		if (body) {
@@ -214,6 +215,10 @@ export function proxyToTeacher(userId: string, path: string, extraParams?: Recor
 
 export function proxyToParent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
 	return proxyFetch(buildUrl(`/parent/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
+export function proxyToCoreApi(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/core-api/default${path}`, extraParams), method ?? 'GET', body, { 'X-Internal-User-Id': userId });
 }
 
 export function mapErrorCodeToHttpStatus(code: string): number {

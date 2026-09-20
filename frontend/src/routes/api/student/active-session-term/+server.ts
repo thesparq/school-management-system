@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -7,7 +7,7 @@ export const GET: RequestHandler = async (event) => {
     return new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Not authenticated.' } }), { status: 401, headers: { 'content-type': 'application/json' } });
   }
 
-  const result = await proxyToStudent(userId, '/active-session-term');
+  const result = await proxyToCoreApi(userId, '/student/active-session-term');
   if (result.error) {
     return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
   }

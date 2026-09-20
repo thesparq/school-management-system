@@ -61,6 +61,7 @@ httpApi:
     local:
       - domain: agents.localhost:9006
         agents:
+          CoreApi: {}
           AdminAgent: {}
           StudentAgent: {}
           TeacherAgent: {}

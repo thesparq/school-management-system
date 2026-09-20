@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import { getCached } from '$lib/server/cache';
 import type { RequestHandler } from './$types';
 
@@ -15,7 +15,7 @@ export const GET: RequestHandler = async (event) => {
 		const terms = await getCached(
 			'global-terms',
 			async () => {
-				const result = await proxyToStudent(userId, '/terms');
+				const result = await proxyToCoreApi(userId, '/student/terms');
 				if (result.error) {
 					throw new Error(JSON.stringify(result));
 				}

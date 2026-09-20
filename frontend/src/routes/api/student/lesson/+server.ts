@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import { getCached } from '$lib/server/cache';
 import type { RequestHandler } from './$types';
 
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async (event) => {
 		const lesson = await getCached(
 			`lesson-${lessonId}`,
 			async () => {
-				const result = await proxyToStudent(userId, '/lesson', { lesson_id: lessonId });
+				const result = await proxyToCoreApi(userId, '/student/lesson', { lesson_id: lessonId });
 				if (result.error) {
 					throw new Error(JSON.stringify(result));
 				}
