@@ -188,24 +188,7 @@ pub fn StudentAgent::get_general_assessments(
   }
 }
 
-///|
-#derive.endpoint(post="/submit-assessment")
-#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-pub fn StudentAgent::submit_assessment(
-  self : Self,
-  incoming_key : String,
-  body_json : String,
-) -> Result[SubmissionInfo, String] {
-  match require_auth(self.config.value, incoming_key) {
-    Err(e) => return Err(e.to_json_string())
-    Ok(_) => ()
-  }
-  match
-    student_submit_assessment(self.config.value, self.student_id, body_json) {
-    Ok(r) => Ok(r)
-    Err(e) => Err(e.to_json_string())
-  }
-}
+
 
 ///|
 #derive.endpoint(get="/my-grades?assessment_type={assessment_type}&assessment_id={assessment_id}")

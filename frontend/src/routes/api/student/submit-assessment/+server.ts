@@ -1,4 +1,4 @@
-import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToAssessmentSession, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
@@ -12,7 +12,9 @@ export const POST: RequestHandler = async (event) => {
     return new Response(JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing assessment_type, assessment_id, or answers.' } }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
 
-  const result = await proxyToStudent(userId, '/submit-assessment', undefined, 'POST', body);
+  body.received_at = new Date().toISOString();
+  const sessionId = `session_${userId}_${body.assessment_id}`;
+  const result = await proxyToAssessmentSession(sessionId, '/submit', { student_id: userId }, 'POST', body);
   if (result.error) {
     return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
   }

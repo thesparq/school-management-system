@@ -62,6 +62,7 @@ httpApi:
       - domain: agents.localhost:9006
         agents:
           CoreApi: {}
+          AssessmentSession: {}
           AdminAgent: {}
           StudentAgent: {}
           TeacherAgent: {}

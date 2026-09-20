@@ -114,7 +114,7 @@ pub fn student_fetch_general_assessments(
 }
 
 ///|
-pub fn student_submit_assessment(
+pub fn assessment_session_submit(
   config : SharedConfig,
   student_id : String,
   body_json : String,
@@ -137,6 +137,10 @@ pub fn student_submit_assessment(
   let answers_raw = match obj.get("answers") {
     Some(Array(a)) => a
     _ => return Err(validation_error("answers required"))
+  }
+  let received_at = match obj.get("received_at") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("received_at required"))
   }
 
   let table = if assessment_type == "lesson" {
@@ -168,6 +172,13 @@ pub fn student_submit_assessment(
   }
   if !active {
     return Err(validation_error("Assessment is not active"))
+  }
+  let deadline = match assessment_obj.get("deadline") {
+    Some(String(s)) => s
+    _ => ""
+  }
+  if deadline != "" && received_at > deadline {
+    return Err(deadline_exceeded_error())
   }
 
   let existing_arr = match

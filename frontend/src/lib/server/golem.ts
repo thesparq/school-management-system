@@ -221,6 +221,10 @@ export function proxyToCoreApi(userId: string, path: string, extraParams?: Recor
 	return proxyFetch(buildUrl(`/core-api/default${path}`, extraParams), method ?? 'GET', body, { 'X-Internal-User-Id': userId });
 }
 
+export function proxyToAssessmentSession(sessionId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/assessment-session/${encodeURIComponent(sessionId)}${path}`, extraParams), method ?? 'GET', body);
+}
+
 export function mapErrorCodeToHttpStatus(code: string): number {
 	switch (code) {
 		case 'VALIDATION_ERROR': return 400;
