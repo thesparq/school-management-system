@@ -2,7 +2,7 @@
 
 ///|
 #derive.agent
-#derive.mount("/core-api")
+#derive.mount("/core-api/{worker_id}")
 struct CoreApi {
   config : @config.Config[SharedConfig]
   cache : CacheSystem
@@ -10,7 +10,7 @@ struct CoreApi {
 
 ///|
 fn CoreApi::new(
-  _worker_id : String,
+  worker_id : String,
   config : @config.Config[SharedConfig],
 ) -> CoreApi {
   { config, cache: CacheSystem::new() }
@@ -30,7 +30,7 @@ pub fn CoreApi::ping(self : Self, incoming_key : String) -> String {
 ///|
 #derive.endpoint(get="/student/subjects")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_subjects(
   self : Self,
   incoming_key : String,
@@ -51,7 +51,7 @@ pub fn CoreApi::student_get_subjects(
 ///|
 #derive.endpoint(get="/student/terms")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_terms(
   self : Self,
   incoming_key : String,
@@ -71,7 +71,7 @@ pub fn CoreApi::student_get_terms(
 ///|
 #derive.endpoint(get="/student/lessons?subject_id={subject_id}&term_id={term_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_lessons(
   self : Self,
   incoming_key : String,
@@ -101,7 +101,7 @@ pub fn CoreApi::student_get_lessons(
 ///|
 #derive.endpoint(get="/student/lesson?lesson_id={lesson_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_lesson(
   self : Self,
   incoming_key : String,
@@ -129,7 +129,7 @@ pub fn CoreApi::student_get_lesson(
 ///|
 #derive.endpoint(get="/student/assessments?lesson_id={lesson_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_lesson_assessments(
   self : Self,
   incoming_key : String,
@@ -149,7 +149,7 @@ pub fn CoreApi::student_get_lesson_assessments(
 ///|
 #derive.endpoint(get="/student/general-assessments?session_term_id={session_term_id}&subject_id={subject_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_general_assessments(
   self : Self,
   incoming_key : String,
@@ -176,7 +176,7 @@ pub fn CoreApi::student_get_general_assessments(
 ///|
 #derive.endpoint(get="/student/my-grades?assessment_type={assessment_type}&assessment_id={assessment_id}")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "student_id")
+
 pub fn CoreApi::student_get_my_grades(
   self : Self,
   incoming_key : String,
@@ -220,7 +220,7 @@ pub fn CoreApi::student_get_active_session_term(
 ///|
 #derive.endpoint(get="/teacher/classes")
 #derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
-#derive.endpoint_header("X-Internal-User-Id", "teacher_id")
+
 pub fn CoreApi::teacher_get_my_classes(
   self : Self,
   incoming_key : String,

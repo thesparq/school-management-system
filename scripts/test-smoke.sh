@@ -1,3 +1,4 @@
+export PATH="$HOME/.moonup/toolchains/0.9.2+bbe2b338f/bin:$PATH"
 #!/usr/bin/env bash
 set -euo pipefail
 # === test-smoke: Read-only API smoke checks ===
