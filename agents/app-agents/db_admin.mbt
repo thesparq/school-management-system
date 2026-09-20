@@ -893,7 +893,11 @@ pub fn db_admin_edit_session_term(
     surreal_query(
       config,
       "UPDATE $session_term_id SET session_name = $session_name, term = $term_id",
-      bindings={ "session_term_id": session_term_id, "session_name": session, "term_id": term_id },
+      bindings={
+        "session_term_id": session_term_id,
+        "session_name": session,
+        "term_id": term_id,
+      },
     ) {
     Ok(_) => ()
     Err(e) => return Err(e)

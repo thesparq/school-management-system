@@ -808,6 +808,10 @@ impl @schema.HasElementSchema for StudentProfileInfo with element_schema() {
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
     (
+      "class_name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
       "passport",
       @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
     ),
@@ -828,8 +832,9 @@ impl @schema.FromExtractor for StudentProfileInfo with from_extractor(e) {
   let date_of_birth :String = @schema.extract_field(e, 5)
   let class_enrolled :String = @schema.extract_field(e, 6)
   let current_class :String = @schema.extract_field(e, 7)
-  let passport :String = @schema.extract_field(e, 8)
-  let created_at :String = @schema.extract_field(e, 9)
+  let class_name :String = @schema.extract_field(e, 8)
+  let passport :String = @schema.extract_field(e, 9)
+  let created_at :String = @schema.extract_field(e, 10)
   {
     id,
     surname,
@@ -839,6 +844,7 @@ impl @schema.FromExtractor for StudentProfileInfo with from_extractor(e) {
     date_of_birth,
     class_enrolled,
     current_class,
+    class_name,
     passport,
     created_at,
   }
@@ -860,6 +866,7 @@ impl @schema.ToElementValue for StudentProfileInfo with to_element_value(self) {
     @schema.to_element_value_as(self.date_of_birth),
     @schema.to_element_value_as(self.class_enrolled),
     @schema.to_element_value_as(self.current_class),
+    @schema.to_element_value_as(self.class_name),
     @schema.to_element_value_as(self.passport),
     @schema.to_element_value_as(self.created_at),
   ])

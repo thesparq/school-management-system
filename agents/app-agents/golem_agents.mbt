@@ -903,7 +903,7 @@ fn init{
                     variable_name: "incoming_key",
                   },
                 ],
-                query_vars: [],
+                query_vars: [{ query_param_name: "id", variable_name: "id" }],
                 auth_details: None,
                 cors_options: { allowed_patterns: [], },
               },
@@ -917,7 +917,7 @@ fn init{
                 ),
               ),
               (
-                "body_json",
+                "id",
                 @schema.schema_of_tag(
                   (@schema.TypeTag::{  } : @schema.TypeTag[String]),
                 ),
@@ -972,6 +972,48 @@ fn init{
                   (
                     @schema.TypeTag::{  }
                     : @schema.TypeTag[Result[Array[StudentProfileInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_parents_list",
+            description: "get_parents_list",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("parents"),
+                  @common.PathSegment::Literal("list"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[ParentProfileInfo], String]]
                   ),
                 ),
               ),
@@ -1425,6 +1467,51 @@ fn init{
                   (
                     @schema.TypeTag::{  }
                     : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_session_term",
+            description: "edit_session_term",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-session-term")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[SessionTermInfo, String]]
                   ),
                 ),
               ),
@@ -3640,8 +3727,8 @@ impl @agents.RawAgent for AdminAgent with invoke(
           )
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_credential(incoming_key, body_json)
+        let id :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_credential(incoming_key, id)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "get_students_list" => {
@@ -3653,6 +3740,17 @@ impl @agents.RawAgent for AdminAgent with invoke(
         }
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let result = self.get_students_list(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_parents_list" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_parents_list(incoming_key)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "set_user_active_status" => {
@@ -3772,6 +3870,18 @@ impl @agents.RawAgent for AdminAgent with invoke(
         let incoming_key :String = @schema.from_element_value_as(elements[0])
         let session_term_id :String = @schema.from_element_value_as(elements[1])
         let result = self.activate_session_term(incoming_key, session_term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_session_term" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_session_term(incoming_key, body_json)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       "toggle_term_active" => {

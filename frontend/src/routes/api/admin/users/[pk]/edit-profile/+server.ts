@@ -44,9 +44,9 @@ export const POST: RequestHandler = async (event) => {
 		});
 	}
 
-	const agentBody: Record<string, string | undefined> = {
+	const agentBody: Record<string, unknown> = {
 		target_user_id: target_uuid,
-		authentik_pk: String(authentik_pk),
+		authentik_pk: authentik_pk,
 		username,
 		email,
 		display_name: display_name || `${first_name || ''} ${surname || ''}`.trim() || username,

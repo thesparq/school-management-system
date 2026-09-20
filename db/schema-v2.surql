@@ -312,7 +312,7 @@ DEFINE FIELD IF NOT EXISTS class_enrolled ON student_profile TYPE record<class_l
 DEFINE FIELD IF NOT EXISTS current_class  ON student_profile TYPE record<class_levels>
   ASSERT $value != NONE;
 DEFINE FIELD IF NOT EXISTS passport       ON student_profile TYPE string
-  ASSERT $value != NONE;
+  ASSERT $value != NONE AND $value != "";
 DEFINE FIELD IF NOT EXISTS created_at     ON student_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at     ON student_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS deleted_at     ON student_profile TYPE option<datetime>;
@@ -330,7 +330,7 @@ DEFINE FIELD IF NOT EXISTS display_name  ON teacher_profile TYPE string
 DEFINE FIELD IF NOT EXISTS qualifications ON teacher_profile TYPE option<array<record<credentials>>>;
 DEFINE FIELD IF NOT EXISTS date_employed ON teacher_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS passport      ON teacher_profile TYPE string
-  ASSERT $value != NONE;
+  ASSERT $value != NONE AND $value != "";
 DEFINE FIELD IF NOT EXISTS created_at    ON teacher_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at    ON teacher_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS deleted_at    ON teacher_profile TYPE option<datetime>;
@@ -347,7 +347,7 @@ DEFINE FIELD IF NOT EXISTS display_name ON admin_profile TYPE string
   ASSERT $value != NONE;
 DEFINE FIELD IF NOT EXISTS role_title   ON admin_profile TYPE option<string>;
 DEFINE FIELD IF NOT EXISTS passport     ON admin_profile TYPE string
-  ASSERT $value != NONE;
+  ASSERT $value != NONE AND $value != "";
 DEFINE FIELD IF NOT EXISTS created_at   ON admin_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at   ON admin_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS deleted_at   ON admin_profile TYPE option<datetime>;
@@ -359,10 +359,10 @@ DEFINE FIELD IF NOT EXISTS name         ON parent_profile TYPE string
   ASSERT $value != NONE;
 DEFINE FIELD IF NOT EXISTS display_name ON parent_profile TYPE string
   ASSERT $value != NONE;
-DEFINE FIELD IF NOT EXISTS students     ON parent_profile TYPE array<record<student_profile>>
-  ASSERT array::len($value) > 0;
+DEFINE FIELD IF NOT EXISTS students     ON parent_profile TYPE option<array<record<student_profile>>>
+  DEFAULT [];
 DEFINE FIELD IF NOT EXISTS passport     ON parent_profile TYPE string
-  ASSERT $value != NONE;
+  ASSERT $value != NONE AND $value != "";
 DEFINE FIELD IF NOT EXISTS created_at   ON parent_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at   ON parent_profile TYPE option<datetime>;
 DEFINE FIELD IF NOT EXISTS deleted_at   ON parent_profile TYPE option<datetime>;
@@ -413,7 +413,7 @@ DEFINE INDEX idx_st_combo ON session_term COLUMNS session_name, term UNIQUE;
 DEFINE TABLE teacher_assignment SCHEMAFULL
   PERMISSIONS FOR select, create, update, delete NONE;
 
-DEFINE FIELD teacher_id   ON teacher_assignment TYPE string;
+DEFINE FIELD teacher_id   ON teacher_assignment TYPE record<teacher_profile>;
 DEFINE FIELD has_subject  ON teacher_assignment TYPE record<has_subject>;
 DEFINE FIELD session_term ON teacher_assignment TYPE record<session_term>;
 DEFINE FIELD assigned_at  ON teacher_assignment TYPE datetime DEFAULT time::now();

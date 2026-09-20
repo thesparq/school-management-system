@@ -117,7 +117,7 @@ fn surreal_query_internal(
         qs.write_string(if first { "?" } else { "&" })
         qs.write_string(url_encode(k))
         qs.write_string("=")
-        qs.write_string(url_encode(v))
+        qs.write_string(url_encode("\"" + v + "\""))
         first = false
       }
       qs.to_string()

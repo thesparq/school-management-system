@@ -45,7 +45,7 @@ pub fn admin_edit_student(SharedConfig, String) -> Result[Unit, AppError]
 
 pub fn admin_edit_teacher(SharedConfig, String) -> Result[Unit, AppError]
 
-pub fn admin_fetch_active_session_term_detail(SharedConfig) -> Result[SessionTermDetail, AppError]
+pub fn admin_fetch_active_session_term_detail(CacheSystem, SharedConfig, UInt64) -> Result[SessionTermDetail, AppError]
 
 pub fn admin_fetch_active_session_term_id(CacheSystem, SharedConfig, UInt64) -> Result[String, AppError]
 
@@ -706,9 +706,13 @@ pub(all) struct StudentAgentClient {
 }
 pub fn StudentAgentClient::drop(Self) -> Unit
 pub fn StudentAgentClient::get(String) -> Self raise @common.AgentError
+pub fn StudentAgentClient::get_active_session_term(Self, String) -> Result[String, String] raise @common.AgentError
 pub fn StudentAgentClient::get_agent_id(Self) -> String raise @common.AgentError
+pub fn StudentAgentClient::get_general_assessments(Self, String, String, String) -> Result[Array[GeneralAssessmentInfo], String] raise @common.AgentError
 pub fn StudentAgentClient::get_lesson(Self, String, String) -> Result[LessonContent?, String] raise @common.AgentError
+pub fn StudentAgentClient::get_lesson_assessments(Self, String, String) -> Result[Array[LessonAssessmentInfo], String] raise @common.AgentError
 pub fn StudentAgentClient::get_lessons(Self, String, String, String) -> Result[Array[LessonInfo], String] raise @common.AgentError
+pub fn StudentAgentClient::get_my_grades(Self, String, String, String) -> Result[SubmissionInfo?, String] raise @common.AgentError
 pub fn StudentAgentClient::get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid) -> Self raise @common.AgentError
 pub fn StudentAgentClient::get_subjects(Self, String) -> Result[Array[SubjectInfo], String] raise @common.AgentError
 pub fn StudentAgentClient::get_terms(Self, String) -> Result[Array[TermInfo], String] raise @common.AgentError
@@ -716,27 +720,43 @@ pub fn StudentAgentClient::invalidate_cache(Self, String, String) -> String rais
 pub fn StudentAgentClient::new_phantom(String) -> Self raise @common.AgentError
 pub fn StudentAgentClient::phantom_id(Self) -> @golemcloud/golem_sdk/interface/golem/core/types.Uuid?
 pub fn StudentAgentClient::ping(Self, String) -> String raise @common.AgentError
+pub fn StudentAgentClient::schedule_cancelable_get_active_session_term(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn StudentAgentClient::schedule_cancelable_get_general_assessments(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_lesson(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn StudentAgentClient::schedule_cancelable_get_lesson_assessments(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_lessons(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn StudentAgentClient::schedule_cancelable_get_my_grades(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_subjects(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_get_terms(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_invalidate_cache(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn StudentAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn StudentAgentClient::schedule_cancelable_submit_assessment(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn StudentAgentClient::schedule_get_active_session_term(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::schedule_get_general_assessments(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_lesson(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::schedule_get_lesson_assessments(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_lessons(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::schedule_get_my_grades(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_subjects(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_get_terms(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_invalidate_cache(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::schedule_ping(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::schedule_submit_assessment(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn[T] StudentAgentClient::scoped(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] StudentAgentClient::scoped_get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] StudentAgentClient::scoped_new_phantom(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn StudentAgentClient::submit_assessment(Self, String, String) -> Result[SubmissionInfo, String] raise @common.AgentError
+pub fn StudentAgentClient::trigger_get_active_session_term(Self, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::trigger_get_general_assessments(Self, String, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_lesson(Self, String, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::trigger_get_lesson_assessments(Self, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_lessons(Self, String, String, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::trigger_get_my_grades(Self, String, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_subjects(Self, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_get_terms(Self, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_invalidate_cache(Self, String, String) -> Unit raise @common.AgentError
 pub fn StudentAgentClient::trigger_ping(Self, String) -> Unit raise @common.AgentError
+pub fn StudentAgentClient::trigger_submit_assessment(Self, String, String) -> Unit raise @common.AgentError
 
 type StudentProfile derive(ToJson, @json.FromJson)
 
@@ -776,38 +796,74 @@ pub fn TeacherAgent::toggle_lesson_active(Self, String, String, Bool) -> Result[
 pub(all) struct TeacherAgentClient {
   client : @rpc.AgentClient
 }
+pub fn TeacherAgentClient::create_general_assessment(Self, String, String) -> Result[GeneralAssessmentInfo, String] raise @common.AgentError
+pub fn TeacherAgentClient::create_lesson_assessment(Self, String, String) -> Result[LessonAssessmentInfo, String] raise @common.AgentError
 pub fn TeacherAgentClient::drop(Self) -> Unit
 pub fn TeacherAgentClient::get(String) -> Self raise @common.AgentError
 pub fn TeacherAgentClient::get_agent_id(Self) -> String raise @common.AgentError
+pub fn TeacherAgentClient::get_general_assessments(Self, String, String, String) -> Result[Array[GeneralAssessmentInfo], String] raise @common.AgentError
+pub fn TeacherAgentClient::get_lesson_assessments(Self, String, String) -> Result[Array[LessonAssessmentInfo], String] raise @common.AgentError
 pub fn TeacherAgentClient::get_lessons(Self, String, String, String, String) -> Result[Array[LessonInfo], String] raise @common.AgentError
 pub fn TeacherAgentClient::get_my_classes(Self, String) -> Result[Array[TeacherClassGroup], String] raise @common.AgentError
+pub fn TeacherAgentClient::get_percentage_summary(Self, String, String, String) -> Result[PercentageSummary, String] raise @common.AgentError
 pub fn TeacherAgentClient::get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid) -> Self raise @common.AgentError
+pub fn TeacherAgentClient::get_submissions(Self, String, String, String) -> Result[Array[SubmissionInfo], String] raise @common.AgentError
 pub fn TeacherAgentClient::get_terms(Self, String) -> Result[Array[TermInfo], String] raise @common.AgentError
+pub fn TeacherAgentClient::grade_submission(Self, String, String) -> Result[SubmissionInfo, String] raise @common.AgentError
 pub fn TeacherAgentClient::invalidate_cache(Self, String, String) -> String raise @common.AgentError
 pub fn TeacherAgentClient::new_phantom(String) -> Self raise @common.AgentError
 pub fn TeacherAgentClient::phantom_id(Self) -> @golemcloud/golem_sdk/interface/golem/core/types.Uuid?
 pub fn TeacherAgentClient::ping(Self, String) -> String raise @common.AgentError
+pub fn TeacherAgentClient::release_grades(Self, String, String) -> Result[SubmissionInfo, String] raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_create_general_assessment(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_create_lesson_assessment(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_get_general_assessments(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_get_lesson_assessments(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_get_lessons(Self, @wallClock.Datetime, String, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_get_my_classes(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_get_percentage_summary(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_get_submissions(Self, @wallClock.Datetime, String, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_get_terms(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_grade_submission(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_invalidate_cache(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_ping(Self, @wallClock.Datetime, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_release_grades(Self, @wallClock.Datetime, String, String) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_cancelable_toggle_assessment(Self, @wallClock.Datetime, String, String, String, Bool) -> @host.CancellationToken raise @common.AgentError
 pub fn TeacherAgentClient::schedule_cancelable_toggle_lesson_active(Self, @wallClock.Datetime, String, String, Bool) -> @host.CancellationToken raise @common.AgentError
+pub fn TeacherAgentClient::schedule_create_general_assessment(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_create_lesson_assessment(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_get_general_assessments(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_get_lesson_assessments(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_lessons(Self, @wallClock.Datetime, String, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_my_classes(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_get_percentage_summary(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_get_submissions(Self, @wallClock.Datetime, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_get_terms(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_grade_submission(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_invalidate_cache(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_ping(Self, @wallClock.Datetime, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_release_grades(Self, @wallClock.Datetime, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::schedule_toggle_assessment(Self, @wallClock.Datetime, String, String, String, Bool) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::schedule_toggle_lesson_active(Self, @wallClock.Datetime, String, String, Bool) -> Unit raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped_get_phantom(String, @golemcloud/golem_sdk/interface/golem/core/types.Uuid, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
 pub fn[T] TeacherAgentClient::scoped_new_phantom(String, (Self) -> T raise @common.AgentError) -> T raise @common.AgentError
+pub fn TeacherAgentClient::toggle_assessment(Self, String, String, String, Bool) -> Result[String, String] raise @common.AgentError
 pub fn TeacherAgentClient::toggle_lesson_active(Self, String, String, Bool) -> Result[String, String] raise @common.AgentError
+pub fn TeacherAgentClient::trigger_create_general_assessment(Self, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_create_lesson_assessment(Self, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_get_general_assessments(Self, String, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_get_lesson_assessments(Self, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_lessons(Self, String, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_my_classes(Self, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_get_percentage_summary(Self, String, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_get_submissions(Self, String, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_get_terms(Self, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_grade_submission(Self, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_invalidate_cache(Self, String, String) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_ping(Self, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_release_grades(Self, String, String) -> Unit raise @common.AgentError
+pub fn TeacherAgentClient::trigger_toggle_assessment(Self, String, String, String, Bool) -> Unit raise @common.AgentError
 pub fn TeacherAgentClient::trigger_toggle_lesson_active(Self, String, String, Bool) -> Unit raise @common.AgentError
 
 type TeacherClassGroup derive(ToJson, @json.FromJson)

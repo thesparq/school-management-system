@@ -18,6 +18,7 @@ struct StudentProfileInfo {
   date_of_birth : String
   class_enrolled : String
   current_class : String
+  class_name : String
   passport : String
   created_at : String
 } derive(ToJson, FromJson)

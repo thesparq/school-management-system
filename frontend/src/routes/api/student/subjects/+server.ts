@@ -1,4 +1,5 @@
 import { proxyToStudent, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { getCached } from '$lib/server/cache';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -10,25 +11,33 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const result = await proxyToStudent(userId, '/subjects');
-
-	if (result.error) {
-		const status = mapErrorCodeToHttpStatus(result.error.code);
-		return new Response(JSON.stringify(result), { status, headers: { 'content-type': 'application/json' } });
-	}
-
-	let subjects: unknown;
 	try {
-		subjects = JSON.parse(result.data);
-	} catch {
-		return new Response(
-			JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse gateway response' } }),
-			{ status: 502, headers: { 'content-type': 'application/json' } }
+		const subjects = await getCached(
+			'global-subjects',
+			async () => {
+				const result = await proxyToStudent(userId, '/subjects');
+				if (result.error) {
+					throw new Error(JSON.stringify(result));
+				}
+				return JSON.parse(result.data);
+			},
+			['subject-list']
 		);
-	}
 
-	return new Response(
-		JSON.stringify({ data: subjects }),
-		{ status: 200, headers: { 'content-type': 'application/json' } }
-	);
+		return new Response(
+			JSON.stringify({ data: subjects }),
+			{ status: 200, headers: { 'content-type': 'application/json' } }
+		);
+	} catch (e: any) {
+		let result;
+		try {
+			result = JSON.parse(e.message);
+			return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });
+		} catch {
+			return new Response(
+				JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse gateway response' } }),
+				{ status: 502, headers: { 'content-type': 'application/json' } }
+			);
+		}
+	}
 };
