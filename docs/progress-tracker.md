@@ -4,6 +4,12 @@ Update this file after every meaningful implementation change.
 
 ## Completed
 
+- **✅ Spec 22: Phase 2 (Ephemeral Reads via core-api) — Complete**
+  Created a stateless ephemeral worker (`CoreApi`) in `core_api.mbt` to handle all user-specific data reads instantly. Migrated 16 read-only endpoints from `StudentAgent` and `TeacherAgent` (e.g., `get_subjects`, `get_lessons`, `get_my_grades`, `get_classes`, `get_submissions`). Updated `golem.yaml` to deploy `CoreApi`. Added `proxyToCoreApi` in `golem.ts` which securely injects `X-Internal-User-Id` into the Golem headers. Updated all 16 SvelteKit frontend API routes to use the new proxy. Verified that ABAC ownership guards inside the existing SurrealDB queries naturally protect the data using the injected ID. Eliminates oplog bloat and database connection exhaustion for high-volume read paths. Build: `npm run check` 0 errors. 18 files changed, 1 commit. Spec: `docs/specs/22-production-architecture-redesign.md`.
+
+- **✅ Spec 22: Phase 3 (Workflow Agents & Deadline Enforcement) — Complete**
+  Scaffolded a new `AssessmentSession` durable workflow agent in `assessment_session.mbt`. Deprecated monolithic `StudentAgent` state mutations by moving `student_submit_assessment` logic to this new workflow agent. Implemented `received_at` timestamp injection in SvelteKit `POST /submit-assessment` to securely enforce deadlines against Golem cold-starts and queue delays (using the new `deadline_exceeded_error()`). Mapped durable agents 1:1 with exam sessions (`session_<userId>_<assessmentId>`). Updated `golem.yaml` and `golem.ts`. Build: `npm run check` 0 errors. 6 files changed, 1 commit. Spec: `docs/specs/22-production-architecture-redesign.md`.
+
 - **✅ HF-16 Issue #8: Cache Terms Endpoint — Complete**
   Added `CacheSystem` with 600s TTL + stale-fallback to `admin_fetch_terms` (key `"terms"`). Updated `AdminAgent::get_terms` to pass cache. Added `try_parse_admin_terms` helper. Added cache invalidation in `admin_toggle_term`. Student/teacher agents were already cached — this closed the gap on the admin side. Terms page now hits DB at most once per 10 minutes. 2 files, 1 commit. `moon check` 0 errors. Spec: `docs/specs/hotfix-16-codebase-polish.md`.
 

@@ -236,6 +236,18 @@ school-management/
 - `frontend/src/lib/components/`: Each shadcn-svelte component lives in its own file. Custom composition components go here as well. No business logic.
 - `static/`: Assets like fonts and images. No generated content.
 
+## Testing
+
+- **MoonBit Unit Tests (`moon test`):**
+  - Use `test "description" {}` blocks for pure functions, data transformations, and validation logic.
+  - Mock dependencies (e.g., config, cache) for testing agent handlers (`*_handler.mbt`) in isolation.
+  - Tests should assert expected success responses as well as specific error cases (e.g., ensuring `deadline_exceeded_error()` is correctly triggered).
+- **SvelteKit Tests:**
+  - **Unit Testing (Vitest):** Test complex frontend logic (e.g., `extractErrorFromBody` parsing, date formatting, and state derivatives) in isolation.
+  - **Component Testing:** Use Svelte testing library to ensure UI components (like `GradeAssessmentModal`) render and react properly.
+  - **E2E Testing (Playwright):** For critical user flows (e.g., login, role-switching, submitting an exam, admin configurations), use Playwright. Mock the API layer if testing the UI in isolation, or run against the local Golem environment for integration tests.
+- **Test-Driven Mentality:** Tests are an evolving part of the application. Add tests alongside any new feature, bug fix, or architecture redesign to prevent regressions.
+
 ## UI Feedback Conventions
 
 Choose the right feedback channel based on context:
