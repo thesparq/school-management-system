@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
     environment:
       - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
-      - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
     volumes:
       - synapse_data:/data
       - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
@@ -30,7 +30,9 @@ services:
       - /bin/sh
       - -c
       - |
-        python -m synapse.app.homeserver --config-path /config/homeserver.yaml --keys-directory /data --generate-keys
+        # Inject the actual database password from the environment variable
+        sed "s/\\$${POSTGRES_PASSWORD}/${POSTGRES_PASSWORD}/g" /config/homeserver.yaml > /data/homeserver.yaml
+        python -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory /data --generate-keys
         chown -R 991:991 /data
         exec /start.py
     depends_on:
@@ -52,7 +54,8 @@ services:
     image: vectorim/element-web:latest
     restart: unless-stopped
     volumes:
-      - ./devops/element/config.json:/app/config.json
+      # Crucial: Must be read-only so the entrypoint cannot destroy our custom theme!
+      - ./devops/element/config.json:/app/config.json:ro
     networks:
       - default
       - dokploy-network
