@@ -1,4 +1,5 @@
 server_name: "matrix.johnethel.school"
+public_baseurl: "https://matrix.johnethel.school"
 report_stats: false
 pid_file: /data/homeserver.pid
 media_store_path: /data/media_store
@@ -30,7 +31,7 @@ enable_cors: true
 oidc_providers:
   - idp_id: authentik
     idp_name: "Johnethel School SSO"
-    issuer: "https://auth.staging.johnethel.school/application/o/matrix/"
+    issuer: "https://auth.staging.johnethel.school/application/o/matrix-synapse/"
     client_id: "6YMrolxcfMnREfemaQcaEogCXgM2r1T6NcRSkIJe"
     client_secret: "2YSBKRr4Uiae3458RGazOVp7w2MwzMGPM082Q93SnZy7ZDa0VvTcgn8MAQjdDZFgZNQS5BErco93jHy5koqhxnW1VzSGDZrlsA3NGYWrvZ4vFlLNWX51xCEvUvsRPY1v"
     scopes: ["openid", "profile", "email"]
