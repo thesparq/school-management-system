@@ -1,62 +1,48 @@
 version: "3.8"
 
 services:
-  caddy:
-    image: caddy:2
-    container_name: caddy
-    env_file: .env
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - sso_net
-
   synapse-postgresql:
     image: postgres:16-alpine
-    container_name: synapse_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: synapse
-      POSTGRES_PASSWORD: ${SYNAPSE_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: synapse
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - synapse_db:/var/lib/postgresql/data
-    networks:
-      - sso_net
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   synapse:
     image: matrixdotorg/synapse:latest
-    container_name: synapse
     restart: unless-stopped
-    volumes:
-      - ./matrix:/data
     environment:
-      - SYNAPSE_CONFIG_DIR=/data
-      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
-    networks:
-      - sso_net
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+      - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
+    volumes:
+      - synapse_data:/data
+      - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        python -m synapse.app.homeserver --config-path /config/homeserver.yaml --keys-directory /data --generate-keys
+        chown -R 991:991 /data
+        exec /start.py
     depends_on:
-      - synapse-postgresql
+      synapse-postgresql:
+        condition: service_healthy
 
   element-web:
     image: vectorim/element-web:latest
-    container_name: element_web
     restart: unless-stopped
     volumes:
       - ./element/config.json:/app/config.json
-    networks:
-      - sso_net
 
 volumes:
-  caddy_data:
-  caddy_config:
-  synapse_db:
-
-networks:
-  sso_net:
-    driver: bridge
+  synapse_data:
+  postgres_data:

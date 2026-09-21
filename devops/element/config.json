@@ -1,8 +1,8 @@
 {
     "default_server_config": {
         "m.homeserver": {
-            "base_url": "https://matrix.localhost",
-            "server_name": "matrix.localhost"
+            "base_url": "https://matrix.johnethel.school",
+            "server_name": "matrix.johnethel.school"
         },
         "m.identity_server": {
             "base_url": "https://vector.im"
@@ -26,11 +26,11 @@
     },
     "roomDirectory": {
         "servers": [
-            "matrix.localhost"
+            "matrix.johnethel.school"
         ]
     },
     "enable_presence_by_hs_url": {
-        "https://matrix.localhost": true
+        "https://matrix.johnethel.school": true
     },
     "terms_and_conditions_links": [],
     "sso_redirect_options": {

@@ -1,0 +1,47 @@
+server_name: "matrix.johnethel.school"
+pid_file: /data/homeserver.pid
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: "${POSTGRES_PASSWORD}"
+    database: synapse
+    host: synapse-postgresql
+    cp_min: 5
+    cp_max: 10
+    allow_unsafe_locale: true
+
+enable_registration: false
+enable_cors: true
+
+oidc_providers:
+  - idp_id: authentik
+    idp_name: "Johnethel School SSO"
+    issuer: "https://auth.staging.johnethel.school/application/o/matrix/"
+    client_id: "6YMrolxcfMnREfemaQcaEogCXgM2r1T6NcRSkIJe"
+    client_secret: "2YSBKRr4Uiae3458RGazOVp7w2MwzMGPM082Q93SnZy7ZDa0VvTcgn8MAQjdDZFgZNQS5BErco93jHy5koqhxnW1VzSGDZrlsA3NGYWrvZ4vFlLNWX51xCEvUvsRPY1v"
+    scopes: ["openid", "profile", "email"]
+    user_mapping_provider:
+      config:
+        localpart_template: "{{ user.preferred_username }}"
+        display_name_template: "{{ user.name }}"
+
+macaroon_secret_key: "johnethel_secure_macaroon_key_123"
+form_secret: "johnethel_secure_form_secret_123"
+registration_shared_secret: "johnethel_secure_reg_secret_123"
+password_config:
+  enabled: false
+
+trusted_key_servers:
+  - server_name: "matrix.org"
