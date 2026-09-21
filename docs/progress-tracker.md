@@ -453,3 +453,6 @@ Fixed `golem_sdk_tools` parse errors `AgentParseError` caused by trailing `#deri
   - Wrote SvelteKit server endpoints proxying requests from Svelte frontend to Golem API (via `X-Golem-Auth-Key`).
   - Ported `TimetableGrid`, `NewTimetableModal`, and `TimetableConfigModal` from the `micro1-hackathon` React template to strictly-typed Svelte 5 runes mode components.
   - Successfully deployed all components to the `golem-server`.
+
+- **🔄 Phase 7: Identity, PBAC, and System Integration Refactor** — Created `docs/specs/24-identity-rbac-architecture.md`. Transitioning from email-based logins to auto-generated immutable IDs (Admission/Staff IDs), implementing Permission-Based Access Control (PBAC), and building soft-delete workflows to prepare for Matrix/OpenCloud SSO integration.
+Phase 7 backend identity work completed successfully. Waiting on SvelteKit forms to apply the UI changes.

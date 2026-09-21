@@ -43,3 +43,39 @@ DEFINE FIELD added_assignments ON timetable_overrides TYPE array<record<has_subj
 DEFINE FIELD removed_assignments ON timetable_overrides TYPE array<record<has_subject>> DEFAULT [];
 -- Fast lookup index
 DEFINE INDEX idx_timetable_overrides_lookup ON timetable_overrides COLUMNS timetable, teacher UNIQUE;
+-- db/schema-v5.surql
+-- Schema migration for Phase 7: Immutable Business IDs and Sequence Tracking
+-- 1. Create the Sequence Tracking Table
+DEFINE TABLE IF NOT EXISTS id_sequences SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS type ON id_sequences TYPE string ASSERT $value IN ["student", "staff", "admin"];
+DEFINE FIELD IF NOT EXISTS prefix ON id_sequences TYPE string;
+DEFINE FIELD IF NOT EXISTS current_value ON id_sequences TYPE int DEFAULT 0;
+DEFINE FIELD IF NOT EXISTS created_at ON id_sequences TYPE datetime DEFAULT time::now();
+DEFINE INDEX IF NOT EXISTS idx_id_seq_type ON id_sequences COLUMNS type UNIQUE;
+-- Initialize the sequences if they don't exist
+INSERT INTO id_sequences (type, prefix, current_value)   VALUES     ("student", "JES", 0),     ("staff", "EMP", 0),     ("admin", "ADM", 0) 
+DEFINE TABLE IF NOT EXISTS id_sequences SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS type ON id_sequences TYPE string ASSERT $value IN ["student", "staff", "admin"];
+DEFINE FIELD IF NOT EXISTS prefix ON id_sequences TYPE string;
+DEFINE FIELD IF NOT EXISTS current_value ON id_sequences TYPE int DEFAULT 0;
+DEFINE FIELD IF NOT EXISTS created_at ON id_sequences TYPE datetime DEFAULT time::now();
+DEFINE INDEX IF NOT EXISTS idx_id_seq_type ON id_sequences COLUMNS type UNIQUE;
+-- We specify the record ID manually so it acts as an UPSERT automatically
+UPDATE id_sequences:student SET type = "student", prefix = "JES", current_value = 0 WHERE current_value = NONE;
+UPDATE id_sequences:staff SET type = "staff", prefix = "EMP", current_value = 0 WHERE current_value = NONE;
+UPDATE id_sequences:admin SET type = "admin", prefix = "ADM", current_value = 0 WHERE current_value = NONE;
+DEFINE FIELD IF NOT EXISTS admission_number ON student_profile TYPE string ASSERT $value != NONE AND $value != "";
+DEFINE INDEX IF NOT EXISTS idx_student_admission ON student_profile COLUMNS admission_number UNIQUE;
+DEFINE FIELD IF NOT EXISTS staff_id ON teacher_profile TYPE string ASSERT $value != NONE AND $value != "";
+DEFINE INDEX IF NOT EXISTS idx_teacher_staffid ON teacher_profile COLUMNS staff_id UNIQUE;
+DEFINE FIELD IF NOT EXISTS staff_id ON admin_profile TYPE string ASSERT $value != NONE AND $value != "";
+DEFINE INDEX IF NOT EXISTS idx_admin_staffid ON admin_profile COLUMNS staff_id UNIQUE;
+DEFINE FIELD IF NOT EXISTS permissions ON admin_profile TYPE array<string> DEFAULT [];
+UPSERT id_sequences:student CONTENT { type: "student", prefix: "JES", current_value: 0 };
+UPSERT id_sequences:staff CONTENT { type: "staff", prefix: "EMP", current_value: 0 };
+UPSERT id_sequences:admin CONTENT { type: "admin", prefix: "ADM", current_value: 0 };
+DELETE id_sequences;
+UPSERT id_sequences:student CONTENT { type: "student", prefix: "JES", current_value: 0 };
+UPSERT id_sequences:staff CONTENT { type: "staff", prefix: "EMP", current_value: 0 };
+UPSERT id_sequences:admin CONTENT { type: "admin", prefix: "ADM", current_value: 0 };
+UPDATE id_sequences:student SET current_value += 1 RETURN prefix, current_value;
