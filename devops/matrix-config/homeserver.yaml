@@ -15,6 +15,7 @@ listeners:
 
 database:
   name: psycopg2
+  allow_unsafe_locale: true
   args:
     user: synapse
     password: "${POSTGRES_PASSWORD}"
@@ -22,7 +23,6 @@ database:
     host: synapse-postgresql
     cp_min: 5
     cp_max: 10
-    allow_unsafe_locale: true
 
 enable_registration: false
 enable_cors: true
