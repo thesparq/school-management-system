@@ -207,6 +207,13 @@
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith("/admin/timetable")}>
+								{#snippet child({ props })}
+									<a href="/admin/timetable" {...props}>Timetable Dashboard</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroup>
 			{/if}
