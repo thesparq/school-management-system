@@ -3,17 +3,18 @@ set -e
 
 # Load env
 if [ -f .env ]; then
-  source .env
+  set -a; source .env; set +a
 else
   cp .env.example .env
-  source .env
+  set -a; source .env; set +a
   echo "Created .env from .env.example. Please review and run again if needed."
 fi
 
 mkdir -p matrix caddy element authentik/media authentik/custom-templates authentik/certs
 
+rm -f matrix/homeserver.yaml
 echo "Generating Synapse keys and baseline config..."
-docker run -it --rm \
+sudo docker run -it --rm \
     -v $(pwd)/matrix:/data \
     -e SYNAPSE_SERVER_NAME=${MATRIX_DOMAIN} \
     -e SYNAPSE_REPORT_STATS=no \
