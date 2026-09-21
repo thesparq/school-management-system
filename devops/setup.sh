@@ -80,6 +80,7 @@ PY
 
 python3 patch_synapse.py
 sudo python3 patch_synapse_collation.py
+sudo python3 patch_final.py
 rm patch_synapse.py
 
 echo "Setup complete. You can now run: docker compose up -d"
