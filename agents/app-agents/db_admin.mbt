@@ -50,6 +50,7 @@ pub fn db_admin_fetch_parent_profile(
 pub fn db_admin_create_student_profile(
   config : SharedConfig,
   user_id : String,
+  admission_number : String,
   surname : String,
   first_name : String,
   middle_name : String?,
@@ -62,6 +63,7 @@ pub fn db_admin_create_student_profile(
     Some(_) =>
       {
         "user_id": user_id,
+        "admission_number": admission_number,
         "surname": surname,
         "first_name": first_name,
         "middle_name": middle_name.unwrap(),
@@ -73,6 +75,7 @@ pub fn db_admin_create_student_profile(
     None =>
       {
         "user_id": user_id,
+        "admission_number": admission_number,
         "surname": surname,
         "first_name": first_name,
         "display_name": display_name,
@@ -82,9 +85,9 @@ pub fn db_admin_create_student_profile(
       }
   }
   let sql = if middle_name.is_some() {
-    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET admission_number = $admission_number, surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   } else {
-    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET admission_number = $admission_number, surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   }
   match surreal_query(config, sql, bindings=b) {
     Ok(_) => Ok(())
@@ -155,6 +158,7 @@ pub fn db_admin_update_student_profile(
 pub fn db_admin_create_teacher_profile(
   config : SharedConfig,
   user_id : String,
+  staff_id : String,
   surname : String,
   first_name : String,
   middle_name : String?,
@@ -178,7 +182,7 @@ pub fn db_admin_create_teacher_profile(
       "]"
     None => ""
   }
-  let sql = "CREATE type::record('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let sql = "CREATE type::record('teacher_profile', $user_id) SET staff_id = $staff_id, surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     de_part +
     qual_part
@@ -186,6 +190,7 @@ pub fn db_admin_create_teacher_profile(
     (Some(mn), Some(de)) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "middle_name": mn,
@@ -196,6 +201,7 @@ pub fn db_admin_create_teacher_profile(
     (Some(mn), None) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "middle_name": mn,
@@ -205,6 +211,7 @@ pub fn db_admin_create_teacher_profile(
     (None, Some(de)) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "display_name": display_name,
@@ -214,6 +221,7 @@ pub fn db_admin_create_teacher_profile(
     (None, None) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "display_name": display_name,
@@ -317,6 +325,7 @@ pub fn db_admin_update_teacher_profile(
 pub fn db_admin_create_admin_profile(
   config : SharedConfig,
   user_id : String,
+  staff_id : String,
   surname : String,
   first_name : String,
   middle_name : String?,
@@ -332,13 +341,14 @@ pub fn db_admin_create_admin_profile(
     Some(_) => ", role_title = $role_title"
     None => ""
   }
-  let sql = "CREATE type::record('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let sql = "CREATE type::record('admin_profile', $user_id) SET staff_id = $staff_id, surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     rt_part
   let b = match (middle_name, role_title) {
     (Some(mn), Some(rt)) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "middle_name": mn,
@@ -349,6 +359,7 @@ pub fn db_admin_create_admin_profile(
     (Some(mn), None) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "middle_name": mn,
@@ -358,6 +369,7 @@ pub fn db_admin_create_admin_profile(
     (None, Some(rt)) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "display_name": display_name,
@@ -367,6 +379,7 @@ pub fn db_admin_create_admin_profile(
     (None, None) =>
       {
         "user_id": user_id,
+        "staff_id": staff_id,
         "surname": surname,
         "first_name": first_name,
         "display_name": display_name,
@@ -973,4 +986,40 @@ pub fn db_admin_create_teacher_assignments(
     }
   }
   Ok(())
+}
+
+///|
+pub fn db_admin_generate_next_id(
+  config : SharedConfig,
+  seq_type : String,
+) -> Result[String, AppError] {
+  let query = "UPDATE type::thing('id_sequences', $seq_type) SET current_value += 1 RETURN prefix, current_value;"
+  match surreal_query(config, query, bindings={ "seq_type": seq_type }) {
+    Ok(arr) => {
+      if arr.length() > 0 {
+        match arr[0] {
+          Object(o) => {
+            let prefix = match o.get("prefix") {
+              Some(String(s)) => s
+              _ => "UNK"
+            }
+            let current_value = match o.get("current_value") {
+              Some(Number(n)) => n.to_int()
+              _ => 0
+            }
+            let mut num_str = current_value.to_string()
+            while num_str.length() < 3 {
+              num_str = "0" + num_str
+            }
+            let year = "26"
+            Ok(prefix + "-" + year + "-" + num_str)
+          }
+          _ => Err(surreal_error("Unexpected response format from sequence generator", None))
+        }
+      } else {
+        Err(surreal_error("Failed to generate sequence (no records returned)", None))
+      }
+    }
+    Err(e) => Err(e)
+  }
 }

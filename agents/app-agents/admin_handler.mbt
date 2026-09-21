@@ -1160,9 +1160,9 @@ pub fn admin_create_student(
     Object(o) => o
     _ => return Err(validation_error("Body must be an object"))
   }
-  let username = match obj.get("username") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Username is required"))
+  let username = match db_admin_generate_next_id(config, "student") {
+    Ok(id) => id
+    Err(e) => return Err(e)
   }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
@@ -1289,7 +1289,7 @@ pub fn admin_create_student(
   match
     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
       db_admin_create_student_profile(
-        config, uuid, surname, first_name, middle_name, display_name, dob, cl_id,
+        config, uuid, username, surname, first_name, middle_name, display_name, dob, cl_id,
         passport_url,
       )
     }) {
@@ -1319,9 +1319,9 @@ pub fn admin_create_teacher(
     Object(o) => o
     _ => return Err(validation_error("Body must be an object"))
   }
-  let username = match obj.get("username") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Username is required"))
+  let username = match db_admin_generate_next_id(config, "staff") {
+    Ok(id) => id
+    Err(e) => return Err(e)
   }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
@@ -1400,6 +1400,7 @@ pub fn admin_create_teacher(
       db_admin_create_teacher_profile(
         config,
         uuid,
+        username,
         surname,
         first_name,
         middle_name,
@@ -1435,9 +1436,9 @@ pub fn admin_create_admin(
     Object(o) => o
     _ => return Err(validation_error("Body must be an object"))
   }
-  let username = match obj.get("username") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Username is required"))
+  let username = match db_admin_generate_next_id(config, "admin") {
+    Ok(id) => id
+    Err(e) => return Err(e)
   }
   let surname = match obj.get("surname") {
     Some(String(s)) => s
@@ -1516,6 +1517,7 @@ pub fn admin_create_admin(
       db_admin_create_admin_profile(
         config,
         uuid,
+        username,
         surname,
         first_name,
         middle_name,
@@ -1549,10 +1551,7 @@ pub fn admin_create_parent(
     Object(o) => o
     _ => return Err(validation_error("Body must be an object"))
   }
-  let username = match obj.get("username") {
-    Some(String(s)) => s
-    _ => return Err(validation_error("Username is required"))
-  }
+  
   let name = match obj.get("name") {
     Some(String(s)) => s
     _ => return Err(validation_error("Name is required"))
@@ -1561,6 +1560,7 @@ pub fn admin_create_parent(
     Some(String(s)) => s
     _ => return Err(validation_error("Email is required"))
   }
+  let username = email
   let password = match obj.get("password") {
     Some(String(s)) => s
     _ => return Err(validation_error("Password is required"))
