@@ -25,7 +25,7 @@ services:
       - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
     volumes:
       - synapse_data:/data
-      - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+      - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
     entrypoint:
       - /bin/sh
       - -c
@@ -52,7 +52,7 @@ services:
     image: vectorim/element-web:latest
     restart: unless-stopped
     volumes:
-      - ./element/config.json:/app/config.json
+      - ./devops/element/config.json:/app/config.json
     networks:
       - default
       - dokploy-network
