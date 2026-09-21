@@ -3,6 +3,7 @@
 Update this file after every meaningful implementation change.
 
 ## In Progress
+- [/] Phase 6: Timetable UI Migration (SvelteKit)
 
 - **⏳ Phase 5: Timetable CSP Solver (Phoenix Allocator)**
   Porting the Rust-based timetable CSP solver into MoonBit and mapping React UI to SvelteKit. Step 1: Updating SurrealDB schema with `schema-v4.surql` to add `timetables`, `schedule_slots`, and `timetable_overrides` tables with dynamic tiering logic.
