@@ -79,6 +79,7 @@ with open("matrix/homeserver.yaml", "w") as f:
 PY
 
 python3 patch_synapse.py
+sudo python3 patch_synapse_collation.py
 rm patch_synapse.py
 
 echo "Setup complete. You can now run: docker compose up -d"
