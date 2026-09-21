@@ -1,8 +1,10 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { Button } from '$lib/components/ui/button';
+  import TimetableGrid from '$lib/components/timetable/TimetableGrid.svelte';
   import { onMount } from 'svelte';
   
+  export let data: import("./$types").PageData;
   let isGenerating = false;
   
   async function handleGenerateTimetable() {
@@ -86,7 +88,11 @@
     </div>
   </div>
 
-  <div class="p-8 border border-dashed rounded-lg flex items-center justify-center text-muted-foreground font-medium">
-    Timetable Grid will be loaded here.
-  </div>
+  <TimetableGrid 
+    classSlots={data.slots}
+    dayConfigs={data.dayConfigs || []}
+    classes={data.classes || []}
+    subjects={data.subjects || []}
+    teachers={data.teachers || []}
+  />
 </div>
