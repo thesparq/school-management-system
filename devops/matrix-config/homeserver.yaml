@@ -1,4 +1,5 @@
 server_name: "matrix.johnethel.school"
+report_stats: false
 pid_file: /data/homeserver.pid
 
 listeners:
