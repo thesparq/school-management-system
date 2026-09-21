@@ -30,8 +30,8 @@ services:
       - /bin/sh
       - -c
       - |
-        # Inject the actual database password from the environment variable
-        sed "s/\\$${POSTGRES_PASSWORD}/${POSTGRES_PASSWORD}/g" /config/homeserver.yaml > /data/homeserver.yaml
+        # Inject the actual database password safely using Python
+        python -c 'import os; c = open("/config/homeserver.yaml").read(); open("/data/homeserver.yaml", "w").write(c.replace("${POSTGRES_PASSWORD}", os.environ["POSTGRES_PASSWORD"]))'
         python -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory /data --generate-keys
         chown -R 991:991 /data
         exec /start.py
