@@ -1,0 +1,27 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$AUTH_DOMAIN} {
+    reverse_proxy authentik-server:9000
+}
+
+{$MATRIX_DOMAIN} {
+    header /.well-known/matrix/* Content-Type application/json
+    header /.well-known/matrix/* Access-Control-Allow-Origin *
+    
+    handle /.well-known/matrix/server {
+        respond `{"m.server": "{$MATRIX_DOMAIN}:443"}`
+    }
+    
+    handle /.well-known/matrix/client {
+        respond `{"m.homeserver": {"base_url": "https://{$MATRIX_DOMAIN}"}}`
+    }
+    
+    reverse_proxy /_matrix/* synapse:8008
+    reverse_proxy /_synapse/client/* synapse:8008
+}
+
+{$CHAT_DOMAIN} {
+    reverse_proxy element-web:80
+}

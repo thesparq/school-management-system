@@ -1,0 +1,146 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - sso_net
+
+  authentik-postgresql:
+    image: docker.io/library/postgres:16-alpine
+    container_name: authentik_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - authentik_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      POSTGRES_USER: authentik
+      POSTGRES_DB: authentik
+    networks:
+      - sso_net
+
+  authentik-redis:
+    image: docker.io/library/redis:alpine
+    container_name: authentik_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - authentik_redis:/data
+    networks:
+      - sso_net
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.2.2
+    container_name: authentik_server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/custom-templates:/templates
+    networks:
+      - sso_net
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.2.2
+    container_name: authentik_worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/certs:/certs
+      - ./authentik/custom-templates:/templates
+    networks:
+      - sso_net
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  synapse-postgresql:
+    image: postgres:16-alpine
+    container_name: synapse_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: ${SYNAPSE_POSTGRES_PASSWORD}
+      POSTGRES_DB: synapse
+    volumes:
+      - synapse_db:/var/lib/postgresql/data
+    networks:
+      - sso_net
+
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: synapse
+    restart: unless-stopped
+    volumes:
+      - ./matrix:/data
+    environment:
+      - SYNAPSE_CONFIG_DIR=/data
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    networks:
+      - sso_net
+    depends_on:
+      - synapse-postgresql
+
+  element-web:
+    image: vectorim/element-web:latest
+    container_name: element_web
+    restart: unless-stopped
+    volumes:
+      - ./element/config.json:/app/config.json
+    networks:
+      - sso_net
+
+volumes:
+  caddy_data:
+  caddy_config:
+  authentik_db:
+  authentik_redis:
+  synapse_db:
+
+networks:
+  sso_net:
+    driver: bridge
