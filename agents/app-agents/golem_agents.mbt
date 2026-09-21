@@ -3,1662 +3,6 @@
 fn init{
   try {
     @agents.register_agent({
-      name: "AdminAgent",
-      agent_type: {
-        type_name: "AdminAgent",
-        description: "AdminAgent",
-        source_language: "moonbit",
-        constructor_: {
-          name: Some("new"),
-          description: "Creates a new AdminAgent",
-          prompt_hint: None,
-          input_schema: @rpcTypes.DataSchema::Tuple([
-            (
-              "_admin_id",
-              @schema.schema_of_tag(
-                (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-              ),
-            ),
-          ]),
-        },
-        methods: [
-          {
-            name: "ping",
-            description: "ping",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("ping")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_student",
-            description: "create_student",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("create-student")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[CreateUserResponse, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_teacher",
-            description: "create_teacher",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("create-teacher")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[CreateUserResponse, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_admin",
-            description: "create_admin",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("create-admin")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[CreateUserResponse, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_parent",
-            description: "create_parent",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("create-parent")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[CreateUserResponse, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "edit_student",
-            description: "edit_student",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("edit-student")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "edit_teacher",
-            description: "edit_teacher",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("edit-teacher")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "edit_admin",
-            description: "edit_admin",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("edit-admin")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "edit_parent",
-            description: "edit_parent",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("edit-parent")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "delete_student",
-            description: "delete_student",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("delete-student")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "delete_teacher",
-            description: "delete_teacher",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("delete-teacher")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "delete_admin",
-            description: "delete_admin",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("delete-admin")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "delete_parent",
-            description: "delete_parent",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("delete-parent")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_student_profile",
-            description: "get_student_profile",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("get-student-profile"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_user_id",
-                    variable_name: "target_user_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[StudentProfileInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_teacher_profile",
-            description: "get_teacher_profile",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("get-teacher-profile"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_user_id",
-                    variable_name: "target_user_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[TeacherProfileInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_admin_profile",
-            description: "get_admin_profile",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("get-admin-profile")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_user_id",
-                    variable_name: "target_user_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[AdminProfileInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_parent_profile",
-            description: "get_parent_profile",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("get-parent-profile"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_user_id",
-                    variable_name: "target_user_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_user_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[ParentProfileInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_credentials",
-            description: "get_credentials",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("credentials")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[CredentialInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_credential",
-            description: "create_credential",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("create-credential")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  { query_param_name: "name", variable_name: "name" },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "name",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[CredentialInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "delete_credential",
-            description: "delete_credential",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("delete-credential")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [{ query_param_name: "id", variable_name: "id" }],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_students_list",
-            description: "get_students_list",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("students"),
-                  @common.PathSegment::Literal("list"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[StudentProfileInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_parents_list",
-            description: "get_parents_list",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("parents"),
-                  @common.PathSegment::Literal("list"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[ParentProfileInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "set_user_active_status",
-            description: "set_user_active_status",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("set-user-active")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_class_levels",
-            description: "get_class_levels",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("class-levels")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[ClassLevelInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_available_class_subjects",
-            description: "get_available_class_subjects",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("class-subjects")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[TeacherSubjectPair], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_teacher_subjects",
-            description: "get_teacher_subjects",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("teacher"),
-                  @common.PathSegment::Literal("subjects"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_teacher_id",
-                    variable_name: "target_teacher_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_teacher_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[TeacherSubjectPair], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "set_teacher_subjects",
-            description: "set_teacher_subjects",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [
-                  @common.PathSegment::Literal("teacher"),
-                  @common.PathSegment::Literal("subjects"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "target_teacher_id",
-                    variable_name: "target_teacher_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "target_teacher_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "pairs_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_active_session_term",
-            description: "get_active_session_term",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [
-                  @common.PathSegment::Literal("active-session-term"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[SessionTermDetail, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_terms",
-            description: "get_terms",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("terms")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[TermSimple], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "get_session_terms",
-            description: "get_session_terms",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Get,
-                path_suffix: [@common.PathSegment::Literal("session-terms")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[Array[SessionTermInfo], String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "create_session_term",
-            description: "create_session_term",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [
-                  @common.PathSegment::Literal("create-session-term"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[SessionTermInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "activate_session_term",
-            description: "activate_session_term",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [
-                  @common.PathSegment::Literal("activate-session-term"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  {
-                    query_param_name: "session_term_id",
-                    variable_name: "session_term_id",
-                  },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "session_term_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "edit_session_term",
-            description: "edit_session_term",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("edit-session-term")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "body_json",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[SessionTermInfo, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "toggle_term_active",
-            description: "toggle_term_active",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [
-                  @common.PathSegment::Literal("toggle-term-active"),
-                ],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [
-                  { query_param_name: "term_id", variable_name: "term_id" },
-                  { query_param_name: "active", variable_name: "active" },
-                ],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "term_id",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "active",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (
-                    @schema.TypeTag::{  }
-                    : @schema.TypeTag[Result[String, String]]
-                  ),
-                ),
-              ),
-            ]),
-          },
-          {
-            name: "invalidate_cache",
-            description: "invalidate_cache",
-            http_endpoint: [
-              {
-                http_method: @common.HttpMethod::Post,
-                path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
-                header_vars: [
-                  {
-                    header_name: "X-Golem-Auth-Key",
-                    variable_name: "incoming_key",
-                  },
-                ],
-                query_vars: [{ query_param_name: "key", variable_name: "key" }],
-                auth_details: None,
-                cors_options: { allowed_patterns: [], },
-              },
-            ],
-            prompt_hint: None,
-            input_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "incoming_key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-              (
-                "key",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-            output_schema: @rpcTypes.DataSchema::Tuple([
-              (
-                "result",
-                @schema.schema_of_tag(
-                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
-                ),
-              ),
-            ]),
-          },
-        ],
-        dependencies: [],
-        mode: @common.AgentMode::DURABLE,
-        http_mount: Some({
-          path_prefix: [
-            @common.PathSegment::Literal("admin"),
-            @common.PathSegment::PathVariable({ variable_name: "_admin_id", }),
-          ],
-          auth_details: None,
-          phantom_agent: false,
-          cors_options: { allowed_patterns: [], },
-          webhook_suffix: [],
-        }),
-        snapshotting: @common.Snapshotting::Disabled,
-        config: @config.collect_entries_of(
-          (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
-          [],
-        ),
-      },
-      construct: fn(input, principal) {
-        try {
-          let elements = @extractor.extract_tuple(input)
-          guard elements.length() == 1 else {
-            raise  @common.AgentError::InvalidInput(
-              "Expected 1 elements, got " + elements.length().to_string(),
-            )
-          }
-          let _admin_id :String = @schema.from_element_value_as(elements[0])
-          let config :@config.Config[SharedConfig] = @config.load_config(
-            (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
-          )
-          let agent = AdminAgent::new(_admin_id, config)
-          let constructed = @agents.ConstructedAgent::{
-            raw: agent,
-            snapshottable: None,
-            snapshot_format: None,
-          }
-          Ok(constructed)
-        } catch{
-          e => Err(e)
-        }
-      },
-    })
-    @agents.register_agent({
       name: "AssessmentSession",
       agent_type: {
         type_name: "AssessmentSession",
@@ -4549,440 +2893,1738 @@ fn init{
         }
       },
     })
+    @agents.register_agent({
+      name: "AdminAgent",
+      agent_type: {
+        type_name: "AdminAgent",
+        description: "AdminAgent",
+        source_language: "moonbit",
+        constructor_: {
+          name: Some("new"),
+          description: "Creates a new AdminAgent",
+          prompt_hint: None,
+          input_schema: @rpcTypes.DataSchema::Tuple([
+            (
+              "_admin_id",
+              @schema.schema_of_tag(
+                (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+              ),
+            ),
+          ]),
+        },
+        methods: [
+          {
+            name: "ping",
+            description: "ping",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("ping")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_student",
+            description: "create_student",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("create-student")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[CreateUserResponse, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_teacher",
+            description: "create_teacher",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("create-teacher")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[CreateUserResponse, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_admin",
+            description: "create_admin",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("create-admin")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[CreateUserResponse, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_parent",
+            description: "create_parent",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("create-parent")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[CreateUserResponse, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_student",
+            description: "edit_student",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-student")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_teacher",
+            description: "edit_teacher",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-teacher")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_admin",
+            description: "edit_admin",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-admin")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_parent",
+            description: "edit_parent",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-parent")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "delete_student",
+            description: "delete_student",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("delete-student")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "delete_teacher",
+            description: "delete_teacher",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("delete-teacher")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "delete_admin",
+            description: "delete_admin",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("delete-admin")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "delete_parent",
+            description: "delete_parent",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("delete-parent")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_student_profile",
+            description: "get_student_profile",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("get-student-profile"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[StudentProfileInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_teacher_profile",
+            description: "get_teacher_profile",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("get-teacher-profile"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[TeacherProfileInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_admin_profile",
+            description: "get_admin_profile",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("get-admin-profile")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[AdminProfileInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_parent_profile",
+            description: "get_parent_profile",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("get-parent-profile"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_user_id",
+                    variable_name: "target_user_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_user_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[ParentProfileInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_credentials",
+            description: "get_credentials",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("credentials")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[CredentialInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_credential",
+            description: "create_credential",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("create-credential")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "name", variable_name: "name" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "name",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[CredentialInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "delete_credential",
+            description: "delete_credential",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("delete-credential")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [{ query_param_name: "id", variable_name: "id" }],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_students_list",
+            description: "get_students_list",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("students"),
+                  @common.PathSegment::Literal("list"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[StudentProfileInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_parents_list",
+            description: "get_parents_list",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("parents"),
+                  @common.PathSegment::Literal("list"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[ParentProfileInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "set_user_active_status",
+            description: "set_user_active_status",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("set-user-active")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_class_levels",
+            description: "get_class_levels",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("class-levels")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[ClassLevelInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_available_class_subjects",
+            description: "get_available_class_subjects",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("class-subjects")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TeacherSubjectPair], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_teacher_subjects",
+            description: "get_teacher_subjects",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("teacher"),
+                  @common.PathSegment::Literal("subjects"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_teacher_id",
+                    variable_name: "target_teacher_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_teacher_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TeacherSubjectPair], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "set_teacher_subjects",
+            description: "set_teacher_subjects",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("teacher"),
+                  @common.PathSegment::Literal("subjects"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "target_teacher_id",
+                    variable_name: "target_teacher_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "target_teacher_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "pairs_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_active_session_term",
+            description: "get_active_session_term",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [
+                  @common.PathSegment::Literal("active-session-term"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[SessionTermDetail, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_terms",
+            description: "get_terms",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("terms")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[TermSimple], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "get_session_terms",
+            description: "get_session_terms",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Get,
+                path_suffix: [@common.PathSegment::Literal("session-terms")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[Array[SessionTermInfo], String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "create_session_term",
+            description: "create_session_term",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("create-session-term"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[SessionTermInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "activate_session_term",
+            description: "activate_session_term",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("activate-session-term"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  {
+                    query_param_name: "session_term_id",
+                    variable_name: "session_term_id",
+                  },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "session_term_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "edit_session_term",
+            description: "edit_session_term",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("edit-session-term")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[SessionTermInfo, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "toggle_term_active",
+            description: "toggle_term_active",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("toggle-term-active"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [
+                  { query_param_name: "term_id", variable_name: "term_id" },
+                  { query_param_name: "active", variable_name: "active" },
+                ],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "term_id",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "active",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[Bool]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "invalidate_cache",
+            description: "invalidate_cache",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("invalidate-cache")],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [{ query_param_name: "key", variable_name: "key" }],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "fix_terms",
+            description: "fix_terms",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [@common.PathSegment::Literal("fix-terms")],
+                header_vars: [],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+          {
+            name: "generate_timetable",
+            description: "generate_timetable",
+            http_endpoint: [
+              {
+                http_method: @common.HttpMethod::Post,
+                path_suffix: [
+                  @common.PathSegment::Literal("generate-timetable"),
+                ],
+                header_vars: [
+                  {
+                    header_name: "X-Golem-Auth-Key",
+                    variable_name: "incoming_key",
+                  },
+                ],
+                query_vars: [],
+                auth_details: None,
+                cors_options: { allowed_patterns: [], },
+              },
+            ],
+            prompt_hint: None,
+            input_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "incoming_key",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+              (
+                "body_json",
+                @schema.schema_of_tag(
+                  (@schema.TypeTag::{  } : @schema.TypeTag[String]),
+                ),
+              ),
+            ]),
+            output_schema: @rpcTypes.DataSchema::Tuple([
+              (
+                "result",
+                @schema.schema_of_tag(
+                  (
+                    @schema.TypeTag::{  }
+                    : @schema.TypeTag[Result[String, String]]
+                  ),
+                ),
+              ),
+            ]),
+          },
+        ],
+        dependencies: [],
+        mode: @common.AgentMode::DURABLE,
+        http_mount: Some({
+          path_prefix: [
+            @common.PathSegment::Literal("admin"),
+            @common.PathSegment::PathVariable({ variable_name: "_admin_id", }),
+          ],
+          auth_details: None,
+          phantom_agent: false,
+          cors_options: { allowed_patterns: [], },
+          webhook_suffix: [],
+        }),
+        snapshotting: @common.Snapshotting::Disabled,
+        config: @config.collect_entries_of(
+          (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
+          [],
+        ),
+      },
+      construct: fn(input, principal) {
+        try {
+          let elements = @extractor.extract_tuple(input)
+          guard elements.length() == 1 else {
+            raise  @common.AgentError::InvalidInput(
+              "Expected 1 elements, got " + elements.length().to_string(),
+            )
+          }
+          let _admin_id :String = @schema.from_element_value_as(elements[0])
+          let config :@config.Config[SharedConfig] = @config.load_config(
+            (@schema.TypeTag::{  } : @schema.TypeTag[SharedConfig]),
+          )
+          let agent = AdminAgent::new(_admin_id, config)
+          let constructed = @agents.ConstructedAgent::{
+            raw: agent,
+            snapshottable: None,
+            snapshot_format: None,
+          }
+          Ok(constructed)
+        } catch{
+          e => Err(e)
+        }
+      },
+    })
   } catch{
     e => abort(e.to_string())
-  }
-}
-
-///|
-impl @agents.RawAgent for AdminAgent with invoke(
-  self,
-  method_name,
-  input,
-  principal,
-) {
-  try {
-    match method_name {
-      "ping" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.ping(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_student" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_student(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_teacher" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_teacher(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_admin" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_admin(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_parent" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_parent(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "edit_student" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.edit_student(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "edit_teacher" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.edit_teacher(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "edit_admin" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.edit_admin(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "edit_parent" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.edit_parent(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "delete_student" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_student(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "delete_teacher" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_teacher(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "delete_admin" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_admin(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "delete_parent" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_parent(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_student_profile" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.get_student_profile(incoming_key, target_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_teacher_profile" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.get_teacher_profile(incoming_key, target_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_admin_profile" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.get_admin_profile(incoming_key, target_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_parent_profile" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_user_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.get_parent_profile(incoming_key, target_user_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_credentials" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_credentials(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_credential" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let name :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_credential(incoming_key, name)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "delete_credential" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let id :String = @schema.from_element_value_as(elements[1])
-        let result = self.delete_credential(incoming_key, id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_students_list" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_students_list(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_parents_list" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_parents_list(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "set_user_active_status" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.set_user_active_status(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_class_levels" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_class_levels(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_available_class_subjects" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_available_class_subjects(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_teacher_subjects" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_teacher_id :String = 
-          @schema.from_element_value_as(elements[1])
-        let result = self.get_teacher_subjects(incoming_key, target_teacher_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "set_teacher_subjects" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 3 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 3 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let target_teacher_id :String = 
-          @schema.from_element_value_as(elements[1])
-        let pairs_json :String = @schema.from_element_value_as(elements[2])
-        let result = 
-          self.set_teacher_subjects(incoming_key, target_teacher_id, pairs_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_active_session_term" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_active_session_term(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_terms" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_terms(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "get_session_terms" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 1 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 1 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let result = self.get_session_terms(incoming_key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "create_session_term" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.create_session_term(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "activate_session_term" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let session_term_id :String = @schema.from_element_value_as(elements[1])
-        let result = self.activate_session_term(incoming_key, session_term_id)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "edit_session_term" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let body_json :String = @schema.from_element_value_as(elements[1])
-        let result = self.edit_session_term(incoming_key, body_json)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "toggle_term_active" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 3 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 3 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let term_id :String = @schema.from_element_value_as(elements[1])
-        let active :Bool = @schema.from_element_value_as(elements[2])
-        let result = self.toggle_term_active(incoming_key, term_id, active)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      "invalidate_cache" => {
-        let elements = @extractor.extract_tuple(input)
-        guard elements.length() == 2 else {
-          raise  @common.AgentError::InvalidInput(
-            "Expected 2 elements, got " + elements.length().to_string(),
-          )
-        }
-        let incoming_key :String = @schema.from_element_value_as(elements[0])
-        let key :String = @schema.from_element_value_as(elements[1])
-        let result = self.invalidate_cache(incoming_key, key)
-        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
-      }
-      other => Err(@common.AgentError::InvalidMethod(other))
-    }
-  } catch{
-    e => Err(e)
   }
 }
 
@@ -5728,6 +5370,460 @@ impl @agents.RawAgent for CoreApi with invoke(
           session_term_id,
           subject_id,
         )
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      other => Err(@common.AgentError::InvalidMethod(other))
+    }
+  } catch{
+    e => Err(e)
+  }
+}
+
+///|
+impl @agents.RawAgent for AdminAgent with invoke(
+  self,
+  method_name,
+  input,
+  principal,
+) {
+  try {
+    match method_name {
+      "ping" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.ping(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_student" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_student(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_teacher" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_teacher(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_admin(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_parent" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_parent(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_student" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_student(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_teacher" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_teacher(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_admin(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_parent" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_parent(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "delete_student" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_student(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "delete_teacher" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_teacher(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "delete_admin" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_admin(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "delete_parent" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_parent(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_student_profile" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.get_student_profile(incoming_key, target_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_teacher_profile" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.get_teacher_profile(incoming_key, target_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_admin_profile" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.get_admin_profile(incoming_key, target_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_parent_profile" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_user_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.get_parent_profile(incoming_key, target_user_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_credentials" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_credentials(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_credential" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let name :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_credential(incoming_key, name)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "delete_credential" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let id :String = @schema.from_element_value_as(elements[1])
+        let result = self.delete_credential(incoming_key, id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_students_list" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_students_list(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_parents_list" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_parents_list(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "set_user_active_status" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.set_user_active_status(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_class_levels" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_class_levels(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_available_class_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_available_class_subjects(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_teacher_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_teacher_id :String = 
+          @schema.from_element_value_as(elements[1])
+        let result = self.get_teacher_subjects(incoming_key, target_teacher_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "set_teacher_subjects" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let target_teacher_id :String = 
+          @schema.from_element_value_as(elements[1])
+        let pairs_json :String = @schema.from_element_value_as(elements[2])
+        let result = 
+          self.set_teacher_subjects(incoming_key, target_teacher_id, pairs_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_active_session_term" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_active_session_term(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_terms(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "get_session_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 1 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 1 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let result = self.get_session_terms(incoming_key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "create_session_term" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.create_session_term(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "activate_session_term" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let session_term_id :String = @schema.from_element_value_as(elements[1])
+        let result = self.activate_session_term(incoming_key, session_term_id)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "edit_session_term" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.edit_session_term(incoming_key, body_json)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "toggle_term_active" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 3 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 3 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let term_id :String = @schema.from_element_value_as(elements[1])
+        let active :Bool = @schema.from_element_value_as(elements[2])
+        let result = self.toggle_term_active(incoming_key, term_id, active)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "invalidate_cache" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let key :String = @schema.from_element_value_as(elements[1])
+        let result = self.invalidate_cache(incoming_key, key)
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "fix_terms" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 0 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 0 elements, got " + elements.length().to_string(),
+          )
+        }
+        let result = self.fix_terms()
+        Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
+      }
+      "generate_timetable" => {
+        let elements = @extractor.extract_tuple(input)
+        guard elements.length() == 2 else {
+          raise  @common.AgentError::InvalidInput(
+            "Expected 2 elements, got " + elements.length().to_string(),
+          )
+        }
+        let incoming_key :String = @schema.from_element_value_as(elements[0])
+        let body_json :String = @schema.from_element_value_as(elements[1])
+        let result = self.generate_timetable(incoming_key, body_json)
         Ok(@rpcTypes.DataValue::Tuple([@schema.to_element_value_as(result)]))
       }
       other => Err(@common.AgentError::InvalidMethod(other))

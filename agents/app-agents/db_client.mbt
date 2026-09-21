@@ -99,7 +99,7 @@ fn surreal_query_internal(
     build_headers([
       ("Authorization", auth_value),
       ("Accept", "application/json"),
-      ("Content-Type", "text/plain"),
+      ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
       ("surreal-ns", cfg.ns),
       ("surreal-db", cfg.database),
     ]) {
@@ -107,34 +107,31 @@ fn surreal_query_internal(
     Err(_) =>
       return Err(surreal_error("build headers failed".to_string(), None))
   }
-  let path = match bindings {
+  let modified_sql = match bindings {
     Some(b) => {
-      let mut first = true
-      let qs = StringBuilder::new()
-      qs.write_string("/sql")
+      let mut s = sql
       for kv in b.iter() {
         let (k, v) = kv
-        qs.write_string(if first { "?" } else { "&" })
-        qs.write_string(url_encode(k))
-        qs.write_string("=")
-        qs.write_string(url_encode("\"" + v + "\""))
-        first = false
+        s = s.replace_all(old="$" + k, new="\"" + v + "\"")
       }
-      qs.to_string()
+      s
     }
-    None => "/sql"
+    None => sql
   }
+  let path = "/sql"
+  let is_local = cfg.host.starts_with("localhost") || cfg.host.starts_with("127.0.0.1")
+  let scheme = if is_local { @http_types.Http } else { @http_types.Https }
   match
     http_request(
       cfg.host,
       @http_types.Post,
-      @http_types.Https,
+      scheme,
       path,
       headers,
-      Some(@utf8.encode(sql).to_fixedarray()),
+      Some(@utf8.encode(modified_sql).to_fixedarray()),
     ) {
     Ok((status, body)) => Ok((status, body))
-    Err(e) => Err(surreal_error(e, Some(sql)))
+    Err(e) => { @logging.error("HTTP ERROR: " + e); Err(surreal_error(e, Some(sql))) }
   }
 }
 
@@ -149,7 +146,7 @@ pub fn surreal_query(
     Err(e) => return Err(e)
   }
   if status < 200 || status >= 300 {
-    return Err(surreal_error(body, Some(sql)))
+    return Err(surreal_error("HTTP " + status.to_string() + " - " + body, Some(sql)))
   }
   @logging.info("SurrealDB: " + sql)
   parse_result_array(body)

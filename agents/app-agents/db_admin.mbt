@@ -5,7 +5,7 @@ pub fn db_admin_fetch_student_profile(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id, current_class.name AS current_class FROM type::thing('student_profile', $user_id) WHERE deleted_at IS NONE",
+    "SELECT *, meta::id(id) AS id, current_class.name AS current_class FROM type::record('student_profile', $user_id) WHERE deleted_at IS NONE",
     bindings={ "user_id": user_id },
   )
 }
@@ -17,7 +17,7 @@ pub fn db_admin_fetch_teacher_profile(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing('teacher_profile', $user_id) WHERE deleted_at IS NONE",
+    "SELECT *, meta::id(id) AS id FROM type::record('teacher_profile', $user_id) WHERE deleted_at IS NONE",
     bindings={ "user_id": user_id },
   )
 }
@@ -29,7 +29,7 @@ pub fn db_admin_fetch_admin_profile(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing('admin_profile', $user_id) WHERE deleted_at IS NONE",
+    "SELECT *, meta::id(id) AS id FROM type::record('admin_profile', $user_id) WHERE deleted_at IS NONE",
     bindings={ "user_id": user_id },
   )
 }
@@ -41,7 +41,7 @@ pub fn db_admin_fetch_parent_profile(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing('parent_profile', $user_id) WHERE deleted_at IS NONE",
+    "SELECT *, meta::id(id) AS id FROM type::record('parent_profile', $user_id) WHERE deleted_at IS NONE",
     bindings={ "user_id": user_id },
   )
 }
@@ -82,9 +82,9 @@ pub fn db_admin_create_student_profile(
       }
   }
   let sql = if middle_name.is_some() {
-    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   } else {
-    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   }
   match surreal_query(config, sql, bindings=b) {
     Ok(_) => Ok(())
@@ -128,14 +128,14 @@ pub fn db_admin_update_student_profile(
       }
   }
   let update_sql = if middle_name.is_some() {
-    "UPDATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, current_class = type::thing('class_levels', $cl), passport = $passport, updated_at = time::now()"
+    "UPDATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, current_class = type::record('class_levels', $cl), passport = $passport, updated_at = time::now()"
   } else {
-    "UPDATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, current_class = type::thing('class_levels', $cl), passport = $passport, updated_at = time::now()"
+    "UPDATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, current_class = type::record('class_levels', $cl), passport = $passport, updated_at = time::now()"
   }
   let create_sql = if middle_name.is_some() {
-    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   } else {
-    "CREATE type::thing('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::thing('class_levels', $cl), current_class = type::thing('class_levels', $cl), passport = $passport, created_at = time::now()"
+    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
   }
   match surreal_query(config, update_sql, bindings=b) {
     Ok(arr) =>
@@ -178,7 +178,7 @@ pub fn db_admin_create_teacher_profile(
       "]"
     None => ""
   }
-  let sql = "CREATE type::thing('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let sql = "CREATE type::record('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     de_part +
     qual_part
@@ -253,11 +253,11 @@ pub fn db_admin_update_teacher_profile(
       "]"
     None => ""
   }
-  let update_sql = "UPDATE type::thing('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()" +
+  let update_sql = "UPDATE type::record('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()" +
     mn_part +
     de_part +
     qual_part
-  let create_sql = "CREATE type::thing('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let create_sql = "CREATE type::record('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     de_part +
     qual_part
@@ -332,7 +332,7 @@ pub fn db_admin_create_admin_profile(
     Some(_) => ", role_title = $role_title"
     None => ""
   }
-  let sql = "CREATE type::thing('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let sql = "CREATE type::record('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     rt_part
   let b = match (middle_name, role_title) {
@@ -398,10 +398,10 @@ pub fn db_admin_update_admin_profile(
     Some(_) => ", role_title = $role_title"
     None => ""
   }
-  let update_sql = "UPDATE type::thing('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()" +
+  let update_sql = "UPDATE type::record('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, updated_at = time::now()" +
     mn_part +
     rt_part
-  let create_sql = "CREATE type::thing('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+  let create_sql = "CREATE type::record('admin_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
     mn_part +
     rt_part
   let b = match (middle_name, role_title) {
@@ -463,7 +463,7 @@ pub fn db_admin_create_parent_profile(
   name : String,
   passport_url : String,
 ) -> Result[Unit, AppError] {
-  let sql = "CREATE type::thing('parent_profile', $user_id) SET name = $name, display_name = $name, students = [], passport = $passport, created_at = time::now()"
+  let sql = "CREATE type::record('parent_profile', $user_id) SET name = $name, display_name = $name, students = [], passport = $passport, created_at = time::now()"
   match
     surreal_query(config, sql, bindings={
       "user_id": user_id,
@@ -482,8 +482,8 @@ pub fn db_admin_update_parent_profile(
   name : String,
   passport_url : String,
 ) -> Result[Unit, AppError] {
-  let update_sql = "UPDATE type::thing('parent_profile', $user_id) SET name = $name, display_name = $name, passport = $passport, updated_at = time::now()"
-  let create_sql = "CREATE type::thing('parent_profile', $user_id) SET name = $name, display_name = $name, students = [], passport = $passport, created_at = time::now()"
+  let update_sql = "UPDATE type::record('parent_profile', $user_id) SET name = $name, display_name = $name, passport = $passport, updated_at = time::now()"
+  let create_sql = "CREATE type::record('parent_profile', $user_id) SET name = $name, display_name = $name, students = [], passport = $passport, created_at = time::now()"
   match
     surreal_query(config, update_sql, bindings={
       "user_id": user_id,
@@ -515,16 +515,16 @@ pub fn db_admin_set_parent_students(
   student_ids : Array[String],
 ) -> Result[Unit, AppError] {
   if student_ids.length() == 0 {
-    let sql = "UPDATE type::thing('parent_profile', $user_id) SET students = []"
+    let sql = "UPDATE type::record('parent_profile', $user_id) SET students = []"
     match surreal_query(config, sql, bindings={ "user_id": user_id }) {
       Ok(_) => Ok(())
       Err(e) => Err(e)
     }
   } else {
     let record_parts = student_ids.map(fn(id) {
-      "type::thing('student_profile', '" + escape_surreal_string(id) + "')"
+      "type::record('student_profile', '" + escape_surreal_string(id) + "')"
     })
-    let sql = "UPDATE type::thing('parent_profile', $user_id) SET students = [" +
+    let sql = "UPDATE type::record('parent_profile', $user_id) SET students = [" +
       record_parts.join(", ") +
       "]"
     match surreal_query(config, sql, bindings={ "user_id": user_id }) {
@@ -542,7 +542,7 @@ pub fn db_admin_soft_delete_student_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('student_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
+      "UPDATE type::record('student_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -558,7 +558,7 @@ pub fn db_admin_undo_soft_delete_student_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('student_profile', $user_id) SET deleted_at = NONE",
+      "UPDATE type::record('student_profile', $user_id) SET deleted_at = NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -574,7 +574,7 @@ pub fn db_admin_soft_delete_teacher_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('teacher_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
+      "UPDATE type::record('teacher_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -590,7 +590,7 @@ pub fn db_admin_undo_soft_delete_teacher_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('teacher_profile', $user_id) SET deleted_at = NONE",
+      "UPDATE type::record('teacher_profile', $user_id) SET deleted_at = NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -606,7 +606,7 @@ pub fn db_admin_soft_delete_admin_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('admin_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
+      "UPDATE type::record('admin_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -622,7 +622,7 @@ pub fn db_admin_undo_soft_delete_admin_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('admin_profile', $user_id) SET deleted_at = NONE",
+      "UPDATE type::record('admin_profile', $user_id) SET deleted_at = NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -638,7 +638,7 @@ pub fn db_admin_soft_delete_parent_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('parent_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
+      "UPDATE type::record('parent_profile', $user_id) SET deleted_at = time::now() WHERE deleted_at IS NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -654,7 +654,7 @@ pub fn db_admin_undo_soft_delete_parent_profile(
   match
     surreal_query(
       config,
-      "UPDATE type::thing('parent_profile', $user_id) SET deleted_at = NONE",
+      "UPDATE type::record('parent_profile', $user_id) SET deleted_at = NONE",
       bindings={ "user_id": user_id },
     ) {
     Ok(_) => Ok(())
@@ -709,7 +709,7 @@ pub fn db_admin_create_credential(
   let slug = name.to_lower()
   surreal_query(
     config,
-    "CREATE type::thing('credentials', $slug) SET name = $name, active = true",
+    "CREATE type::record('credentials', $slug) SET name = $name, active = true",
     bindings={ "slug": slug, "name": name },
   )
 }
@@ -719,7 +719,7 @@ pub fn db_admin_delete_credential(
   config : SharedConfig,
   id : String,
 ) -> Result[Array[Json], AppError] {
-  surreal_query(config, "DELETE type::thing('credentials', $id)", bindings={
+  surreal_query(config, "DELETE type::record('credentials', $id)", bindings={
     "id": id,
   })
 }
@@ -750,7 +750,7 @@ pub fn db_admin_fetch_student_exists(
   match
     surreal_query(
       config,
-      "SELECT meta::id(id) AS id FROM type::thing('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1",
+      "SELECT meta::id(id) AS id FROM type::record('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1",
       bindings={ "student_id": student_id },
     ) {
     Ok(arr) => Ok(arr.length() > 0)
@@ -784,7 +784,7 @@ pub fn db_admin_fetch_teacher_subjects(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT teacher_id, has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::thing('teacher_profile', $target_teacher_id) AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC",
+    "SELECT teacher_id, has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', $target_teacher_id) AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC",
     bindings={ "target_teacher_id": target_teacher_id },
   )
 }
@@ -797,7 +797,7 @@ pub fn db_admin_soft_delete_teacher_assignments(
   match
     surreal_query(
       config,
-      "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::thing('teacher_profile', $target_teacher_id) AND deleted_at IS NONE",
+      "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', $target_teacher_id) AND deleted_at IS NONE",
       bindings={ "target_teacher_id": target_teacher_id },
     ) {
     Ok(_) => Ok(())
@@ -954,9 +954,9 @@ pub fn db_admin_create_teacher_assignments(
 ) -> Result[Unit, AppError] {
   for pair in pairs {
     let sql = if active_st != "" {
-      "CREATE teacher_assignment SET teacher_id = type::thing('teacher_profile', $teacher_id), has_subject = $edge_id, session_term = $active_st, assigned_at = time::now()"
+      "RELATE type::record('teacher_profile', $teacher_id) -> teaches -> <record>$edge_id SET session_term = $active_st, assigned_at = time::now()"
     } else {
-      "CREATE teacher_assignment SET teacher_id = type::thing('teacher_profile', $teacher_id), has_subject = $edge_id, assigned_at = time::now()"
+      "RELATE type::record('teacher_profile', $teacher_id) -> teaches -> <record>$edge_id SET assigned_at = time::now()"
     }
     let b = if active_st != "" {
       {

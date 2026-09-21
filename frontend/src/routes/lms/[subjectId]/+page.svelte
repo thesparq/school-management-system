@@ -24,7 +24,7 @@
       {#each data.terms as term (term.id)}
         {#if term.active !== false}
           <a href="/lms/{$page.params.subjectId}/{term.id}" class="block">
-            <Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
+            <Card class="hover:-translate-y-1 hover:shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
               <CardHeader>
                 <CardTitle class="font-display text-base text-primary-700 dark:text-primary-300">{term.name}</CardTitle>
               </CardHeader>

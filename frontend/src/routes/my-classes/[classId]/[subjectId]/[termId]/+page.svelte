@@ -82,7 +82,7 @@
       {#each lessons as lesson (lesson.id)}
         <div class="flex items-center gap-10">
           <a href="/my-classes/{$page.params.classId}/{$page.params.subjectId}/{$page.params.termId}/{lesson.id}" class="block flex-1 min-w-0">
-            <Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
+            <Card class="hover:-translate-y-1 hover:shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
               <CardHeader class="pb-0">
                 <div class="flex justify-between items-start">
                   <div>

@@ -13,7 +13,7 @@ pub fn db_create_lesson_assessment(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "CREATE lesson_assessments CONTENT { lesson: type::thing('lessons', $lesson_id), title: $title, description: $description, questions: json::parse($questions_json), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::thing('teacher_profile', $teacher_id) }",
+    "CREATE lesson_assessments CONTENT { lesson: type::record('lessons', $lesson_id), title: $title, description: $description, questions: json::parse($questions_json), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::record('teacher_profile', $teacher_id) }",
     bindings={
       "lesson_id": lesson_id,
       "title": title,
@@ -47,7 +47,7 @@ pub fn db_create_general_assessment(
   if has_questions {
     surreal_query(
       config,
-      "CREATE general_assessments CONTENT { session_term: type::thing('session_term', $st_id), subject: type::thing('subjects', $subj_id), title: $title, description: $description, percentage_weight: int::from($pct), questions: json::parse($questions_json), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::thing('teacher_profile', $teacher_id) }",
+      "CREATE general_assessments CONTENT { session_term: type::record('session_term', $st_id), subject: type::record('subjects', $subj_id), title: $title, description: $description, percentage_weight: int::from($pct), questions: json::parse($questions_json), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::record('teacher_profile', $teacher_id) }",
       bindings={
         "st_id": session_term_id,
         "subj_id": subject_id,
@@ -65,7 +65,7 @@ pub fn db_create_general_assessment(
   } else {
     surreal_query(
       config,
-      "CREATE general_assessments CONTENT { session_term: type::thing('session_term', $st_id), subject: type::thing('subjects', $subj_id), title: $title, description: $description, percentage_weight: int::from($pct), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::thing('teacher_profile', $teacher_id) }",
+      "CREATE general_assessments CONTENT { session_term: type::record('session_term', $st_id), subject: type::record('subjects', $subj_id), title: $title, description: $description, percentage_weight: int::from($pct), total_mark: int::from($total_mark), max_resubmissions: int::from($max_resub), deadline: $deadline, active: false, scheduled_at: $scheduled_at, created_by: type::record('teacher_profile', $teacher_id) }",
       bindings={
         "st_id": session_term_id,
         "subj_id": subject_id,
@@ -91,7 +91,7 @@ pub fn db_create_composition(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "CREATE compositions CONTENT { general_assessment: type::thing('general_assessments', $ga_id), lesson_assessment: type::thing('lesson_assessments', $la_id), weight_pct: $weight_pct }",
+    "CREATE compositions CONTENT { general_assessment: type::record('general_assessments', $ga_id), lesson_assessment: type::record('lesson_assessments', $la_id), weight_pct: $weight_pct }",
     bindings={
       "ga_id": ga_id,
       "la_id": la_id,
@@ -133,7 +133,7 @@ pub fn db_fetch_assessment_by_id(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing($table, $id)",
+    "SELECT *, meta::id(id) AS id FROM type::record($table, $id)",
     bindings={ "table": table, "id": id },
   )
 }
@@ -159,7 +159,7 @@ pub fn db_fetch_submission(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM submissions WHERE student = type::thing('student_profile', $student) AND assessment_type = $at AND assessment_id = $aid AND deleted_at IS NONE ORDER BY iteration DESC LIMIT 1",
+    "SELECT *, meta::id(id) AS id FROM submissions WHERE student = type::record('student_profile', $student) AND assessment_type = $at AND assessment_id = $aid AND deleted_at IS NONE ORDER BY iteration DESC LIMIT 1",
     bindings={
       "student": student_id,
       "at": assessment_type,
@@ -188,7 +188,7 @@ pub fn db_fetch_submission_by_id(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing('submissions', $id)",
+    "SELECT *, meta::id(id) AS id FROM type::record('submissions', $id)",
     bindings={ "id": submission_id },
   )
 }
@@ -210,7 +210,7 @@ pub fn db_upsert_submission(
   if existing_id != "" {
     surreal_query(
       config,
-      "UPDATE type::thing('submissions', $id) CONTENT { assessment_type: $at, assessment_id: $aid, student: type::thing('student_profile', $student), iteration: int::from($iter), status: $status, submitted_at: time::now(), answers: json::parse($answers_json), total_mark: int::from($total_mark), scored_mark: $scored_mark, grade_released_at: $grade_released_at }",
+      "UPDATE type::record('submissions', $id) CONTENT { assessment_type: $at, assessment_id: $aid, student: type::record('student_profile', $student), iteration: int::from($iter), status: $status, submitted_at: time::now(), answers: json::parse($answers_json), total_mark: int::from($total_mark), scored_mark: $scored_mark, grade_released_at: $grade_released_at }",
       bindings={
         "id": existing_id,
         "at": assessment_type,
@@ -227,7 +227,7 @@ pub fn db_upsert_submission(
   } else {
     surreal_query(
       config,
-      "CREATE submissions CONTENT { assessment_type: $at, assessment_id: $aid, student: type::thing('student_profile', $student), iteration: int::from($iter), status: $status, submitted_at: time::now(), answers: json::parse($answers_json), total_mark: int::from($total_mark), scored_mark: $scored_mark, grade_released_at: $grade_released_at }",
+      "CREATE submissions CONTENT { assessment_type: $at, assessment_id: $aid, student: type::record('student_profile', $student), iteration: int::from($iter), status: $status, submitted_at: time::now(), answers: json::parse($answers_json), total_mark: int::from($total_mark), scored_mark: $scored_mark, grade_released_at: $grade_released_at }",
       bindings={
         "at": assessment_type,
         "aid": assessment_id,
@@ -250,7 +250,7 @@ pub fn db_release_grades(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "UPDATE type::thing('submissions', $id) SET grade_released_at = time::now(), status = 'graded'",
+    "UPDATE type::record('submissions', $id) SET grade_released_at = time::now(), status = 'graded'",
     bindings={ "id": submission_id },
   )
 }
@@ -263,7 +263,7 @@ pub fn db_update_submission_marks(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "UPDATE type::thing('submissions', $id) SET scored_mark = int::from($sm)",
+    "UPDATE type::record('submissions', $id) SET scored_mark = int::from($sm)",
     bindings={ "id": submission_id, "sm": scored_mark.to_string() },
   )
 }
@@ -277,7 +277,7 @@ pub fn db_update_submission_answers(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "UPDATE type::thing('submissions', $id) SET answers = json::parse($answers_json), scored_mark = int::from($sm)",
+    "UPDATE type::record('submissions', $id) SET answers = json::parse($answers_json), scored_mark = int::from($sm)",
     bindings={
       "id": submission_id,
       "answers_json": answers_json,
@@ -295,7 +295,7 @@ pub fn db_toggle_assessment_active(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "UPDATE type::thing($table, $id) SET active = $active",
+    "UPDATE type::record($table, $id) SET active = $active",
     bindings={
       "table": table,
       "id": id,
@@ -346,7 +346,7 @@ pub fn db_fetch_lesson_meta(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT topic.has_subject.in.id AS class_level_id, topic.has_subject.out.id AS subject_id, topic.term.id AS term_id FROM lessons WHERE id = $lesson_id",
+    "SELECT class_subject.in.id AS class_level_id, class_subject.out.id AS subject_id, term.id AS term_id FROM lessons WHERE id = $lesson_id",
     bindings={ "lesson_id": lesson_id },
   )
 }

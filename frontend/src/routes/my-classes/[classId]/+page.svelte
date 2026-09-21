@@ -22,7 +22,7 @@
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {#each data.subjects as subject (subject.subject_id)}
         <a href="/my-classes/{$page.params.classId}/{subject.subject_id}">
-          <Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
+          <Card class="hover:-translate-y-1 hover:shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
             <CardHeader class="pb-0 min-h-[4.5rem]">
               <CardTitle class="flex flex-wrap items-center gap-x-2 gap-y-1 font-display text-base text-primary-700 dark:text-primary-300">
                 <span class="truncate">{subject.subject_name}</span>

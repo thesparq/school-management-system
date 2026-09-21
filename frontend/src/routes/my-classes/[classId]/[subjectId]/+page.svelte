@@ -31,7 +31,7 @@
       {#each terms as term (term.id)}
         <div class="flex flex-col">
           <a href="/my-classes/{$page.params.classId}/{$page.params.subjectId}/{term.id}">
-            <Card class="w-48 hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
+            <Card class="w-48 hover:-translate-y-1 hover:shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/30 hover:ring-primary-200 dark:hover:ring-primary-700 transition cursor-pointer">
               <CardHeader class="pb-2">
                 <CardTitle class="font-display text-base text-primary-700 dark:text-primary-300">{term.name}</CardTitle>
               </CardHeader>

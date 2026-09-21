@@ -2285,3 +2285,44 @@ pub fn admin_set_user_active(
   }
   authentik_set_active(config, authentik_pk, is_active)
 }
+
+///|
+pub fn admin_fix_terms(
+  config : SharedConfig,
+) -> Result[String, String] {
+  match surreal_query(
+    config,
+    "CREATE type::record('terms', 'first_term') CONTENT { name: 'First Term', sort_order: 1, active: true }; CREATE type::record('terms', 'second_term') CONTENT { name: 'Second Term', sort_order: 2, active: true }; CREATE type::record('terms', 'third_term') CONTENT { name: 'Third Term', sort_order: 3, active: true };"
+  ) {
+    Ok(json_arr) => {
+      let mut output = ""
+      for j in json_arr {
+        output = output + j.stringify()
+      }
+      Ok(output)
+    }
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+
+///|
+pub fn admin_generate_timetable_handler(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let timetable_id = match obj.get("timetable_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("timetable_id is required"))
+  }
+  
+  admin_generate_timetable(config, timetable_id)
+}

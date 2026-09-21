@@ -5,7 +5,7 @@ pub fn db_student_fetch_profile(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) AS id FROM type::thing('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1",
+    "SELECT *, meta::id(id) AS id FROM type::record('student_profile', $student_id) WHERE deleted_at IS NONE LIMIT 1",
     bindings={ "student_id": student_id },
   )
 }
@@ -40,7 +40,7 @@ pub fn db_student_fetch_lessons(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT id, topic_title, week, active, topic.has_subject.out.name AS subject_name, topic.term.name AS term_name FROM lessons WHERE topic.has_subject.in = $class_level AND topic.has_subject.out = $subject_id AND topic.has_subject.active = true AND topic.term = $term_id AND active = true ORDER BY week ASC",
+    "SELECT id, topic_title, week, active, class_subject.out.name AS subject_name, term.name AS term_name FROM lessons WHERE class_subject.in = $class_level AND class_subject.out = $subject_id AND class_subject.active = true AND term = $term_id AND active = true ORDER BY week ASC",
     bindings={
       "class_level": class_level,
       "subject_id": subject_id,
@@ -57,7 +57,7 @@ pub fn db_student_fetch_lesson_content(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT id, topic_title, week, topic.has_subject.out AS subject_id, topic.has_subject.out.name AS subject_name, topic.term AS term_id, topic.term.name AS term_name, objectives, content_sections, key_points, mcq_questions, theoretical_questions FROM lessons WHERE id = $lesson_id AND topic.has_subject.in = $class_level AND topic.has_subject.active = true AND active = true",
+    "SELECT id, topic_title, week, class_subject.out AS subject_id, class_subject.out.name AS subject_name, term AS term_id, term.name AS term_name, objectives, content_sections, key_points, mcq_questions, theoretical_questions FROM lessons WHERE id = $lesson_id AND class_subject.in = $class_level AND class_subject.active = true AND active = true",
     bindings={ "lesson_id": lesson_id, "class_level": class_level },
   )
 }

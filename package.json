@@ -18,5 +18,8 @@
     "fmt": "pnpm run fmt:moon && pnpm run fmt:frontend",
     "fmt:moon": "moon fmt --workspace",
     "fmt:frontend": "pnpm --filter frontend run format"
+  },
+  "dependencies": {
+    "surrealdb": "^2.0.8"
   }
 }

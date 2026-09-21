@@ -24,7 +24,7 @@
       {#each data.lessons as lesson (lesson.id)}
         {#if lesson.active !== false}
           <a href="/lms/{$page.params.subjectId}/{$page.params.termId}/{lesson.id}" class="block">
-            <Card class="hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
+            <Card class="hover:-translate-y-1 hover:shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/30 transition cursor-pointer">
               <CardHeader class="pb-0">
                 <div class="flex justify-between items-start">
                   <CardTitle class="font-display text-base text-primary-700">

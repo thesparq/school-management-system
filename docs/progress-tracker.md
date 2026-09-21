@@ -2,7 +2,15 @@
 
 Update this file after every meaningful implementation change.
 
+## In Progress
+
+- **⏳ Phase 5: Timetable CSP Solver (Phoenix Allocator)**
+  Porting the Rust-based timetable CSP solver into MoonBit and mapping React UI to SvelteKit. Step 1: Updating SurrealDB schema with `schema-v4.surql` to add `timetables`, `schedule_slots`, and `timetable_overrides` tables with dynamic tiering logic.
+
 ## Completed
+
+- **✅ Integrate `johnethel-school-lesson-generator` Schema Updates — Complete**
+  Updated the MoonBit agents to utilize the new database schema structure from the AI lesson generator. The schema removed the intermediary `topics` table and instead links `lessons` directly to `class_subject` (`has_subject` edges) and `term`. Updated `school-management-system/db/schema-v2.surql` to reflect these core lesson changes while preserving internal profile and assessment tables. Replaced all `topic.has_subject` and `topic.term` SurrealQL queries in `db_parent.mbt`, `db_student.mbt`, `db_teacher.mbt`, and `db_assessment.mbt` with `class_subject` and `term`. Built to WASM and deployed via `golem deploy`.
 
 - **✅ Spec 22: Phase 2 (Ephemeral Reads via core-api) — Complete**
   Created a stateless ephemeral worker (`CoreApi`) in `core_api.mbt` to handle all user-specific data reads instantly. Migrated 16 read-only endpoints from `StudentAgent` and `TeacherAgent` (e.g., `get_subjects`, `get_lessons`, `get_my_grades`, `get_classes`, `get_submissions`). Updated `golem.yaml` to deploy `CoreApi`. Added `proxyToCoreApi` in `golem.ts` which securely injects `X-Internal-User-Id` into the Golem headers. Updated all 16 SvelteKit frontend API routes to use the new proxy. Verified that ABAC ownership guards inside the existing SurrealDB queries naturally protect the data using the injected ID. Eliminates oplog bloat and database connection exhaustion for high-volume read paths. Build: `npm run check` 0 errors. 18 files changed, 1 commit. Spec: `docs/specs/22-production-architecture-redesign.md`.
@@ -426,3 +434,14 @@ After context reset or new session:
 - **✅ Testing System** — Three-layer testing pyramid with `docs/testing.md` documentation. **Layer 1** (`test-unit.sh`): Compile checks for MoonBit agents, MoonBit shared, SvelteKit frontend — always safe, 0 deps. **Layer 2** (`test-smoke.sh`): 9 read-only API health checks against running dev server — needs `TEST_JWT` env var. **Layer 3** (`test-api.sh`): Full CRUD integration — create/verify/edit/activate/deactivate/delete for student, teacher, admin, parent + credential CRUD. Auto-cleanup via `trap EXIT`. Needs `TEST_JWT` + `AUTHENTIK_HOST` + `AUTHENTIK_SERVICE_ACCOUNT_TOKEN`. Root `package.json` updated with `test`, `test:unit`, `test:smoke`, `test:api`, `test:all` scripts. `pnpm test` runs Layer 1 + 2.
 - **✅ Phase 3 / HF-16: Environment Fix & CQRS Compilation Check** — Addressed environment drift caused by installing a nightly MoonBit compiler (`0.1.20260920`) that broke `golem-sdk-tools@0.5.2`'s AST parser (regex rules change). **Fix:** Downgraded Golem CLI to stable `v1.5.10` and MoonBit compiler to `0.9.2+bbe2b338f` (the version compatible with SDK 0.5.2) using `moonup`. Added toolchain path exports to build and test scripts.
 Fixed `golem_sdk_tools` parse errors `AgentParseError` caused by trailing `#derive.endpoint_header` without explicit path variable matching in `core_api.mbt`. Cleaned build, re-generated Golem stubs (`golem_clients.mbt`, `golem_agents.mbt`) for the fully decoupled `AssessmentSession` durable workflow agent. Verified compilation success (`moon check --target wasm` 0 errors), successful local deploy (`golem deploy`), and passing unit/smoke test scripts.
+- **✅ Hotfix: SurrealDB 2.0 SQL query parameter bindings** — Golem server logs were showing `[]` (empty results) because SurrealDB 2.0 dropped support for passing parameter bindings via URL query parameters (`/sql?student_id="student_1"`) when sending raw SQL body. Those parameters evaluated to `NONE` in the schema. **Fix**: Injected a SQL string interpolation routine directly into `db_client.mbt` (`s.replace_all(old="$" + k, new="\"" + v + "\"")`) so bindings are securely embedded into the `modified_sql` payload sent to `/sql` as text. Tested and deployed to `golem-server`. All integration tests now bypass the `NOT_INITIALIZED` error (they correctly map the retrieved string arrays from DB and reach `NOT_FOUND` as expected for an empty database).
+
+- **🔄 Phase 4: UI & DB Improvements** — Created `docs/specs/23-ui-db-improvements.md`. Starting implementation of the Johnethel School theme (Navy/Yellow) in `frontend/src/app.css` and preparing graph relation schema updates.
+
+- **✅ Phase 4: UI & DB Improvements** — 
+  - Updated `app.css` with the Johnethel School specific theme (`navy`, `yellow`, `cream`).
+  - Updated border radiuses to `.75rem` across shadcn components via a bash replace to remove `rounded-none`.
+  - Added playful hover transition classes (`hover:-translate-y-1 hover:shadow-md`) to Teacher and Student UI Cards.
+  - Migrated `teacher_assignment` junction table to a `->teaches->` native Graph Edge in SurrealDB via `schema-v3.surql`.
+  - Added STRICT typing for AI assessment objects to prevent JSON hallucinations.
+  - Updated MoonBit Golem Agent queries (`db_teacher.mbt` & `db_admin.mbt`) to properly utilize the new Graph Edge.

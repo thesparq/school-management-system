@@ -714,3 +714,31 @@ pub fn AdminAgent::invalidate_cache(
   }
   "OK"
 }
+
+///|
+#derive.endpoint(post="/fix-terms")
+pub fn AdminAgent::fix_terms(
+  self : Self,
+) -> Result[String, String] {
+  admin_fix_terms(self.config.value)
+}
+
+///|
+
+///|
+#derive.endpoint(post="/generate-timetable")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::generate_timetable(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_generate_timetable_handler(self.config.value, body_json) {
+    Ok(msg) => Ok(msg)
+    Err(e) => Err(e.to_json_string())
+  }
+}
