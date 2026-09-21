@@ -2,10 +2,6 @@
     email {$ACME_EMAIL}
 }
 
-{$AUTH_DOMAIN} {
-    reverse_proxy authentik-server:9000
-}
-
 {$MATRIX_DOMAIN} {
     header /.well-known/matrix/* Content-Type application/json
     header /.well-known/matrix/* Access-Control-Allow-Origin *

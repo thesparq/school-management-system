@@ -10,7 +10,7 @@ else
   echo "Created .env from .env.example. Please review and run again if needed."
 fi
 
-mkdir -p matrix caddy element authentik/media authentik/custom-templates authentik/certs
+mkdir -p matrix caddy element
 
 rm -f matrix/homeserver.yaml
 echo "Generating Synapse keys and baseline config..."
