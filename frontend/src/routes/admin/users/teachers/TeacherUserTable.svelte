@@ -29,7 +29,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 	let hasUsers = $derived(users.length > 0);
 	let authStates = $state<Record<number, string>>({});
 
-	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dateEmployed: '', qualifications: [] as string[], isActive: true });
+	let createForm = $state({ surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dateEmployed: '', qualifications: [] as string[], isActive: true });
 	let createStep = $state<'uploading' | 'creating' | null>(null);
 	let createError = $state('');
 	let passportFile = $state<File | null>(null);
@@ -72,7 +72,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 		return pw;
 	}
 	function handleRetry() { window.location.reload(); }
-	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dateEmployed: '', qualifications: [], isActive: true }; }
+	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dateEmployed: '', qualifications: [], isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	onMount(async () => { try { const res = await fetch('/api/admin/class-subjects'); const body = await res.json(); allSubjectPairs = body?.data ?? []; } catch { allSubjectPairs = []; addToast('error', 'Failed to load class-subjects', ''); } finally { subjectPairsLoading = false; } });
@@ -84,7 +84,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 			if (passportFile && passportUpload) { const url = await passportUpload.getPassportPublicUrl(passportFile, 'teacher', crypto.randomUUID()); if (!url) { createStep = null; return; } passportUrl = url; }
 			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
 			createStep = 'creating';
-			const body = { username: createForm.username, surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'teacher', qualifications: createForm.qualifications.length > 0 ? createForm.qualifications : undefined, date_employed: createForm.dateEmployed || undefined, passport_url: passportUrl };
+			const body = { surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'teacher', qualifications: createForm.qualifications.length > 0 ? createForm.qualifications : undefined, date_employed: createForm.dateEmployed || undefined, passport_url: passportUrl };
 			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 			const result = await res.json();
 			if (result.error) throw new Error(result.error.message ?? 'Failed');

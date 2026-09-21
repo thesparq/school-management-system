@@ -24,7 +24,7 @@
 	let studentListLoading = $state(true);
 	let parentStudentsMap = $state<Record<string, string[]>>({});
 	let studentsMapLoading = $state(true);
-	let createForm = $state({ username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], isActive: true });
+	let createForm = $state({ name: '', email: '', password: '', showPassword: false, students: [] as string[], isActive: true });
 	let createStep = $state<'uploading' | 'creating' | null>(null); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', name: '', email: '', password: '', showPassword: false, students: [] as string[], currentPassport: '' });
 	let editStep = $state<'uploading' | 'saving' | null>(null); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
@@ -32,7 +32,7 @@
 
 	function generatePassword(): string { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let p = ''; const a = new Uint8Array(16); crypto.getRandomValues(a); for (let i = 0; i < 16; i++) p += c[a[i] % c.length]; return p; }
 	function handleRetry() { window.location.reload(); }
-	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', name: '', email: '', password: '', showPassword: false, students: [], isActive: true }; }
+	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { name: '', email: '', password: '', showPassword: false, students: [], isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	onMount(async () => { try { const r = await fetch('/api/admin/students/list'); const b = await r.json(); studentList = b?.data ?? []; } catch { studentList = []; } finally { studentListLoading = false; }
@@ -63,7 +63,7 @@
 			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
 			if (createForm.students.length === 0) { createError = 'At least one student is required'; createStep = null; return; }
 			createStep = 'creating';
-			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: createForm.username, name: createForm.name, display_name: createForm.name, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'parent', students: createForm.students, passport_url: passportUrl }) });
+			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: createForm.name, display_name: createForm.name, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'parent', students: createForm.students, passport_url: passportUrl }) });
 			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; parentStudentsMap = { ...parentStudentsMap, [u.uuid]: createForm.students }; addToast('success', 'Parent created', createForm.username); closeCreate(); }
 		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
@@ -94,7 +94,6 @@
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Create Parent</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={createForm.username} required /></div>
 			<div class="space-y-2"><Label>Full Name <span class="text-destructive">*</span></Label><Input bind:value={createForm.name} required /></div>
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>
@@ -125,7 +124,7 @@
 <Dialog open={editDialogOpen} onOpenChange={(v: boolean) => v ? null : closeEdit()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Edit Parent</DialogTitle></DialogHeader>
 		<div class="space-y-4">{#if editProfileLoading}<div class="flex items-center gap-2 text-sm text-muted-foreground"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading profile data...</div>{/if}
-			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={editForm.username} required /></div>
+			<div class="space-y-2"><Label>Username (Email)</Label><Input bind:value={editForm.username} disabled /></div>
 			<div class="space-y-2"><Label>Full Name <span class="text-destructive">*</span></Label><Input bind:value={editForm.name} required /></div>
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2"><Label>Password</Label><div class="flex gap-2"><Input type={editForm.showPassword ? 'text' : 'password'} bind:value={editForm.password} placeholder="Leave blank" /><AppButton variant="outline" size="sm" onclick={() => editForm.showPassword = !editForm.showPassword}>{editForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { editForm.password = generatePassword(); editForm.showPassword = true; }}>Generate</AppButton></div></div>

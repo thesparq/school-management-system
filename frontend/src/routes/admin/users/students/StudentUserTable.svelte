@@ -31,7 +31,7 @@
 	let studentClassMap = $state<Record<string, string>>({});
 	let classMapLoading = $state(true);
 
-	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true });
+	let createForm = $state({ surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true });
 	let createStep = $state<'uploading' | 'creating' | null>(null);
 	let createError = $state('');
 	let passportFile = $state<File | null>(null);
@@ -88,7 +88,7 @@
 		} catch { studentClassMap = {}; } finally { classMapLoading = false; }
 	});
 
-	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true }; }
+	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, dob: '', classLevel: '', isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	async function handleCreate() {
@@ -105,7 +105,6 @@
 
 			createStep = 'creating';
 			const body = {
-				username: createForm.username,
 				surname: createForm.surname,
 				first_name: createForm.firstName,
 				middle_name: createForm.middleName || undefined,
@@ -302,7 +301,6 @@
 	<DialogContent class="sm:max-w-lg">
 		<DialogHeader><DialogTitle>Create Student</DialogTitle><DialogDescription>Fill in the student details below.</DialogDescription></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label for="c-username">Username <span class="text-destructive">*</span></Label><Input id="c-username" bind:value={createForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
 			<div class="space-y-2"><Label for="c-email">Email <span class="text-destructive">*</span></Label><Input id="c-email" type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2">
@@ -339,7 +337,7 @@
 		<DialogHeader><DialogTitle>Edit Student</DialogTitle><DialogDescription>Update the student details.</DialogDescription></DialogHeader>
 		<div class="space-y-4">
 			{#if editProfileLoading}<div class="flex items-center gap-2 text-sm text-muted-foreground"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Loading profile data...</div>{/if}
-			<div class="space-y-2"><Label for="e-username">Username <span class="text-destructive">*</span></Label><Input id="e-username" bind:value={editForm.username} required minlength={3} /></div>
+			<div class="space-y-2"><Label for="e-username">Admission Number</Label><Input id="e-username" bind:value={editForm.username} disabled /></div>
 			<NameFields bind:surname={editForm.surname} bind:firstName={editForm.firstName} bind:middleName={editForm.middleName} />
 			<div class="space-y-2"><Label for="e-email">Email <span class="text-destructive">*</span></Label><Input id="e-email" type="email" bind:value={editForm.email} required /></div>
 			<div class="space-y-2">

@@ -16,7 +16,7 @@
 	let { users = $bindable([] as UserRow[]), allGroups = $bindable([] as { pk: string; name: string }[]), showCreateDialog = $bindable(false), groupPk = '', hasError = false, errorMessage = '' } = $props();
 	let hasUsers = $derived(users.length > 0);
 	let authStates = $state<Record<number, string>>({});
-	let createForm = $state({ username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true });
+	let createForm = $state({ surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true });
 	let createStep = $state<'uploading' | 'creating' | null>(null); let createError = $state(''); let passportFile = $state<File | null>(null); let passportUpload: PassportUpload | undefined = $state();
 	let editForm = $state({ uuid: '', authentikPk: 0, username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', currentPassport: '' });
 	let editStep = $state<'uploading' | 'saving' | null>(null); let editError = $state(''); let editDialogOpen = $state(false); let editProfileLoading = $state(false); let editPassportFile = $state<File | null>(null); let editPassportUpload: PassportUpload | undefined = $state();
@@ -27,7 +27,7 @@
 
 	function generatePassword(): string { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let p = ''; const a = new Uint8Array(16); crypto.getRandomValues(a); for (let i = 0; i < 16; i++) p += c[a[i] % c.length]; return p; }
 	function handleRetry() { window.location.reload(); }
-	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { username: '', surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true }; }
+	function closeCreate() { showCreateDialog = false; createError = ''; passportFile = null; createForm = { surname: '', firstName: '', middleName: '', email: '', password: '', showPassword: false, roleTitle: '', isActive: true }; }
 	function closeEdit() { editDialogOpen = false; editError = ''; editPassportFile = null; }
 
 	async function handleCreate() {
@@ -35,7 +35,7 @@
 		try { let passportUrl = ''; if (passportFile && passportUpload) { const u = await passportUpload.getPassportPublicUrl(passportFile, 'admin', crypto.randomUUID()); if (!u) { createStep = null; return; } passportUrl = u; }
 			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
 			createStep = 'creating';
-			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: createForm.username, surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'admin', role_title: createForm.roleTitle || undefined, passport_url: passportUrl }) });
+			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'admin', role_title: createForm.roleTitle || undefined, passport_url: passportUrl }) });
 			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; addToast('success', 'Admin created', createForm.username); closeCreate(); }
 		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
