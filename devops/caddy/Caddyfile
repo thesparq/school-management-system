@@ -1,7 +1,4 @@
-{
-}
 
-{$MATRIX_DOMAIN} {
     header /.well-known/matrix/* Content-Type application/json
     header /.well-known/matrix/* Access-Control-Allow-Origin *
     
@@ -15,8 +12,5 @@
     
     reverse_proxy /_matrix/* synapse:8008
     reverse_proxy /_synapse/client/* synapse:8008
-}
 
-{$CHAT_DOMAIN} {
     reverse_proxy element-web:80
-}
