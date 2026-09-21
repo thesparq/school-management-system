@@ -6762,3 +6762,283 @@ pub fn AdminAgentClient::schedule_cancelable_generate_timetable(
     )
 }
 
+///|
+pub fn AdminAgentClient::get_timetables(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "get_timetables",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_timetables(
+  self : AdminAgentClient,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "get_timetables",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_timetables(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_timetables",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_timetables(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_timetables",
+      @rpcTypes.DataValue::Tuple([@schema.to_element_value_as(incoming_key)]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::get_schedule_slots(
+  self : AdminAgentClient,
+  incoming_key : String,
+  timetable_id : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "get_schedule_slots",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(timetable_id),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_get_schedule_slots(
+  self : AdminAgentClient,
+  incoming_key : String,
+  timetable_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "get_schedule_slots",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(timetable_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_get_schedule_slots(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  timetable_id : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "get_schedule_slots",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(timetable_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_get_schedule_slots(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  timetable_id : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "get_schedule_slots",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(timetable_id),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::create_timetable(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "create_timetable",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_create_timetable(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "create_timetable",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_create_timetable(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "create_timetable",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_create_timetable(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "create_timetable",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::update_timetable_config(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] raise @common.AgentError {
+  let result = self
+    .client
+    .invoke_and_await(
+      "update_timetable_config",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+  let elements = @extractor.extract_tuple(result)
+  @schema.from_element_value_as(elements[0])
+}
+
+///|
+pub fn AdminAgentClient::trigger_update_timetable_config(
+  self : AdminAgentClient,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .invoke(
+      "update_timetable_config",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_update_timetable_config(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> Unit raise @common.AgentError {
+  self
+    .client
+    .schedule_invocation(
+      scheduled_at,
+      "update_timetable_config",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+
+///|
+pub fn AdminAgentClient::schedule_cancelable_update_timetable_config(
+  self : AdminAgentClient,
+  scheduled_at : @wallClock.Datetime,
+  incoming_key : String,
+  body_json : String,
+) -> @agentHost.CancellationToken raise @common.AgentError {
+  self
+    .client
+    .schedule_cancelable_invocation(
+      scheduled_at,
+      "update_timetable_config",
+      @rpcTypes.DataValue::Tuple([
+        @schema.to_element_value_as(incoming_key),
+        @schema.to_element_value_as(body_json),
+      ]),
+    )
+}
+

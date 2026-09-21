@@ -3,7 +3,7 @@
 Update this file after every meaningful implementation change.
 
 ## In Progress
-- [/] Phase 6: Timetable UI Migration (SvelteKit)
+- [x] Phase 6: Timetable UI Migration (SvelteKit)
 
 - **⏳ Phase 5: Timetable CSP Solver (Phoenix Allocator)**
   Porting the Rust-based timetable CSP solver into MoonBit and mapping React UI to SvelteKit. Step 1: Updating SurrealDB schema with `schema-v4.surql` to add `timetables`, `schedule_slots`, and `timetable_overrides` tables with dynamic tiering logic.
@@ -446,3 +446,10 @@ Fixed `golem_sdk_tools` parse errors `AgentParseError` caused by trailing `#deri
   - Migrated `teacher_assignment` junction table to a `->teaches->` native Graph Edge in SurrealDB via `schema-v3.surql`.
   - Added STRICT typing for AI assessment objects to prevent JSON hallucinations.
   - Updated MoonBit Golem Agent queries (`db_teacher.mbt` & `db_admin.mbt`) to properly utilize the new Graph Edge.
+
+- **✅ Phase 6: Timetable SvelteKit UI Migration** —
+  - Created MoonBit Golem Agent HTTP endpoints `get_timetables`, `get_schedule_slots`, `create_timetable`, `update_timetable_config`, `generate_timetable`.
+  - Added JSON body parsing in MoonBit to safely handle arrays/objects and persist them dynamically to SurrealDB.
+  - Wrote SvelteKit server endpoints proxying requests from Svelte frontend to Golem API (via `X-Golem-Auth-Key`).
+  - Ported `TimetableGrid`, `NewTimetableModal`, and `TimetableConfigModal` from the `micro1-hackathon` React template to strictly-typed Svelte 5 runes mode components.
+  - Successfully deployed all components to the `golem-server`.

@@ -1,28 +1,23 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button';
 
-  export let selectedClassId = '';
-  export let dayConfigs: any[] = [];
-  export let classSlots: any[] = [];
-  export let classes: any[] = [];
-  export let subjects: any[] = [];
-  export let teachers: any[] = [];
+  let { selectedClassId = '', dayConfigs = [], classSlots = [], classes = [], subjects = [], teachers = [] }: { selectedClassId?: string, dayConfigs?: any[], classSlots?: any[], classes?: any[], subjects?: any[], teachers?: any[] } = $props();
 
   const defaultDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const DAY_ORDER: Record<string, number> = {
     'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6, 'Sunday': 7
   };
 
-  $: activeDays = (dayConfigs && dayConfigs.length > 0
+  let activeDays = $derived( (dayConfigs && dayConfigs.length > 0
     ? dayConfigs.map(c => c.day_of_week)
     : defaultDays
-  ).sort((a, b) => (DAY_ORDER[a] || 99) - (DAY_ORDER[b] || 99));
+  ).sort((a, b) => (DAY_ORDER[a] || 99) - (DAY_ORDER[b] || 99)));
 
-  $: maxPeriods = dayConfigs && dayConfigs.length > 0
-    ? Math.max(...dayConfigs.map(c => c.periods_count))
-    : 8;
+  let maxPeriods = $derived( dayConfigs && dayConfigs.length > 0
+    ? Math.max(...dayConfigs.map(c => c.period_count))
+    : 8);
 
-  $: periodList = Array.from({ length: maxPeriods }, (_, i) => i + 1);
+  let periodList = $derived(Array.from({ length: maxPeriods }, (_, i) => i + 1));
 
   function getSubjectName(csId: string) {
     // Basic mapping for now

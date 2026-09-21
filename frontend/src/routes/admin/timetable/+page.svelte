@@ -2,10 +2,28 @@
   import { invalidateAll } from '$app/navigation';
   import { Button } from '$lib/components/ui/button';
   import TimetableGrid from '$lib/components/timetable/TimetableGrid.svelte';
+  import NewTimetableModal from '$lib/components/timetable/NewTimetableModal.svelte';
+  import TimetableConfigModal from '$lib/components/timetable/TimetableConfigModal.svelte';
+  import SearchSelect from '$lib/components/ui/search-select/search-select.svelte';
   import { onMount } from 'svelte';
   
-  export let data: import("./$types").PageData;
-  let isGenerating = false;
+  let { data }: { data: import("./$types").PageData } = $props();
+  let isGenerating = $state(false);
+  let isNewModalOpen = $state(false);
+  let timetableSearch = $state('');
+  let isConfigModalOpen = $state(false);
+  let selectedTimetableId = $state(data.timetables?.[0]?.id || '');
+  
+  let selectedTimetable = $derived(data.timetables?.find((t: any) => t.id === selectedTimetableId));
+
+  function onTimetableCreated(newId: string) {
+    invalidateAll();
+    selectedTimetableId = newId;
+  }
+
+  function onConfigsSaved() {
+    invalidateAll();
+  }
   
   async function handleGenerateTimetable() {
     isGenerating = true;
@@ -13,7 +31,7 @@
       const response = await fetch('/api/admin/generate-timetable', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timetable_id: 'default-timetable' })
+        body: JSON.stringify({ timetable_id: selectedTimetableId })
       });
       const data = await response.json();
       console.log('Generate result:', data);
@@ -40,9 +58,27 @@
       <p class="text-muted-foreground mt-1 text-sm font-medium">
         Multi-timetable allocation matrix with automated workload balancing, term staff scopes, and pairing diagnostics.
       </p>
-    </div>
+      {#if data.timetables?.length > 0}
+      <div class="mt-4 flex items-center space-x-3">
+        <div class="w-[250px]">
+          <SearchSelect 
+            items={data.timetables || []} 
+            bind:search={timetableSearch} 
+            placeholder={selectedTimetable?.name || "Select a timetable"}
+            filterFn={(item: any, q: string) => item.name.toLowerCase().includes(q.toLowerCase())}
+            onSelect={(item: any) => selectedTimetableId = item.id}
+          >
+            {#snippet children({ item }: { item: any })}
+              {item.name}
+            {/snippet}
+          </SearchSelect>
+        </div>
+        <Button variant="secondary" size="sm" onclick={() => isNewModalOpen = true}>+ New</Button>
+      </div>
+      {/if}
+      </div>
     <div class="flex space-x-3">
-      <Button variant="outline">Configure Constraints</Button>
+      <Button variant="outline" onclick={() => isConfigModalOpen = true} disabled={!selectedTimetableId}>Configure Constraints</Button>
       <Button onclick={handleGenerateTimetable} disabled={isGenerating}>
         {isGenerating ? 'Generating...' : 'Generate Constraints'}
       </Button>
