@@ -28,6 +28,7 @@ services:
       - SYNAPSE_MACAROON_SECRET=${SYNAPSE_MACAROON_SECRET}
       - SYNAPSE_FORM_SECRET=${SYNAPSE_FORM_SECRET}
       - SYNAPSE_REGISTRATION_SECRET=${SYNAPSE_REGISTRATION_SECRET}
+      - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
     volumes:
       - synapse_data:/data
       - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
@@ -39,7 +40,7 @@ services:
         python -c '
         import os
         c = open("/config/homeserver.yaml").read()
-        secrets = ["POSTGRES_PASSWORD", "AUTHENTIK_CLIENT_SECRET", "SYNAPSE_MACAROON_SECRET", "SYNAPSE_FORM_SECRET", "SYNAPSE_REGISTRATION_SECRET"]
+        secrets = ["POSTGRES_PASSWORD", "AUTHENTIK_CLIENT_SECRET", "SYNAPSE_MACAROON_SECRET", "SYNAPSE_FORM_SECRET", "SYNAPSE_REGISTRATION_SECRET", "COTURN_SHARED_SECRET"]
         for k in secrets:
             c = c.replace(f"$${{{k}}}", os.environ.get(k, ""))
         open("/data/homeserver.yaml", "w").write(c)
@@ -79,6 +80,23 @@ services:
       - "traefik.http.routers.element.tls=true"
       - "traefik.http.routers.element.tls.certresolver=letsencrypt"
       - "traefik.http.services.element.loadbalancer.server.port=80"
+
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: "host"
+    command:
+      - -n
+      - --log-file=stdout
+      - --min-port=49152
+      - --max-port=49252
+      - --use-auth-secret
+      - --static-auth-secret=${COTURN_SHARED_SECRET}
+      - --realm=${SYNAPSE_SERVER_NAME}
+      - --no-tcp-relay
+    environment:
+      - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
+      - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
 
 volumes:
   synapse_data:

@@ -46,6 +46,13 @@ registration_shared_secret: "${SYNAPSE_REGISTRATION_SECRET}"
 password_config:
   enabled: false
 
+turn_uris:
+  - "turn:matrix.johnethel.school?transport=udp"
+  - "turn:matrix.johnethel.school?transport=tcp"
+turn_shared_secret: "${COTURN_SHARED_SECRET}"
+turn_user_lifetime: 86400000
+turn_allow_guests: true
+
 trusted_key_servers:
   - server_name: "matrix.org"
 
