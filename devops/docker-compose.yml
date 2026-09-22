@@ -24,6 +24,10 @@ services:
       - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
       - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
+      - SYNAPSE_MACAROON_SECRET=${SYNAPSE_MACAROON_SECRET}
+      - SYNAPSE_FORM_SECRET=${SYNAPSE_FORM_SECRET}
+      - SYNAPSE_REGISTRATION_SECRET=${SYNAPSE_REGISTRATION_SECRET}
     volumes:
       - synapse_data:/data
       - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
@@ -31,8 +35,15 @@ services:
       - /bin/sh
       - -c
       - |
-        # Inject the actual database password safely using Python
-        python -c 'import os; c = open("/config/homeserver.yaml").read(); open("/data/homeserver.yaml", "w").write(c.replace("$${POSTGRES_PASSWORD}", os.environ["POSTGRES_PASSWORD"]))'
+        # Inject secrets safely using Python
+        python -c '
+        import os
+        c = open("/config/homeserver.yaml").read()
+        secrets = ["POSTGRES_PASSWORD", "AUTHENTIK_CLIENT_SECRET", "SYNAPSE_MACAROON_SECRET", "SYNAPSE_FORM_SECRET", "SYNAPSE_REGISTRATION_SECRET"]
+        for k in secrets:
+            c = c.replace(f"$${{{k}}}", os.environ.get(k, ""))
+        open("/data/homeserver.yaml", "w").write(c)
+        '
         python -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory /data --generate-keys
         chown -R 991:991 /data
         exec /start.py
