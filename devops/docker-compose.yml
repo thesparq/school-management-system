@@ -251,9 +251,6 @@ services:
       GOLEM__SHARD_MANAGER__PORT: '9002'
     volumes:
     - blob_storage:/blob_storage
-    ports:
-    - 9006:9006
-    - 9007:9007
     depends_on:
       golem-postgres:
         condition: service_healthy
