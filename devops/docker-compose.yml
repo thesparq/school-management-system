@@ -177,11 +177,11 @@ services:
       GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
       GOLEM_ENVIRONMENT: local
       RUST_BACKTRACE: 1
-      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      RUST_LOG: "info,h2=warn,hyper=warn,tower=warn"
       GOLEM__HTTP_PORT: '8083'
       GOLEM__GRPC__PORT: '9008'
       GOLEM__CORS_ORIGIN_REGEX: .*
-      GOLEM__INITIAL_ACCOUNTS__ROOT__TOKEN: ${GOLEM_AUTH_KEY}
+      GOLEM__INITIAL_ACCOUNTS__ROOT__TOKEN: ${GOLEM_AUTH_KEY:-default_admin_token}
       GOLEM__INITIAL_ACCOUNTS__MARKETING__TOKEN: marketing_token
       GOLEM__LOGIN__TYPE: Disabled
       GOLEM__DB__TYPE: Postgres
@@ -207,7 +207,7 @@ services:
     restart: on-failure
     environment:
       RUST_BACKTRACE: 1
-      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      RUST_LOG: "info,h2=warn,hyper=warn,tower=warn"
       GOLEM__ENVIRONMENT: local
       GOLEM__HTTP_PORT: '8081'
       GOLEM__GRPC__PORT: '9002'
@@ -236,7 +236,7 @@ services:
       GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
       GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
       RUST_BACKTRACE: 1
-      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      RUST_LOG: "info,h2=warn,hyper=warn,tower=warn"
       GOLEM__ENVIRONMENT: local
       GOLEM__CUSTOM_REQUEST_PORT: '9006'
       GOLEM__MCP_PORT: '9007'
@@ -272,7 +272,7 @@ services:
       GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
       GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
       RUST_BACKTRACE: 1
-      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      RUST_LOG: "info,h2=warn,hyper=warn,tower=warn"
       GOLEM__HTTP_PORT: '8084'
       GOLEM__GRPC__PORT: '9010'
       GOLEM__REGISTRY_SERVICE__TYPE: Static
