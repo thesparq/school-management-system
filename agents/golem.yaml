@@ -15,7 +15,7 @@ environments:
     server: local
     componentPresets: debug
   cloud:
-    server: cloud
+    server: prod
     componentPresets: release
 
 componentTemplates:
