@@ -93,6 +93,7 @@ services:
   opencloud:
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
+    entrypoint: /bin/sh
     command: -c "echo \"DEBUG_ENDPOINT=\${STORAGE_USERS_S3NG_ENDPOINT}\" && echo \"DEBUG_R2=\${R2_ENDPOINT_URL}\" && exec opencloud server"
     environment:
     - OC_URL=https://${OC_DOMAIN}
