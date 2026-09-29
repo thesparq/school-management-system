@@ -1,13 +1,17 @@
 FROM node:22-alpine AS builder
 
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+# Copy lockfile and package.json
+COPY pnpm-lock.yaml package.json ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
-RUN npm prune --production
+RUN pnpm run build
+RUN pnpm prune --prod
 
 FROM node:22-alpine
 
