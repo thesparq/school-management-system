@@ -1,4 +1,4 @@
-import { PUBLIC_MATRIX_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 
 class MatrixStore {
@@ -33,7 +33,7 @@ class MatrixStore {
         if (!this.token) return;
         
         try {
-            const url = new URL(`${PUBLIC_MATRIX_URL}/_matrix/client/v3/sync`);
+            const url = new URL(`${env.PUBLIC_MATRIX_URL}/_matrix/client/v3/sync`);
             url.searchParams.set('timeout', '30000');
             if (nextBatch) {
                 url.searchParams.set('since', nextBatch);
@@ -93,7 +93,7 @@ class MatrixStore {
     async sendMessage(roomId: string, text: string) {
         if (!this.token) return;
         const txnId = 'txn_' + Date.now();
-        const url = `${PUBLIC_MATRIX_URL}/_matrix/client/v3/rooms/${roomId}/send/m.room.message/${txnId}`;
+        const url = `${env.PUBLIC_MATRIX_URL}/_matrix/client/v3/rooms/${roomId}/send/m.room.message/${txnId}`;
         
         await fetch(url, {
             method: 'PUT',
