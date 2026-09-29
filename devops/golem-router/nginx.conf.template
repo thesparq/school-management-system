@@ -49,6 +49,11 @@ server {
         proxy_pass http://worker-service;
     }
 
+    location = /v1/api/me {
+        default_type application/json;
+        return 200 '{"account": {"id": "root", "name": "root"}}';
+    }
+
     location / {
         proxy_pass http://registry-service;
     }
