@@ -77,6 +77,6 @@ secretDefaults:
     surrealPassword: "{{ SURREAL_DB_PASSWORD }}"
     authentikHost: "{{ AUTHENTIK_HOST }}"
     authentikApiToken: "{{ AUTHENTIK_SERVICE_ACCOUNT_TOKEN }}"
-    authKey: "dev-auth-key-change-in-production"
+    authKey: "{{ GOLEM_AUTH_KEY }}"
     matrixAdminToken: "{{ MATRIX_ADMIN_TOKEN }}"
     matrixHost: "{{ MATRIX_HOST }}"
