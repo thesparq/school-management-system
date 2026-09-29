@@ -90,11 +90,19 @@ services:
     environment:
     - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
     - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+  opencloud-init:
+    image: opencloudeu/opencloud-rolling:latest
+    command: init
+    environment:
+    - OCIS_INSECURE=true
+    volumes:
+    - opencloud_data:/var/lib/ocis
   opencloud:
+    depends_on:
+      opencloud-init:
+        condition: service_completed_successfully
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
-    entrypoint: /bin/sh
-    command: -c "opencloud init || true && opencloud server"
     environment:
     - OC_URL=https://${OC_DOMAIN}
     - OC_DOMAIN=${OC_DOMAIN}
