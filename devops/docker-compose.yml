@@ -24,7 +24,8 @@ services:
     - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
     - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
+    - SYNAPSE_CLIENT_ID=${SYNAPSE_CLIENT_ID}
+    - SYNAPSE_CLIENT_SECRET=${SYNAPSE_CLIENT_SECRET}
     - SYNAPSE_MACAROON_SECRET=${SYNAPSE_MACAROON_SECRET}
     - SYNAPSE_FORM_SECRET=${SYNAPSE_FORM_SECRET}
     - SYNAPSE_REGISTRATION_SECRET=${SYNAPSE_REGISTRATION_SECRET}
@@ -36,7 +37,7 @@ services:
     - /bin/sh
     - -c
     - "# Inject secrets safely using Python\npython -c '\nimport os\nc = open(\"/config/homeserver.yaml\"\
-      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"AUTHENTIK_CLIENT_SECRET\", \"\
+      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"SYNAPSE_CLIENT_ID\", \"SYNAPSE_CLIENT_SECRET\", \"\
       SYNAPSE_MACAROON_SECRET\", \"SYNAPSE_FORM_SECRET\", \"SYNAPSE_REGISTRATION_SECRET\"\
       , \"COTURN_SHARED_SECRET\"]\nfor k in secrets:\n    c = c.replace(f\"$${{{k}}}\"\
       , os.environ.get(k, \"\"))\nopen(\"/data/homeserver.yaml\", \"w\").write(c)\n\
