@@ -39,10 +39,6 @@ services:
     environment:
     - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
     - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
-  golem-server:
-    build:
-      context: ./golem
-    restart: unless-stopped
   opencloud:
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
@@ -58,7 +54,8 @@ services:
   surrealdb:
     image: surrealdb/surrealdb:latest
     restart: unless-stopped
-    command: start --user ${SURREAL_DB_USERNAME:-root} --pass ${SURREAL_DB_PASSWORD:-root} file://data/surreal.db
+    command: start --user ${SURREAL_DB_USERNAME:-root} --pass ${SURREAL_DB_PASSWORD:-root}
+      file://data/surreal.db
     environment:
       SURREAL_USER: ${SURREAL_DB_USERNAME:-root}
       SURREAL_PASS: ${SURREAL_DB_PASSWORD:-root}
