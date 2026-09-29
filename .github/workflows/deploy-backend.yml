@@ -34,4 +34,5 @@ jobs:
           export PATH="$HOME/.moon/bin:$PATH"
           cd agents
           moon build --target wasm --release
-          golem deploy --environment cloud
+          golem profile add prod --url ${{ secrets.GOLEM_SERVER_URL }} --set-active
+          golem deploy
