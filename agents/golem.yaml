@@ -73,3 +73,12 @@ httpApi:
         StudentAgent: {}
         TeacherAgent: {}
         ParentAgent: {}
+    cloud:
+    - domain: golem.johnethel.school
+      agents:
+        CoreApi: {}
+        AssessmentSession: {}
+        AdminAgent: {}
+        StudentAgent: {}
+        TeacherAgent: {}
+        ParentAgent: {}
