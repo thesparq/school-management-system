@@ -22,11 +22,10 @@
 	}
 
 	let { data }: { data: PageData } = $props();
+	let loadError = $state(data.loadError || '');
 	let qualifications: Qualification[] = $state(data.qualifications);
 
-	$effect(() => {
-		qualifications = data.qualifications;
-	});
+	
 
 	let showCreateDialog = $state(false);
 	let createName = $state('');
@@ -86,6 +85,12 @@
 			deletingQual = null;
 		}
 	}
+
+	$effect(() => { 
+		if (data.streamed) {
+			data.streamed.qualificationsRes.then(res => qualifications = res);
+		}
+	});
 </script>
 
 <div class="space-y-6">

@@ -25,7 +25,7 @@ export const GET: RequestHandler = async (event) => {
 		});
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy(PROFILE_PATH[role], { target_user_id: target_uuid });
 
 	if (result.error) {

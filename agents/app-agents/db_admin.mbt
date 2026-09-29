@@ -967,9 +967,9 @@ pub fn db_admin_create_teacher_assignments(
 ) -> Result[Unit, AppError] {
   for pair in pairs {
     let sql = if active_st != "" {
-      "RELATE type::record('teacher_profile', $teacher_id) -> teaches -> <record>$edge_id SET session_term = $active_st, assigned_at = time::now()"
+      "CREATE teacher_assignment SET teacher_id = type::record('teacher_profile', $teacher_id), has_subject = <record>$edge_id, session_term = $active_st, assigned_at = time::now()"
     } else {
-      "RELATE type::record('teacher_profile', $teacher_id) -> teaches -> <record>$edge_id SET assigned_at = time::now()"
+      "CREATE teacher_assignment SET teacher_id = type::record('teacher_profile', $teacher_id), has_subject = <record>$edge_id, assigned_at = time::now()"
     }
     let b = if active_st != "" {
       {
@@ -1020,6 +1020,127 @@ pub fn db_admin_generate_next_id(
         Err(surreal_error("Failed to generate sequence (no records returned)", None))
       }
     }
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn db_admin_fetch_class_arms(
+  config : SharedConfig,
+) -> Result[Array[Json], AppError] {
+  surreal_query(config, "SELECT id, class_level, name FROM class_arms ORDER BY name ASC")
+}
+
+///|
+pub fn db_admin_create_class_arm(
+  config : SharedConfig,
+  id : String,
+  class_level : String,
+  name : String,
+) -> Result[Array[Json], AppError] {
+  surreal_query(
+    config,
+    "CREATE type::record('class_arms', $id) SET class_level = type::record('class_levels', $cl), name = $name",
+    bindings={ "id": id, "cl": class_level, "name": name },
+  )
+}
+
+///|
+pub fn db_admin_create_term(
+  config : SharedConfig,
+  id : String,
+  name : String,
+  sort_order : Int,
+) -> Result[Array[Json], AppError] {
+  surreal_query(
+    config,
+    "CREATE $id SET name = $name, sort_order = $sort_order, active = true",
+    bindings={ "id": id, "name": name, "sort_order": sort_order.to_string() }
+  )
+}
+
+///|
+pub fn db_admin_create_class_level(
+  config : SharedConfig,
+  id : String,
+  name : String,
+) -> Result[Array[Json], AppError] {
+  surreal_query(
+    config,
+    "CREATE $id SET name = $name",
+    bindings={ "id": id, "name": name }
+  )
+}
+
+///|
+pub fn db_admin_create_subject(
+  config : SharedConfig,
+  id : String,
+  name : String,
+  code : String,
+) -> Result[Array[Json], AppError] {
+  surreal_query(
+    config,
+    "CREATE $id SET name = $name, code = $code",
+    bindings={ "id": id, "name": name, "code": code }
+  )
+}
+
+///|
+pub fn db_admin_fetch_all_subjects(
+  config : SharedConfig,
+) -> Result[Array[Json], AppError] {
+  surreal_query(
+    config,
+    "SELECT id, name, code FROM subjects ORDER BY name ASC",
+  )
+}
+
+pub fn db_admin_create_has_subject(
+  config : SharedConfig,
+  class_level_id : String,
+  subject_id : String,
+  tier : Int,
+) -> Result[Unit, AppError] {
+  let sql = "RELATE type::record('class_levels', $class_level_id) -> has_subject -> type::record('subjects', $subject_id) SET active = true, tier = $tier, created_at = time::now()"
+  match surreal_query(config, sql, bindings={ "class_level_id": class_level_id, "subject_id": subject_id, "tier": tier.to_string() }) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+pub fn db_admin_delete_has_subject(
+  config : SharedConfig,
+  edge_id : String,
+) -> Result[Unit, AppError] {
+  let sql = "DELETE type::record('has_subject', $edge_id)"
+  match surreal_query(config, sql, bindings={ "edge_id": edge_id }) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+pub fn db_admin_delete_teacher_assignment(
+  config : SharedConfig,
+  edge_id : String,
+) -> Result[Unit, AppError] {
+  let sql = "DELETE type::record('teacher_assignment', $edge_id)"
+  match surreal_query(config, sql, bindings={ "edge_id": edge_id }) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e)
+  }
+}
+
+pub fn db_admin_fetch_all_teacher_assignments(
+  config : SharedConfig,
+) -> Result[Array[Json], AppError] {
+  match
+    surreal_query(
+      config,
+      "SELECT id, teacher_id, has_subject AS class_subject_id FROM teacher_assignment WHERE deleted_at IS NONE",
+      bindings={},
+    ) {
+    Ok(json) => Ok(json)
     Err(e) => Err(e)
   }
 }

@@ -64,7 +64,7 @@
 			if (createForm.students.length === 0) { createError = 'At least one student is required'; createStep = null; return; }
 			createStep = 'creating';
 			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: createForm.name, display_name: createForm.name, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'parent', students: createForm.students, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; parentStudentsMap = { ...parentStudentsMap, [u.uuid]: createForm.students }; addToast('success', 'Parent created', createForm.username); closeCreate(); }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; parentStudentsMap = { ...parentStudentsMap, [u.uuid]: createForm.students }; addToast('success', 'Parent created', createForm.name); closeCreate(); }
 		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
 

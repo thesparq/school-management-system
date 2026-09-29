@@ -9,7 +9,7 @@ export const GET: RequestHandler = async (event) => {
 
   const uuid = event.params.uuid;
 
-  const proxy = adminProxy(user);
+  const proxy = adminProxy(user, event.request.signal);
   const result = await proxy('/teacher/subjects', {
     target_teacher_id: uuid
   });

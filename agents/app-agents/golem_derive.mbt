@@ -606,6 +606,46 @@ impl @schema.ToElementValue for TermSimple with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for ClassArmInfo with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "class_level",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "name",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for ClassArmInfo with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let class_level :String = @schema.extract_field(e, 1)
+  let name :String = @schema.extract_field(e, 2)
+  { id, class_level, name }
+}
+
+///|
+impl @schema.FromElementValue for ClassArmInfo with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for ClassArmInfo with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.class_level),
+    @schema.to_element_value_as(self.name),
+  ])
+}
+
+///|
 impl @schema.HasElementSchema for AssessmentQuestion with element_schema() {
   @schema.make_record_schema([
     (
@@ -1760,6 +1800,82 @@ impl @schema.ToElementValue for TeacherClassGroup with to_element_value(self) {
 }
 
 ///|
+impl @schema.HasElementSchema for TimetableOverride with element_schema() {
+  @schema.make_record_schema([
+    (
+      "id",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "timetable",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "teacher",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[String])),
+    ),
+    (
+      "is_participating",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool])),
+    ),
+    (
+      "is_absent_override",
+      @schema.schema_of_tag((@schema.TypeTag::{  } : @schema.TypeTag[Bool?])),
+    ),
+    (
+      "added_assignments",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[String]]),
+      ),
+    ),
+    (
+      "removed_assignments",
+      @schema.schema_of_tag(
+        (@schema.TypeTag::{  } : @schema.TypeTag[Array[String]]),
+      ),
+    ),
+  ])
+}
+
+///|
+impl @schema.FromExtractor for TimetableOverride with from_extractor(e) {
+  let id :String = @schema.extract_field(e, 0)
+  let timetable :String = @schema.extract_field(e, 1)
+  let teacher :String = @schema.extract_field(e, 2)
+  let is_participating :Bool = @schema.extract_field(e, 3)
+  let is_absent_override :Bool? = @schema.extract_field(e, 4)
+  let added_assignments :Array[String] = @schema.extract_field(e, 5)
+  let removed_assignments :Array[String] = @schema.extract_field(e, 6)
+  {
+    id,
+    timetable,
+    teacher,
+    is_participating,
+    is_absent_override,
+    added_assignments,
+    removed_assignments,
+  }
+}
+
+///|
+impl @schema.FromElementValue for TimetableOverride with from_element_value(v) {
+  @schema.from_extractor_as(@extractor.extract_component_model_value(v))
+}
+
+///|
+impl @schema.ToElementValue for TimetableOverride with to_element_value(self) {
+  @schema.make_record_value([
+    @schema.to_element_value_as(self.id),
+    @schema.to_element_value_as(self.timetable),
+    @schema.to_element_value_as(self.teacher),
+    @schema.to_element_value_as(self.is_participating),
+    @schema.to_element_value_as(self.is_absent_override),
+    @schema.to_element_value_as(self.added_assignments),
+    @schema.to_element_value_as(self.removed_assignments),
+  ])
+}
+
+///|
 impl @config.ConfigField for SharedConfig with collect_entries(path) {
   let entries :Array[@common.AgentConfigDeclaration] = []
   let fp0 = path.copy()
@@ -1826,6 +1942,22 @@ impl @config.ConfigField for SharedConfig with collect_entries(path) {
       fp7,
     ),
   )
+  let fp8 = path.copy()
+  fp8.push("matrixHost")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp8,
+    ),
+  )
+  let fp9 = path.copy()
+  fp9.push("matrixAdminToken")
+  entries.append(
+    @config.collect_entries_of(
+      (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+      fp9,
+    ),
+  )
   entries
 }
 
@@ -1879,6 +2011,18 @@ impl @config.ConfigField for SharedConfig with load(path) {
     (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
     fp7,
   )
+  let fp8 = path.copy()
+  fp8.push("matrixHost")
+  let matrixHost :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp8,
+  )
+  let fp9 = path.copy()
+  fp9.push("matrixAdminToken")
+  let matrixAdminToken :@config.Secret[String] = @config.load_field(
+    (@schema.TypeTag::{  } : @schema.TypeTag[@config.Secret[String]]),
+    fp9,
+  )
   {
     surreal_host,
     surreal_ns,
@@ -1888,6 +2032,8 @@ impl @config.ConfigField for SharedConfig with load(path) {
     authentik_host,
     authentik_api_token,
     auth_key,
+    matrixHost,
+    matrixAdminToken,
   }
 }
 

@@ -7,7 +7,7 @@ export const POST: RequestHandler = async (event) => {
 		return new Response(JSON.stringify({ error: { code: 'FORBIDDEN' } }), { status: 403 });
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const body = await event.request.json();
 	const result = await proxy('/timetables', {
 		method: 'POST',

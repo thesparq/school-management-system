@@ -563,30 +563,54 @@ pub fn teacher_create_general_assessment(
     _ => ""
   }
 
-  let composition_ids = match obj.get("composition_ids") {
+  let compositions_to_create : Array[(String, Float)] = []
+  match obj.get("compositions") {
     Some(Array(a)) => {
-      let ids : Array[String] = []
+      let mut total_w = 0.0
       for item in a {
         match item {
-          String(s) => ids.push(s)
+          Object(c_obj) => {
+            let cid = match c_obj.get("lesson_assessment") {
+              Some(String(s)) => s
+              _ => return Err(validation_error("Missing lesson_assessment id in composition"))
+            }
+            let weight = match c_obj.get("weight_pct") {
+              Some(Number(n)) => n
+              _ => return Err(validation_error("Missing weight_pct in composition"))
+            }
+            total_w = total_w + weight
+            compositions_to_create.push((cid, Float::from_double(weight)))
+          }
           _ => ()
         }
       }
-      ids
-    }
-    _ => []
-  }
-  let has_compositions = composition_ids.length() > 0
-  if has_compositions {
-    let even_pct = Float::from_double(
-      100.0 / composition_ids.length().to_double(),
-    )
-    for cid in composition_ids {
-      match db_create_composition(config, "", cid, even_pct) {
-        Ok(_) => ()
-        Err(e) => return Err(e)
+      if compositions_to_create.length() > 0 && total_w != 100.0 {
+        return Err(validation_error("Composition weights must sum to exactly 100"))
       }
     }
+    _ => ()
+  }
+  let has_compositions = compositions_to_create.length() > 0
+
+  // Verify total percentage weight for this term/subject doesn't exceed 100
+  let existing_gas = match db_fetch_general_assessments(config, session_term_id, subject_id) {
+    Ok(arr) => arr
+    Err(e) => return Err(e)
+  }
+  let mut current_total_weight = 0
+  for row in existing_gas {
+    match row.as_object() {
+      Some(o) => {
+        match o.get("percentage_weight") {
+          Some(Number(w)) => current_total_weight = current_total_weight + w.to_int()
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  if current_total_weight + percentage_weight > 100 {
+    return Err(validation_error("Total percentage weight for assessments in this term exceeds 100%"))
   }
 
   let result = match
@@ -603,6 +627,15 @@ pub fn teacher_create_general_assessment(
   let ga = match parse_general_assessment_json(result[0].stringify()) {
     Ok(g) => g
     Err(e) => return Err(e)
+  }
+
+  if has_compositions {
+    for comp in compositions_to_create {
+      match db_create_composition(config, ga.id, comp.0, comp.1) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+    }
   }
   if has_compositions {
     let comps = match db_fetch_compositions(config, ga.id) {
@@ -843,4 +876,172 @@ pub fn teacher_get_percentage_summary(
   }
   let remaining = if 100 - current > 0 { 100 - current } else { 0 }
   Ok(PercentageSummary::{ current, remaining })
+}
+
+///|
+pub fn teacher_manual_grade(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[SubmissionInfo, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let assessment_type = match obj.get("assessment_type") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("assessment_type required"))
+  }
+  let assessment_id = match obj.get("assessment_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("assessment_id required"))
+  }
+  let student_id = match obj.get("student_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("student_id required"))
+  }
+  let scored_mark = match obj.get("scored_mark") {
+    Some(Number(n, ..)) => n.to_int()
+    _ => return Err(validation_error("scored_mark required"))
+  }
+
+  // Fetch assessment total mark
+  let total_mark = match assessment_type {
+    "lesson" => {
+      let arr = match db_fetch_assessment_by_id(config, "lesson_assessments", assessment_id) {
+        Ok(a) => a
+        Err(e) => return Err(e)
+      }
+      if arr.length() == 0 { return Err(not_found_error("Lesson Assessment")) }
+      match parse_lesson_assessment_json(arr[0].stringify()) {
+        Ok(la) => la.total_mark
+        Err(e) => return Err(e)
+      }
+    }
+    "general" => {
+      let arr = match db_fetch_assessment_by_id(config, "general_assessments", assessment_id) {
+        Ok(a) => a
+        Err(e) => return Err(e)
+      }
+      if arr.length() == 0 { return Err(not_found_error("General Assessment")) }
+      match parse_general_assessment_json(arr[0].stringify()) {
+        Ok(ga) => ga.total_mark
+        Err(e) => return Err(e)
+      }
+    }
+    _ => return Err(validation_error("Invalid assessment_type"))
+  }
+
+  if scored_mark < 0 || scored_mark > total_mark {
+    return Err(validation_error("Scored mark must be between 0 and \{total_mark}"))
+  }
+
+  let existing = match db_fetch_submission(config, student_id, assessment_type, assessment_id) {
+    Ok(arr) => if arr.length() > 0 { Some(arr[0]) } else { None }
+    Err(e) => return Err(e)
+  }
+
+  let existing_id = match existing {
+    Some(Object(o)) => {
+      match o.get("id") {
+        Some(String(s)) => s
+        _ => ""
+      }
+    }
+    _ => ""
+  }
+  let iter = match existing {
+    Some(Object(o)) => {
+      match o.get("iteration") {
+        Some(Number(n, ..)) => n.to_int()
+        _ => 1
+      }
+    }
+    _ => 1
+  }
+
+  // Upsert
+  let result = match db_upsert_submission(
+    config, existing_id, assessment_type, assessment_id, student_id, iter, "graded", "[]", total_mark, scored_mark.to_string(), "time::now()"
+  ) {
+    Ok(arr) => arr
+    Err(e) => return Err(e)
+  }
+  if result.length() == 0 {
+    return Err(validation_error("Failed to upsert submission"))
+  }
+  
+  let sub_id = match result[0].as_object() {
+    Some(o) => {
+      match o.get("id") {
+        Some(String(s)) => s
+        _ => return Err(validation_error("Failed to extract ID"))
+      }
+    }
+    _ => return Err(validation_error("Result is not object"))
+  }
+  
+  match db_release_grades(config, sub_id) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+
+  match db_fetch_submission_by_id(config, sub_id) {
+    Ok(arr) =>
+      if arr.length() > 0 {
+        parse_submission_json(arr[0].stringify())
+      } else {
+        Err(validation_error("Failed to fetch updated submission"))
+      }
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn teacher_fetch_students_in_class(
+  config : SharedConfig,
+  class_id : String,
+) -> Result[Array[StudentProfileInfo], AppError] {
+  let arr = match surreal_query(
+    config,
+    "SELECT meta::id(id) AS id, surname, first_name, middle_name, display_name, date_of_birth, current_class, class_enrolled, passport, created_at FROM student_profile WHERE current_class = type::record('class_levels', $cl) OR current_class = type::record('class_arms', $cl)",
+    bindings={ "cl": class_id.replace_all(old="class_levels:", new="").replace_all(old="class_arms:", new="") },
+  ) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  
+  let items : Array[StudentProfileInfo] = []
+  for item in arr {
+    match item {
+      Object(o) =>
+        items.push(StudentProfileInfo::{
+          id: match o.get("id") { Some(String(s)) => s
+            _ => "" },
+          surname: match o.get("surname") { Some(String(s)) => s
+            _ => "" },
+          first_name: match o.get("first_name") { Some(String(s)) => s
+            _ => "" },
+          middle_name: match o.get("middle_name") { Some(String(s)) => Some(s)
+            _ => None },
+          display_name: match o.get("display_name") { Some(String(s)) => s
+            _ => "" },
+          date_of_birth: match o.get("date_of_birth") { Some(String(s)) => s
+            _ => "" },
+          current_class: match o.get("current_class") { Some(String(s)) => s
+            _ => "" },
+          class_enrolled: match o.get("class_enrolled") { Some(String(s)) => s
+            _ => "" },
+          class_name: "",
+          created_at: match o.get("created_at") { Some(String(s)) => s
+            _ => "" },
+          passport: match o.get("passport") { Some(String(s)) => s
+            _ => "" }
+        })
+      _ => ()
+    }
+  }
+  Ok(items)
 }

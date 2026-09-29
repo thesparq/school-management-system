@@ -58,3 +58,25 @@ trusted_key_servers:
 
 # Disable federation to create a closed intranet school environment
 federation_domain_whitelist: []
+
+# --- Production Polish: Performance & Security ---
+
+# Disable presence tracking to save massive CPU and database IO
+presence:
+  enabled: false
+
+# Enforce strict media quotas to prevent VPS disk exhaustion
+max_upload_size: "50M"
+max_image_pixels: "32M"
+
+# Apply rate limiting to prevent spam and brute-forcing
+rc_message:
+  per_second: 0.5
+  burst_count: 3
+rc_login:
+  account:
+    per_second: 0.1
+    burst_count: 3
+  address:
+    per_second: 0.1
+    burst_count: 3

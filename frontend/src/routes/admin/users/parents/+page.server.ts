@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	try {
 		const [users, allGroups] = await Promise.all([fetchAllUsers(), fetchAllGroups()]);
-		const parentGroup = allGroups.find((g) => g.name === 'parent');
+		const parentGroup = allGroups.find((g) => g.name.toLowerCase() === 'parents' || g.name.toLowerCase() === 'parent');
 		const parentUsers = parentGroup ? users.filter((u) => u.groups.includes(parentGroup.pk)) : [];
 		return {
 			users: parentUsers,

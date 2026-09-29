@@ -369,3 +369,51 @@ pub fn CoreApi::teacher_get_percentage_summary(
     Err(e) => Err(e.to_json_string())
   }
 }
+
+pub fn CoreApi::admin_get_timetable_overrides(
+  self : Self,
+  incoming_key : String,
+  timetable_id : String,
+) -> Result[Array[TimetableOverride], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_get_timetable_overrides(self.config.value, timetable_id) {
+    Ok(v) => Ok(v)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+pub fn CoreApi::admin_set_timetable_override(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[TimetableOverride, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_set_timetable_override(self.config.value, body_json) {
+    Ok(v) => Ok(v)
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+
+pub fn CoreApi::admin_get_timetable_staff_data(
+  self : Self,
+  incoming_key : String,
+  session_term : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match admin_get_timetable_staff_data(self.config.value, session_term) {
+    Ok(v) => Ok(v.to_string())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+// hashbuster 4
+let _dummy_force_update = 2

@@ -78,3 +78,5 @@ secretDefaults:
     authentikHost: "{{ AUTHENTIK_HOST }}"
     authentikApiToken: "{{ AUTHENTIK_SERVICE_ACCOUNT_TOKEN }}"
     authKey: "dev-auth-key-change-in-production"
+    matrixAdminToken: "{{ MATRIX_ADMIN_TOKEN }}"
+    matrixHost: "{{ MATRIX_HOST }}"

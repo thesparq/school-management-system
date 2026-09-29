@@ -1,0 +1,35 @@
+--- agents/app-agents/http_client.mbt
++++ agents/app-agents/http_client.mbt
+@@ -48,7 +48,11 @@
+       break
+     }
+   }
++
++  pollable.drop()
++  timer.drop()
++
+   if !http_ready {
++    future_response.drop()
+     return Err("http request timed out")
+   }
+ 
+@@ -56,12 +60,17 @@
+     Some(Ok(Ok(r))) => r
+-    Some(Ok(Err(_))) => return Err("http response error")
+-    Some(Err(_)) => return Err("response already consumed")
+-    None => return Err("response not ready after poll")
++    Some(Ok(Err(_))) => { future_response.drop(); return Err("http response error") }
++    Some(Err(_)) => { future_response.drop(); return Err("response already consumed") }
++    None => { future_response.drop(); return Err("response not ready after poll") }
+   }
++  future_response.drop()
+ 
+   let status = response.status()
+   let incoming_body = match response.consume() {
+     Ok(b) => b
+-    Err(_) => return Err("consume body failed")
++    Err(_) => { response.drop(); return Err("consume body failed") }
+   }
++  response.drop()
+ 
+   let stream = match incoming_body.stream() {

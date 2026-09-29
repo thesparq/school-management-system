@@ -1,3 +1,10 @@
+struct VirtualClass {
+  id : String
+  level_id : String
+  name : String
+  is_arm : Bool
+}
+
 ///| Timetable CSP Engine for MoonBit
 
 pub fn admin_generate_timetable(
@@ -64,6 +71,39 @@ pub fn admin_generate_timetable(
   let classes : Array[ClassLevelInfo] = match parse_result_array_internal(classes_json) {
     Ok(v) => v
     Err(e) => return Err(e)
+  }
+
+  let class_arms_json = match db_admin_fetch_class_arms(config) {
+    Ok(v) => v
+    Err(_) => []
+  }
+  let class_arms : Array[ClassArmInfo] = match parse_result_array_internal(class_arms_json) {
+    Ok(v) => v
+    Err(_) => []
+  }
+
+  let virtual_classes : Array[VirtualClass] = []
+  for c in classes {
+    let mut has_arms = false
+    for arm in class_arms {
+      if arm.class_level == c.id {
+        virtual_classes.push(VirtualClass::{
+          id: arm.id,
+          level_id: c.id,
+          name: arm.name,
+          is_arm: true
+        })
+        has_arms = true
+      }
+    }
+    if not(has_arms) {
+      virtual_classes.push(VirtualClass::{
+        id: c.id,
+        level_id: c.id,
+        name: c.name,
+        is_arm: false
+      })
+    }
   }
 
   let teaches_json = match db_admin_fetch_all_teaches(config, session_term) {
@@ -135,11 +175,11 @@ pub fn admin_generate_timetable(
 
   let output_slots : Array[ScheduleSlot] = []
 
-  for class in classes {
+  for class in virtual_classes {
     // Collect subjects for this class
     let class_subs : Array[ClassSubjectPair] = []
     for edge in tiers { // edge represents a has_subject link
-      if edge.class_level == class.id {
+      if edge.class_level == class.level_id {
         class_subs.push(ClassSubjectPair::{
           id: edge.id,
           class_level: edge.class_level,
@@ -188,10 +228,12 @@ pub fn admin_generate_timetable(
         let slot_id = "slot_\{class.id}_\{day}_\{period_num}"
         
         if excluded.get(period_num).or(false) {
+          let class_arm_val = if class.is_arm { Some(class.id.replace_all(old="class_arms:", new="")) } else { None }
           output_slots.push(ScheduleSlot::{
             id: slot_id,
             timetable: timetable_id,
-            class_level: class.id,
+            class_level: class.level_id,
+            class_arm: class_arm_val,
             day_of_week: day,
             period_number: period_num,
             subject_edge: None,
@@ -257,10 +299,12 @@ pub fn admin_generate_timetable(
           candidates.sort_by(fn(a, b) { a.score.compare(b.score) })
           let selected = candidates[0]
           
+          let class_arm_val = if class.is_arm { Some(class.id.replace_all(old="class_arms:", new="")) } else { None }
           output_slots.push(ScheduleSlot::{
             id: slot_id,
             timetable: timetable_id,
-            class_level: class.id,
+            class_level: class.level_id,
+            class_arm: class_arm_val,
             day_of_week: day,
             period_number: period_num,
             subject_edge: Some(selected.subject_id),
@@ -281,10 +325,12 @@ pub fn admin_generate_timetable(
           cohort_daily_subjects.set("\{cohort_base}_\{day}_\{selected.subject_base_id}", true)
           teacher_busy.set("\{selected.teacher_id}_\{day}_\{period_num}", true)
         } else {
+          let class_arm_val = if class.is_arm { Some(class.id.replace_all(old="class_arms:", new="")) } else { None }
           output_slots.push(ScheduleSlot::{
             id: slot_id,
             timetable: timetable_id,
-            class_level: class.id,
+            class_level: class.level_id,
+            class_arm: class_arm_val,
             day_of_week: day,
             period_number: period_num,
             subject_edge: None,
@@ -331,4 +377,130 @@ struct Candidate {
   teacher_id : String
   subject_base_id : String
   score : Int
+}
+
+pub fn admin_get_timetable_overrides(
+  config : SharedConfig,
+  timetable_id : String,
+) -> Result[Array[TimetableOverride], AppError] {
+  let overrides_json = match db_admin_fetch_timetable_overrides(config, timetable_id) {
+    Ok(json) => json
+    Err(e) => return Err(e)
+  }
+  let overrides : Array[TimetableOverride] = match parse_result_array_internal(overrides_json) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(overrides)
+}
+
+pub fn admin_set_timetable_override(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[TimetableOverride, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  
+  let timetable = match obj.get("timetable") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("timetable required"))
+  }
+  let teacher = match obj.get("teacher") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("teacher required"))
+  }
+  let is_participating = match obj.get("is_participating") {
+    Some(True) => true
+    Some(False) => false
+    _ => true
+  }
+  let is_absent_override = match obj.get("is_absent_override") {
+    Some(True) => Some(true)
+    Some(False) => Some(false)
+    _ => None
+  }
+  
+  let added = match obj.get("added_assignments") {
+    Some(Array(a)) => {
+      let arr = []
+      for v in a {
+        match v {
+          String(s) => arr.push(s)
+          _ => ()
+        }
+      }
+      arr
+    }
+    _ => []
+  }
+  
+  let removed = match obj.get("removed_assignments") {
+    Some(Array(a)) => {
+      let arr = []
+      for v in a {
+        match v {
+          String(s) => arr.push(s)
+          _ => ()
+        }
+      }
+      arr
+    }
+    _ => []
+  }
+  
+  // Use a deterministic ID for the override so upsert works nicely
+  let id = timetable + "_" + teacher
+  
+  let override : TimetableOverride = {
+    id,
+    timetable,
+    teacher,
+    is_participating,
+    is_absent_override,
+    added_assignments: added,
+    removed_assignments: removed,
+  }
+  
+  let res = db_admin_set_timetable_override(config, override)
+  match res {
+    Ok(arr) => {
+      if arr.length() > 0 {
+        let parsed : TimetableOverride? = try { Some(@json.from_json!(arr[0])) } catch { _ => None }
+        match parsed {
+          Some(p) => return Ok(p)
+          None => ()
+        }
+      }
+      Ok(override)
+    }
+    Err(e) => Err(e)
+  }
+}
+
+pub fn admin_get_timetable_staff_data(
+  config : SharedConfig,
+  session_term : String,
+) -> Result[Json, AppError] {
+  let teachers = match db_admin_fetch_all_teachers(config) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let teaches = match db_admin_fetch_all_teaches(config, session_term) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let subjects = match db_admin_fetch_has_subject_tiers(config) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let map : Map[String, Json] = {}
+  map.set("teachers", teachers.to_json())
+  map.set("teaches", teaches.to_json())
+  map.set("subjects", subjects.to_json())
+  Ok(map.to_json())
 }

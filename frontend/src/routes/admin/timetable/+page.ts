@@ -55,7 +55,7 @@ export const load: PageLoad = async ({ fetch }) => {
 		title: 'Timetable Dashboard',
 		breadcrumbs: [
 			{ label: 'Dashboard', href: '/' },
-			{ label: 'Admin', href: '/admin' },
+			
 			{ label: 'Timetable Dashboard' }
 		],
 		timetables,

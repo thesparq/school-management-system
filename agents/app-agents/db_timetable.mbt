@@ -28,7 +28,7 @@ pub fn db_admin_fetch_timetable_overrides(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT *, meta::id(id) as id FROM timetable_overrides WHERE timetable = type::thing('timetables', $timetable_id)",
+    "SELECT *, meta::id(id) as id, meta::id(teacher) as teacher, meta::id(timetable) as timetable FROM timetable_overrides WHERE timetable = type::thing('timetables', $timetable_id)",
     bindings={ "timetable_id": timetable_id },
   )
 }
@@ -38,7 +38,7 @@ pub fn db_admin_fetch_has_subject_tiers(
 ) -> Result[Array[Json], AppError] {
   surreal_query(
     config,
-    "SELECT meta::id(id) as id, default_tier, meta::id(in) as class_level, meta::id(out) as subject FROM has_subject",
+    "SELECT meta::id(id) as id, default_tier, meta::id(in) as class_level, meta::id(out) as subject, out.name as name FROM has_subject",
   )
 }
 
@@ -99,6 +99,11 @@ pub fn db_admin_bulk_insert_schedule_slots(
       Some(sub) => obj += ", \"subject_edge\": type::thing('has_subject', \"\{sub}\")"
       None => ()
     }
+
+    match slot.class_arm {
+      Some(arm) => obj += ", \"class_arm\": type::thing('class_arms', \"\{arm}\")"
+      None => ()
+    }
     
     match slot.teacher {
       Some(t) => obj += ", \"teacher\": type::thing('teacher_profile', \"\{t}\")"
@@ -117,4 +122,58 @@ pub fn db_admin_bulk_insert_schedule_slots(
   query += "]"
   
   surreal_query(config, query)
+}
+
+pub fn db_admin_set_timetable_override(
+  config : SharedConfig,
+  override : TimetableOverride,
+) -> Result[Array[Json], AppError] {
+  // Serialize added_assignments
+  let mut added_arr = "["
+  let mut i = 0
+  while i < override.added_assignments.length() {
+    added_arr += "type::thing('has_subject', \"" + override.added_assignments[i] + "\")"
+    if i < override.added_assignments.length() - 1 {
+      added_arr += ", "
+    }
+    i += 1
+  }
+  added_arr += "]"
+
+  // Serialize removed_assignments
+  let mut removed_arr = "["
+  let mut j = 0
+  while j < override.removed_assignments.length() {
+    removed_arr += "type::thing('has_subject', \"" + override.removed_assignments[j] + "\")"
+    if j < override.removed_assignments.length() - 1 {
+      removed_arr += ", "
+    }
+    j += 1
+  }
+  removed_arr += "]"
+
+  let absent = match override.is_absent_override {
+    Some(b) => if b { "true" } else { "false" }
+    None => "NONE"
+  }
+  let participating = if override.is_participating { "true" } else { "false" }
+
+  let query = "UPSERT type::thing('timetable_overrides', $id) CONTENT { " +
+    "timetable: type::thing('timetables', $timetable), " +
+    "teacher: type::thing('teacher_profile', $teacher), " +
+    "is_participating: " + participating + ", " +
+    "is_absent_override: " + absent + ", " +
+    "added_assignments: " + added_arr + ", " +
+    "removed_assignments: " + removed_arr + 
+    " } RETURN *, meta::id(id) as id"
+    
+  surreal_query(
+    config,
+    query,
+    bindings={
+      "id": override.id,
+      "timetable": override.timetable,
+      "teacher": override.teacher,
+    }
+  )
 }

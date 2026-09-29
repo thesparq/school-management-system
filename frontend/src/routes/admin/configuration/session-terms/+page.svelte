@@ -36,11 +36,9 @@
 	}
 
 	let { data }: { data: PageData } = $props();
-	let sessionTerms: SessionTerm[] = $state(data.sessionTerms);
-
-	$effect(() => {
-		sessionTerms = data.sessionTerms;
-	});
+	let loadError = $state(data.loadError || '');
+	let sessionTerms: SessionTerm[] = $state([]);
+	let terms: any[] = $state([]);
 
 	let showCreateDialog = $state(false);
 	let createForm = $state({ sessionName: '', termId: '', active: true });
@@ -133,6 +131,12 @@
 			editLoading = false;
 		}
 	}
+	$effect(() => {
+		if (data.streamed) {
+			data.streamed.sessionTermsRes.then(json => { if (json && json.data) sessionTerms = json.data; if (json && json.error) loadError = json.error.message; });
+			data.streamed.termsRes.then(json => { if (json && json.data) terms = json.data; if (json && json.error) loadError = json.error.message; });
+		}
+	});
 </script>
 
 <div class="space-y-6">
@@ -149,7 +153,7 @@
 			{/if}
 
 			<Card>
-				<CardContent class="p-0">
+				<CardContent class="p-0 overflow-x-auto">
 					<Table>
 						<TableHeader>
 							<TableRow>

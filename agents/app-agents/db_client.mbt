@@ -43,15 +43,24 @@ fn parse_result_array(raw : String) -> Result[Array[Json], AppError] {
           match obj.get("status") {
             Some(String(s)) =>
               if s == "ERR" {
-                let detail = match obj.get("detail") {
-                  Some(String(d)) => d
+                let detail = match obj.get("result") {
+                  Some(String(r)) => r
                   _ =>
-                    match obj.get("message") {
-                      Some(String(m)) => m
-                      _ => raw
+                    match obj.get("detail") {
+                      Some(String(d)) => d
+                      _ =>
+                        match obj.get("message") {
+                          Some(String(m)) => m
+                          _ => raw
+                        }
                     }
                 }
-                Err(surreal_error(detail, None))
+                // If it's a NotFound table error, return an empty array instead of failing
+                if detail.contains("does not exist") {
+                  Ok([])
+                } else {
+                  Err(surreal_error(detail, None))
+                }
               } else {
                 match obj.get("result") {
                   Some(r) =>
@@ -95,18 +104,6 @@ fn surreal_query_internal(
         @utf8.encode(cfg.username + ":" + cfg.password).to_fixedarray(),
       ).view(),
     )
-  let headers = match
-    build_headers([
-      ("Authorization", auth_value),
-      ("Accept", "application/json"),
-      ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"),
-      ("surreal-ns", cfg.ns),
-      ("surreal-db", cfg.database),
-    ]) {
-    Ok(h) => h
-    Err(_) =>
-      return Err(surreal_error("build headers failed".to_string(), None))
-  }
   let modified_sql = match bindings {
     Some(b) => {
       let mut s = sql
@@ -118,18 +115,35 @@ fn surreal_query_internal(
     }
     None => sql
   }
+  let body_bytes = @utf8.encode(modified_sql).to_fixedarray()
+  let headers = match
+    build_headers([
+      ("Authorization", auth_value),
+      ("Accept", "application/json"),
+      ("User-Agent", "Mozilla/5.0"),
+      ("surreal-ns", cfg.ns),
+      ("surreal-db", cfg.database),
+      ("Content-Length", body_bytes.length().to_string()),
+    ]) {
+    Ok(h) => h
+    Err(_) =>
+      return Err(surreal_error("build headers failed".to_string(), None))
+  }
   let path = "/sql"
   let is_local = cfg.host.starts_with("localhost") || cfg.host.starts_with("127.0.0.1")
   let scheme = if is_local { @http_types.Http } else { @http_types.Https }
-  match
+  let auth_host = if is_local { cfg.host } else { cfg.host + ":443" }
+  let response = @api.with_idempotence_mode(true, fn() {
     http_request(
-      cfg.host,
+      auth_host,
       @http_types.Post,
       scheme,
       path,
       headers,
-      Some(@utf8.encode(modified_sql).to_fixedarray()),
-    ) {
+      Some(body_bytes),
+    )
+  })
+  match response {
     Ok((status, body)) => Ok((status, body))
     Err(e) => { @logging.error("HTTP ERROR: " + e); Err(surreal_error(e, Some(sql))) }
   }

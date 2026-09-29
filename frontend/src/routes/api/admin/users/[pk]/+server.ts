@@ -26,7 +26,7 @@ export const DELETE: RequestHandler = async (event) => {
 		});
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy(DELETE_PATH[role], undefined, 'POST', {
 		body_json: JSON.stringify({ authentik_pk: Number(authentik_pk), target_user_id: uuid })
 	});

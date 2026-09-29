@@ -12,7 +12,7 @@ export const load: PageServerLoad = async (event) => {
 			fetchAllGroups()
 		]);
 
-		const adminGroup = allGroups.find(g => g.name === 'admin');
+		const adminGroup = allGroups.find(g => g.name.toLowerCase() === 'administrators' || g.name.toLowerCase() === 'admin');
 		const adminGroupPk = adminGroup?.pk ?? null;
 		const filtered = adminGroupPk
 			? authentikUsers.filter(u => (u.groups ?? []).includes(adminGroupPk))

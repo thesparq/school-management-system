@@ -59,7 +59,7 @@ export const POST: RequestHandler = async (event) => {
 		date_of_birth: date_of_birth || ''
 	};
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy(EDIT_PATH[role], undefined, 'POST', { body_json: JSON.stringify(agentBody) });
 
 	if (result.error) {

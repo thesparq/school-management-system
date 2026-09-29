@@ -36,7 +36,7 @@
 			if (!passportUrl) { createError = 'Passport photo is required'; createStep = null; return; }
 			createStep = 'creating';
 			const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ surname: createForm.surname, first_name: createForm.firstName, middle_name: createForm.middleName || undefined, display_name: displayName, email: createForm.email, password: createForm.password, is_active: createForm.isActive, group_pk: groupPk, role: 'admin', role_title: createForm.roleTitle || undefined, passport_url: passportUrl }) });
-			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; addToast('success', 'Admin created', createForm.username); closeCreate(); }
+			const r = await res.json(); if (r.error) throw new Error(r.error.message ?? 'Failed'); const u = r.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }]; addToast('success', 'Admin created', `${createForm.firstName} ${createForm.surname}`); closeCreate(); }
 		catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); } finally { createStep = null; }
 	}
 
@@ -67,7 +67,6 @@
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Create Admin</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={createForm.username} required /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>

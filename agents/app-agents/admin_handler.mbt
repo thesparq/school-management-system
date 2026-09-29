@@ -1077,7 +1077,11 @@ fn create_user_saga(
     }
   })
   match saga_result {
-    Ok(r) => Ok(r)
+    Ok(r) => {
+      let uuid = r.1
+      let _ = matrix_create_user(config, uuid, display_name)
+      Ok(r)
+    }
     Err(e) => {
       if created_pk != 0 {
         let _ = authentik_delete_user(config, created_pk)
@@ -2325,4 +2329,353 @@ pub fn admin_generate_timetable_handler(
   }
   
   admin_generate_timetable(config, timetable_id)
+}
+
+///|
+pub fn admin_fetch_class_arms(
+  config : SharedConfig,
+) -> Result[Array[ClassArmInfo], AppError] {
+  let arr = match db_admin_fetch_class_arms(config) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  let items : Array[ClassArmInfo] = []
+  for item in arr {
+    match item {
+      Object(o) =>
+        items.push(ClassArmInfo::{
+          id: match o.get("id") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          class_level: match o.get("class_level") {
+            Some(String(s)) => s
+            _ => ""
+          },
+          name: match o.get("name") {
+            Some(String(s)) => s
+            _ => ""
+          },
+        })
+      _ => ()
+    }
+  }
+  Ok(items)
+}
+
+///|
+pub fn admin_create_class_arm(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[ClassArmInfo, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be an object"))
+  }
+  let class_level = match obj.get("class_level") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("class_level required"))
+  }
+  let name = match obj.get("name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("name required"))
+  }
+  let id = (class_level + "_" + name).replace_all(old="class_levels:", new="").replace_all(old=" ", new="_").to_lower()
+  
+  match db_admin_create_class_arm(config, id, class_level, name) {
+    Ok(_) => Ok(ClassArmInfo::{ id: "class_arms:" + id, class_level, name })
+    Err(e) => Err(e)
+  }
+}
+
+///|
+
+///|
+pub fn admin_create_term(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[TermSimple, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be a JSON object"))
+  }
+  let name = match obj.get("name") {
+    Some(String(n)) => n
+    _ => return Err(validation_error("name is required and must be a string"))
+  }
+  let sort_order = match obj.get("sort_order") {
+    Some(Number(n)) => n.to_int()
+    _ => 0
+  }
+  let id = "terms:" + name.replace_all(old=" ", new="_").to_lower()
+  match db_admin_create_term(config, id, name, sort_order) {
+    Ok(_) => Ok(TermSimple::{ id, name, sort_order, active: true })
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_create_class_level(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[ClassLevelInfo, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be a JSON object"))
+  }
+  let name = match obj.get("name") {
+    Some(String(n)) => n
+    _ => return Err(validation_error("name is required"))
+  }
+  let id = "class_levels:" + name.replace_all(old=" ", new="_").to_lower()
+  match db_admin_create_class_level(config, id, name) {
+    Ok(_) => Ok(ClassLevelInfo::{ id, name })
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_create_subject(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[SubjectInfo, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON body"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be a JSON object"))
+  }
+  let name = match obj.get("name") {
+    Some(String(n)) => n
+    _ => return Err(validation_error("name is required"))
+  }
+  let id = "subjects:" + name.replace_all(old=" ", new="_").to_lower()
+  let code = match obj.get("code") {
+    Some(String(s)) => s
+    _ => ""
+  }
+  match db_admin_create_subject(config, id, name, code) {
+    Ok(_) => Ok(SubjectInfo::{ id, name, code: Some(code) })
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_fetch_all_subjects(config : SharedConfig) -> Result[Array[SubjectInfo], AppError] {
+  let arr = match db_admin_fetch_all_subjects(config) {
+    Ok(a) => a
+    Err(e) => return Err(e)
+  }
+  let res : Array[SubjectInfo] = []
+  for el in arr {
+    match el.as_object() {
+      Some(obj) => {
+        let id = match obj.get("id") {
+          Some(String(s)) => s
+          _ => ""
+        }
+        let name = match obj.get("name") {
+          Some(String(n)) => n
+          _ => ""
+        }
+        let code = match obj.get("code") {
+          Some(String(s)) => Some(s)
+          _ => None
+        }
+        res.push(SubjectInfo::{ id, name, code })
+      }
+      None => ()
+    }
+  }
+  Ok(res)
+}
+
+///|
+pub fn admin_matrix_sync_user(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Object expected"))
+  }
+  let user_id = match obj.get("user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("user_id required"))
+  }
+  let display_name = match obj.get("display_name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("display_name required"))
+  }
+  match matrix_create_user(config, user_id, display_name) {
+    Ok(_) => Ok("ok")
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_matrix_get_token(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Object expected"))
+  }
+  let user_id = match obj.get("user_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("user_id required"))
+  }
+  match matrix_get_user_token(config, user_id) {
+    Ok(v) => Ok(v)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_matrix_create_room(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Object expected"))
+  }
+  let name = match obj.get("name") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("name required"))
+  }
+  match matrix_create_room(config, name) {
+    Ok(_) => Ok("ok")
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub fn admin_matrix_send_notification(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch {
+    _ => return Err(validation_error("Invalid JSON"))
+  }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Object expected"))
+  }
+  let room = match obj.get("room_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("room_id required"))
+  }
+  let msg = match obj.get("message") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("message required"))
+  }
+  match matrix_send_notification(config, room, msg) {
+    Ok(_) => Ok("ok")
+    Err(e) => Err(e)
+  }
+}
+
+///|
+
+pub fn admin_create_class_subject(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON")) }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be a JSON object"))
+  }
+  let class_level_id = match obj.get("class_level_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("class_level_id is required"))
+  }
+  let subject_id = match obj.get("subject_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("subject_id is required"))
+  }
+  let tier = match obj.get("tier") {
+    Some(Number(n)) => n.to_int()
+    _ => 3
+  }
+  match db_admin_create_has_subject(config, class_level_id, subject_id, tier) {
+    Ok(_) => Ok("{}")
+    Err(e) => Err(e)
+  }
+}
+
+pub fn admin_delete_class_subject(
+  config : SharedConfig,
+  edge_id : String,
+) -> Result[String, AppError] {
+  match db_admin_delete_has_subject(config, edge_id) {
+    Ok(_) => Ok("{}")
+    Err(e) => Err(e)
+  }
+}
+
+pub fn admin_delete_teacher_assignment(
+  config : SharedConfig,
+  edge_id : String,
+) -> Result[String, AppError] {
+  match db_admin_delete_teacher_assignment(config, edge_id) {
+    Ok(_) => Ok("{}")
+    Err(e) => Err(e)
+  }
+}
+
+pub fn admin_create_teacher_assignments(
+  config : SharedConfig,
+  body_json : String,
+) -> Result[String, AppError] {
+  let val = @json.parse(body_json) catch { _ => return Err(validation_error("Invalid JSON")) }
+  let obj = match val {
+    Object(o) => o
+    _ => return Err(validation_error("Body must be a JSON object"))
+  }
+  let teacher_id = match obj.get("teacher_id") {
+    Some(String(s)) => s
+    _ => return Err(validation_error("teacher_id is required"))
+  }
+  let active_st = match obj.get("active_st") {
+    Some(String(s)) => s
+    _ => ""
+  }
+  let pairs : Array[TeacherSubjectPair] = []
+  match obj.get("edge_ids") {
+    Some(Array(arr)) => {
+      for el in arr {
+        match el {
+          String(s) => pairs.push(TeacherSubjectPair::{ edge_id: s, class_level_id: "", class_level_name: "", subject_id: "", subject_name: "", subject_code: None })
+          _ => ()
+        }
+      }
+    }
+    _ => return Err(validation_error("edge_ids must be an array of strings"))
+  }
+  match db_admin_create_teacher_assignments(config, teacher_id, pairs, active_st) {
+    Ok(_) => Ok("{}")
+    Err(e) => Err(e)
+  }
 }

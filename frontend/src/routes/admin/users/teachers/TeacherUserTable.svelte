@@ -89,7 +89,7 @@ import type { TeacherSubjectPair } from '$lib/types';
 			const result = await res.json();
 			if (result.error) throw new Error(result.error.message ?? 'Failed');
 			const u = result.data; users = [...users, { pk: u.pk, uuid: u.uuid, username: u.username, name: u.name, email: u.email, groups: u.groups, is_active: u.is_active }];
-			addToast('success', 'Teacher created', createForm.username); closeCreate();
+			addToast('success', 'Teacher created', `${createForm.firstName} ${createForm.surname}`); closeCreate();
 		} catch (e) { createError = e instanceof Error ? e.message : 'Failed'; addToast('error', 'Create failed', createError); }
 		finally { createStep = null; }
 	}
@@ -196,7 +196,6 @@ import type { TeacherSubjectPair } from '$lib/types';
 <Dialog open={showCreateDialog} onOpenChange={(v: boolean) => v ? null : closeCreate()}>
 	<DialogContent class="sm:max-w-lg"><DialogHeader><DialogTitle>Create Teacher</DialogTitle></DialogHeader>
 		<div class="space-y-4">
-			<div class="space-y-2"><Label>Username <span class="text-destructive">*</span></Label><Input bind:value={createForm.username} required minlength={3} /></div>
 			<NameFields bind:surname={createForm.surname} bind:firstName={createForm.firstName} bind:middleName={createForm.middleName} />
 			<div class="space-y-2"><Label>Email <span class="text-destructive">*</span></Label><Input type="email" bind:value={createForm.email} required /></div>
 			<div class="space-y-2"><Label>Password <span class="text-destructive">*</span></Label><div class="flex gap-2"><Input type={createForm.showPassword ? 'text' : 'password'} bind:value={createForm.password} required minlength={8} /><AppButton variant="outline" size="sm" onclick={() => createForm.showPassword = !createForm.showPassword}>{createForm.showPassword ? 'Hide' : 'Show'}</AppButton><AppButton variant="outline" size="sm" onclick={() => { createForm.password = generatePassword(); createForm.showPassword = true; }}>Generate</AppButton></div></div>

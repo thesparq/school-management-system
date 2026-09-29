@@ -9,7 +9,7 @@ export const GET: RequestHandler = async (event) => {
 		});
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/parents/list');
 
 	if (result.error) {

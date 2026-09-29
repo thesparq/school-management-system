@@ -8,3 +8,4 @@ _build/
 .agents
 **/.agents
 .claude
+golem-server.log

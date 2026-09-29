@@ -45,8 +45,9 @@
   // Create assessment modal
   let createModalOpen = $state(false);
   let assessmentTitle = $state('');
-  let selectedMcq = $state(new Set<number>());
-  let selectedTheory = $state(new Set<number>());
+  let selectedMcq = $state<Record<number, number>>({});
+  let selectedTheory = $state<Record<number, number>>({});
+  let manualQuestions = $state<Array<{type: 'mcq'|'theory', question: string, mark: number}>>([]);
   let creating = $state(false);
 
   // Grade modal
@@ -136,7 +137,8 @@
     const questions: Record<string, unknown>[] = [];
     let idx = 0;
 
-    for (const mcqIdx of selectedMcq) {
+    for (const [key, mark] of Object.entries(selectedMcq)) {
+      const mcqIdx = parseInt(key);
       const q = mcqQuestions?.[mcqIdx];
       if (q) {
         questions.push({
@@ -148,11 +150,12 @@
           option_b: q.option_b,
           option_c: q.option_c,
           correct_answer: q.correct_answer,
-          allocated_mark: 1,
+          allocated_mark: mark,
         });
       }
     }
-    for (const theoryIdx of selectedTheory) {
+    for (const [key, mark] of Object.entries(selectedTheory)) {
+      const theoryIdx = parseInt(key);
       const q = theoryQuestions?.[theoryIdx];
       if (q) {
         questions.push({
@@ -160,7 +163,17 @@
           question_type: 'theory',
           source_index: theoryIdx,
           question_text: q.question,
-          allocated_mark: 5,
+          allocated_mark: mark,
+        });
+      }
+    }
+    for (const mq of manualQuestions) {
+      if (mq.question.trim()) {
+        questions.push({
+          question_index: idx++,
+          question_type: mq.type,
+          question_text: mq.question,
+          allocated_mark: mq.mark,
         });
       }
     }
@@ -281,14 +294,20 @@
   }
 
   function toggleMcq(i: number) {
-    const next = new Set(selectedMcq);
-    if (next.has(i)) next.delete(i); else next.add(i);
+    const next = { ...selectedMcq };
+    if (next[i] !== undefined) delete next[i]; else next[i] = 1;
     selectedMcq = next;
   }
   function toggleTheory(i: number) {
-    const next = new Set(selectedTheory);
-    if (next.has(i)) next.delete(i); else next.add(i);
+    const next = { ...selectedTheory };
+    if (next[i] !== undefined) delete next[i]; else next[i] = 5;
     selectedTheory = next;
+  }
+  function addManualQuestion() {
+    manualQuestions = [...manualQuestions, { type: 'theory', question: '', mark: 5 }];
+  }
+  function removeManualQuestion(idx: number) {
+    manualQuestions = manualQuestions.filter((_, i) => i !== idx);
   }
 
   const objectives = parseJson<LessonObjective>(lesson.objectives, isLessonObjective);
@@ -658,7 +677,7 @@
                   {#if mcqQuestions && mcqQuestions.length > 0}
                     {#each mcqQuestions as q, i}
                       <div class="flex items-start gap-4 py-3 px-2 rounded hover:bg-surface-50">
-                        <Checkbox checked={selectedMcq.has(i)} onCheckedChange={() => toggleMcq(i)} />
+                        <Checkbox checked={selectedMcq[i] !== undefined} onCheckedChange={() => toggleMcq(i)} />
                         <div class="flex-1 min-w-0 space-y-2">
                           <p class="text-sm text-foreground leading-relaxed">{q.question}</p>
                           <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-surface-500">
@@ -667,6 +686,12 @@
                             <span>C. {q.option_c}</span>
                           </div>
                         </div>
+                        {#if selectedMcq[i] !== undefined}
+                          <div class="flex items-center gap-2">
+                            <Label class="text-xs">Marks:</Label>
+                            <Input type="number" min="1" class="w-16 h-8 text-xs" bind:value={selectedMcq[i]} />
+                          </div>
+                        {/if}
                       </div>
                     {/each}
                   {:else}
@@ -681,8 +706,14 @@
                   {#if theoryQuestions && theoryQuestions.length > 0}
                     {#each theoryQuestions as q, i}
                       <div class="flex items-start gap-4 py-3 px-2 rounded hover:bg-surface-50">
-                        <Checkbox checked={selectedTheory.has(i)} onCheckedChange={() => toggleTheory(i)} />
-                        <p class="text-sm text-foreground leading-relaxed">{q.question}</p>
+                        <Checkbox checked={selectedTheory[i] !== undefined} onCheckedChange={() => toggleTheory(i)} />
+                        <p class="text-sm text-foreground leading-relaxed flex-1">{q.question}</p>
+                        {#if selectedTheory[i] !== undefined}
+                          <div class="flex items-center gap-2">
+                            <Label class="text-xs">Marks:</Label>
+                            <Input type="number" min="1" class="w-16 h-8 text-xs" bind:value={selectedTheory[i]} />
+                          </div>
+                        {/if}
                       </div>
                     {/each}
                   {:else}
@@ -692,8 +723,40 @@
               </Accordion.Item>
             </Accordion.Root>
           {:else}
-            <p class="text-sm text-surface-500 text-center py-12">No questions available for this lesson.</p>
+            <p class="text-sm text-surface-500 text-center py-12">No generated questions available for this lesson. You can add manual questions below.</p>
           {/if}
+          
+          <!-- Manual Questions -->
+          <div class="pt-4 border-t border-border space-y-4">
+            <div class="flex justify-between items-center">
+              <h3 class="text-sm font-semibold">Manual Questions</h3>
+              <AppButton variant="outline" size="sm" onclick={addManualQuestion}>+ Add Blank Question</AppButton>
+            </div>
+            
+            {#if manualQuestions.length === 0}
+              <p class="text-xs text-muted-foreground italic">No manual questions added.</p>
+            {:else}
+              {#each manualQuestions as mq, idx}
+                <div class="flex items-start gap-3 p-3 bg-muted/30 border border-border rounded-lg">
+                  <div class="flex-1 space-y-3">
+                    <div class="flex gap-4">
+                      <div class="flex-1">
+                        <Label class="text-xs">Question Text</Label>
+                        <Input bind:value={mq.question} placeholder="Enter your question here..." class="mt-1" />
+                      </div>
+                      <div class="w-24">
+                        <Label class="text-xs">Marks</Label>
+                        <Input type="number" min="1" bind:value={mq.mark} class="mt-1" />
+                      </div>
+                    </div>
+                  </div>
+                  <AppButton variant="ghost" size="sm" class="text-destructive" onclick={() => removeManualQuestion(idx)}>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </AppButton>
+                </div>
+              {/each}
+            {/if}
+          </div>
         </div>
 
         <Dialog.Footer>

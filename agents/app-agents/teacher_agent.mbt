@@ -317,3 +317,40 @@ pub fn TeacherAgent::get_percentage_summary(
     Err(e) => Err(e.to_json_string())
   }
 }
+
+///|
+#derive.endpoint(post="/manual-grade")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn TeacherAgent::manual_grade(
+  self : Self,
+  incoming_key : String,
+  body_json : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  match teacher_manual_grade(self.config.value, body_json) {
+    Ok(r) => Ok(r.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/class-students")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn TeacherAgent::get_class_students(
+  self : Self,
+  incoming_key : String,
+  class_level_id : String,
+) -> Result[Array[StudentProfileInfo], String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  // The teacher just fetches all students enrolled in a class level or arm
+  match teacher_fetch_students_in_class(self.config.value, class_level_id) {
+    Ok(r) => Ok(r)
+    Err(e) => Err(e.to_json_string())
+  }
+}

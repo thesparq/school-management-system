@@ -15,7 +15,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/activate-session-term', { session_term_id: sessionTermId }, 'POST');
 
 	if (result.error) {

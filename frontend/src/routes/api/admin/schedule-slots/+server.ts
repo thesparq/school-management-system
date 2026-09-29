@@ -12,8 +12,8 @@ export const GET: RequestHandler = async (event) => {
 		return new Response(JSON.stringify({ error: { code: 'BAD_REQUEST', message: 'Missing timetable_id' } }), { status: 400 });
 	}
 
-	const proxy = adminProxy(user);
-	const result = await proxy(`/schedule-slots?timetableId=${encodeURIComponent(timetableId)}`);
+	const proxy = adminProxy(user, event.request.signal);
+	const result = await proxy(`/schedule-slots?timetable_id=${encodeURIComponent(timetableId)}`);
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), { status: 502 });

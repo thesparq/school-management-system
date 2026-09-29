@@ -873,3 +873,383 @@ pub fn AdminAgent::update_timetable_config(
     Err(e) => Err(e.to_json_string())
   }
 }
+
+///|
+#derive.endpoint(get="/curriculum-planner-data")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_curriculum_planner_data(
+  self : Self,
+  incoming_key : String,
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  
+  let classes = match admin_fetch_class_arms(self.config.value) {
+    Ok(v) => v.to_json()
+    Err(_) => ([] : Array[Json]).to_json()
+  }
+  
+  let subjects = match admin_fetch_all_subjects(self.config.value) {
+    Ok(v) => v.to_json()
+    Err(_) => ([] : Array[Json]).to_json()
+  }
+  
+  let class_subjects = match admin_fetch_class_subjects(self.config.value) {
+    Ok(v) => v.to_json()
+    Err(_) => ([] : Array[Json]).to_json()
+  }
+  
+  let assignments = match db_admin_fetch_all_teacher_assignments(self.config.value) {
+    Ok(v) => v.to_json()
+    Err(_) => ([] : Array[Json]).to_json()
+  }
+  
+  let result : Map[String, Json] = Map::new()
+  result.set("classes", classes)
+  result.set("subjects", subjects)
+  result.set("class_subjects", class_subjects)
+  result.set("assignments", assignments)
+  
+  Ok(result.to_json().stringify())
+}
+
+///|
+#derive.endpoint(post="/terms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_term(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_term(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/class-levels")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_class_level(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_class_level(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/subjects")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_subject(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_subject(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/subjects")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_subjects(
+  self : Self,
+  incoming_key : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_fetch_all_subjects(self.config.value)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/matrix/sync")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::matrix_sync_user(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_matrix_sync_user(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/matrix/token")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::matrix_get_token(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_matrix_get_token(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/matrix/room")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::matrix_create_room_endpoint(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_matrix_create_room(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/matrix/notify")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::matrix_send_notification_endpoint(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_matrix_send_notification(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/timetable/overrides")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_timetable_overrides(
+  self : Self,
+  incoming_key : String,
+  session_term : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_get_timetable_overrides(self.config.value, session_term)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/timetable/overrides")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::set_timetable_override(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_set_timetable_override(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/timetable/staff/{session_term}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_timetable_staff_data(
+  self : Self,
+  incoming_key : String,
+  session_term : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_get_timetable_staff_data(self.config.value, session_term)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/class-arms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_class_arms(
+  self : Self,
+  incoming_key : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_fetch_class_arms(self.config.value)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/class-arms")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_class_arm(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_class_arm(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/class-subjects")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_class_subject(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_class_subject(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(delete="/class-subjects/{id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::delete_class_subject(
+  self : Self,
+  incoming_key : String,
+  id : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_delete_class_subject(self.config.value, id)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(post="/teacher-assignments")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::create_teacher_assignments(
+  self : Self,
+  incoming_key : String,
+  body_json : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_create_teacher_assignments(self.config.value, body_json)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(delete="/teacher-assignments/{id}")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::delete_teacher_assignment(
+  self : Self,
+  incoming_key : String,
+  id : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = admin_delete_teacher_assignment(self.config.value, id)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}
+
+///|
+#derive.endpoint(get="/teacher-assignments")
+#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")
+pub fn AdminAgent::get_all_teacher_assignments(
+  self : Self,
+  incoming_key : String
+) -> Result[String, String] {
+  match require_auth(self.config.value, incoming_key) {
+    Err(e) => return Err(e.to_json_string())
+    Ok(_) => ()
+  }
+  let res = db_admin_fetch_all_teacher_assignments(self.config.value)
+  match res {
+    Ok(v) => Ok(v.to_json().stringify())
+    Err(e) => Err(e.to_json_string())
+  }
+}

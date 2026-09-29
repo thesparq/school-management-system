@@ -8,12 +8,21 @@
   import { invalidateAll } from '$app/navigation';
 
   let { data }: { data: PageData } = $props();
+  import StudentTermGrades from '$lib/components/StudentTermGrades.svelte';
+  let activeTab = $state<'lessons' | 'grades'>('lessons');
 </script>
 
 <div class="space-y-6">
-  <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName} — Lessons</h1>
+  <div class="flex justify-between items-end border-b border-border pb-4">
+    <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName}</h1>
+    <div class="flex space-x-4">
+      <button class="px-3 py-1 font-semibold border-b-2 {activeTab === 'lessons' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" onclick={() => activeTab = 'lessons'}>Lessons</button>
+      <button class="px-3 py-1 font-semibold border-b-2 {activeTab === 'grades' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" onclick={() => activeTab = 'grades'}>Grades & CA</button>
+    </div>
+  </div>
 
-  {#if $navigating && (!data.lessons || data.lessons.length === 0)}
+  {#if activeTab === 'lessons'}
+    {#if $navigating && (!data.lessons || data.lessons.length === 0)}
     <PageSkeleton layout="list" rows={5} />
   {:else if data.lessonsError}
     <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => invalidateAll()} />
@@ -50,5 +59,8 @@
         {/if}
       {/each}
     </div>
+    {/if}
+  {:else}
+    <StudentTermGrades termId={$page.params.termId} subjectId={$page.params.subjectId} lessons={data.lessons} />
   {/if}
 </div>

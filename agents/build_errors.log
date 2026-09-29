@@ -1,0 +1,756 @@
+Warning: Duplicate alias `types` at "/home/thesparq/Projects/school-management-system/agents/.mooncakes/golemcloud/golem_sdk/interface/golem/quota/types/moon.pkg". "test-import" will automatically add "import" and current package as dependency so you don't need to add it manually. If you're test-importing a dependency with the same default alias as your current package, considering give it a different alias than the current package. Violating import: `golemcloud/golem_sdk/interface/golem/core/types`
+Warning: Package `golemcloud/golem_sdk/interface/wasi/http/types` does not declare `supported_targets`, but depends on `golemcloud/golem_sdk/ffi` which declares it. Consider declaring `supported_targets` explicitly
+Warning: Package `golemcloud/golem_sdk/interface/wasi/http/outgoingHandler` does not declare `supported_targets`, but depends on `golemcloud/golem_sdk/ffi` which declares it. Consider declaring `supported_targets` explicitly
+Warning: Package `golemcloud/golem_sdk/interface/golem/api/retry` does not declare `supported_targets`, but depends on `golemcloud/golem_sdk/ffi` which declares it. Consider declaring `supported_targets` explicitly
+failed: /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/bin/moonc build-package -error-format json /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/admin_handler.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/assessment_session.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/auth.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/authentik_client.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/cache_system.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/config.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/core_api.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_assessment.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_client.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_parent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_student.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_teacher.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/db_timetable.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/errors.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/golem_clients.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/golem_reexports.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/http_client.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/main.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/parent_agent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/parent_handler.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/student_agent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/student_handler.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/student_handler_assessment.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/teacher_agent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/teacher_handler.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/teacher_handler_assessment.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_admin.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_assessment.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_parent.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_student.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_teacher.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/types_timetable.mbt /home/thesparq/Projects/school-management-system/agents/app-agents/validation.mbt -o /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/app-agents/app-agents.core -pkg agents/app-agents -is-main -std-path /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/lib/core/_build/wasm/release/bundle -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/golem/agent/host/host.mi:agentHost -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/agents/agents.mi:agents -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/api/api.mi:api -i /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/lib/core/_build/wasm/release/bundle/encoding/base64/base64.mi:base64 -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/golem/agent/common/common.mi:common -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/config/config.mi:config -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/context/context.mi:context -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/extractor/extractor.mi:extractor -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/gen/gen.mi:gen -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/http/http.mi:http -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/wasi/http/types/types.mi:http_types -i /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/lib/core/_build/wasm/release/bundle/json/json.mi:json -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/logging/logging.mi:logging -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/wasi/clocks/monotonicClock/monotonicClock.mi:monotonic -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/wasi/io/poll/poll.mi:poll -i /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/lib/core/_build/wasm/release/bundle/prelude/prelude.mi:prelude -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/rpc/rpc.mi:rpc -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/golem/core/types/types.mi:rpcTypes -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/schema/schema.mi:schema -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/wasi/io/streams/streams.mi:streams -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/agents/types/types.mi:types -i /home/thesparq/.moonup/toolchains/0.9.2+bbe2b338f/lib/core/_build/wasm/release/bundle/encoding/utf8/utf8.mi:utf8 -i /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/.mooncakes/golemcloud/golem_sdk/interface/wasi/clocks/wallClock/wallClock.mi:wallClock -pkg-sources agents/app-agents:/home/thesparq/Projects/school-management-system/agents/app-agents -target wasm -g -O0 -workspace-path /home/thesparq/Projects/school-management-system/agents -all-pkgs /home/thesparq/Projects/school-management-system/agents/_build/wasm/debug/build/all_pkgs.json
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:760:43 ]
+     │
+ 760 │     Ok(json_arr) => Ok(json_arr.to_json().to_string())
+     │                                           ────┬────  
+     │                                               ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:778:13 ]
+     │
+ 778 │   let map = Map::new()
+     │             ────┬───  
+     │                 ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:782:43 ]
+     │
+ 782 │     Ok(json_arr) => Ok(json_arr.to_json().to_string())
+     │                                           ────┬────  
+     │                                               ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+─────╯
+Warning: [0027]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:798:30 ]
+     │
+ 798 │   let payload : Json = try { @json.parse!(body_json) } catch { _ => return Err(AppError::{ code: ValidationError, message: "Invalid JSON", debug: None }.to_json_string()) }
+     │                              ───────────┬───────────  
+     │                                         ╰───────────── Warning (deprecated_syntax): The syntax `f!(..)` for calling function with error is deprecated. Use `f(..)` instead.
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:799:35 ]
+     │
+ 799 │   let payload_obj = match payload.as_object() {
+     │                                   ────┬────  
+     │                                       ╰────── Warning (deprecated): This function is deprecated.
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:816:20 ]
+     │
+ 816 │       match arr[0].as_object().unwrap().get("id") {
+     │                    ────┬────  
+     │                        ╰────── Warning (deprecated): This function is deprecated.
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:827:13 ]
+     │
+ 827 │   let map = Map::new()
+     │             ────┬───  
+     │                 ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:834:43 ]
+     │
+ 834 │     Ok(json_arr) => Ok(json_arr.to_json().to_string())
+     │                                           ────┬────  
+     │                                               ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+─────╯
+Warning: [0027]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:851:30 ]
+     │
+ 851 │   let payload : Json = try { @json.parse!(body_json) } catch { _ => return Err(AppError::{ code: ValidationError, message: "Invalid JSON", debug: None }.to_json_string()) }
+     │                              ───────────┬───────────  
+     │                                         ╰───────────── Warning (deprecated_syntax): The syntax `f!(..)` for calling function with error is deprecated. Use `f(..)` instead.
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:852:35 ]
+     │
+ 852 │   let payload_obj = match payload.as_object() {
+     │                                   ────┬────  
+     │                                       ╰────── Warning (deprecated): This function is deprecated.
+─────╯
+Warning: [0002]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:860:7 ]
+     │
+ 860 │   let configs = match payload_obj.get("day_configs") {
+     │       ───┬───  
+     │          ╰───── Warning (unused_value): Unused variable 'configs'
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:866:49 ]
+     │
+ 866 │   let configs_json_str = configs_json.to_json().to_string()
+     │                                                 ────┬────  
+     │                                                     ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_agent.mbt:872:43 ]
+     │
+ 872 │     Ok(json_arr) => Ok(json_arr.to_json().to_string())
+     │                                           ────┬────  
+     │                                               ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+─────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_handler.mbt:1060:3 ]
+      │
+ 1060 │   role : String,
+      │   ──┬─  
+      │     ╰─── Warning (unused_value): Unused variable 'role'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_handler.mbt:1657:3 ]
+      │
+ 1657 │   old_role : String,
+      │   ────┬───  
+      │       ╰───── Warning (unused_value): Unused variable 'old_role'
+──────╯
+Warning: [0002]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:55:7 ]
+    │
+ 55 │   let all_teachers : Array[TeacherProfileInfo] = match parse_result_array_internal(teachers_json) {
+    │       ──────┬─────  
+    │             ╰─────── Warning (unused_value): Unused variable 'all_teachers'
+────╯
+Warning: [0020]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:80:42 ]
+    │
+ 80 │   let subject_tiers : Map[String, Int] = Map::new()
+    │                                          ────┬───  
+    │                                              ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+────╯
+Warning: [0020]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:82:44 ]
+    │
+ 82 │     subject_tiers.set(t.id, t.default_tier.or(1))
+    │                                            ─┬  
+    │                                             ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+────╯
+Warning: [0021]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:92:11 ]
+    │
+ 92 │           Number(n) => {
+    │           ────┬────  
+    │               ╰────── Warning (missing_pattern_arguments): The argument(s) repr of constructor Number are omitted (To ignore them, add ".." to the end of argument list).
+────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:103:55 ]
+     │
+ 103 │   let subject_teachers : Map[String, Array[String]] = Map::new()
+     │                                                       ────┬───  
+     │                                                           ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:112:8 ]
+     │
+ 112 │     if not(is_absent) {
+     │        ─┬─  
+     │         ╰─── Warning (deprecated): Use !expr instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:121:45 ]
+     │
+ 121 │   let teacher_unavail : Map[String, Bool] = Map::new()
+     │                                             ────┬───  
+     │                                                 ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:125:42 ]
+     │
+ 125 │   let teacher_busy : Map[String, Bool] = Map::new()
+     │                                          ────┬───  
+     │                                              ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:128:45 ]
+     │
+ 128 │   let teacher_workload : Map[String, Int] = Map::new()
+     │                                             ────┬───  
+     │                                                 ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:131:51 ]
+     │
+ 131 │   let cohort_daily_subjects : Map[String, Bool] = Map::new()
+     │                                                   ────┬───  
+     │                                                       ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:134:54 ]
+     │
+ 134 │   let class_daily_subject_count : Map[String, Int] = Map::new()
+     │                                                      ────┬───  
+     │                                                          ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:147:57 ]
+     │
+ 147 │           default_tier: Some(subject_tiers.get(edge.id).or(1))
+     │                                                         ─┬  
+     │                                                          ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:157:18 ]
+     │
+ 157 │       class.name.substring(end=3) // Extract 'JSS' or 'SS1' etc
+     │                  ────┬────  
+     │                      ╰────── Warning (deprecated): Use `str[:]` or `str[:].to_string()` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:163:45 ]
+     │
+ 163 │     let target_periods : Map[String, Int] = Map::new()
+     │                                             ────┬───  
+     │                                                 ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:165:43 ]
+     │
+ 165 │       let tier = subject_tiers.get(cs.id).or(1)
+     │                                           ─┬  
+     │                                            ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:179:22 ]
+     │
+ 179 │       let excluded = Map::new()
+     │                      ────┬───  
+     │                          ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:190:37 ]
+     │
+ 190 │         if excluded.get(period_num).or(false) {
+     │                                     ─┬  
+     │                                      ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:215:53 ]
+     │
+ 215 │           let remaining = target_periods.get(cs.id).or(0)
+     │                                                     ─┬  
+     │                                                      ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:218:90 ]
+     │
+ 218 │           let daily_count = class_daily_subject_count.get("\{class.id}_\{day}_\{cs.id}").or(0)
+     │                                                                                          ─┬  
+     │                                                                                           ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:224:86 ]
+     │
+ 224 │                 let is_blocked = teacher_unavail.get("\{t_id}_\{day}_\{period_num}").or(false)
+     │                                                                                      ─┬  
+     │                                                                                       ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:225:80 ]
+     │
+ 225 │                 let is_busy = teacher_busy.get("\{t_id}_\{day}_\{period_num}").or(false)
+     │                                                                                ─┬  
+     │                                                                                 ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:227:20 ]
+     │
+ 227 │                 if not(is_blocked) && not(is_busy) {
+     │                    ─┬─  
+     │                     ╰─── Warning (deprecated): Use !expr instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:227:39 ]
+     │
+ 227 │                 if not(is_blocked) && not(is_busy) {
+     │                                       ─┬─  
+     │                                        ╰─── Warning (deprecated): Use !expr instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:228:61 ]
+     │
+ 228 │                   let workload = teacher_workload.get(t_id).or(0)
+     │                                                             ─┬  
+     │                                                              ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:229:105 ]
+     │
+ 229 │                   let is_arm_matched = cohort_daily_subjects.get("\{cohort_base}_\{day}_\{cs.subject}").or(false)
+     │                                                                                                         ─┬  
+     │                                                                                                          ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:231:50 ]
+     │
+ 231 │                   let tier_val = cs.default_tier.or(1)
+     │                                                  ─┬  
+     │                                                   ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:272:65 ]
+     │
+ 272 │           let old_rem = target_periods.get(selected.subject_id).or(0)
+     │                                                                 ─┬  
+     │                                                                  ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:275:66 ]
+     │
+ 275 │           let old_wl = teacher_workload.get(selected.teacher_id).or(0)
+     │                                                                  ─┬  
+     │                                                                   ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:278:99 ]
+     │
+ 278 │           let old_dc = class_daily_subject_count.get("\{class.id}_\{day}_\{selected.subject_id}").or(0)
+     │                                                                                                   ─┬  
+     │                                                                                                    ╰── Warning (deprecated): `or` is deprecated, use `unwrap_or` instead
+─────╯
+Warning: [0027]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/admin_timetable.mbt:310:4 ]
+     │
+ 310 │ fn parse_result_array_internal[T : @json.FromJson](
+     │    ─────────────┬─────────────  
+     │                 ╰─────────────── Warning (deprecated_syntax): The syntax fn f[..] for declaring polymorphic function is deprecated. Use fn[..] f instead.
+─────╯
+Warning: [0007]
+   ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/assessment_session.mbt:6:3 ]
+   │
+ 6 │   worker_id : String
+   │   ────┬────  
+   │       ╰────── Warning (unused_field): Field 'worker_id' is never read
+───╯
+Warning: [0002]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/core_api.mbt:13:3 ]
+    │
+ 13 │   worker_id : String,
+    │   ────┬────  
+    │       ╰────── Warning (unused_value): Unused variable 'worker_id'
+────╯
+Warning: [0020]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:87:28 ]
+    │
+ 87 │   let sql = if middle_name.is_some() {
+    │                            ───┬───  
+    │                               ╰───── Warning (deprecated): use `x is Some(_)` instead
+────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:132:35 ]
+     │
+ 132 │   let update_sql = if middle_name.is_some() {
+     │                                   ───┬───  
+     │                                      ╰───── Warning (deprecated): use `x is Some(_)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:137:35 ]
+     │
+ 137 │   let create_sql = if middle_name.is_some() {
+     │                                   ───┬───  
+     │                                      ╰───── Warning (deprecated): use `x is Some(_)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:928:12 ]
+     │
+ 928 │     if !id.starts_with("class_levels:") {
+     │            ─────┬─────  
+     │                 ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+─────╯
+Warning: [0021]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:1001:20 ]
+      │
+ 1001 │               Some(Number(n)) => n.to_int()
+      │                    ────┬────  
+      │                        ╰────── Warning (missing_pattern_arguments): The argument(s) repr of constructor Number are omitted (To ignore them, add ".." to the end of argument list).
+──────╯
+Error: [4021]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:1011:20 ]
+      │
+ 1011 │           _ => Err(internal_error("Unexpected response format from sequence generator"))
+      │                    ───────┬──────  
+      │                           ╰──────── The value identifier internal_error is unbound.
+──────╯
+Error: [4021]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_admin.mbt:1014:13 ]
+      │
+ 1014 │         Err(internal_error("Failed to generate sequence (no records returned)"))
+      │             ───────┬──────  
+      │                    ╰──────── The value identifier internal_error is unbound.
+──────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_client.mbt:122:27 ]
+     │
+ 122 │   let is_local = cfg.host.starts_with("localhost") || cfg.host.starts_with("127.0.0.1")
+     │                           ─────┬─────  
+     │                                ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+─────╯
+Warning: [0020]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_client.mbt:122:64 ]
+     │
+ 122 │   let is_local = cfg.host.starts_with("localhost") || cfg.host.starts_with("127.0.0.1")
+     │                                                                ─────┬─────  
+     │                                                                     ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+─────╯
+Warning: [0020]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/db_parent.mbt:22:12 ]
+    │
+ 22 │     if !id.starts_with("student_profile:") {
+    │            ─────┬─────  
+    │                 ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+────╯
+Warning: [0002]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:136:28 ]
+     │
+ 136 │       construct: fn(input, principal) {
+     │                            ────┬────  
+     │                                ╰────── Warning (unused_value): Unused variable 'principal'
+─────╯
+Warning: [0002]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:540:28 ]
+     │
+ 540 │       construct: fn(input, principal) {
+     │                            ────┬────  
+     │                                ╰────── Warning (unused_value): Unused variable 'principal'
+─────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:1077:28 ]
+      │
+ 1077 │       construct: fn(input, principal) {
+      │                            ────┬────  
+      │                                ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:1912:28 ]
+      │
+ 1912 │       construct: fn(input, principal) {
+      │                            ────┬────  
+      │                                ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:2872:28 ]
+      │
+ 2872 │       construct: fn(input, principal) {
+      │                            ────┬────  
+      │                                ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:4779:28 ]
+      │
+ 4779 │       construct: fn(input, principal) {
+      │                            ────┬────  
+      │                                ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:4813:3 ]
+      │
+ 4813 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:4853:3 ]
+      │
+ 4853 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:4955:3 ]
+      │
+ 4955 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:5095:3 ]
+      │
+ 5095 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:5308:3 ]
+      │
+ 5308 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0002]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_agents.mbt:5564:3 ]
+      │
+ 5564 │   principal,
+      │   ────┬────  
+      │       ╰────── Warning (unused_value): Unused variable 'principal'
+──────╯
+Warning: [0001]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:25:55 ]
+    │
+ 25 │ impl @schema.FromElementValue for ClassLevelInfo with from_element_value(v) {
+    │                                                       ─────────┬────────  
+    │                                                                ╰────────── Warning (unused_value): Unused trait implementation
+────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:116:59 ]
+     │
+ 116 │ impl @schema.FromElementValue for StudentProfileInfo with from_element_value(v) {
+     │                                                           ─────────┬────────  
+     │                                                                    ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:206:59 ]
+     │
+ 206 │ impl @schema.FromElementValue for TeacherProfileInfo with from_element_value(v) {
+     │                                                           ─────────┬────────  
+     │                                                                    ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:286:57 ]
+     │
+ 286 │ impl @schema.FromElementValue for AdminProfileInfo with from_element_value(v) {
+     │                                                         ─────────┬────────  
+     │                                                                  ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:348:58 ]
+     │
+ 348 │ impl @schema.FromElementValue for ParentProfileInfo with from_element_value(v) {
+     │                                                          ─────────┬────────  
+     │                                                                   ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:391:55 ]
+     │
+ 391 │ impl @schema.FromElementValue for CredentialInfo with from_element_value(v) {
+     │                                                       ─────────┬────────  
+     │                                                                ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:453:59 ]
+     │
+ 453 │ impl @schema.FromElementValue for CreateUserResponse with from_element_value(v) {
+     │                                                           ─────────┬────────  
+     │                                                                    ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:497:58 ]
+     │
+ 497 │ impl @schema.FromElementValue for SessionTermDetail with from_element_value(v) {
+     │                                                          ─────────┬────────  
+     │                                                                   ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:547:56 ]
+     │
+ 547 │ impl @schema.FromElementValue for SessionTermInfo with from_element_value(v) {
+     │                                                        ─────────┬────────  
+     │                                                                 ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:594:51 ]
+     │
+ 594 │ impl @schema.FromElementValue for TermSimple with from_element_value(v) {
+     │                                                   ─────────┬────────  
+     │                                                            ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:675:59 ]
+     │
+ 675 │ impl @schema.FromElementValue for AssessmentQuestion with from_element_value(v) {
+     │                                                           ─────────┬────────  
+     │                                                                    ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:775:61 ]
+     │
+ 775 │ impl @schema.FromElementValue for LessonAssessmentInfo with from_element_value(
+     │                                                             ─────────┬────────  
+     │                                                                      ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:899:62 ]
+     │
+ 899 │ impl @schema.FromElementValue for GeneralAssessmentInfo with from_element_value(
+     │                                                              ─────────┬────────  
+     │                                                                       ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+     ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:970:56 ]
+     │
+ 970 │ impl @schema.FromElementValue for CompositionInfo with from_element_value(v) {
+     │                                                        ─────────┬────────  
+     │                                                                 ╰────────── Warning (unused_value): Unused trait implementation
+─────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1034:57 ]
+      │
+ 1034 │ impl @schema.FromElementValue for SubmissionAnswer with from_element_value(v) {
+      │                                                         ─────────┬────────  
+      │                                                                  ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1137:55 ]
+      │
+ 1137 │ impl @schema.FromElementValue for SubmissionInfo with from_element_value(v) {
+      │                                                       ─────────┬────────  
+      │                                                                ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1193:66 ]
+      │
+ 1193 │ impl @schema.FromElementValue for CompositionGradeBreakdown with from_element_value(
+      │                                                                  ─────────┬────────  
+      │                                                                           ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1212:63 ]
+      │
+ 1212 │ impl @schema.HasElementSchema for CompositionGradeResult with element_schema() {
+      │                                                               ───────┬──────  
+      │                                                                      ╰──────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1248:63 ]
+      │
+ 1248 │ impl @schema.FromElementValue for CompositionGradeResult with from_element_value(
+      │                                                               ─────────┬────────  
+      │                                                                        ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1255:61 ]
+      │
+ 1255 │ impl @schema.ToElementValue for CompositionGradeResult with to_element_value(
+      │                                                             ────────┬───────  
+      │                                                                     ╰───────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1288:58 ]
+      │
+ 1288 │ impl @schema.FromElementValue for PercentageSummary with from_element_value(v) {
+      │                                                          ─────────┬────────  
+      │                                                                   ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1332:58 ]
+      │
+ 1332 │ impl @schema.FromElementValue for ParentStudentInfo with from_element_value(v) {
+      │                                                          ─────────┬────────  
+      │                                                                   ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1373:52 ]
+      │
+ 1373 │ impl @schema.FromElementValue for SubjectInfo with from_element_value(v) {
+      │                                                    ─────────┬────────  
+      │                                                             ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1387:55 ]
+      │
+ 1387 │ impl @schema.HasElementSchema for StudentProfile with element_schema() {
+      │                                                       ───────┬──────  
+      │                                                              ╰──────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1441:55 ]
+      │
+ 1441 │ impl @schema.FromElementValue for StudentProfile with from_element_value(v) {
+      │                                                       ─────────┬────────  
+      │                                                                ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1446:53 ]
+      │
+ 1446 │ impl @schema.ToElementValue for StudentProfile with to_element_value(self) {
+      │                                                     ────────┬───────  
+      │                                                             ╰───────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1490:49 ]
+      │
+ 1490 │ impl @schema.FromElementValue for TermInfo with from_element_value(v) {
+      │                                                 ─────────┬────────  
+      │                                                          ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1546:51 ]
+      │
+ 1546 │ impl @schema.FromElementValue for LessonInfo with from_element_value(v) {
+      │                                                   ─────────┬────────  
+      │                                                            ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1635:54 ]
+      │
+ 1635 │ impl @schema.FromElementValue for LessonContent with from_element_value(v) {
+      │                                                      ─────────┬────────  
+      │                                                               ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1704:59 ]
+      │
+ 1704 │ impl @schema.FromElementValue for TeacherSubjectPair with from_element_value(v) {
+      │                                                           ─────────┬────────  
+      │                                                                    ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0001]
+      ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/golem_derive.mbt:1749:58 ]
+      │
+ 1749 │ impl @schema.FromElementValue for TeacherClassGroup with from_element_value(v) {
+      │                                                          ─────────┬────────  
+      │                                                                   ╰────────── Warning (unused_value): Unused trait implementation
+──────╯
+Warning: [0029]
+   ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/moon.pkg:7:3 ]
+   │
+ 7 │   "golemcloud/golem_sdk/agents/types" @types,
+   │   ─────────────────┬─────────────────  
+   │                    ╰─────────────────── Warning (unused_package): Unused package 'golemcloud/golem_sdk/agents/types'
+───╯
+Warning: [0029]
+   ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/moon.pkg:7:39 ]
+   │
+ 7 │   "golemcloud/golem_sdk/agents/types" @types,
+   │                                       ───┬──  
+   │                                          ╰──── Warning (unused_package): Unused package alias 'types'
+───╯
+Warning: [0029]
+   ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/moon.pkg:9:3 ]
+   │
+ 9 │   "golemcloud/golem_sdk/context" @context,
+   │   ───────────────┬──────────────  
+   │                  ╰──────────────── Warning (unused_package): Unused package 'golemcloud/golem_sdk/context'
+───╯
+Warning: [0029]
+   ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/moon.pkg:9:34 ]
+   │
+ 9 │   "golemcloud/golem_sdk/context" @context,
+   │                                  ────┬───  
+   │                                      ╰───── Warning (unused_package): Unused package alias 'context'
+───╯
+Warning: [0029]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/moon.pkg:18:52 ]
+    │
+ 18 │   "golemcloud/golem_sdk/interface/wasi/io/streams" @streams,
+    │                                                    ────┬───  
+    │                                                        ╰───── Warning (unused_package): Unused package alias 'streams'
+────╯
+Warning: [0002]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/student_handler_assessment.mbt:23:3 ]
+    │
+ 23 │   student_id : String,
+    │   ─────┬────  
+    │        ╰────── Warning (unused_value): Unused variable 'student_id'
+────╯
+Warning: [0002]
+    ╭─[ /home/thesparq/Projects/school-management-system/agents/app-agents/student_handler_assessment.mbt:55:3 ]
+    │
+ 55 │   student_id : String,
+    │   ─────┬────  
+    │        ╰────── Warning (unused_value): Unused variable 'student_id'
+────╯
+Failed with 105 warnings, 2 errors.
+Error: failed when building project

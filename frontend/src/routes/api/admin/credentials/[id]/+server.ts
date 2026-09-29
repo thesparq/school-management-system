@@ -15,7 +15,7 @@ export const DELETE: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/delete-credential', { id }, 'POST');
 
 	if (result.error) {

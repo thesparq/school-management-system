@@ -10,12 +10,14 @@
   import { goto } from '$app/navigation';
   import { addToast } from '$lib/stores/toast';
   import { onMount } from 'svelte';
+  import TermAssessments from '$lib/components/TermAssessments.svelte';
 
   let { data }: { data: PageData } = $props();
 
   let lessonsSource = $derived(data.lessons);
   let lessons = $state<Lesson[]>(lessonsSource);
   let assessmentCounts = $state<Record<string, number>>({});
+  let activeTab = $state<'lessons' | 'assessments'>('lessons');
 
   $effect(() => {
     lessons = lessonsSource;
@@ -65,9 +67,16 @@
 </script>
 
 <div class="space-y-6">
-  <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName} — Lessons</h1>
+  <div class="flex justify-between items-end border-b border-border pb-4">
+    <h1 class="text-2xl font-display font-bold text-primary-700">{data.termName}</h1>
+    <div class="flex space-x-4">
+      <button class="px-3 py-1 font-semibold border-b-2 {activeTab === 'lessons' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" onclick={() => activeTab = 'lessons'}>Lessons</button>
+      <button class="px-3 py-1 font-semibold border-b-2 {activeTab === 'assessments' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}" onclick={() => activeTab = 'assessments'}>Term Assessments</button>
+    </div>
+  </div>
 
-  {#if $navigating && (!lessons || lessons.length === 0)}
+  {#if activeTab === 'lessons'}
+    {#if $navigating && (!lessons || lessons.length === 0)}
     <PageSkeleton layout="list" rows={5} />
   {:else if data.lessonsError}
     <StatusCard variant="error" title="Failed to load lessons" description={data.lessonsError} onRetry={() => goto('/my-classes/' + $page.params.classId + '/' + $page.params.subjectId + '/' + $page.params.termId)} />
@@ -119,5 +128,8 @@
         </div>
       {/each}
     </div>
+    {/if}
+  {:else}
+    <TermAssessments termId={$page.params.termId} subjectId={$page.params.subjectId} classId={$page.params.classId} lessons={lessons} />
   {/if}
 </div>

@@ -7,8 +7,9 @@
     "build": "pnpm run build:agents && pnpm run build:frontend",
     "build:agents": "cd agents && golem build",
     "build:frontend": "pnpm --filter frontend run build",
-    "serve": "pnpm run build && pnpm run deploy:agents && pnpm --filter frontend run preview",
-    "deploy:agents": "cd agents && golem deploy -Y --reset",
+    "serve": "pnpm run build && pnpm run deploy:agents:prod && pnpm --filter frontend run preview",
+    "deploy:agents": "cd agents && infisical run --env=dev -- golem deploy -Y --reset",
+    "deploy:agents:prod": "cd agents && infisical run --env=prod -- golem deploy -Y --reset",
     "test": "bash scripts/test-unit.sh && bash scripts/test-smoke.sh",
     "test:unit": "bash scripts/test-unit.sh",
     "test:smoke": "bash scripts/test-smoke.sh",
@@ -21,5 +22,10 @@
   },
   "dependencies": {
     "surrealdb": "^2.0.8"
+  },
+  "pnpm": {
+    "approvedBuilds": {
+      "core-js": "3.50.0"
+    }
   }
 }

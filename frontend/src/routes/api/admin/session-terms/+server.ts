@@ -7,7 +7,7 @@ export const GET: RequestHandler = async (event) => {
 	if (!user) error(401, 'Not authenticated');
 	if (!user.roles.includes('admin')) error(403, 'Forbidden');
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/session-terms');
 
 	if (result.error) {

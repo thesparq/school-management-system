@@ -12,7 +12,7 @@ export const load: PageServerLoad = async (event) => {
 			fetchAllGroups()
 		]);
 
-		const teachersGroup = allGroups.find(g => g.name === 'teacher');
+		const teachersGroup = allGroups.find(g => g.name.toLowerCase() === 'teachers' || g.name.toLowerCase() === 'teacher');
 		const teachersGroupPk = teachersGroup?.pk ?? null;
 		const filtered = teachersGroupPk
 			? authentikUsers.filter(u => (u.groups ?? []).includes(teachersGroupPk))

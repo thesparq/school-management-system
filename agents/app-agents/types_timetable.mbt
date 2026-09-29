@@ -34,6 +34,7 @@ pub(all) struct ScheduleSlot {
   id : String
   timetable : String
   class_level : String
+  class_arm : String?
   day_of_week : String
   period_number : Int
   subject_edge : String?
@@ -43,6 +44,7 @@ pub(all) struct ScheduleSlot {
 } derive(ToJson, FromJson)
 
 ///| Term-specific overrides for staff availability and subject assignments
+#derive.golem_schema
 pub(all) struct TimetableOverride {
   id : String
   timetable : String

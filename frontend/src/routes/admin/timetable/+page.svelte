@@ -4,6 +4,7 @@
   import TimetableGrid from '$lib/components/timetable/TimetableGrid.svelte';
   import NewTimetableModal from '$lib/components/timetable/NewTimetableModal.svelte';
   import TimetableConfigModal from '$lib/components/timetable/TimetableConfigModal.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import SearchSelect from '$lib/components/ui/search-select/search-select.svelte';
   import { onMount } from 'svelte';
   
@@ -48,14 +49,8 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end space-y-4 sm:space-y-0">
     <div>
-      <div class="flex items-center space-x-2 mb-1.5 text-primary">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <span class="font-black text-xs tracking-widest uppercase">Self-Healing Constraint Engine</span>
-      </div>
-      <h1 class="text-3xl font-black text-foreground tracking-tight">Curriculum Dashboard</h1>
-      <p class="text-muted-foreground mt-1 text-sm font-medium">
+      <PageHeader title="Curriculum Dashboard" />
+      <p class="text-muted-foreground mt-1 text-sm font-medium -mt-1 mb-4">
         Multi-timetable allocation matrix with automated workload balancing, term staff scopes, and pairing diagnostics.
       </p>
       {#if data.timetables?.length > 0}
@@ -124,7 +119,19 @@
     </div>
   </div>
 
-  <TimetableGrid 
+  
+{#if selectedTimetable}
+  <TimetableConfigModal 
+    bind:isOpen={isConfigModalOpen} 
+    timetableId={selectedTimetable.id}
+    timetableName={selectedTimetable.name}
+    sessionTerm={selectedTimetable.session_term}
+    dayConfigs={selectedTimetable.day_configs || []}
+    onSaved={() => invalidateAll()}
+  />
+{/if}
+
+<TimetableGrid 
     classSlots={data.slots}
     dayConfigs={data.dayConfigs || []}
     classes={data.classes || []}

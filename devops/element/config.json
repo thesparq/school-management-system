@@ -5,18 +5,16 @@
             "server_name": "matrix.johnethel.school"
         },
         "m.identity_server": {
-            "base_url": "https://vector.im"
+            "base_url": ""
         }
     },
     "brand": "Johnethel School Chat",
-    "integrations_ui_url": "https://scalar.vector.im/",
-    "integrations_rest_url": "https://scalar.vector.im/api",
-    "integrations_widgets_urls": [
-        "https://scalar.vector.im/api"
-    ],
-    "hosting_signup_link": "https://element.io/matrix-services?utm_source=element-web&utm_medium=web",
-    "bug_report_endpoint_url": "https://riot.im/bugreports/submit",
-    "uisi_autorageshake_app": "element-auto-uisi",
+    "integrations_ui_url": "",
+    "integrations_rest_url": "",
+    "integrations_widgets_urls": [],
+    "hosting_signup_link": "",
+    "bug_report_endpoint_url": "",
+    "uisi_autorageshake_app": "",
     "showLabsSettings": true,
     "piwik": {
         "url": "",

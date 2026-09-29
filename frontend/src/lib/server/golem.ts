@@ -117,9 +117,10 @@ function extractErrorFromBody(raw: string): BackendError | null {
 	return null;
 }
 
-async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>): Promise<ProxyResult> {
+async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>, signal?: AbortSignal): Promise<ProxyResult> {
 	try {
 		const fetchInit: RequestInit = {
+			signal,
 			method,
 			headers: {
 				'X-Golem-Auth-Key': getAuthKey(),
@@ -197,12 +198,12 @@ function buildUrl(basePath: string, extraParams?: Record<string, string>): strin
 	return url;
 }
 
-export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams), method ?? 'GET', body);
+export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<ProxyResult> {
+	return proxyFetch(buildUrl(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams), method ?? 'GET', body, undefined, signal);
 }
 
-export function adminProxy(user: { id: string }): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
-	return (path, extraParams, method, body) => proxyToAdmin(user.id, path, extraParams, method, body);
+export function adminProxy(user: { id: string }, signal?: AbortSignal): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
+	return (path, extraParams, method, body) => proxyToAdmin(user.id, path, extraParams, method, body, signal);
 }
 
 export function proxyToStudent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {

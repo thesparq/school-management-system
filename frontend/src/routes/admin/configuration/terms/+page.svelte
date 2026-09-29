@@ -7,6 +7,10 @@
 	} from '$lib/components/ui/table';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import AppButton from '$lib/components/ui/app-button.svelte';
+	import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
+	import { Label } from '$lib/components/ui/label';
+	import { Input } from '$lib/components/ui/input';
 	import { addToast } from '$lib/stores/toast';
 
 	interface TermItem {
@@ -17,10 +21,16 @@
 	}
 
 	let { data }: { data: PageData } = $props();
+	let loadError = $state(data.loadError || '');
 	let terms: TermItem[] = $state(data.terms);
 	let toggling = $state<Record<string, boolean>>({});
 
-	$effect(() => { terms = data.terms; });
+	let showCreateDialog = $state(false);
+	let createForm = $state({ name: '', sort_order: 1 });
+	let createLoading = $state(false);
+	let createError = $state('');
+
+	
 
 	async function handleToggle(termId: string, newActive: boolean) {
 		const idx = terms.findIndex(t => t.id === termId);
@@ -51,10 +61,39 @@
 			toggling = { ...toggling };
 		}
 	}
+
+	async function handleCreate() {
+		createLoading = true;
+		createError = '';
+		try {
+			const res = await fetch('/api/admin/terms', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: createForm.name, sort_order: createForm.sort_order })
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) throw new Error(body.error?.message || 'Failed to create term');
+			
+			addToast('success', 'Term created', `${createForm.name} was successfully created.`);
+			showCreateDialog = false;
+			createForm = { name: '', sort_order: 1 };
+			// force reload data
+			window.location.reload();
+		} catch (err: any) {
+			createError = err.message || 'An error occurred';
+		} finally {
+			createLoading = false;
+		}
+	}
+	$effect(() => {
+		if (data.streamed) {
+			data.streamed.termsRes.then(json => { if (json && json.data) terms = json.data; if (json && json.error) loadError = json.error.message; });
+		}
+	});
 </script>
 
 <div class="space-y-6">
-	<PageHeader title="Terms" />
+	<PageHeader title="Terms" createLabel="Create Term" onCreate={() => showCreateDialog = true} />
 
 	{#if data.termsError}
 		<StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => window.location.reload()} />
@@ -62,7 +101,7 @@
 		<StatusCard variant="info" title="No Terms Available" description="No terms exist in the database yet." />
 	{:else}
 		<Card>
-			<CardContent class="p-0">
+			<CardContent class="p-0 overflow-x-auto">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -99,3 +138,45 @@
 		</Card>
 	{/if}
 </div>
+
+<Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
+	<DialogContent class="sm:max-w-lg">
+		<DialogHeader>
+			<DialogTitle>Create New Term</DialogTitle>
+			<DialogDescription>
+				Add a new grading period or term structure.
+			</DialogDescription>
+		</DialogHeader>
+		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleCreate(); }}>
+			<div class="space-y-2">
+				<Label for="term-name">Term Name</Label>
+				<Input id="term-name" bind:value={createForm.name} placeholder="e.g. 1st Term" required />
+			</div>
+			<div class="space-y-2">
+				<Label for="term-sort">Sort Order</Label>
+				<Input id="term-sort" type="number" min="1" bind:value={createForm.sort_order} required />
+				<p class="text-xs text-muted-foreground">Terms are sorted in ascending order for display.</p>
+			</div>
+			{#if createError}
+				<p class="text-sm text-destructive">{createError}</p>
+			{/if}
+			<div class="flex justify-end gap-2">
+				<AppButton
+					type="button"
+					variant="outline"
+					onclick={() => { showCreateDialog = false; createError = ''; }}
+				>
+					Cancel
+				</AppButton>
+				<AppButton
+					type="submit"
+					variant="default"
+					loading={createLoading}
+					disabled={!createForm.name}
+				>
+					{createLoading ? 'Creating...' : 'Create'}
+				</AppButton>
+			</div>
+		</form>
+	</DialogContent>
+</Dialog>

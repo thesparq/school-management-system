@@ -15,7 +15,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/edit-session-term', undefined, 'POST', {
 		body_json: JSON.stringify({
 			id: body.id,

@@ -126,7 +126,7 @@
 			const newUser = result.data;
 			users = [...users, { pk: newUser.pk, uuid: newUser.uuid, username: newUser.username, name: newUser.name, email: newUser.email, groups: newUser.groups, is_active: newUser.is_active }];
 			if (createForm.classLevel) studentClassMap = { ...studentClassMap, [newUser.uuid]: createForm.classLevel };
-			addToast('success', 'Student created', createForm.username);
+			addToast('success', 'Student created', `${createForm.firstName} ${createForm.surname}`);
 			closeCreate();
 		} catch (e) {
 			createError = e instanceof Error ? e.message : 'Failed to create student';
@@ -263,7 +263,7 @@
 		</TableHeader>
 		<TableBody>
 			{#each users as userObj (userObj.pk)}
-				{@const userRole = userObj.groups?.map((g: string) => allGroups.find(ag => ag.pk === g)?.name).find((n: string | undefined) => n === 'superadmin') ? 'SuperAdmin' : 'User'}
+				{@const userRole = userObj.groups?.map((g: string) => allGroups.find(ag => ag.pk === g)?.name).find((n: string | undefined) => n && (n.toLowerCase() === 'super admins' || n.toLowerCase() === 'superadmin')) ? 'SuperAdmin' : 'User'}
 				<TableRow>
 					<TableCell>{userObj.name || userObj.username} {#if userRole === 'SuperAdmin'}<Badge variant="secondary" class="ml-1 text-xs">SuperAdmin</Badge>{/if}</TableCell>
 					<TableCell>{userObj.email || '\u2014'}</TableCell>
