@@ -93,10 +93,7 @@ services:
   opencloud:
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
-    entrypoint: /bin/sh
-    command: 
-      - "-c"
-      - "echo DEBUG_ENDPOINT=$$STORAGE_USERS_S3NG_ENDPOINT && echo DEBUG_R2=$$R2_ENDPOINT_URL && exec opencloud server"
+    command: server
     environment:
     - OC_URL=https://${OC_DOMAIN}
     - OC_DOMAIN=${OC_DOMAIN}
@@ -121,12 +118,12 @@ services:
     - PROXY_OIDC_CLIENT_SECRET=${OC_OIDC_CLIENT_SECRET}
     - PROXY_OIDC_REWRITE_WELLKNOWN=true
     - WEB_OIDC_CLIENT_ID=${OC_OIDC_CLIENT_ID}
-    - STORAGE_USERS_DRIVER=s3ng
-    - STORAGE_USERS_S3NG_ENDPOINT=${R2_ENDPOINT_URL}
-    - STORAGE_USERS_S3NG_REGION=auto
-    - STORAGE_USERS_S3NG_ACCESS_KEY=${R2_ACCESS_KEY_ID}
-    - STORAGE_USERS_S3NG_SECRET_KEY=${R2_SECRET_ACCESS_KEY}
-    - STORAGE_USERS_S3NG_BUCKET=${R2_BUCKET_NAME}
+    - STORAGE_USERS_DRIVER=decomposeds3
+    - STORAGE_USERS_DECOMPOSEDS3_ENDPOINT=${R2_ENDPOINT_URL}
+    - STORAGE_USERS_DECOMPOSEDS3_REGION=auto
+    - STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY=${R2_ACCESS_KEY_ID}
+    - STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY=${R2_SECRET_ACCESS_KEY}
+    - STORAGE_USERS_DECOMPOSEDS3_BUCKET=${R2_BUCKET_NAME}
     volumes:
     - opencloud_data:/var/lib/ocis
     networks:
