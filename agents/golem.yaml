@@ -1,15 +1,6 @@
 manifestVersion: 1.5.0
 app: agents
 environments:
-    cloud:
-    - domain: golem.johnethel.school
-      agents:
-        CoreApi: {}
-        AssessmentSession: {}
-        AdminAgent: {}
-        StudentAgent: {}
-        TeacherAgent: {}
-        ParentAgent: {}
   local:
     server: local
     componentPresets: debug
@@ -73,15 +64,6 @@ components:
     templates: my-moonbit
 httpApi:
   deployments:
-    cloud:
-    - domain: golem.johnethel.school
-      agents:
-        CoreApi: {}
-        AssessmentSession: {}
-        AdminAgent: {}
-        StudentAgent: {}
-        TeacherAgent: {}
-        ParentAgent: {}
     local:
     - domain: agents.localhost:9006
       agents:
