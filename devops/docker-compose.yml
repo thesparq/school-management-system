@@ -51,6 +51,19 @@ services:
     - PROXY_TLS=false
     - PROXY_HTTP_ADDR=0.0.0.0:9200
     - IDM_CREATE_DEMO_USERS=false
+    volumes:
+    - opencloud_data:/var/lib/ocis
+    networks:
+    - default
+    - dokploy-network
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.opencloud.rule=Host(`${OC_DOMAIN}`)
+    - traefik.http.routers.opencloud.entrypoints=websecure
+    - traefik.http.routers.opencloud.tls=true
+    - traefik.http.routers.opencloud.tls.certresolver=letsencrypt
+    - traefik.http.services.opencloud.loadbalancer.server.port=9200
   surrealdb:
     image: surrealdb/surrealdb:latest
     restart: unless-stopped
