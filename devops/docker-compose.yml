@@ -37,8 +37,8 @@ services:
     - /bin/sh
     - -c
     - "# Inject secrets safely using Python\npython -c '\nimport os\nc = open(\"/config/homeserver.yaml\"\
-      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"SYNAPSE_CLIENT_ID\", \"SYNAPSE_CLIENT_SECRET\", \"\
-      SYNAPSE_MACAROON_SECRET\", \"SYNAPSE_FORM_SECRET\", \"SYNAPSE_REGISTRATION_SECRET\"\
+      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"SYNAPSE_CLIENT_ID\", \"SYNAPSE_CLIENT_SECRET\"\
+      , \"SYNAPSE_MACAROON_SECRET\", \"SYNAPSE_FORM_SECRET\", \"SYNAPSE_REGISTRATION_SECRET\"\
       , \"COTURN_SHARED_SECRET\"]\nfor k in secrets:\n    c = c.replace(f\"$${{{k}}}\"\
       , os.environ.get(k, \"\"))\nopen(\"/data/homeserver.yaml\", \"w\").write(c)\n\
       '\npython -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory\
@@ -168,29 +168,247 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-  golem-server:
-    build:
-      context: ./devops/golem
-    restart: unless-stopped
+  golem-registry-service:
+    image: golemservices/registry-service:v1.5.10
+    pull_policy: always
+    restart: on-failure
+    environment:
+      GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
+      GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
+      GOLEM_ENVIRONMENT: local
+      RUST_BACKTRACE: 1
+      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      GOLEM__HTTP_PORT: '8083'
+      GOLEM__GRPC__PORT: '9008'
+      GOLEM__CORS_ORIGIN_REGEX: .*
+      GOLEM__INITIAL_ACCOUNTS__ROOT__TOKEN: ${GOLEM_AUTH_KEY}
+      GOLEM__INITIAL_ACCOUNTS__MARKETING__TOKEN: marketing_token
+      GOLEM__LOGIN__TYPE: Disabled
+      GOLEM__DB__TYPE: Postgres
+      GOLEM__DB__CONFIG__DATABASE: golem_db
+      GOLEM__DB__CONFIG__SCHEMA: golem_registry_service
+      GOLEM__DB__CONFIG__MAX_CONNECTIONS: 10
+      GOLEM__DB__CONFIG__HOST: golem-postgres
+      GOLEM__DB__CONFIG__PORT: 5432
+      GOLEM__DB__CONFIG__USERNAME: golem_user
+      GOLEM__DB__CONFIG__PASSWORD: golem_password
+      GOLEM__COMPILATION__CONFIG__HOST: golem-component-compilation-service
+      GOLEM__COMPILATION__CONFIG__PORT: '9010'
+    volumes:
+    - blob_storage:/blob_storage
+    depends_on:
+      golem-postgres:
+        condition: service_healthy
     networks:
     - default
-    - dokploy-network
+  golem-shard-manager:
+    image: golemservices/golem-shard-manager:v1.5.10
+    pull_policy: always
+    restart: on-failure
+    environment:
+      RUST_BACKTRACE: 1
+      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      GOLEM__ENVIRONMENT: local
+      GOLEM__HTTP_PORT: '8081'
+      GOLEM__GRPC__PORT: '9002'
+      GOLEM__REGISTRY_SERVICE__HOST: golem-registry-service
+      GOLEM__REGISTRY_SERVICE__PORT: '9008'
+      GOLEM__PERSISTENCE__TYPE: Postgres
+      GOLEM__PERSISTENCE__CONFIG__DATABASE: golem_db
+      GOLEM__PERSISTENCE__CONFIG__SCHEMA: golem_shard_manager
+      GOLEM__PERSISTENCE__CONFIG__MAX_CONNECTIONS: 10
+      GOLEM__PERSISTENCE__CONFIG__HOST: golem-postgres
+      GOLEM__PERSISTENCE__CONFIG__PORT: 5432
+      GOLEM__PERSISTENCE__CONFIG__USERNAME: golem_user
+      GOLEM__PERSISTENCE__CONFIG__PASSWORD: golem_password
+    depends_on:
+      golem-postgres:
+        condition: service_healthy
+      golem-registry-service:
+        condition: service_started
+    networks:
+    - default
+  golem-worker-service:
+    image: golemservices/golem-worker-service:v1.5.10
+    pull_policy: always
+    restart: on-failure
+    environment:
+      GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
+      GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
+      RUST_BACKTRACE: 1
+      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      GOLEM__ENVIRONMENT: local
+      GOLEM__CUSTOM_REQUEST_PORT: '9006'
+      GOLEM__MCP_PORT: '9007'
+      GOLEM__PORT: '9005'
+      GOLEM__GRPC__PORT: '9094'
+      GOLEM__GATEWAY_SESSION_STORAGE__TYPE: Redis
+      GOLEM__GATEWAY_SESSION_STORAGE__CONFIG__HOST: golem-redis
+      GOLEM__GATEWAY_SESSION_STORAGE__CONFIG__PORT: 6379
+      GOLEM__REGISTRY_SERVICE__HOST: golem-registry-service
+      GOLEM__REGISTRY_SERVICE__PORT: '9008'
+      GOLEM__SHARD_MANAGER__HOST: golem-shard-manager
+      GOLEM__SHARD_MANAGER__PORT: '9002'
+    volumes:
+    - blob_storage:/blob_storage
+    ports:
+    - 9006:9006
+    - 9007:9007
+    depends_on:
+      golem-postgres:
+        condition: service_healthy
+      golem-redis:
+        condition: service_started
+      golem-worker-executor:
+        condition: service_started
+      golem-shard-manager:
+        condition: service_started
+      golem-registry-service:
+        condition: service_started
+    networks:
+    - default
+  golem-component-compilation-service:
+    image: golemservices/golem-component-compilation-service:v1.5.10
+    pull_policy: always
+    restart: on-failure
+    environment:
+      GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
+      GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
+      RUST_BACKTRACE: 1
+      RUST_LOG=info,h2=warn,hyper=warn,tower: warn
+      GOLEM__HTTP_PORT: '8084'
+      GOLEM__GRPC__PORT: '9010'
+      GOLEM__REGISTRY_SERVICE__TYPE: Static
+      GOLEM__REGISTRY_SERVICE__CONFIG__HOST: golem-registry-service
+      GOLEM__REGISTRY_SERVICE__CONFIG__PORT: '9008'
+    volumes:
+    - blob_storage:/blob_storage
+    depends_on:
+    - golem-registry-service
+    networks:
+    - default
+  golem-worker-executor:
+    image: golemservices/golem-worker-executor:v1.5.10
+    pull_policy: always
+    restart: on-failure
+    environment:
+      GOLEM__BLOB_STORAGE__TYPE: LocalFileSystem
+      GOLEM__BLOB_STORAGE__CONFIG__ROOT: /blob_storage
+      WASMTIME_BACKTRACE_DETAILS: 1
+      RUST_BACKTRACE: 1
+      RUST_LOG: info
+      GOLEM__HTTP_PORT: '8082'
+      GOLEM__GRPC__PORT: '9000'
+      GOLEM__KEY_VALUE_STORAGE__TYPE: Postgres
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__DATABASE: golem_db
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__MAX_CONNECTIONS: 10
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__HOST: golem-postgres
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__PORT: 5432
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__USERNAME: golem_user
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__PASSWORD: golem_password
+      GOLEM__KEY_VALUE_STORAGE__CONFIG__SCHEMA: golem_worker_executor
+      GOLEM__INDEXED_STORAGE__TYPE: Postgres
+      GOLEM__INDEXED_STORAGE__CONFIG__DATABASE: golem_db
+      GOLEM__INDEXED_STORAGE__CONFIG__MAX_CONNECTIONS: 10
+      GOLEM__INDEXED_STORAGE__CONFIG__HOST: golem-postgres
+      GOLEM__INDEXED_STORAGE__CONFIG__PORT: 5432
+      GOLEM__INDEXED_STORAGE__CONFIG__USERNAME: golem_user
+      GOLEM__INDEXED_STORAGE__CONFIG__PASSWORD: golem_password
+      GOLEM__INDEXED_STORAGE__CONFIG__SCHEMA: golem_worker_executor_indexed
+      GOLEM__SCHEDULER_STORAGE__TYPE: Postgres
+      GOLEM__SCHEDULER_STORAGE__CONFIG__DATABASE: golem_db
+      GOLEM__SCHEDULER_STORAGE__CONFIG__MAX_CONNECTIONS: 10
+      GOLEM__SCHEDULER_STORAGE__CONFIG__HOST: golem-postgres
+      GOLEM__SCHEDULER_STORAGE__CONFIG__PORT: 5432
+      GOLEM__SCHEDULER_STORAGE__CONFIG__USERNAME: golem_user
+      GOLEM__SCHEDULER_STORAGE__CONFIG__PASSWORD: golem_password
+      GOLEM__SCHEDULER_STORAGE__CONFIG__SCHEMA: golem_worker_executor_scheduler
+      GOLEM__REGISTRY_SERVICE__HOST: golem-registry-service
+      GOLEM__REGISTRY_SERVICE__PORT: '9008'
+      GOLEM__SHARD_MANAGER__HOST: golem-shard-manager
+      GOLEM__SHARD_MANAGER__PORT: '9002'
+      GOLEM__SHARD_MANAGER__RETRIES__MAX_ATTEMPTS: 5
+      GOLEM__SHARD_MANAGER__RETRIES__MIN_DELAY: 100ms
+      GOLEM__SHARD_MANAGER__RETRIES__MAX_DELAY: 2s
+      GOLEM__SHARD_MANAGER__RETRIES__MULTIPLIER: 2
+      GOLEM__PUBLIC_WORKER_API__HOST: golem-worker-service
+      GOLEM__PUBLIC_WORKER_API__PORT: '9094'
+      GOLEM__COMPILED_COMPONENT_SERVICE__TYPE: Enabled
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+    - blob_storage:/blob_storage
+    depends_on:
+      golem-postgres:
+        condition: service_healthy
+      golem-shard-manager:
+        condition: service_started
+      golem-registry-service:
+        condition: service_started
+    networks:
+    - default
+  golem-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: golem_db
+      POSTGRES_USER: golem_user
+      POSTGRES_PASSWORD: golem_password
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U golem_user -d golem_db
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+    - default
+  golem-redis:
+    image: redis:7-alpine
+    volumes:
+    - redis_data:/data
+    networks:
+    - default
+  golem-router:
+    image: nginx:1.27
+    pull_policy: always
+    environment:
+      GOLEM_COMPONENT_MAX_SIZE_ALLOWED: 1g
+      GOLEM_REGISTRY_SERVICE_HOST: golem-registry-service
+      GOLEM_REGISTRY_SERVICE_PORT: '8083'
+      GOLEM_WORKER_SERVICE_HOST: golem-worker-service
+      GOLEM_WORKER_SERVICE_PORT: '9005'
+    depends_on:
+    - golem-worker-service
+    - golem-shard-manager
+    - golem-component-compilation-service
+    - golem-registry-service
+    volumes:
+    - ./devops/golem-router/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     labels:
     - traefik.enable=true
     - traefik.docker.network=dokploy-network
     - traefik.http.routers.golem.rule=Host(`${GOLEM_SERVER_NAME}`)
-    - traefik.http.routers.golem.entrypoints=websecure
-    - traefik.http.routers.golem.tls=true
-    - traefik.http.routers.golem.tls.certresolver=letsencrypt
-    - traefik.http.services.golem.loadbalancer.server.port=9881
-    volumes:
-    - golem_data:/data/golem
+    - traefik.http.services.golem.loadbalancer.server.port=80
+    networks:
+    - default
+    - dokploy-network
 volumes:
   synapse_data: null
   synapse_pg_data: null
   opencloud_data: null
-  golem_data: null
   surrealdb_data:
+    driver: local
+  redis_data:
+    driver: local
+  component_store:
+    driver: local
+  postgres_data:
+    driver: local
+  blob_storage:
     driver: local
 networks:
   dokploy-network:

@@ -5,7 +5,10 @@ environments:
     server: local
     componentPresets: debug
   cloud:
-    server: local
+    server:
+      url: https://golem.johnethel.school
+      auth:
+        staticToken: '{{ GOLEM_AUTH_KEY }}'
     componentPresets: release
 componentTemplates:
   my-moonbit:
