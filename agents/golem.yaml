@@ -1,15 +1,5 @@
-# Schema for IDEA:
-# $schema: https://schema.golem.cloud/app/golem/1.5.0/golem.schema.json
-# Schema for vscode-yaml:
-# yaml-language-server: $schema=https://schema.golem.cloud/app/golem/1.5.0/golem.schema.json
-
-# Field reference: https://learn.golem.cloud/app-manifest#field-reference
-# Creating HTTP APIs: https://learn.golem.cloud/invoke/making-custom-apis
-
 manifestVersion: 1.5.0
-
 app: agents
-
 environments:
   local:
     server: local
@@ -17,7 +7,6 @@ environments:
   cloud:
     server: prod
     componentPresets: release
-
 componentTemplates:
   my-moonbit:
     presets:
@@ -50,12 +39,10 @@ componentTemplates:
               - "{{ appRootDir }}/_build/wasm/release"
           - command: wasm-tools component new {{ appRootDir }}/_build/wasm/release/{{ componentName | to_snake_case }}.embed.wasm --output {{ appRootDir }}/_build/wasm/release/{{ componentName | to_snake_case }}.agent.wasm
         componentWasm: "{{ appRootDir }}/_build/wasm/release/{{ componentName | to_snake_case }}.agent.wasm"
-
 components:
   app:agents:
     dir: "app-agents"
     templates: my-moonbit
-
 httpApi:
   deployments:
     local:
@@ -67,9 +54,28 @@ httpApi:
           StudentAgent: {}
           TeacherAgent: {}
           ParentAgent: {}
-
+    cloud:
+      - domain: golem-server:9006
+        agents:
+          CoreApi: {}
+          AssessmentSession: {}
+          AdminAgent: {}
+          StudentAgent: {}
+          TeacherAgent: {}
+          ParentAgent: {}
 secretDefaults:
   local:
+    surrealHost: "{{ SURREAL_DB_HOST }}"
+    surrealNs: "{{ SURREAL_DB_NS }}"
+    surrealDatabase: "{{ SURREAL_DB }}"
+    surrealUsername: "{{ SURREAL_DB_USERNAME }}"
+    surrealPassword: "{{ SURREAL_DB_PASSWORD }}"
+    authentikHost: "{{ AUTHENTIK_HOST }}"
+    authentikApiToken: "{{ AUTHENTIK_SERVICE_ACCOUNT_TOKEN }}"
+    authKey: "{{ GOLEM_AUTH_KEY }}"
+    matrixAdminToken: "{{ MATRIX_ADMIN_TOKEN }}"
+    matrixHost: "{{ MATRIX_HOST }}"
+  cloud:
     surrealHost: "{{ SURREAL_DB_HOST }}"
     surrealNs: "{{ SURREAL_DB_NS }}"
     surrealDatabase: "{{ SURREAL_DB }}"
