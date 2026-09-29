@@ -181,8 +181,8 @@ services:
       GOLEM__HTTP_PORT: '8083'
       GOLEM__GRPC__PORT: '9008'
       GOLEM__CORS_ORIGIN_REGEX: .*
-      GOLEM__INITIAL_ACCOUNTS__ROOT__TOKEN: ${GOLEM_AUTH_KEY:-default_admin_token}
-      GOLEM__INITIAL_ACCOUNTS__MARKETING__TOKEN: marketing_token_default_value
+      GOLEM__INITIAL_ACCOUNTS__ROOT__TOKEN: ${GOLEM_AUTH_KEY:-default-admin-token}
+      GOLEM__INITIAL_ACCOUNTS__MARKETING__TOKEN: marketing-token-default
       GOLEM__LOGIN__TYPE: Disabled
       GOLEM__DB__TYPE: Postgres
       GOLEM__DB__CONFIG__DATABASE: golem_db
