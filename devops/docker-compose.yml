@@ -214,14 +214,35 @@ services:
     - traefik.http.services.opencloud.loadbalancer.server.port=9200
   surrealdb:
     image: surrealdb/surrealdb:latest
+    user: root
+    command:
+    - start
+    - --log
+    - info
+    - --user
+    - ${SURREAL_USER}
+    - --pass
+    - ${SURREAL_PASS}
+    - rocksdb:/data/db/surreal.db
     restart: unless-stopped
-    command: start --user ${SURREAL_DB_USERNAME:-root} --pass ${SURREAL_DB_PASSWORD:-root}
-      file://data/surreal.db
-    environment:
-      SURREAL_USER: ${SURREAL_DB_USERNAME:-root}
-      SURREAL_PASS: ${SURREAL_DB_PASSWORD:-root}
     volumes:
-    - surreal_data:/data
+    - surrealdb_data:/data/db
+    environment:
+    - SURREAL_USER=${SURREAL_USER}
+    - SURREAL_PASS=${SURREAL_PASS}
+    - SURREAL_MCP_ALLOWED_HOSTS=${SURREAL_MCP_ALLOWED_HOSTS}
+    - SURREAL_MCP_MAX_RESULT_BYTES=${SURREAL_MCP_MAX_RESULT_BYTES}
+    healthcheck:
+      test:
+      - CMD
+      - /surreal
+      - isready
+      - --endpoint
+      - http://localhost:8000
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
   golem-server:
     build:
       context: ./devops/golem
@@ -244,9 +265,10 @@ volumes:
   postgres_data: null
   opencloud_data: null
   golem_data: null
-  surreal_data: null
   authentik_database: null
   authentik_redis: null
+  surrealdb_data:
+    driver: local
 networks:
   dokploy-network:
     external: true
