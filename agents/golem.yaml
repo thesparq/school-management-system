@@ -5,6 +5,10 @@ environments:
     server: local
     componentPresets: debug
   cloud:
+    server:
+      url: "https://golem.johnethel.school"
+      auth:
+        staticToken: "{{ GOLEM_AUTH_KEY }}"
     componentPresets: release
 componentTemplates:
   my-moonbit:
@@ -53,35 +57,3 @@ httpApi:
           StudentAgent: {}
           TeacherAgent: {}
           ParentAgent: {}
-    cloud:
-      - domain: golem-server:9006
-        agents:
-          CoreApi: {}
-          AssessmentSession: {}
-          AdminAgent: {}
-          StudentAgent: {}
-          TeacherAgent: {}
-          ParentAgent: {}
-secretDefaults:
-  local:
-    surrealHost: "{{ SURREAL_DB_HOST }}"
-    surrealNs: "{{ SURREAL_DB_NS }}"
-    surrealDatabase: "{{ SURREAL_DB }}"
-    surrealUsername: "{{ SURREAL_DB_USERNAME }}"
-    surrealPassword: "{{ SURREAL_DB_PASSWORD }}"
-    authentikHost: "{{ AUTHENTIK_HOST }}"
-    authentikApiToken: "{{ AUTHENTIK_SERVICE_ACCOUNT_TOKEN }}"
-    authKey: "{{ GOLEM_AUTH_KEY }}"
-    matrixAdminToken: "{{ MATRIX_ADMIN_TOKEN }}"
-    matrixHost: "{{ MATRIX_HOST }}"
-  cloud:
-    surrealHost: "{{ SURREAL_DB_HOST }}"
-    surrealNs: "{{ SURREAL_DB_NS }}"
-    surrealDatabase: "{{ SURREAL_DB }}"
-    surrealUsername: "{{ SURREAL_DB_USERNAME }}"
-    surrealPassword: "{{ SURREAL_DB_PASSWORD }}"
-    authentikHost: "{{ AUTHENTIK_HOST }}"
-    authentikApiToken: "{{ AUTHENTIK_SERVICE_ACCOUNT_TOKEN }}"
-    authKey: "{{ GOLEM_AUTH_KEY }}"
-    matrixAdminToken: "{{ MATRIX_ADMIN_TOKEN }}"
-    matrixHost: "{{ MATRIX_HOST }}"
