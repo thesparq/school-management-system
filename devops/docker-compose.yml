@@ -195,7 +195,7 @@ services:
       GOLEM__COMPILATION__CONFIG__HOST: golem-component-compilation-service
       GOLEM__COMPILATION__CONFIG__PORT: '9010'
     volumes:
-    - blob_storage:/blob_storage
+    - golem_blob_storage_v2:/blob_storage
     depends_on:
       golem-postgres:
         condition: service_healthy
@@ -250,7 +250,7 @@ services:
       GOLEM__SHARD_MANAGER__HOST: golem-shard-manager
       GOLEM__SHARD_MANAGER__PORT: '9002'
     volumes:
-    - blob_storage:/blob_storage
+    - golem_blob_storage_v2:/blob_storage
     depends_on:
       golem-postgres:
         condition: service_healthy
@@ -279,7 +279,7 @@ services:
       GOLEM__REGISTRY_SERVICE__CONFIG__HOST: golem-registry-service
       GOLEM__REGISTRY_SERVICE__CONFIG__PORT: '9008'
     volumes:
-    - blob_storage:/blob_storage
+    - golem_blob_storage_v2:/blob_storage
     depends_on:
     - golem-registry-service
     networks:
@@ -336,7 +336,7 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-    - blob_storage:/blob_storage
+    - golem_blob_storage_v2:/blob_storage
     depends_on:
       golem-postgres:
         condition: service_healthy
@@ -353,7 +353,7 @@ services:
       POSTGRES_USER: golem_user
       POSTGRES_PASSWORD: golem_password
     volumes:
-    - postgres_data:/var/lib/postgresql/data
+    - golem_postgres_data_v2:/var/lib/postgresql/data
     healthcheck:
       test:
       - CMD-SHELL
@@ -366,7 +366,7 @@ services:
   golem-redis:
     image: redis:7-alpine
     volumes:
-    - redis_data:/data
+    - golem_redis_data_v2:/data
     networks:
     - default
   golem-router:
@@ -399,13 +399,13 @@ volumes:
   opencloud_data: null
   surrealdb_data:
     driver: local
-  redis_data:
+  golem_redis_data_v2:
     driver: local
   component_store:
     driver: local
-  postgres_data:
+  golem_postgres_data_v2:
     driver: local
-  blob_storage:
+  golem_blob_storage_v2:
     driver: local
 networks:
   dokploy-network:
