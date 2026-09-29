@@ -12,7 +12,7 @@
   import { onMount } from 'svelte';
   import TermAssessments from '$lib/components/TermAssessments.svelte';
 
-  let { data }: { data: PageData } = $props();
+  let { data }: { data: any } = $props();
 
   let lessonsSource = $derived(data.lessons);
   let lessons = $state<Lesson[]>(lessonsSource);

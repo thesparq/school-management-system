@@ -35,7 +35,7 @@
 		created_at: string;
 	}
 
-	let { data }: { data: PageData } = $props();
+	let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
 	let sessionTerms: SessionTerm[] = $state([]);
 	let terms: any[] = $state([]);

@@ -7,7 +7,7 @@
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
-	let { data }: { data: PageData } = $props();
+	let { data }: { data: any } = $props();
 
 	let termsSource = $derived(data.terms);
 	let terms = $state<Term[]>(termsSource);

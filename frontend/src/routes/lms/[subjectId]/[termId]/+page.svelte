@@ -7,7 +7,7 @@
   import { page, navigating } from '$app/stores';
   import { invalidateAll } from '$app/navigation';
 
-  let { data }: { data: PageData } = $props();
+  let { data }: { data: any } = $props();
   import StudentTermGrades from '$lib/components/StudentTermGrades.svelte';
   let activeTab = $state<'lessons' | 'grades'>('lessons');
 </script>

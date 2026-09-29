@@ -8,7 +8,7 @@
 	import { navigating } from '$app/stores';
 	import { goto } from '$app/navigation';
 
-	let { data }: { data: PageData } = $props();
+	let { data }: { data: any } = $props();
 
 	let pingResult = $state<string | null>(null);
 	let pingError = $state<string | null>(null);

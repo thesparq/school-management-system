@@ -20,7 +20,7 @@
 		sort_order: number;
 	}
 
-	let { data }: { data: PageData } = $props();
+	let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
 	let terms: TermItem[] = $state(data.terms);
 	let toggling = $state<Record<string, boolean>>({});

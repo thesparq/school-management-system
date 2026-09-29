@@ -7,7 +7,7 @@
   import { page, navigating } from '$app/stores';
   import { goto } from '$app/navigation';
 
-  let { data }: { data: PageData } = $props();
+  let { data }: { data: any } = $props();
 </script>
 
 <div class="space-y-6">

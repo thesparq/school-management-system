@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { isOpen = false, onClose = () => {}, onSaved = () => {}, timetableId = '', timetableName = '', sessionTerm = '', dayConfigs = [] }: { isOpen?: boolean, onClose?: () => void, onSaved?: () => void, timetableId?: string, timetableName?: string, sessionTerm?: string, dayConfigs?: any[] } = $props();
+  let { isOpen = $bindable(false), onClose = () => {}, onSaved = () => {}, timetableId = '', timetableName = '', sessionTerm = '', dayConfigs = [] }: { isOpen?: boolean, onClose?: () => void, onSaved?: () => void, timetableId?: string, timetableName?: string, sessionTerm?: string, dayConfigs?: any[] } = $props();
   import { Button } from '$lib/components/ui/button';
   import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
   import { Label } from '$lib/components/ui/label';

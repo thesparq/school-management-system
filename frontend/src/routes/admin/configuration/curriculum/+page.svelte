@@ -3,7 +3,7 @@
   import CurriculumManager from '$lib/components/timetable/CurriculumManager.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
-  let { data }: { data: import('./$types').PageData } = $props();
+  let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
 </script>
 

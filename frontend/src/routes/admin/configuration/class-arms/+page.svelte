@@ -12,7 +12,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { addToast } from '$lib/stores/toast';
 
-	let { data }: { data: PageData } = $props();
+	let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
 	let classArms = $state([]);
 	let classLevels = $state([]);
