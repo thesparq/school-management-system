@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: synapse
       POSTGRES_INITDB_ARGS: --encoding=UTF8 --lc-collate=C --lc-ctype=C
     volumes:
-    - postgres_data:/var/lib/postgresql/data
+    - synapse_pg_data:/var/lib/postgresql/data
     healthcheck:
       test:
       - CMD-SHELL
@@ -93,7 +93,7 @@ services:
   opencloud:
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
-    command: server
+    command: /bin/sh -c "opencloud init || true && opencloud server"
     environment:
     - OC_URL=https://${OC_DOMAIN}
     - OC_DOMAIN=${OC_DOMAIN}
@@ -175,7 +175,7 @@ services:
     - golem_data:/data/golem
 volumes:
   synapse_data: null
-  postgres_data: null
+  synapse_pg_data: null
   opencloud_data: null
   golem_data: null
   surrealdb_data:
