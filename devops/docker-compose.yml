@@ -92,8 +92,7 @@ services:
     - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
   opencloud-init:
     image: opencloudeu/opencloud-rolling:latest
-    entrypoint: /bin/sh
-    command: -c "opencloud init || true"
+    command: init --force-overwrite
     environment:
     - OCIS_INSECURE=true
     volumes:
