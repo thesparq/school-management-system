@@ -5,8 +5,6 @@ environments:
     server: local
     componentPresets: debug
   cloud:
-    server:
-      profile: prod
     componentPresets: release
 componentTemplates:
   my-moonbit:

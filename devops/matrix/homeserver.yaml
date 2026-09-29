@@ -27,11 +27,11 @@ log_config: /data/matrix.localhost.log.config
 macaroon_secret_key: generate_a_random_string_here_for_macaroons
 media_store_path: /data/media_store
 oidc_providers:
-- client_id: 6YMrolxcfMnREfemaQcaEogCXgM2r1T6NcRSkIJe
-  client_secret: 2YSBKRr4Uiae3458RGazOVp7w2MwzMGPM082Q93SnZy7ZDa0VvTcgn8MAQjdDZFgZNQS5BErco93jHy5koqhxnW1VzSGDZrlsA3NGYWrvZ4vFlLNWX51xCEvUvsRPY1v
+- client_id: jb6teCreaygrYx352wPfeHwnKKlP7JGGAK8j4TXv
+  client_secret: gsQRmGsb2aWTQ11DRukd1L8DwjSxVlmIliWNmY8qHlUudlz6AlLdp1aUFYbEzLxCavCEWSTpoZw8LZWzadUYvGrzfjfadFDjWqSXvpgiOytFSfOmqvqBQpflAgFncWd6
   idp_id: authentik
   idp_name: Johnethel School SSO
-  issuer: https://auth.staging.johnethel.school/application/o/matrix/
+  issuer: https://auth.johnethel.school/application/o/matrix/
   scopes:
   - openid
   - profile
