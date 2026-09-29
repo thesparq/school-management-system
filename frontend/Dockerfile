@@ -10,7 +10,7 @@ COPY pnpm-lock.yaml package.json ./
 RUN pnpm config set ignore-scripts true && pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm run build
+RUN npm run build
 RUN pnpm prune --prod
 
 FROM node:22-alpine
