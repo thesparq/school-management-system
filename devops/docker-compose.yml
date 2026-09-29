@@ -93,8 +93,7 @@ services:
   opencloud:
     image: opencloudeu/opencloud-rolling:latest
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command: "opencloud init || true && exec opencloud server"
+    command: server
     environment:
     - OC_URL=https://${OC_DOMAIN}
     - OC_DOMAIN=${OC_DOMAIN}
