@@ -44,7 +44,6 @@ services:
       '\npython -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory\
       \ /data --generate-keys\nchown -R 991:991 /data\nexec /start.py\n"
     depends_on:
-      - golem-registry-service
       synapse-postgresql:
         condition: service_healthy
     networks:
@@ -200,7 +199,6 @@ services:
     volumes:
     - golem_blob_storage_v2:/blob_storage
     depends_on:
-      - golem-registry-service
       golem-postgres:
         condition: service_healthy
     networks:
@@ -226,7 +224,6 @@ services:
       GOLEM__PERSISTENCE__CONFIG__USERNAME: golem_user
       GOLEM__PERSISTENCE__CONFIG__PASSWORD: golem_password
     depends_on:
-      - golem-registry-service
       golem-postgres:
         condition: service_healthy
       golem-registry-service:
@@ -258,7 +255,6 @@ services:
     volumes:
     - golem_blob_storage_v2:/blob_storage
     depends_on:
-      - golem-registry-service
       golem-postgres:
         condition: service_healthy
       golem-redis:
@@ -288,7 +284,6 @@ services:
     volumes:
     - golem_blob_storage_v2:/blob_storage
     depends_on:
-      - golem-registry-service
     - golem-registry-service
     networks:
     - default
@@ -346,7 +341,6 @@ services:
     volumes:
     - golem_blob_storage_v2:/blob_storage
     depends_on:
-      - golem-registry-service
       golem-postgres:
         condition: service_healthy
       golem-shard-manager:
@@ -380,7 +374,6 @@ services:
     - default
   golem-router:
     image: nginx:1.27
-    restart: always
     pull_policy: always
     environment:
       GOLEM_COMPONENT_MAX_SIZE_ALLOWED: 1g
@@ -389,7 +382,6 @@ services:
       GOLEM_WORKER_SERVICE_HOST: golem-worker-service
       GOLEM_WORKER_SERVICE_PORT: '9005'
     depends_on:
-      - golem-registry-service
     - golem-worker-service
     - golem-shard-manager
     - golem-component-compilation-service
