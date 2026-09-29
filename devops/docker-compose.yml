@@ -243,6 +243,7 @@ services:
       GOLEM__CUSTOM_REQUEST_PORT: '9006'
       GOLEM__MCP_PORT: '9007'
       GOLEM__PORT: '9005'
+      GOLEM__CORS_ORIGIN_REGEX: .*
       GOLEM__GRPC__PORT: '9094'
       GOLEM__GATEWAY_SESSION_STORAGE__TYPE: Redis
       GOLEM__GATEWAY_SESSION_STORAGE__CONFIG__HOST: golem-redis
@@ -391,6 +392,9 @@ services:
     - traefik.enable=true
     - traefik.docker.network=dokploy-network
     - traefik.http.routers.golem.rule=Host(`${GOLEM_SERVER_NAME}`)
+    - traefik.http.routers.golem.entrypoints=websecure
+    - traefik.http.routers.golem.tls=true
+    - traefik.http.routers.golem.tls.certresolver=letsencrypt
     - traefik.http.services.golem.loadbalancer.server.port=80
     networks:
     - default
