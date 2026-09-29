@@ -22,7 +22,7 @@ services:
     - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
     volumes:
     - synapse_data:/data
-    - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+    - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
     entrypoint:
     - /bin/sh
     - -c
