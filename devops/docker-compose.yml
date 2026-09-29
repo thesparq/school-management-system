@@ -59,6 +59,23 @@ services:
     environment:
       SURREAL_USER: ${SURREAL_DB_USERNAME:-root}
       SURREAL_PASS: ${SURREAL_DB_PASSWORD:-root}
+  golem-server:
+    build:
+      context: ./devops/golem
+    restart: unless-stopped
+    networks:
+    - default
+    - dokploy-network
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.golem.rule=Host(`${GOLEM_SERVER_NAME}`)
+    - traefik.http.routers.golem.entrypoints=websecure
+    - traefik.http.routers.golem.tls=true
+    - traefik.http.routers.golem.tls.certresolver=letsencrypt
+    - traefik.http.services.golem.loadbalancer.server.port=9881
+    volumes:
+    - golem_data:/data/golem
 volumes:
   synapse_data: null
   postgres_data: null
