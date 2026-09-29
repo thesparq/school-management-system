@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Copy lockfile and package.json
 COPY pnpm-lock.yaml package.json ./
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm config set ignore-scripts true && pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm run build
