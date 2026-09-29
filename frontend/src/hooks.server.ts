@@ -22,7 +22,7 @@ function setUser(
 ) {
 	const rawGroups = payload.groups ?? payload.roles ?? [];
 	// Map plural groups to singular roles
-	const baseRoles = new Set(rawGroups.map(g => groupToRoleMap[g] || g));
+	const baseRoles = new Set(rawGroups.map(g => groupToRoleMap[g]).filter(Boolean));
 
 	// Implement Role Hierarchy (Expansion)
 	if (baseRoles.has('superadmin')) {
