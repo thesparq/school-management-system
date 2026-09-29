@@ -189,6 +189,8 @@ services:
       GOLEM__DB__CONFIG__SCHEMA: golem_registry_service
       GOLEM__DB__CONFIG__MAX_CONNECTIONS: 10
       GOLEM__DB__CONFIG__HOST: golem-postgres
+      GOLEM__COMPONENT_COMPILATION__CONFIG__HOST: golem-component-compilation-service
+      GOLEM__COMPONENT_COMPILATION__CONFIG__PORT: '9010'
       GOLEM__DB__CONFIG__PORT: 5432
       GOLEM__DB__CONFIG__USERNAME: golem_user
       GOLEM__DB__CONFIG__PASSWORD: golem_password
