@@ -20,6 +20,34 @@ services:
     - SYNAPSE_FORM_SECRET=${SYNAPSE_FORM_SECRET}
     - SYNAPSE_REGISTRATION_SECRET=${SYNAPSE_REGISTRATION_SECRET}
     - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
+    volumes:
+    - synapse_data:/data
+    - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+    entrypoint:
+    - /bin/sh
+    - -c
+    - "# Inject secrets safely using Python\npython -c '\nimport os\nc = open(\"/config/homeserver.yaml\"\
+      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"AUTHENTIK_CLIENT_SECRET\", \"\
+      SYNAPSE_MACAROON_SECRET\", \"SYNAPSE_FORM_SECRET\", \"SYNAPSE_REGISTRATION_SECRET\"\
+      , \"COTURN_SHARED_SECRET\"]\nfor k in secrets:\n    c = c.replace(f\"$${{{k}}}\"\
+      , os.environ.get(k, \"\"))\nopen(\"/data/homeserver.yaml\", \"w\").write(c)\n\
+      '\npython -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory\
+      \ /data --generate-keys\nchown -R 991:991 /data\nexec /start.py\n"
+    depends_on:
+      synapse-postgresql:
+        condition: service_healthy
+    networks:
+    - default
+    - dokploy-network
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.synapse.rule=Host(`${SYNAPSE_SERVER_NAME}`)
+    - traefik.http.routers.synapse.entrypoints=websecure
+    - traefik.http.routers.synapse.tls=true
+    - traefik.http.routers.synapse.tls.certresolver=letsencrypt
+    - traefik.http.routers.synapse.middlewares=secure-headers
+    - traefik.http.services.synapse.loadbalancer.server.port=8008
   element-web:
     image: vectorim/element-web:latest
     restart: unless-stopped
