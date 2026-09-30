@@ -5,6 +5,7 @@
 	import {
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import AppButton from '$lib/components/ui/app-button.svelte';
@@ -21,8 +22,6 @@
 	}
 
 	let { data }: { data: any } = $props();
-	let loadError = $state(data.loadError || '');
-	let terms: TermItem[] = $state(data.terms);
 	let toggling = $state<Record<string, boolean>>({});
 
 	let showCreateDialog = $state(false);
@@ -30,14 +29,11 @@
 	let createLoading = $state(false);
 	let createError = $state('');
 
-	
-
-	async function handleToggle(termId: string, newActive: boolean) {
+	async function handleToggle(terms: TermItem[], termId: string, newActive: boolean) {
 		const idx = terms.findIndex(t => t.id === termId);
 		if (idx === -1) return;
 		const prev = terms[idx].active;
 		terms[idx].active = newActive;
-		terms = [...terms];
 		toggling[termId] = true;
 		toggling = { ...toggling };
 
@@ -54,7 +50,6 @@
 			addToast('success', 'Term updated', `${terms[idx].name} is now ${newActive ? 'visible' : 'hidden'} to students.`);
 		} catch (e) {
 			terms[idx].active = prev;
-			terms = [...terms];
 			addToast('error', 'Failed to update term', e instanceof Error ? e.message : 'Unknown error');
 		} finally {
 			toggling[termId] = false;
@@ -77,7 +72,6 @@
 			addToast('success', 'Term created', `${createForm.name} was successfully created.`);
 			showCreateDialog = false;
 			createForm = { name: '', sort_order: 1 };
-			// force reload data
 			window.location.reload();
 		} catch (err: any) {
 			createError = err.message || 'An error occurred';
@@ -85,58 +79,57 @@
 			createLoading = false;
 		}
 	}
-	$effect(() => {
-		if (data.streamed) {
-			data.streamed.termsRes.then(json => { if (json && json.data) terms = json.data; if (json && json.error) loadError = json.error.message; });
-		}
-	});
 </script>
 
 <div class="space-y-6">
 	<PageHeader title="Terms" createLabel="Create Term" onCreate={() => showCreateDialog = true} />
 
-	{#if data.termsError}
-		<StatusCard variant="error" title="Failed to load terms" description={data.termsError} onRetry={() => window.location.reload()} />
-	{:else if terms.length === 0}
-		<StatusCard variant="info" title="No Terms Available" description="No terms exist in the database yet." />
-	{:else}
-		<Card>
-			<CardContent class="p-0 overflow-x-auto">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead class="w-24">Active</TableHead>
-							<TableHead class="w-24">Sort Order</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{#each terms as term (term.id)}
+	{#await data.streamed.termsPromise}
+		<TableSkeleton />
+	{:then terms}
+		{#if terms.length === 0}
+			<StatusCard variant="info" title="No Terms Available" description="No terms exist in the database yet." />
+		{:else}
+			<Card>
+				<CardContent class="p-0 overflow-x-auto">
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell class="font-medium">{term.name}</TableCell>
-								<TableCell>
-									<div class="flex items-center gap-2">
-										<Switch
-											checked={term.active}
-											disabled={toggling[term.id] ?? false}
-											onCheckedChange={(checked) => handleToggle(term.id, checked)}
-										/>
-										{#if toggling[term.id]}
-											<svg class="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-											</svg>
-										{/if}
-									</div>
-								</TableCell>
-								<TableCell class="text-surface-500 text-sm">{term.sort_order}</TableCell>
+								<TableHead>Name</TableHead>
+								<TableHead class="w-24">Active</TableHead>
+								<TableHead class="w-24">Sort Order</TableHead>
 							</TableRow>
-						{/each}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
-	{/if}
+						</TableHeader>
+						<TableBody>
+							{#each terms as term (term.id)}
+								<TableRow>
+									<TableCell class="font-medium">{term.name}</TableCell>
+									<TableCell>
+										<div class="flex items-center gap-2">
+											<Switch
+												checked={term.active}
+												disabled={toggling[term.id] ?? false}
+												onCheckedChange={(checked) => handleToggle(terms, term.id, checked)}
+											/>
+											{#if toggling[term.id]}
+												<svg class="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+													<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+													<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+												</svg>
+											{/if}
+										</div>
+									</TableCell>
+									<TableCell class="text-surface-500 text-sm">{term.sort_order}</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load terms" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>

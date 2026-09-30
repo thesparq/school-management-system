@@ -23,6 +23,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { addToast } from '$lib/stores/toast';
 	import { goto } from '$app/navigation';
@@ -133,8 +134,8 @@
 	}
 	$effect(() => {
 		if (data.streamed) {
-			data.streamed.sessionTermsRes.then(json => { if (json && json.data) sessionTerms = json.data; if (json && json.error) loadError = json.error.message; });
-			data.streamed.termsRes.then(json => { if (json && json.data) terms = json.data; if (json && json.error) loadError = json.error.message; });
+			data.streamed.sessionTermsPromise.then((json: any) => { sessionTerms = json; }).catch((e: Error) => { loadError = e.message; });
+			data.streamed.termsPromise.then((json: any) => { terms = json; }).catch((e: Error) => { loadError = e.message; });
 		}
 	});
 </script>
@@ -142,29 +143,32 @@
 <div class="space-y-6">
 	<PageHeader title="Session Terms" createLabel="Create Session Term" onCreate={() => showCreateDialog = true} />
 
-	{#if data.sessionTermsError}
-		<StatusCard variant="error" title="Failed to load data" description={data.sessionTermsError} onRetry={() => window.location.reload()} />
-	{:else if sessionTerms.length === 0}
-		<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
-	{:else}
-		<div class="space-y-4">
-			{#if !hasActive}
-				<StatusCard variant="warning" title="No active session term" description="Teacher assignments cannot be scoped to a term. Activate a session term below." />
-			{/if}
+	{#await Promise.all([data.streamed.sessionTermsPromise, data.streamed.termsPromise])}
+		<TableSkeleton />
+	{:then _}
+		{#if loadError}
+			<StatusCard variant="error" title="Failed to load data" description={loadError} onRetry={() => window.location.reload()} />
+		{:else if sessionTerms.length === 0}
+			<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
+		{:else}
+			<div class="space-y-4">
+				{#if !hasActive}
+					<StatusCard variant="warning" title="No active session term" description="Teacher assignments cannot be scoped to a term. Activate a session term below." />
+				{/if}
 
-			<Card>
-				<CardContent class="p-0 overflow-x-auto">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Session</TableHead>
-								<TableHead>Term</TableHead>
-								<TableHead>Active</TableHead>
-								<TableHead>Created</TableHead>
-								<TableHead class="w-36">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
+				<Card>
+					<CardContent class="p-0 overflow-x-auto">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Session</TableHead>
+									<TableHead>Term</TableHead>
+									<TableHead>Active</TableHead>
+									<TableHead>Created</TableHead>
+									<TableHead class="w-36">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 							{#each sessionTerms as st (st.id)}
 								<TableRow>
 									<TableCell class="font-medium">{st.session_name}</TableCell>
@@ -206,6 +210,9 @@
 			</Card>
 		</div>
 	{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load data" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>

@@ -4,6 +4,7 @@
 	import {
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import AppButton from '$lib/components/ui/app-button.svelte';
@@ -18,10 +19,10 @@
 
 	$effect(() => {
 		if (data.streamed) {
-			data.streamed.classLevelsRes.then(json => {
+			data.streamed.classLevelsRes.then((json: any) => {
 				if (json && json.data) classLevels = json.data;
 				if (json && json.error) loadError = json.error.message;
-			});
+			}).catch((err: Error) => { loadError = err.message; });
 		}
 	});
 
@@ -57,34 +58,40 @@
 <div class="space-y-6">
 	<PageHeader title="Class Levels" createLabel="Create Class Level" onCreate={() => showCreateDialog = true} />
 
-	{#if loadError}
-		<StatusCard variant="error" title="Failed to load class levels" description={loadError} onRetry={() => window.location.reload()} />
-	{:else if classLevels.length === 0}
-		<StatusCard variant="info" title="No Class Levels Available" description="No class levels exist in the database yet. Click Create Class Level to add one." />
-	{:else}
-		<Card>
-			<CardContent class="p-0 overflow-x-auto">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Level ID</TableHead>
-							<TableHead>Name</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{#each classLevels as level (level.id)}
+	{#await data.streamed.classLevelsRes}
+		<TableSkeleton />
+	{:then _}
+		{#if loadError}
+			<StatusCard variant="error" title="Failed to load class levels" description={loadError} onRetry={() => window.location.reload()} />
+		{:else if classLevels.length === 0}
+			<StatusCard variant="info" title="No Class Levels Available" description="No class levels exist in the database yet. Click Create Class Level to add one." />
+		{:else}
+			<Card>
+				<CardContent class="p-0 overflow-x-auto">
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell>
-									<span class="bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono text-xs">{level.id}</span>
-								</TableCell>
-								<TableCell>{level.name}</TableCell>
+								<TableHead>Level ID</TableHead>
+								<TableHead>Name</TableHead>
 							</TableRow>
-						{/each}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
-	{/if}
+						</TableHeader>
+						<TableBody>
+							{#each classLevels as level (level.id)}
+								<TableRow>
+									<TableCell>
+										<span class="bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono text-xs">{level.id}</span>
+									</TableCell>
+									<TableCell>{level.name}</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load class levels" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>

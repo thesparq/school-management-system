@@ -6,26 +6,20 @@ export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
 	if (!user || !user.roles.includes('admin')) error(403, 'Forbidden');
 
-	try {
-		const [authentikUsers, allGroups] = await Promise.all([
-			fetchAllUsers(),
-			fetchAllGroups()
-		]);
-
-		const studentsGroup = allGroups.find(g => g.name.toLowerCase() === 'students' || g.name.toLowerCase() === 'student');
-		const studentsGroupPk = studentsGroup?.pk ?? null;
-		const filtered = studentsGroupPk
-			? authentikUsers.filter(u => (u.groups ?? []).includes(studentsGroupPk))
+	const usersPromise = Promise.all([
+		fetchAllUsers(),
+		fetchAllGroups()
+	]).then(([authentikUsers, allGroups]) => {
+		const targetGroup = allGroups.find(g => g.name.toLowerCase() === 'students' || g.name.toLowerCase() === 'student');
+		const groupPk = targetGroup?.pk ?? null;
+		const filtered = groupPk
+			? authentikUsers.filter(u => (u.groups ?? []).includes(groupPk))
 			: authentikUsers;
+		return { users: filtered, allGroups, groupPk: groupPk ?? '' };
+	});
 
-		return { users: filtered, allGroups, role: 'students', groupPk: studentsGroupPk ?? '' };
-	} catch (err) {
-		return {
-			users: [],
-			allGroups: [],
-			role: 'students',
-			groupPk: '',
-			error: err instanceof Error ? err.message : 'Failed to fetch users.'
-		};
-	}
+	return {
+		role: 'students',
+		streamed: { usersPromise }
+	};
 };

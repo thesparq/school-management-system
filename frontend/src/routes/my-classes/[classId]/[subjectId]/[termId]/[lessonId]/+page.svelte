@@ -10,7 +10,7 @@
 </script>
 
 <div class="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
-  {#await data.streamed.lesson}
+  {#await data.streamed.dataPromise}
     <div class="space-y-6">
       <Skeleton class="h-4 w-24" />
       <Skeleton class="h-4 w-64" />

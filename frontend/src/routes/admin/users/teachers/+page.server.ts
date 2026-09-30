@@ -6,26 +6,20 @@ export const load: PageServerLoad = async (event) => {
 	const user = event.locals.user;
 	if (!user || !user.roles.includes('admin')) error(403, 'Forbidden');
 
-	try {
-		const [authentikUsers, allGroups] = await Promise.all([
-			fetchAllUsers(),
-			fetchAllGroups()
-		]);
-
-		const teachersGroup = allGroups.find(g => g.name.toLowerCase() === 'teachers' || g.name.toLowerCase() === 'teacher');
-		const teachersGroupPk = teachersGroup?.pk ?? null;
-		const filtered = teachersGroupPk
-			? authentikUsers.filter(u => (u.groups ?? []).includes(teachersGroupPk))
+	const usersPromise = Promise.all([
+		fetchAllUsers(),
+		fetchAllGroups()
+	]).then(([authentikUsers, allGroups]) => {
+		const targetGroup = allGroups.find(g => g.name.toLowerCase() === 'teachers' || g.name.toLowerCase() === 'teacher');
+		const groupPk = targetGroup?.pk ?? null;
+		const filtered = groupPk
+			? authentikUsers.filter(u => (u.groups ?? []).includes(groupPk))
 			: authentikUsers;
+		return { users: filtered, allGroups, groupPk: groupPk ?? '' };
+	});
 
-		return { users: filtered, allGroups, role: 'teachers', groupPk: teachersGroupPk ?? '' };
-	} catch (err) {
-		return {
-			users: [],
-			allGroups: [],
-			role: 'teachers',
-			groupPk: '',
-			error: err instanceof Error ? err.message : 'Failed to fetch users.'
-		};
-	}
+	return {
+		role: 'teachers',
+		streamed: { usersPromise }
+	};
 };

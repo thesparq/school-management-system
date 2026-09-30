@@ -4,6 +4,7 @@
 	import {
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import AppButton from '$lib/components/ui/app-button.svelte';
@@ -19,8 +20,8 @@
 
 	$effect(() => { 
 		if (data.streamed) {
-			data.streamed.classArmsRes.then(res => classArms = res);
-			data.streamed.classLevelsRes.then(res => classLevels = res);
+			data.streamed.classArmsRes.then((res: any) => classArms = res).catch((err: Error) => loadError = err.message);
+			data.streamed.classLevelsRes.then((res: any) => classLevels = res).catch((err: Error) => loadError = err.message);
 		}
 	});
 
@@ -61,37 +62,45 @@
 		<AppButton onclick={() => (showCreateDialog = true)}>Add Class Arm</AppButton>
 	</div>
 
-	{#if classArms.length === 0}
-		<StatusCard
-			title="No class arms found"
-			description="Get started by creating a new class arm."
-			actionLabel="Add Class Arm"
-			onAction={() => (showCreateDialog = true)}
-		/>
-	{:else}
-		<Card>
-			<CardContent class="p-0 overflow-x-auto">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Level</TableHead>
-							<TableHead>Name</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{#each classArms as arm (arm.id || arm.name)}
+	{#await Promise.all([data.streamed.classArmsRes, data.streamed.classLevelsRes])}
+		<TableSkeleton />
+	{:then _}
+		{#if loadError}
+			<StatusCard variant="error" title="Failed to load class arms" description={loadError} onRetry={() => window.location.reload()} />
+		{:else if classArms.length === 0}
+			<StatusCard
+				title="No class arms found"
+				description="Get started by creating a new class arm."
+				actionLabel="Add Class Arm"
+				onAction={() => (showCreateDialog = true)}
+			/>
+		{:else}
+			<Card>
+				<CardContent class="p-0 overflow-x-auto">
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell>
-									<span class="bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono text-xs">{classLevels.find(l => l.id === arm.class_level)?.name || 'Unknown'}</span>
-								</TableCell>
-								<TableCell class="font-medium">{arm.name}</TableCell>
+								<TableHead>Level</TableHead>
+								<TableHead>Name</TableHead>
 							</TableRow>
-						{/each}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
-	{/if}
+						</TableHeader>
+						<TableBody>
+							{#each classArms as arm (arm.id || arm.name)}
+								<TableRow>
+									<TableCell>
+										<span class="bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono text-xs">{classLevels.find(l => l.id === arm.class_level)?.name || 'Unknown'}</span>
+									</TableCell>
+									<TableCell class="font-medium">{arm.name}</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load class arms" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog bind:open={showCreateDialog}>
