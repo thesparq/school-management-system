@@ -54,6 +54,10 @@ server {
         return 200 '{"account": {"id": "root", "name": "root"}}';
     }
 
+    location ~ ^/(admin|student|teacher|parent|core-api|assessment-session)/ {
+        proxy_pass http://worker-service;
+    }
+
     location / {
         proxy_pass http://registry-service;
     }
