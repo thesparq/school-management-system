@@ -322,6 +322,8 @@ services:
     - ${SURREAL_USER}
     - --pass
     - ${SURREAL_PASS}
+    - --bind
+    - 0.0.0.0:8000
     - rocksdb:/data/db/surreal.db
     environment:
     - SURREAL_USER=${SURREAL_USER}
@@ -344,6 +346,9 @@ services:
     user: root
     volumes:
     - surrealdb_data:/data/db
+    networks:
+    - default
+    - dokploy-network
   synapse:
     depends_on:
       synapse-postgresql:
