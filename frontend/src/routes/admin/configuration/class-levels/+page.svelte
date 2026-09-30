@@ -15,7 +15,7 @@
 
 	let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
-	let classLevels = $state(data.classLevels);
+	let classLevels: any[] = $state([]);
 
 	$effect(() => {
 		if (data.streamed) {

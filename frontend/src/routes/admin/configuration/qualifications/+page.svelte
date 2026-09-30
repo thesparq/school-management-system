@@ -24,7 +24,7 @@
 
 	let { data }: { data: any } = $props();
 	let loadError = $state(data.loadError || '');
-	let qualifications: Qualification[] = $state(data.qualifications);
+	let qualifications: Qualification[] = $state([]);
 
 	
 
