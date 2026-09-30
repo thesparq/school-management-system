@@ -27,3 +27,5 @@
 - **Database Resilience**: Fixed "Database query failed" UI error by intercepting SurrealDB's "Table does not exist" error in MoonBit's `db_client.mbt` and returning empty arrays `Ok([])`.
 - **UI/UX Cleanup**: Stripped multi-colored gradients (purple/violet) from CurriculumManager and unified them with shadcn standard themes (`bg-card`).
 - **User Role Hubs**: Implemented dedicated dashboard Hubs for Teachers (`/teacher`), Students (`/student`), and Parents (`/parent`), integrated into the main sidebar.
+
+- **Database Migration**: Successfully exported the full 118MB database from `db.johnethel.school` and cleanly imported all 3,413 lessons into the new `db2.johnethel.school` SurrealDB instance on Dokploy.
