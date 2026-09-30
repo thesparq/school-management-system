@@ -7,6 +7,10 @@ upstream registry-service {
     server ${GOLEM_REGISTRY_SERVICE_HOST}:${GOLEM_REGISTRY_SERVICE_PORT} fail_timeout=0 max_fails=0;
 }
 
+upstream worker-service-custom {
+    server ${GOLEM_WORKER_SERVICE_HOST}:9006 fail_timeout=0 max_fails=0;
+}
+
 upstream worker-service {
     server ${GOLEM_WORKER_SERVICE_HOST}:${GOLEM_WORKER_SERVICE_PORT} fail_timeout=0 max_fails=0;
 }
@@ -54,8 +58,12 @@ server {
         return 200 '{"account": {"id": "root", "name": "root"}}';
     }
 
-    location ~ ^/(admin|student|teacher|parent|core-api|assessment-session)/ {
-        proxy_pass http://worker-service;
+    location ~ ^/(admin|student|teacher|parent|core-api|assessment-session|webhooks)/ {
+        proxy_pass http://worker-service-custom;
+    }
+
+    location = /openapi.yaml {
+        proxy_pass http://worker-service-custom;
     }
 
     location / {
