@@ -5,19 +5,21 @@ let authKey: string | null = null;
 
 function getGatewayUrl(): string {
 	if (gatewayUrl) return gatewayUrl;
-	if (!env.GOLEM_GATEWAY_URL) {
+	const val = env.GOLEM_GATEWAY_URL || process.env.GOLEM_GATEWAY_URL;
+	if (!val) {
 		throw new Error('Missing GOLEM_GATEWAY_URL environment variable');
 	}
-	gatewayUrl = env.GOLEM_GATEWAY_URL.replace(/\/+$/, '');
+	gatewayUrl = val.replace(/\/+$/, '');
 	return gatewayUrl;
 }
 
 function getAuthKey(): string {
 	if (authKey) return authKey;
-	if (!env.GOLEM_AUTH_KEY) {
+	const val = env.GOLEM_AUTH_KEY || process.env.GOLEM_AUTH_KEY;
+	if (!val) {
 		throw new Error('Missing GOLEM_AUTH_KEY environment variable');
 	}
-	authKey = env.GOLEM_AUTH_KEY;
+	authKey = val;
 	return authKey;
 }
 
@@ -117,8 +119,9 @@ function extractErrorFromBody(raw: string): BackendError | null {
 	return null;
 }
 
-async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>, signal?: AbortSignal): Promise<ProxyResult> {
+async function proxyFetch(basePath: string, extraParams?: Record<string, string>, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>, signal?: AbortSignal): Promise<ProxyResult> {
 	try {
+		const url = buildUrl(basePath, extraParams);
 		const fetchInit: RequestInit = {
 			signal,
 			method,
@@ -199,7 +202,7 @@ function buildUrl(basePath: string, extraParams?: Record<string, string>): strin
 }
 
 export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams), method ?? 'GET', body, undefined, signal);
+	return proxyFetch(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams, method ?? 'GET', body, undefined, signal);
 }
 
 export function adminProxy(user: { id: string }, signal?: AbortSignal): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
@@ -207,23 +210,23 @@ export function adminProxy(user: { id: string }, signal?: AbortSignal): (path: s
 }
 
 export function proxyToStudent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/student/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/student/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function proxyToTeacher(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function proxyToParent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/parent/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/parent/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function proxyToCoreApi(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/core-api/default${path}`, extraParams), method ?? 'GET', body, { 'X-Internal-User-Id': userId });
+	return proxyFetch(`/core-api/default${path}`, extraParams, method ?? 'GET', body, { 'X-Internal-User-Id': userId });
 }
 
 export function proxyToAssessmentSession(sessionId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/assessment-session/${encodeURIComponent(sessionId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/assessment-session/${encodeURIComponent(sessionId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function mapErrorCodeToHttpStatus(code: string): number {
