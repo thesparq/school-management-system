@@ -1031,6 +1031,12 @@ serve_static! = |target, static_dir| {
     actual_path = if file_exists { file_path } else { "${static_dir}/index.html" }
     actual_content_type = if file_exists { content_type_for(file_path) } else { "text/html; charset=utf-8" }
 
+    # Everything is served `no-cache`, the bundle included. `app.wasm` and `runtime.js` carry no content
+    # hash in their names, so caching them by age means a rebuilt bundle keeps being served to anyone who
+    # already has the old one — the page then runs last week's app against today's markup, which looks like
+    # a broken UI rather than a stale file. (The Joy template's own Caddyfile does the same, for the same
+    # reason.) Give the files hashed names if the bundle ever needs to be cached immutably.
+
     bytes_result = Path.read_bytes!(Path.unix(actual_path))
     match bytes_result {
         Ok(bytes) =>
@@ -1038,7 +1044,7 @@ serve_static! = |target, static_dir| {
                 Response.from_status(200)
                     |> Response.with_headers([
                         { name: "Content-Type", value: actual_content_type },
-                        { name: "Cache-Control", value: if Str.ends_with(actual_path, ".wasm") or Str.ends_with(actual_path, ".css") { "public, max-age=3600" } else { "no-cache" } },
+                        { name: "Cache-Control", value: "no-cache" },
                     ])
                     |> Response.with_body(bytes)
             )
