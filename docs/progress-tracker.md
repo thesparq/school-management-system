@@ -198,9 +198,12 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
   so there is nothing to migrate; applying them is additive. **Awaiting approval to apply to prod.**
 - [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
   neither read nor written — no code path in either stack computes the weighted sum).
-- [ ] R2 uploads are implemented and signed correctly but **no real bucket has been contacted**: that R2 accepts
-  the signature, and that the bucket's CORS policy allows the browser's `PUT`, are for the deployment to
-  confirm (the browser check intercepts the PUT).
+- [ ] R2 uploads are verified end to end against the **real** bucket (credentials from Infisical): a
+  backend-signed `PUT` answered 200, the public URL served the object byte-for-byte, a real browser upload
+  through the admin form produced `https://r2.johnethel.school/student/passports/<uuid>.jpg` with no CORS or
+  page errors, and the probe objects were deleted afterwards (signed `DELETE` 204, `GET` 404). The bucket's
+  preflight already allows `PUT` from any origin with `content-type`. What remains unexercised is only the
+  account-creation path storing that URL on a real profile (sandboxed, since prod profiles are the school's).
 - [ ] **Role-based authorization is missing in the backend.** It validates the token and scopes queries to the
   caller's own record, but it never reads the token's `groups`, so any valid token can call any route —
   teacher and admin endpoints included. The retired agent stack did gate by role (`agents/app-agents/auth.mbt`),
