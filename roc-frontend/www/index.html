@@ -497,6 +497,8 @@
                 if (hit("#tab-lesson")) { showTab("lesson"); return; }
                 if (hit("#tab-assessments")) { showTab("assessments"); loadAssessments(isTeacher); return; }
                 if (hit("#tab-grading")) { showTab("grading"); loadSubmissions(); return; }
+                if (hit("#submit-assessment-answers")) { if (_openAssessmentId) submitAssessmentAnswers(_openAssessmentId); return; }
+                if (hit("#back-to-assessments")) { _openAssessmentId = null; loadAssessments(false); return; }
                 if (hit("#create-assessment-btn")) { renderQuestionPicker(); modal && modal.classList.remove("hidden"); return; }
                 if (hit("#close-create-modal") || hit("#cancel-create-modal")) { modal && modal.classList.add("hidden"); return; }
                 if (hit("#submit-create-assessment")) { createAssessment(); return; }
@@ -834,6 +836,12 @@
         }).filter(Boolean);
     }
 
+    // The student's assessment list, kept so the answer form and the submit path can read the
+    // questions without another fetch.
+    let _lastAssessments = null;
+    let _justSubmitted = "";
+    let _openAssessmentId = null;
+
     async function loadAssessments(isTeacher) {
         const list = document.getElementById("assessments-list");
         if (!list) return;
@@ -844,12 +852,17 @@
             const res = await fetch(endpoint, { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } });
             const data = await res.json();
             const rows = unwrapRows(data);
+            _lastAssessments = rows;
+            const submittedNote = (!isTeacher && _justSubmitted)
+                ? `<div class="rounded-md border border-green-200 bg-green-50 text-green-800 text-sm p-3">Submitted: ${escHtml(_justSubmitted)}. Your teacher will grade it.</div>`
+                : "";
+            _justSubmitted = "";
             if (!rows.length) {
-                list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No assessments yet.</p>' +
+                list.innerHTML = submittedNote + '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No assessments yet.</p>' +
                     (isTeacher ? '<p class="text-xs">Create one above; it stays a draft until you publish it.</p>' : '') + '</div>';
                 return;
             }
-            list.innerHTML = rows.map(a => `
+            list.innerHTML = submittedNote + rows.map(a => `
                 <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
                     <div class="flex items-center justify-between gap-2">
                         <h4 class="font-medium">${escHtml(a.title || "Assessment")}</h4>
@@ -868,7 +881,7 @@
                             <button onclick="toggleAssessment('${a.id}', ${a.active ? "false" : "true"})" class="text-xs text-primary hover:underline cursor-pointer">${a.active ? "Unpublish" : "Publish"}</button>
                             <button onclick="viewSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
                         ` : `
-                            <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitAssessment('${a.id}')">Take Assessment</button>
+                            <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitAssessment('${a.id}')">${a.deadline && new Date(a.deadline).getTime() < Date.now() ? "Review (closed)" : "Take Assessment"}</button>
                         `}
                     </div>
                 </div>`).join("");
@@ -946,13 +959,106 @@
     }
 
     window.submitAssessment = async (assessmentId) => {
-        if (!confirm("Submit this assessment?")) return;
-        await fetch("/api/student/submit-assessment", {
-            method: "POST",
-            headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
-            body: JSON.stringify({ assessment_id: assessmentId })
+        const rows = _lastAssessments || [];
+        const assessment = rows.find(a => a.id === assessmentId);
+        _openAssessmentId = assessmentId;
+        renderAssessmentForm(assessmentId, assessment);
+    };
+
+    // The answers the student gave, in the shape the MoonBit stack stores: one entry per question.
+    function collectAnswers(questions) {
+        return questions.map((q, i) => {
+            const chosen = document.querySelector(`input[name="answer-${i}"]:checked`);
+            const typed = document.querySelector(`[data-answer-text="${i}"]`);
+            const answerText = chosen ? chosen.value : (typed ? typed.value.trim() : "");
+            return {
+                question_index: i,
+                answer_type: q.type || "short_answer",
+                answer_text: answerText,
+                allocated_mark: typeof q.marks === "number" ? q.marks : 0,
+            };
         });
-        loadAssessments(false);
+    }
+
+    function renderAssessmentForm(assessmentId, assessment) {
+        const list = document.getElementById("assessments-list");
+        if (!list) return;
+        const questions = (assessment && Array.isArray(assessment.questions)) ? assessment.questions : [];
+        const title = (assessment && assessment.title) || "Assessment";
+        const deadline = assessment && assessment.deadline ? new Date(assessment.deadline) : null;
+        const closed = deadline && deadline.getTime() < Date.now();
+        const submitCls = closed
+            ? "text-sm bg-muted text-muted-foreground px-4 py-2 rounded cursor-not-allowed"
+            : "text-sm bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 cursor-pointer";
+        const back = `<button class="text-xs text-primary hover:underline cursor-pointer" id="back-to-assessments">← Back to assessments</button>`;
+
+        if (!questions.length) {
+            list.innerHTML = `${back}<div class="border rounded-lg p-6 space-y-2">
+                <h4 class="font-medium">${escHtml(title)}</h4>
+                <p class="text-sm text-muted-foreground">This assessment has no questions yet. Ask your teacher to add them.</p>
+            </div>`;
+            return;
+        }
+
+        list.innerHTML = `${back}
+            <div class="border rounded-lg p-6 space-y-5">
+                <div class="space-y-1">
+                    <h4 class="font-medium">${escHtml(title)}</h4>
+                    <p class="text-xs text-muted-foreground">${questions.length} question${questions.length === 1 ? "" : "s"}${assessment && assessment.total_mark ? ` · ${assessment.total_mark} marks` : ""}${deadline ? ` · due ${deadline.toLocaleString()}` : ""}</p>
+                </div>
+                ${questions.map((q, i) => `
+                <div class="space-y-2 border-t pt-4">
+                    <p class="text-sm font-medium">${i + 1}. ${escHtml(String(q.question || ""))}${q.marks ? ` <span class="text-xs font-normal text-muted-foreground">(${q.marks} mark${q.marks === 1 ? "" : "s"})</span>` : ""}</p>
+                    ${Array.isArray(q.options) && q.options.length ? `
+                        <div class="space-y-1">
+                            ${q.options.map((opt, oi) => `
+                            <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                <input type="radio" class="mt-0.5" name="answer-${i}" value="${String.fromCharCode(97 + oi)}">
+                                <span>${escHtml(String(opt))}</span>
+                            </label>`).join("")}
+                        </div>` : `
+                        <textarea data-answer-text="${i}" rows="3" placeholder="Your answer..."
+                            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></textarea>`}
+                </div>`).join("")}
+                <div class="flex items-center gap-3 border-t pt-4">
+                    <button id="submit-assessment-answers" class="${submitCls}" ${closed ? "disabled" : ""}>Submit</button>
+                    <span id="assessment-answered-count" class="text-xs text-muted-foreground">0 of ${questions.length} answered</span>
+                    ${closed ? '<span class="text-xs text-destructive">The deadline has passed.</span>' : ""}
+                </div>
+            </div>`;
+
+        const updateCount = () => {
+            const answered = collectAnswers(questions).filter(a => a.answer_text !== "").length;
+            const el = document.getElementById("assessment-answered-count");
+            if (el) el.textContent = `${answered} of ${questions.length} answered`;
+        };
+        list.querySelectorAll("input[name^='answer-'], [data-answer-text]").forEach(el => el.addEventListener("input", updateCount));
+    }
+
+    window.submitAssessmentAnswers = async (assessmentId) => {
+        const rows = _lastAssessments || [];
+        const assessment = rows.find(a => a.id === assessmentId) || {};
+        const questions = Array.isArray(assessment.questions) ? assessment.questions : [];
+        const answers = collectAnswers(questions);
+        if (!answers.length) { alert("There is nothing to submit."); return; }
+        const blank = answers.filter(a => a.answer_text === "").length;
+        if (blank && !confirm(`${blank} question(s) are unanswered. Submit anyway?`)) return;
+        try {
+            const res = await fetch("/api/student/submit-assessment", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+                body: JSON.stringify({ assessment_id: assessmentId, answers })
+            });
+            const data = await res.json().catch(() => null);
+            // A failed write answers 500 with the database's own message in `detail` (see db_response!).
+            const failure = data && (Array.isArray(data)
+                ? (data[0] && (data[0].error || data[0].detail))
+                : (data.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null));
+            if (!res.ok || failure) { alert(failure || "Could not submit the assessment."); return; }
+            _justSubmitted = assessment.title || "";
+            _openAssessmentId = null;
+            loadAssessments(false);
+        } catch(e) { alert("Could not submit the assessment."); }
     };
 
     window.gradeSubmission = async (subId) => {
