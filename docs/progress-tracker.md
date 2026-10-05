@@ -191,11 +191,17 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 
 ### Remaining
 
-- [ ] **`general_assessments` cannot store question objects on prod.** The table declares `questions` and
-  `questions.*` but none of the sub-fields, so a create with questions answers 500 with the database's own
-  message. `db/schema-v3.surql` (lines 43-48) already carries the six `DEFINE FIELD IF NOT EXISTS` statements —
-  they were applied to `lesson_assessments` only. Both `general_assessments` and `compositions` hold **0 rows**,
-  so there is nothing to migrate; applying them is additive. **Awaiting approval to apply to prod.**
+- [x] **`general_assessments` can now store question objects on prod** (applied 2026-10-05). The table declared
+  `questions` and `questions.*` but none of the sub-fields, so a create with questions answered 500 with the
+  database's own message. `db/schema-v3.surql` lines 43-48 already carried the six `DEFINE FIELD IF NOT EXISTS`
+  statements — they had been applied to `lesson_assessments` only. Verified on a prod-shaped sandbox first
+  (dropping the six there reproduced the failure, re-applying them fixed it), then on prod: 6 statements, 0
+  errors; both `general_assessments` and `compositions` held 0 rows before and after; a probe row created with
+  an MCQ question object, read back with every field intact, then deleted.
+  *Honest note*: the script that applied them also fed the whole v3 file to prod, which additionally created
+  v3's `teaches` table and `teacher_profile.qualifications`. Both are empty (`teacher_assignment` is empty, so
+  its data migration was a no-op) and nothing in the app reads them — and both are declared by the schema file,
+  so prod and the files now agree rather than diverge.
 - [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
   neither read nor written — no code path in either stack computes the weighted sum).
 - [ ] R2 uploads are verified end to end against the **real** bucket (credentials from Infisical): a

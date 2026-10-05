@@ -75,6 +75,10 @@ file stale. What belongs here is the shape and the rules:
   declares `general_assessments.questions.*` sub-fields that prod lacks (that table is empty and the feature is
   unimplemented). A database rebuilt from `db/schema-v*.surql` would therefore be slightly stricter there than
   prod. Nothing else differs: the sandbox fixture and prod match field-for-field on the tables the app uses.
+  *(Both were closed on 2026-10-05: the six `general_assessments.questions.*` statements were applied for the
+  general-assessment feature, and applying v3 for them also brought in its `teaches` table and
+  `teacher_profile.qualifications` — empty and unread by the app. Prod and the files now agree on the tables the
+  app uses.)*
 - **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username.
 - **Relations are edges**, created with `RELATE`; `has_subject` is the curriculum.
 - **Record links, not strings**: a filter on a link column must compare against a record literal
