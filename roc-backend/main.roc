@@ -1555,15 +1555,22 @@ respond! = |request, context| {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
                             bare_assessment = bare_id(assessment_id)
-                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
+                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration, (grade_released_at IS NOT NONE) AS released FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
                                 Ok(body) => body
                                 Err(_) => ""
                             }
                             existing_id = extract_field(existing_body, "submission_id")
+                            # max_resubmissions 0 (the schema default) means unlimited.
                             max_resubmissions = field_int!(assessment_body, "max_resubmissions")
                             attempts = field_int!(existing_body, "iteration")
-                            # max_resubmissions 0 (the schema default) means unlimited.
-                            if !Str.is_empty(existing_id) and max_resubmissions > 0 and attempts >= max_resubmissions {
+                            # A released grade is final: the MoonBit stack refused a resubmit once
+                            # grade_released_at was set (student_handler_assessment.mbt). Without the
+                            # check the resubmit replaces the answers the released mark was awarded for
+                            # while scored_mark and grade_released_at stay on the row, so the teacher's
+                            # released grade would point at answers that no longer exist.
+                            if !Str.is_empty(existing_id) and json_bool(existing_body, "released") == "true" {
+                                Ok(json_response(409, "{\"error\":\"The grade for this assessment has been released; it can no longer be resubmitted\"}"))
+                            } else if !Str.is_empty(existing_id) and max_resubmissions > 0 and attempts >= max_resubmissions {
                                 Ok(json_response(409, "{\"error\":\"Resubmission limit reached\"}"))
                             } else {
                                 found_mark = extract_number_field(assessment_body, "total_mark")

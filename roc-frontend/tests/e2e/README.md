@@ -32,7 +32,7 @@ this app.)
 | `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
 | `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. | Sandbox backend, mock Authentik and its database |
 | `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
-| `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. | Sandbox backend |
+| `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. Creates its own subject per run, so it never spends the fixture's weight budget. | Sandbox backend |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -95,7 +95,13 @@ table is rejected), and `questions` / `answers` are `array<object>`, which impli
 carries the six `questions.*` sub-field statements from `db/schema-v3.surql` that prod has not had applied
 to `general_assessments`: without them this SurrealDB generation rejects every question object, so a
 sandbox could not store what the implementation writes. Apply those statements to prod before general
-assessments with questions can be created there.
+assessments with questions can be created there. `general_assessment_flow.sh` reads its own rows back out
+of the database when `SURREAL_URL` is set (the same address the backend uses, e.g.
+`SURREAL_URL=http://127.0.0.1:8002/sql`), which is how it checks the stored questions and answers against
+those field definitions.
 
-The general-assessment checks consume the term/subject weight budget (100%), so reload the fixture (or
-point them at another `SESSION_TERM_ID`) once a few runs have spent it.
+The general-assessment checks consume the term/subject weight budget (100%). `general_assessment_flow.sh`
+creates its own subject through the API on every run, so it starts from an empty budget and can be run
+again on the same sandbox. `e2e_general_assessments.cjs` still creates on the subject its pickers select
+(the fixture's `subjects:agricultural_science`, 10% + 1% per run), so reload the fixture once a few runs
+have spent that subject's budget, or point `E2E_SUBJECT_ID` at one with room left.
