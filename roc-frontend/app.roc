@@ -5,7 +5,7 @@ app [Model, Msg, init, update, render, subscriptions] {
 	html: "https://github.com/niclas-ahden/joy-html/releases/download/0.16.0/56NBT6VkQ5xm87Wjzcv9mRuNT4RACiAmuAmPbXwc8cuk.tar.zst",
 }
 
-import html.Html exposing [Html, div, h1, text, a, span]
+import html.Html exposing [Html, div, h1, p, text, a, span]
 import html.Attribute exposing [class]
 import pf.DOM
 import pf.Sub exposing [Sub]
@@ -244,16 +244,26 @@ render = |model| {
 					UI.button({ ..UI.default_button, variant: Ghost, size: Icon }, [
 						text("🔔")
 					]),
-					div([class("relative group")], [
-						UI.button({ ..UI.default_button, variant: Ghost, size: Icon, classes: "rounded-full bg-muted" }, [
-							text(user_initial)
-						]),
-						div([class("absolute right-0 mt-2 w-48 bg-card border rounded-md shadow-md py-1 hidden group-hover:block z-50")], [
-							UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
-								text("Sign Out")
-							])
-						])
-					])
+					                                        div([class("relative")], [
+					                                                div([Attribute.id("user-menu-button")], [
+					                                                        UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleUserMenu), classes: "rounded-full bg-muted" }, [
+					                                                                text(user_initial)
+					                                                        ])
+					                                                ]),
+					                                                div([
+					                                                        Attribute.id("user-menu"),
+					                                                        class(if model.userMenuOpen { "absolute right-0 mt-2 w-56 bg-card border rounded-md shadow-md py-1 z-50" } else { "hidden" })
+					                                                ], [
+					                                                        div([class("px-4 py-2 space-y-0.5")], [
+					                                                                p([class("text-sm font-medium truncate")], [text(if Str.is_empty(model.userName) { "Signed in" } else { model.userName })]),
+					                                                                p([class("text-xs text-muted-foreground truncate")], [text(if Str.is_empty(model.userEmail) { "no address on the token" } else { model.userEmail })])
+					                                                        ]),
+					                                                        div([class("border-t my-1")], []),
+					                                                        UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
+					                                                                text("Sign Out")
+					                                                        ])
+					                                                ])
+					                                        ])
 				]
 			))
 		])
@@ -279,7 +289,15 @@ render = |model| {
 			Attribute.id("active_session_term_input"),
 			Attribute.value(model.sessionTermData),
 			Attribute.on_input(|s| GotSessionTermData(s))
-		]),
+	]),
+	# The avatar menu closes when the page's own listener sees a click outside it (www/index.html
+	# dispatches this input), so it never stays open behind a navigation.
+	Html.input([
+		Attribute.type("hidden"),
+		Attribute.id("user_menu_close_input"),
+		Attribute.value(""),
+		Attribute.on_input(|_s| CloseUserMenu)
+	]),
 		mobile_sidebar,
 		sidebar,
 		div([class("flex-1 flex flex-col h-full overflow-hidden")], [

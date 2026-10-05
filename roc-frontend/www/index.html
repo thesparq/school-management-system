@@ -313,6 +313,30 @@
                 localStorage.removeItem("auth_token");
             }
         });
+
+        // Port: end_session — sign out for real. The token is already cleared by save_token; this ends
+        // the Authentik session and comes back to this origin. The redirect URI is the app's own
+        // `/auth/callback`, which every environment already has registered for login, so signing out
+        // needs no extra registration: the page returns there with no code, clears the URL and starts
+        // the login flow again — and Authentik asks for credentials because the session just ended.
+        app.onPort("end_session", () => {
+            // Clear the token here as well as through save_token: the app's effects are not guaranteed
+            // to have run before this navigation starts, and a sign-out that leaves a usable token in
+            // storage is not a sign-out.
+            localStorage.removeItem("auth_token");
+            const back = window.location.origin + "/auth/callback";
+            window.location.href = AUTH_HOST + "/application/o/school-management-system/end-session/?post_logout_redirect_uri=" + encodeURIComponent(back);
+        });
+
+        // The avatar menu closes on a click anywhere outside it. The app owns whether it is open
+        // (`userMenuOpen`), so the page only reports the outside click through the hidden input.
+        document.addEventListener("click", (e) => {
+            const menu = document.getElementById("user-menu");
+            if (!menu || menu.classList.contains("hidden")) return;
+            if (menu.contains(e.target) || (e.target.closest && e.target.closest("#user-menu-button"))) return;
+            const input = document.getElementById("user_menu_close_input");
+            if (input) input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
     }
 
     // ========================================================

@@ -60,7 +60,10 @@ Model : {
 	newUserSurname : Str,
 	newUserEmail : Str,
 	isSubmitting : Bool,
-	mobileMenuOpen : Bool,
+	    mobileMenuOpen : Bool,
+	    # The nav bar's avatar menu. It is a click-toggled menu rather than a hover one: a hover menu
+	    # cannot be opened on a touch screen, and it closes the moment the pointer leaves it.
+	    userMenuOpen : Bool,
 	usersData : Str,
 	termsData : Str,
 	subjectsData : Str,
@@ -123,8 +126,12 @@ Model : {
 Msg : [
 	UrlChanged(Str),
 	NavigateTo(Route),
-	ToggleTheme,
-	ToggleMobileMenu,
+	    ToggleTheme,
+	    ToggleMobileMenu,
+	    # The avatar menu: toggled by the avatar, and closed by a click anywhere outside it (the page's
+	    # own listener sends CloseUserMenu) so it never stays open behind a navigation.
+	    ToggleUserMenu,
+	    CloseUserMenu,
 	TestConnectionClicked,
 	PingCompleted([Success(Str), Error(Str)]),
 	UpdateNewUserFirstName(Str),
@@ -245,7 +252,8 @@ init = |flags| {
 		newUserSurname: "",
 		newUserEmail: "",
 		isSubmitting: Bool.False,
-		mobileMenuOpen: Bool.False,
+		            mobileMenuOpen: Bool.False,
+		            userMenuOpen: Bool.False,
 		sessionTermData: "",
 		usersData: "",
 		termsData: "",
@@ -527,15 +535,24 @@ update = |model, msg|
 			themeStr = match newTheme { Light => "light", Dark => "dark" }
 			({ ..model, theme: newTheme }, [Port.send("save_theme", themeStr)])
 		}
-		ToggleMobileMenu => {
-			({ ..model, mobileMenuOpen: !(model.mobileMenuOpen) }, [])
+		            ToggleMobileMenu => {
+			                    ({ ..model, mobileMenuOpen: !(model.mobileMenuOpen) }, [])
 		}
-		SignOut => {
-			({ ..model, route: Dashboard, role: Unauthenticated, authToken: "" }, [
-				Port.send("save_token", ""),
-				Port.send("redirect", "https://auth.johnethel.school/application/o/school-management-system/end-session/?post_logout_redirect_uri=http://localhost:9090/")
-			])
+		            ToggleUserMenu => {
+			                    ({ ..model, userMenuOpen: !(model.userMenuOpen) }, [])
 		}
+		            CloseUserMenu => {
+			                    ({ ..model, userMenuOpen: Bool.False }, [])
+		}
+		                SignOut => {
+		                        ({ ..model, route: Dashboard, role: Unauthenticated, authToken: "", userMenuOpen: Bool.False }, [
+		                                Port.send("save_token", ""),
+		                                # The page builds this URL: the post-logout redirect is the app's own origin,
+		                                # which a fixed string here could not know. The retired app did the same, from
+		                                # Authentik's `end_session_endpoint` and its own ORIGIN.
+		                                Port.send("end_session", "")
+		                        ])
+		                }
 		TestConnectionClicked =>
 			(
 				{ ..model, isPinging: Bool.True, pingResult: None },

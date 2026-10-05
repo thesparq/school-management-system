@@ -29,6 +29,7 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | Script | What it proves | Needs |
 |---|---|---|
 | `render_lesson_check.cjs` | The page's own `renderLesson` turns a real lesson into the expected sections (introduction, objectives as text, content sections, sub-points, key points, conclusion) and leaks no raw JSON. No browser: it stubs the DOM and runs the page's JavaScript. | Backend + a lesson id |
+| `e2e_signout.cjs` | The nav bar's avatar menu and sign-out: the menu starts closed, opens on a click, shows who is signed in and offers Sign Out, closes on a click outside; signing out navigates to Authentik's end-session with this origin's callback as the return and clears the token from storage. | Backend |
 | `e2e_auth_callback.cjs` | The OAuth2 round trip with Authentik's endpoints intercepted: the redirect URI the app sends is `<origin>/auth/callback` on both legs, the code is exchanged on the callback path with the PKCE verifier, the token is stored, the URL is cleaned back to the root, and a bare callback visit starts from the root too. | Backend |
 | `auth_config_check.cjs` | An origin's auth wiring against the *real* Authentik, no browser: the advertised userinfo endpoint is the instance-wide one and matches what the backend derives, it answers 401 for a bad token, and the app's redirect URI is registered (with an unregistered one rejected as a control). | Network access to Authentik |
 | `e2e_student.cjs` | Student drill-down in Chromium: subject cards from prod, terms, lessons filtered by subject+term, full lesson content, scroll-spy sections, no page errors. | Backend |
@@ -47,6 +48,7 @@ node tests/e2e/render_lesson_check.cjs            # defaults to a known prod les
 LESSON_ID=lessons:... node tests/e2e/render_lesson_check.cjs
 node tests/e2e/e2e_student.cjs
 node tests/e2e/e2e_auth_callback.cjs
+node tests/e2e/e2e_signout.cjs
 node tests/e2e/auth_config_check.cjs                    # defaults to the deployed origin
 node tests/e2e/auth_config_check.cjs http://127.0.0.1:8000
 node tests/e2e/e2e_admin.cjs
