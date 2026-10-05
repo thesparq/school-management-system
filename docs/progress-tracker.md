@@ -157,12 +157,46 @@ sandbox first (pre-existing row untouched, updates still work, an unknown `type`
 assessment tables held 0 rows before and after, and a probe row created with questions → published → read back →
 removed, leaving the counts at 0.
 
+### Student answer-taking — implemented, blocked on one prod field set
+
+- **The form** (`www/index.html`): an assessment in the student's tab opens a question form — radio groups for
+  MCQ questions (option letters a/b/c as the value), a textarea for anything without options — with a live
+  "N of M answered" counter, a back link, and a disabled submit plus "the deadline has passed" once the
+  deadline is in the past. Answers are collected in the shape the MoonBit stack used
+  (`question_index`, `answer_type`, `answer_text`, `allocated_mark`) and POSTed to
+  `/api/student/submit-assessment`; the list then shows a green "Submitted: <title>" note.
+- **The backend no longer lies about failed writes.** SurrealDB answers HTTP 200 with `"status":"ERR"` in the
+  body when a statement fails, and every write path trusted the status: a rejected submission was acknowledged
+  in the UI while nothing was stored. `db_body!` / `db_response!` in `main.roc` now interpret the body for the
+  twelve write paths (subjects, terms, class levels, session terms, user creation, assessment create/publish,
+  submit, grade, release, and the legacy `PUT`/`DELETE /api/users`), answering 500 with the statement's own
+  message. Reads are unchanged.
+- **Blocker**: `submissions` is SCHEMAFULL and prod defines only `answers` (`array<object>`) and `answers.*`
+  (`object`) — no sub-fields, so *every* answer object is rejected:
+  `Found field 'answers[0].allocated_mark', but no such field exists for table 'submissions'`. Storing answers
+  needs four additive field definitions (`answers.*.question_index` `int`, `.answer_type` `string`,
+  `.answer_text` `string`, `.allocated_mark` `int`), the same pattern as the `questions.*` change below.
+  Prod's `submissions` table holds 0 rows, so there is nothing to migrate. **Awaiting approval to apply it.**
+- **Sandbox proof**: with those four statements applied to the sandbox only, the browser lifecycle passes
+  14/14 (`tests/e2e/e2e_assessments.cjs`, uncommitted extension) — the form renders, both answer kinds are
+  stored (`{"answer_text":"b","answer_type":"mcq","allocated_mark":4,"question_index":0}`), the teacher's
+  grading tab shows the student, and the released grade appears. Without them the same run stops at the submit
+  step, which is now the honest failure rather than a false success.
+- `fixtures/sandbox-schema.surql` deliberately still mirrors prod (no `answers.*.*` fields), so the sandbox
+  keeps reproducing the prod rejection until the change is applied to both.
+
 ### Remaining
 
+- [ ] `submissions.answers` needs the four sub-field definitions on prod (and in the sandbox fixture) before the
+  student answer flow can store anything — see the blocker above.
+- [ ] MCQ auto-scoring on submit, and enforcement of `deadline` / `max_resubmissions` / `scheduled_at` (they are
+  accepted but not enforced).
+- [ ] `PUT` / `DELETE /api/users` still write the legacy `student` table (no UI calls them); they now report the
+  failure instead of answering 200.
+- [ ] The admin Configuration Hub is UI-only (`terms_config_view` and friends take `|_model|`), though the
+  endpoints for terms, subjects, class levels and session terms exist.
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
   assessments are.
-- [ ] The student's assessment tab submits without answers (the question-taking UI is not built), so grading is
-  manual.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
 - [ ] Query parameters are not percent-decoded, so a client that URL-encodes a record id (`lessons%3Aabc`)
   gets an empty result; the UI passes ids raw.
