@@ -96,6 +96,19 @@ OPEN_AID=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H 
 curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$OPEN_AID\",\"active\":true}" > /dev/null
 check "a submission before the deadline is accepted" "$(submit "$OPEN_AID")" '"iteration":1'
 
+# --- scheduled_at: not open yet, refused until it passes ---
+LATER_CREATE=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE scheduled\",\"scheduled_at\":\"2099-01-01T00:00:00Z\"}")
+LATER_AID=$(echo "$LATER_CREATE" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])")
+check "scheduled_at is stored" "$LATER_CREATE" '"scheduled_at":'
+curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$LATER_AID\",\"active\":true}" > /dev/null
+check "a submission before scheduled_at is rejected" "$(submit "$LATER_AID")" "not open yet"
+check "the not-open rejection is a 409" "$(submit_status "$LATER_AID")" "409"
+# A start time in the past must not stand in the way, and neither must no start time at all (the
+# case above: OPEN_AID has no scheduled_at and its submit was accepted).
+EARLIER_AID=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE started\",\"scheduled_at\":\"2020-01-01T00:00:00Z\"}" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])")
+curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$EARLIER_AID\",\"active\":true}" > /dev/null
+check "a submission after scheduled_at is accepted" "$(submit "$EARLIER_AID")" '"iteration":1'
+
 # --- max_resubmissions: 0 is unlimited, otherwise the iteration is capped ---
 LIMIT_CREATE=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE limited\",\"max_resubmissions\":1}")
 LIMIT_AID=$(echo "$LIMIT_CREATE" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])")

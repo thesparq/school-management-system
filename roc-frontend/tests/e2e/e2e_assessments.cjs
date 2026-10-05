@@ -44,6 +44,11 @@ async function newPage(browser, token) {
   await teacher.waitForSelector('#create-assessment-btn', { timeout: 20000 });
   await teacher.click('#create-assessment-btn');
   await teacher.fill('#assessment-title-input', title);
+  // The optional rules the backend enforces, set through the modal: already open, never closes, two
+  // attempts. datetime-local fields take local wall-clock time and are sent as UTC.
+  await teacher.fill('#assessment-scheduled-input', '2020-01-01T00:00');
+  await teacher.fill('#assessment-deadline-input', '2099-01-01T00:00');
+  await teacher.fill('#assessment-resubmissions-input', '2');
   // The lesson's bank is [mcq, mcq, theory] in that order: take the first MCQ and the theory
   // question, so the student form below has one radio group and one free-text answer.
   await teacher.waitForSelector('[data-q-check="2"]', { timeout: 20000 });
@@ -58,9 +63,11 @@ async function newPage(browser, token) {
     const res = await fetch('/api/teacher/lesson-assessments', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('auth_token') || '') } });
     const rows = (await res.json())[0].result || [];
     const mine = rows.find(r => r.title === t);
-    return mine ? { count: (mine.questions || []).length, type: (mine.questions || [])[0]?.type, marks: mine.total_mark } : null;
+    return mine ? { count: (mine.questions || []).length, type: (mine.questions || [])[0]?.type, marks: mine.total_mark,
+                   scheduled: mine.scheduled_at || null, deadline: mine.deadline || null, attempts: mine.max_resubmissions } : null;
   }, title);
   check('the picked questions are stored in the strict shape', !!stored && stored.count === 2 && stored.type === 'mcq' && stored.marks === 9, JSON.stringify(stored));
+  check('the modal\'s open/close/attempts fields reach the API', !!stored && !!stored.scheduled && !!stored.deadline && stored.attempts === 2, JSON.stringify(stored));
   check('it starts as a draft', await teacher.evaluate(() => document.body.innerText.includes('Draft')));
   await teacher.click('#assessments-list >> text=Publish');
   await teacher.waitForTimeout(1500);

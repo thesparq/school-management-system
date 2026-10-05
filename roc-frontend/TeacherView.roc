@@ -242,6 +242,36 @@ teacher_lesson_view = |model| {
                                     Attribute.placeholder("e.g. Week 3 Quiz")
                                 ])
                             ]),
+                            # The optional rules the backend enforces. Local time in the browser, sent as
+                            # UTC so the stored instant is unambiguous.
+                            Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
+                                Html.div([Attribute.class("space-y-2")], [
+                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens (optional)")]),
+                                    Html.input([
+                                        Attribute.id("assessment-scheduled-input"),
+                                        Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                        Attribute.type("datetime-local")
+                                    ])
+                                ]),
+                                Html.div([Attribute.class("space-y-2")], [
+                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes (optional)")]),
+                                    Html.input([
+                                        Attribute.id("assessment-deadline-input"),
+                                        Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                        Attribute.type("datetime-local")
+                                    ])
+                                ])
+                            ]),
+                            Html.div([Attribute.class("space-y-2")], [
+                                Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed (optional)")]),
+                                Html.input([
+                                    Attribute.id("assessment-resubmissions-input"),
+                                    Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                    Attribute.type("number"),
+                                    Attribute.placeholder("unlimited")
+                                ]),
+                                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Leave a field blank for no rule: open now, never closes, unlimited attempts.")])
+                            ]),
                             Html.div([Attribute.id("assessment-questions-area"), Attribute.class("space-y-3")], [
                                 Html.p([Attribute.class("text-sm text-muted-foreground italic")], [Html.text("Question selection from this lesson's bank is not wired up yet, so the assessment is created without questions.")]),
                                 Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is saved as a draft; publish it from the list when you are ready for students to see it.")])

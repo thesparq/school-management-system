@@ -889,7 +889,7 @@
                             <button onclick="toggleAssessment('${a.id}', ${a.active ? "false" : "true"})" class="text-xs text-primary hover:underline cursor-pointer">${a.active ? "Unpublish" : "Publish"}</button>
                             <button onclick="viewSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
                         ` : `
-                            <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitAssessment('${a.id}')">${a.deadline && new Date(a.deadline).getTime() < Date.now() ? "Review (closed)" : "Take Assessment"}</button>
+                            <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitAssessment('${a.id}')">${a.deadline && new Date(a.deadline).getTime() < Date.now() ? "Review (closed)" : (a.scheduled_at && new Date(a.scheduled_at).getTime() > Date.now() ? `Opens ${new Date(a.scheduled_at).toLocaleDateString()}` : "Take Assessment")}</button>
                         `}
                     </div>
                 </div>`).join("");
@@ -992,16 +992,32 @@
         try {
             const questions = selectedBankQuestions();
             const totalMark = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+            // The optional rules the backend enforces: when it opens, when it closes, and how many
+            // attempts a student gets. Empty means "no rule" on every one of them.
+            const value = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+            // datetime-local gives local wall-clock time with no zone; send UTC so the stored instant
+            // is unambiguous. A blank field means "no rule".
+            const asUtc = (v) => { if (!v) return ""; const d = new Date(v); return isNaN(d.getTime()) ? "" : d.toISOString(); };
+            const deadline = asUtc(value("assessment-deadline-input"));
+            const scheduledAt = asUtc(value("assessment-scheduled-input"));
+            const maxResubmissions = value("assessment-resubmissions-input");
             const res = await fetch("/api/teacher/create-lesson-assessment", {
                 method: "POST",
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
-                body: JSON.stringify({ title, lesson_id: _currentLessonId || "none", questions, total_mark: totalMark })
+                body: JSON.stringify({
+                    title, lesson_id: _currentLessonId || "none", questions, total_mark: totalMark,
+                    ...(deadline ? { deadline } : {}),
+                    ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+                    ...(maxResubmissions ? { max_resubmissions: Number(maxResubmissions) } : {}),
+                })
             });
             const data = await res.json().catch(() => null);
             const failure = data && (Array.isArray(data) ? data[0]?.error : data.error);
             if (!res.ok || failure) { alert(failure || "Failed to create assessment."); return; }
             modal && modal.classList.add("hidden");
             if (titleInput) titleInput.value = "";
+            ["assessment-deadline-input", "assessment-scheduled-input", "assessment-resubmissions-input"]
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
             loadAssessments(true);
         } catch(e) { alert("Failed to create assessment."); }
     }
@@ -1035,7 +1051,11 @@
         const title = (assessment && assessment.title) || "Assessment";
         const deadline = assessment && assessment.deadline ? new Date(assessment.deadline) : null;
         const closed = deadline && deadline.getTime() < Date.now();
-        const submitCls = closed
+        const opensAt = assessment && assessment.scheduled_at ? new Date(assessment.scheduled_at) : null;
+        const notOpen = opensAt && opensAt.getTime() > Date.now();
+        // Cosmetic: the backend refuses either case with a 409 whatever the page shows.
+        const blocked = closed || notOpen;
+        const submitCls = blocked
             ? "text-sm bg-muted text-muted-foreground px-4 py-2 rounded cursor-not-allowed"
             : "text-sm bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 cursor-pointer";
         const back = `<button class="text-xs text-primary hover:underline cursor-pointer" id="back-to-assessments">← Back to assessments</button>`;
@@ -1052,7 +1072,7 @@
             <div class="border rounded-lg p-6 space-y-5">
                 <div class="space-y-1">
                     <h4 class="font-medium">${escHtml(title)}</h4>
-                    <p class="text-xs text-muted-foreground">${questions.length} question${questions.length === 1 ? "" : "s"}${assessment && assessment.total_mark ? ` · ${assessment.total_mark} marks` : ""}${deadline ? ` · due ${deadline.toLocaleString()}` : ""}</p>
+                    <p class="text-xs text-muted-foreground">${questions.length} question${questions.length === 1 ? "" : "s"}${assessment && assessment.total_mark ? ` · ${assessment.total_mark} marks` : ""}${opensAt ? ` · opens ${opensAt.toLocaleString()}` : ""}${deadline ? ` · due ${deadline.toLocaleString()}` : ""}</p>
                 </div>
                 ${questions.map((q, i) => `
                 <div class="space-y-2 border-t pt-4">
@@ -1069,9 +1089,10 @@
                             class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></textarea>`}
                 </div>`).join("")}
                 <div class="flex items-center gap-3 border-t pt-4">
-                    <button id="submit-assessment-answers" class="${submitCls}" ${closed ? "disabled" : ""}>Submit</button>
+                    <button id="submit-assessment-answers" class="${submitCls}" ${blocked ? "disabled" : ""}>Submit</button>
                     <span id="assessment-answered-count" class="text-xs text-muted-foreground">0 of ${questions.length} answered</span>
                     ${closed ? '<span class="text-xs text-destructive">The deadline has passed.</span>' : ""}
+                    ${notOpen ? `<span class="text-xs text-destructive">This assessment opens ${opensAt.toLocaleString()}.</span>` : ""}
                 </div>
             </div>`;
 

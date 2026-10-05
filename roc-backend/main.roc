@@ -1110,6 +1110,7 @@ respond! = |request, context| {
                     title = extract_field(payload_raw, "title") |> sanitize
                     description = extract_field(payload_raw, "description") |> sanitize
                     deadline = extract_field(payload_raw, "deadline") |> sanitize
+                    scheduled_at = extract_field(payload_raw, "scheduled_at") |> sanitize
                     questions = json_array_or_empty!(payload_raw, "questions")
                     if Str.is_empty(lesson_id) or lesson_id == "none" {
                         Ok(json_response(400, "{\"error\":\"lesson_id is required\"}"))
@@ -1125,7 +1126,10 @@ respond! = |request, context| {
                         max_resubmissions_clause = if Str.is_empty(max_resubmissions) { "" } else { ", max_resubmissions = ${max_resubmissions}" }
                         description_clause = if Str.is_empty(description) { "" } else { ", description = '${surreal_literal(description)}'" }
                         deadline_clause = if Str.is_empty(deadline) { "" } else { ", deadline = <datetime> '${deadline}'" }
-                        create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause};"
+                        # Absent leaves the column empty, which means "open now"; submit refuses an
+                        # answer that arrives before it (see the not_yet_open branch there).
+                        scheduled_at_clause = if Str.is_empty(scheduled_at) { "" } else { ", scheduled_at = <datetime> '${scheduled_at}'" }
+                        create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause}${scheduled_at_clause};"
                         Ok(db_response!(create_query, context.surreal))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/toggle-assessment-active" {
@@ -1164,7 +1168,7 @@ respond! = |request, context| {
                         # One read of the assessment feeds the checks, the total mark and the
                         # questions. `expired` is decided by the database, so no clock or date
                         # parsing here and no gap between the check and the stored deadline.
-                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
+                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired, (scheduled_at IS NOT NONE AND scheduled_at > time::now()) AS not_yet_open FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
                             Ok(body) => body
                             Err(_) => ""
                         }
@@ -1175,6 +1179,8 @@ respond! = |request, context| {
                             Ok(json_response(404, "{\"error\":\"No such assessment\"}"))
                         } else if json_bool(assessment_body, "active") != "true" {
                             Ok(json_response(409, "{\"error\":\"This assessment is not published\"}"))
+                        } else if json_bool(assessment_body, "not_yet_open") == "true" {
+                            Ok(json_response(409, "{\"error\":\"This assessment is not open yet\"}"))
                         } else if json_bool(assessment_body, "expired") == "true" {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
