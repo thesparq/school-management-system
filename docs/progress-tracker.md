@@ -191,24 +191,26 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 
 ### Remaining
 
+- [ ] **`general_assessments` cannot store question objects on prod.** The table declares `questions` and
+  `questions.*` but none of the sub-fields, so a create with questions answers 500 with the database's own
+  message. `db/schema-v3.surql` (lines 43-48) already carries the six `DEFINE FIELD IF NOT EXISTS` statements —
+  they were applied to `lesson_assessments` only. Both `general_assessments` and `compositions` hold **0 rows**,
+  so there is nothing to migrate; applying them is additive. **Awaiting approval to apply to prod.**
+- [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
+  neither read nor written — no code path in either stack computes the weighted sum).
+- [ ] R2 uploads are implemented and signed correctly but **no real bucket has been contacted**: that R2 accepts
+  the signature, and that the bucket's CORS policy allows the browser's `PUT`, are for the deployment to
+  confirm (the browser check intercepts the PUT).
 - [ ] **Role-based authorization is missing in the backend.** It validates the token and scopes queries to the
   caller's own record, but it never reads the token's `groups`, so any valid token can call any route —
   teacher and admin endpoints included. The retired agent stack did gate by role (`agents/app-agents/auth.mbt`),
   so this is a regression introduced by the Roc rewrite. Closing it means deriving the caller's role from the
   userinfo response, gating `/api/student/*`, `/api/teacher/*`, `/api/users` and the configuration endpoints,
   and deciding what `dev-skip` means in `DEV_MODE` so the sandbox suites keep working.
-- [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
-  assessments are. *(A workstream is on this.)*
-- [ ] Automatic passport upload: `POST /api/upload-url` returns the key and endpoint but signs nothing, and the
-  admin form takes a URL. *(A workstream is on this — SigV4 needs SHA-256 + HMAC, which the backend does not
-  have yet.)*
-- [ ] `docs/architecture.md` still describes the retired agent path section by section (the stack table, the
-  monorepo layout, the system boundaries); only the deadline authority and a note at the top have been updated.
+- [ ] `docs/architecture.md` is written for the Roc stack now, but the retired path could still use a fuller
+  account (the agent table, the RPC fan-out) if anyone needs it beyond git history.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
-- [ ] The admin hub lists and creates; it has no edit/activate/deactivate for those rows (session terms are
-  created inactive, so promoting one still needs the database), and `/api/subjects` + `/api/class_levels` stay
-  active-only, so those tables show no status column. *(A workstream is on this.)*
 - [ ] **The Golem/MoonBit durable layer is built but not wired.** Six agent types still exist and build
   (`moon check` 0 errors, `app-agents.wasm` 1.1 MB) and CI still deploys them, but the Roc backend's only call
   is the stale `POST /api/enroll` → a `cs101` prototype (no auth key, unused by the UI), and the eight
@@ -353,9 +355,42 @@ parameters and the registration is explicit. The backend's SPA fallback already 
 path, and a visit without a code starts the app from the root. `tests/e2e/e2e_auth_callback.cjs` drives the whole
 round trip with Authentik's endpoints intercepted and asserts the URI on both legs (12/12).
 
+### Three more workstreams — done
+
+Merged as `b050420` (their own commits: `f0ed0aa`, `7695938`, `3db0b68`); they overlapped in `main.roc`, the
+frontend and the fixture, so they landed together with the conflicts resolved by hand (both blocks kept where the
+user listing met the hub writes; the R2 passport call plus the assessment-hub setup in `index.html`;
+`dist.css` regenerated).
+
+- **The hub manages what it lists.** `PUT` for terms, subjects, class levels and session terms;
+  `POST …/toggle-active` for those plus the curriculum edge; `?all=true` on the three active-only listings so a
+deactivated row stays manageable in the hub while dropping off `/api/subjects` and the student's cards. Updates
+  are patches (absent = unchanged; nothing carried is a 400) and a duplicate name comes back with the unique
+  index's own message.
+- **General assessments** work end to end — create with hand-written questions and the opens/closes/attempts
+  rules, publish, student answer, MCQ auto-scoring, the same 409 guards, grading through the existing list.
+  `assessment_type=general`, bare `assessment_id`, one row per student and assessment with `iteration` bumping in
+  place. `compositions` is deliberately neither read nor written (nothing computes a weighted term result) and
+  create enforces the legacy ≤100% weight budget. It also fixed an existing bug: "Show all submissions"
+  referenced module-scoped variables and threw on click.
+- **Real presigned passport uploads.** `Sha256.roc` + `Hmac.roc` (pure; NIST and RFC 4231 vectors) and `R2.roc`
+  (SigV4 query presigning, checked against AWS's published `GET /test.txt` vector). `POST /api/upload-url` signs
+  a 600-second `PUT` for `<profileType>/passports/<userId>.jpg`, validates both parts, and answers 503 naming any
+  missing variable rather than a URL that cannot work. The form uploads the file and writes the returned public
+  URL into the passport field; the URL field still works.
+
+**Verified on the merged tree** (sandbox: SurrealDB 8002, mock Authentik 9000, backend 8010; fixture 157
+statements, 0 errors): `general_assessment_flow.sh` 49 passed / 1 skipped (the compositions check wants
+`SURREAL_URL`), `e2e_general_assessments.cjs` 25/25, `users_api.sh` 28/28, `assessment_flow.sh` 41/41,
+`e2e_admin_config.cjs` 53/53, `e2e_passport_upload.cjs` 9/9, `e2e_assessments.cjs` 17/17, `e2e_admin.cjs` 5/5,
+`e2e_student.cjs` 7/7, `e2e_auth_callback.cjs` 12/12; `roc check` 0 errors / 3 warnings; `Sha256Test` 7/7,
+`HmacTest` 7/7, `R2Test` 20/20, `UrlTest` 16/16. One test fix: `e2e_passport_upload.cjs` asserted the sandbox's
+access key instead of the signature's shape.
+
 ---
 
 ## Completed Work
+
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc, EventStore.roc)
 - [x] Roc Joy framework frontend (app.roc, State.roc, UI.roc, DashboardView, AdminView, TeacherView, StudentView)
 - [x] SurrealDB schema (schema.surrealql) with event sourcing tables
