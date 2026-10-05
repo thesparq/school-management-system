@@ -123,6 +123,44 @@ DEFINE FIELD title ON lesson_assessments TYPE string ASSERT $value != NONE;
 DEFINE FIELD total_mark ON lesson_assessments TYPE int;
 DEFINE FIELD updated_at ON lesson_assessments TYPE none | datetime;
 
+# General assessments: a term/subject weighted assessment with its own questions (prod schema).
+DEFINE TABLE general_assessments SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD active ON general_assessments TYPE bool DEFAULT false;
+DEFINE FIELD created_at ON general_assessments TYPE datetime DEFAULT time::now();
+DEFINE FIELD created_by ON general_assessments TYPE record<teacher_profile>;
+DEFINE FIELD deadline ON general_assessments TYPE none | datetime;
+DEFINE FIELD deleted_at ON general_assessments TYPE none | datetime;
+DEFINE FIELD description ON general_assessments TYPE none | string;
+DEFINE FIELD max_resubmissions ON general_assessments TYPE int DEFAULT 0;
+DEFINE FIELD percentage_weight ON general_assessments TYPE int;
+DEFINE FIELD questions ON general_assessments TYPE none | array<object>;
+# (`array<object>` implies `questions.*`, and prod's explicit definition of it says the same thing.)
+# Prod declares nothing under `questions.*`, so a question object is rejected there; db/schema-v3.surql
+# declares the six sub-fields below and the implementation writes exactly that shape. Apply v3's
+# general_assessments statements to prod before the feature can store questions there.
+DEFINE FIELD questions.*.type ON general_assessments TYPE string ASSERT $value INSIDE ['mcq', 'boolean', 'short_answer', 'essay'];
+DEFINE FIELD questions.*.question ON general_assessments TYPE string;
+DEFINE FIELD questions.*.options ON general_assessments TYPE option<array<string>>;
+DEFINE FIELD questions.*.answer ON general_assessments TYPE string;
+DEFINE FIELD questions.*.explanation ON general_assessments TYPE option<string>;
+DEFINE FIELD questions.*.marks ON general_assessments TYPE option<number>;
+DEFINE FIELD scheduled_at ON general_assessments TYPE none | datetime;
+DEFINE FIELD session_term ON general_assessments TYPE record<session_term> ASSERT $value != NONE;
+DEFINE FIELD subject ON general_assessments TYPE record<subjects> ASSERT $value != NONE;
+DEFINE FIELD title ON general_assessments TYPE string ASSERT $value != NONE;
+DEFINE FIELD total_mark ON general_assessments TYPE int;
+DEFINE FIELD updated_at ON general_assessments TYPE none | datetime;
+DEFINE INDEX idx_ga_st_subj ON general_assessments FIELDS session_term, subject;
+
+# The general_assessment -> lesson_assessment weights join table (prod schema). Kept here so the
+# fixture matches prod field-for-field; the implementation neither reads nor writes it.
+DEFINE TABLE compositions SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD created_at ON compositions TYPE datetime DEFAULT time::now();
+DEFINE FIELD general_assessment ON compositions TYPE record<general_assessments> ASSERT $value != NONE;
+DEFINE FIELD lesson_assessment ON compositions TYPE record<lesson_assessments> ASSERT $value != NONE;
+DEFINE FIELD weight_pct ON compositions TYPE float;
+DEFINE INDEX idx_comp_ga ON compositions FIELDS general_assessment;
+
 DEFINE TABLE submissions SCHEMAFULL PERMISSIONS FULL;
 # `array<object>` implies `answers.*`, as above.
 DEFINE FIELD answers ON submissions TYPE array<object>;

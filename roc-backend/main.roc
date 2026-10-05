@@ -8,11 +8,13 @@ import pf.Env
 import pf.OsStr
 import pf.Path
 import pf.Stdout
+import pf.Utc
 import http.Response
 import http.Method
 import SurrealDB
 import Base64
 import Url
+import R2
 import Golem
 import Authentik
 
@@ -765,6 +767,52 @@ merge_identity! = |body, users_body| {
     "[{\"result\":[${Str.join_with(rows, ",")}],\"status\":\"OK\"}]"
 }
 
+# --- Configuration hub writes (lookup tables: terms, subjects, class_levels, session_term, has_subject) ---
+
+# One `SET` entry for a text column of a lookup table, or "" when the payload does not carry that
+# field. An update is a patch (`update_clauses!` reads profile updates the same way): a field the
+# caller leaves out keeps its stored value instead of being blanked.
+config_text_clause! : Str, Str => Str
+config_text_clause! = |field, payload_raw| {
+    value = extract_field(payload_raw, field) |> sanitize
+
+    if Str.is_empty(value) {
+        ""
+    } else {
+        "${field} = '${surreal_literal(value)}'"
+    }
+}
+
+# The response for a lookup-table update. `clauses` holds the SET entries the payload produced;
+# when it produced none there is nothing to write, so the 400 names the columns the table takes.
+# db_response! answers 500 with the statement's own message when the write is rejected (a duplicate
+# name against the table's unique index, a link the schema refuses).
+config_update_response! : Str, List(Str), Str, Str, SurrealDB.Config => Server.Outcome
+config_update_response! = |table, clauses, id_val, updatable, config| {
+    if Str.is_empty(id_val) {
+        json_response(400, "{\"error\":\"id is required\"}")
+    } else if List.is_empty(clauses) {
+        json_response(400, "{\"error\":\"no updatable fields: send ${updatable}\"}")
+    } else {
+        db_response!("UPDATE ${record_ref!(id_val, table)} SET ${Str.join_with(clauses, ", ")};", config)
+    }
+}
+
+# The response for a toggle: `active` is the only column written. These tables are SCHEMAFULL and
+# declare no `updated_at`, so a statement that set one would be rejected wholesale. Deactivating
+# marks the row instead of deleting it — the hub keeps listing it so it can be switched back on.
+config_toggle_response! : Str, Str, SurrealDB.Config => Server.Outcome
+config_toggle_response! = |table, payload_raw, config| {
+    id_val = extract_field(payload_raw, "id") |> sanitize
+    active = json_bool(payload_raw, "active")
+
+    if Str.is_empty(id_val) {
+        json_response(400, "{\"error\":\"id is required\"}")
+    } else {
+        db_response!("UPDATE ${record_ref!(id_val, table)} SET active = ${active};", config)
+    }
+}
+
 # --- Input sanitization ---
 
 sanitize = |val| {
@@ -922,6 +970,53 @@ serve_static! = |target, static_dir| {
     }
 }
 
+# --- R2 upload helpers ---
+
+# The object key a passport photo lives under starts with one of these, so an upload can only
+# ever be signed into a profile's own folder.
+profile_type_names = ["student", "teacher", "parent", "admin"]
+
+profile_type_ok : Str -> Bool
+profile_type_ok = |text| List.contains(profile_type_names, text)
+
+# The user id part of the key: the Authentik pk for an account that exists, or the id the page
+# generates for a photo chosen before the account does. Either way it has to be a plain token —
+# a slash or a space would let the caller pick a key of its own choosing.
+key_token_ok : Str -> Bool
+key_token_ok = |text| {
+    !Str.is_empty(text)
+        and Str.count_utf8_bytes(text) <= 64
+        and List.all(Str.to_utf8(text), |byte| is_key_token_byte(byte))
+}
+
+is_key_token_byte : U8 -> Bool
+is_key_token_byte = |byte| {
+    (byte >= 48 and byte <= 57) or (byte >= 97 and byte <= 122) or (byte >= 65 and byte <= 90) or byte == 45 or byte == 95
+}
+
+# The names of the variables whose value is empty. The endpoint reads all five R2 variables up
+# front, so a missing one is named in the 503 rather than discovered by the browser's PUT.
+unset_names : List({ name : Str, value : Str }) -> List(Str)
+unset_names = |variables| List.map(List.keep_if(variables, |variable| Str.is_empty(variable.value)), |variable| variable.name)
+
+# `20130524T000000Z`, the form SigV4 writes its timestamp in.
+looks_like_amz_date : Str -> Bool
+looks_like_amz_date = |text| {
+    Str.count_utf8_bytes(text) == 16 and Str.ends_with(text, "Z") and Str.contains(text, "T")
+}
+
+# The timestamp to sign with: the clock, except in DEV_MODE where the request may pin it, so a
+# test can compare two signatures instead of racing the second. A pinned value that is not the
+# SigV4 shape is ignored rather than signed.
+signing_timestamp! : Str, Bool => Str
+signing_timestamp! = |pinned, dev_mode| {
+    if dev_mode and looks_like_amz_date(pinned) {
+        pinned
+    } else {
+        R2.amz_date_of(Utc.to_iso_8601(Utc.now!()))
+    }
+}
+
 # --- Main request handler ---
 
 respond! : Server.Request, Context => [Ok(Server.Outcome), Err([ServerErr(Str)])]
@@ -990,8 +1085,12 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teachers" {
                     # Superseded by POST /api/users, which writes a teacher_profile record.
                     Ok(json_response(400, "{\"error\":\"Use POST /api/users with role=Teacher\"}"))
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/subjects" {
-                    res = SurrealDB.query!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/subjects") {
+                    # The hub asks with ?all=true so a deactivated subject stays manageable; the
+                    # default list (the student's subject cards, the curriculum picker) is the
+                    # active rows only, which is what deactivating a subject takes it out of.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1010,6 +1109,18 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
                     }
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/subjects" {
+                    # A patch: only the fields the payload carries are written, and an empty one
+                    # means "leave it" rather than "blank it out".
+                    payload_raw = read_body!(request)
+                    clauses = List.keep_if(
+                        [config_text_clause!("name", payload_raw), config_text_clause!("code", payload_raw)],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("subjects", clauses, extract_field(payload_raw, "id") |> sanitize, "name or code", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/subjects/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("subjects", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
                     res = SurrealDB.query!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
@@ -1030,8 +1141,25 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/class_levels" {
-                    res = SurrealDB.query!("SELECT id, name, code, age_range FROM class_levels WHERE active = true ORDER BY name;", context.surreal)
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/terms" {
+                    # A term keeps its name and its place in the school year. An absent sort_order
+                    # leaves the stored one alone — requiring it is the create handler's job.
+                    payload_raw = read_body!(request)
+                    sort_order = extract_number_field(payload_raw, "sort_order")
+                    sort_clause = if Str.is_empty(sort_order) { "" } else { "sort_order = ${sort_order}" }
+                    clauses = List.keep_if(
+                        [config_text_clause!("name", payload_raw), sort_clause],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("terms", clauses, extract_field(payload_raw, "id") |> sanitize, "name or sort_order", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/terms/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("terms", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/class_levels") {
+                    # ?all=true is the hub's view: a deactivated level stays listed so it can be
+                    # edited or switched back on. Everyone else gets the active levels only.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1049,9 +1177,26 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/curriculum" {
-                    # The curriculum is the class_levels -> subjects edge in the prod schema.
-                    res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject WHERE active = true;", context.surreal)
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/class_levels" {
+                    payload_raw = read_body!(request)
+                    clauses = List.keep_if(
+                        [
+                            config_text_clause!("name", payload_raw),
+                            config_text_clause!("code", payload_raw),
+                            config_text_clause!("age_range", payload_raw),
+                        ],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("class_levels", clauses, extract_field(payload_raw, "id") |> sanitize, "name, code or age_range", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("class_levels", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/curriculum") {
+                    # The curriculum is the class_levels -> subjects edge in the prod schema. The hub
+                    # asks with ?all=true so a link that has been switched off stays listed (and can
+                    # be switched back on); the default is the active curriculum only.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1070,6 +1215,11 @@ respond! = |request, context| {
                         subject_link = record_literal!("subjects", subject)
                         Ok(db_response!("RELATE ${class_link} -> has_subject -> ${subject_link} SET active = true;", context.surreal))
                     }
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum/toggle-active" {
+                    # Unlinking without losing the row: the edge keeps its lessons, it just stops
+                    # counting as part of the active curriculum.
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("has_subject", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_arms" {
@@ -1259,15 +1409,103 @@ respond! = |request, context| {
                         create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause}${scheduled_at_clause};"
                         Ok(db_response!(create_query, context.surreal))
                     }
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/general-assessments") {
+                    # Students only see published (active) general assessments. The subject and
+                    # session term filters are optional, like the lesson filter above.
+                    subject_param = query_param(request.target, "subject_id")
+                    session_param = query_param(request.target, "session_term_id")
+                    clauses = List.keep_if(
+                        [
+                            if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
+                            if Str.is_empty(session_param) { "" } else { "session_term = ${record_ref!(session_param, "session_term")}" },
+                            "active = true",
+                            "deleted_at IS NONE",
+                        ],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    res = SurrealDB.query!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                    }
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/general-assessments") {
+                    # Teachers see their drafts too.
+                    subject_param = query_param(request.target, "subject_id")
+                    session_param = query_param(request.target, "session_term_id")
+                    clauses = List.keep_if(
+                        [
+                            if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
+                            if Str.is_empty(session_param) { "" } else { "session_term = ${record_ref!(session_param, "session_term")}" },
+                            "deleted_at IS NONE",
+                        ],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    res = SurrealDB.query!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                    }
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/create-general-assessment" {
+                    # A general assessment hangs off a subject and a session term instead of a lesson,
+                    # and carries a percentage weight for the term result. Like a lesson assessment it
+                    # starts as a draft and the teacher publishes it from the list.
+                    payload_raw = read_body!(request)
+                    subject_id = extract_field(payload_raw, "subject_id") |> sanitize
+                    session_term_id = extract_field(payload_raw, "session_term_id") |> sanitize
+                    title = extract_field(payload_raw, "title") |> sanitize
+                    description = extract_field(payload_raw, "description") |> sanitize
+                    percentage_weight = extract_number_field(payload_raw, "percentage_weight")
+                    deadline = extract_field(payload_raw, "deadline") |> sanitize
+                    scheduled_at = extract_field(payload_raw, "scheduled_at") |> sanitize
+                    questions = json_array_or_empty!(payload_raw, "questions")
+                    if Str.is_empty(subject_id) or subject_id == "none" {
+                        Ok(json_response(400, "{\"error\":\"subject_id is required\"}"))
+                    } else if Str.is_empty(session_term_id) or session_term_id == "none" {
+                        Ok(json_response(400, "{\"error\":\"session_term_id is required\"}"))
+                    } else if Str.is_empty(title) {
+                        Ok(json_response(400, "{\"error\":\"title is required\"}"))
+                    } else if Str.is_empty(percentage_weight) {
+                        Ok(json_response(400, "{\"error\":\"percentage_weight must be a whole number\"}"))
+                    } else if Str.contains(questions, ";") {
+                        Ok(json_response(400, "{\"error\":\"questions must be a JSON array without statement separators\"}"))
+                    } else {
+                        # The weights in one term/subject may not add up to more than 100%, the rule the
+                        # MoonBit stack enforced (db_sum_percentage_weights). `GROUP ALL` collapses the
+                        # matches into the one sum row (this SurrealDB needs it for aggregates); no
+                        # matches answer 0.
+                        existing_body = match SurrealDB.query!("SELECT math::sum(percentage_weight) AS total FROM general_assessments WHERE session_term = ${record_ref!(session_term_id, "session_term")} AND subject = ${record_ref!(subject_id, "subjects")} AND deleted_at IS NONE GROUP ALL;", context.surreal) {
+                            Ok(body) => body
+                            Err(_) => ""
+                        }
+                        if field_int!(existing_body, "total") + field_int!(payload_raw, "percentage_weight") > 100 {
+                            Ok(json_response(400, "{\"error\":\"Total percentage weight for assessments in this term exceeds 100%\"}"))
+                        } else {
+                            total_mark = extract_number_field(payload_raw, "total_mark")
+                            total_mark_clause = if Str.is_empty(total_mark) { "0" } else { total_mark }
+                            max_resubmissions = extract_number_field(payload_raw, "max_resubmissions")
+                            max_resubmissions_clause = if Str.is_empty(max_resubmissions) { "" } else { ", max_resubmissions = ${max_resubmissions}" }
+                            description_clause = if Str.is_empty(description) { "" } else { ", description = '${surreal_literal(description)}'" }
+                            deadline_clause = if Str.is_empty(deadline) { "" } else { ", deadline = <datetime> '${deadline}'" }
+                            # Absent leaves the column empty, which means "open now"; submit refuses an
+                            # answer that arrives before it (see the not_yet_open branch there).
+                            scheduled_at_clause = if Str.is_empty(scheduled_at) { "" } else { ", scheduled_at = <datetime> '${scheduled_at}'" }
+                            create_query = "CREATE general_assessments SET subject = ${record_ref!(subject_id, "subjects")}, session_term = ${record_ref!(session_term_id, "session_term")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}, percentage_weight = ${percentage_weight}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause}${scheduled_at_clause};"
+                            Ok(db_response!(create_query, context.surreal))
+                        }
+                    }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/toggle-assessment-active" {
-                    # Publishing and unpublishing: students only see active assessments.
+                    # Publishing and unpublishing: students only see active assessments. The type
+                    # picks the table; absent means a lesson assessment, so the lesson UI and its
+                    # callers keep working unchanged.
                     payload_raw = read_body!(request)
                     assessment_id = extract_field(payload_raw, "assessment_id") |> sanitize
+                    assessment_type = extract_field(payload_raw, "assessment_type") |> sanitize
+                    assessment_table = if assessment_type == "general" { "general_assessments" } else { "lesson_assessments" }
                     active = json_bool(payload_raw, "active")
                     if Str.is_empty(assessment_id) {
                         Ok(json_response(400, "{\"error\":\"assessment_id is required\"}"))
                     } else {
-                        Ok(db_response!("UPDATE ${record_ref!(assessment_id, "lesson_assessments")} SET active = ${active}, updated_at = time::now();", context.surreal))
+                        Ok(db_response!("UPDATE ${record_ref!(assessment_id, assessment_table)} SET active = ${active}, updated_at = time::now();", context.surreal))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/submissions") {
                     assessment_id = query_param(request.target, "assessment_id")
@@ -1282,9 +1520,14 @@ respond! = |request, context| {
                     # One submission per student and assessment; a resubmission bumps the iteration
                     # in place so the teacher's grading list stays one row per student. The deadline
                     # and the resubmission limit are enforced here — the page's disabled button is
-                    # cosmetic, this is the authority.
+                    # cosmetic, this is the authority. The type picks the assessment table; absent
+                    # means a lesson assessment, so the lesson UI keeps working unchanged.
                     payload_raw = read_body!(request)
                     assessment_id = extract_field(payload_raw, "assessment_id") |> sanitize
+                    assessment_type = extract_field(payload_raw, "assessment_type") |> sanitize
+                    is_general = assessment_type == "general"
+                    assessment_table = if is_general { "general_assessments" } else { "lesson_assessments" }
+                    stored_type = if is_general { "general" } else { "lesson" }
                     answers = json_array_or_empty!(payload_raw, "answers")
                     student_id = caller_id!(user_json) |> sanitize
                     if Str.is_empty(assessment_id) {
@@ -1295,7 +1538,7 @@ respond! = |request, context| {
                         # One read of the assessment feeds the checks, the total mark and the
                         # questions. `expired` is decided by the database, so no clock or date
                         # parsing here and no gap between the check and the stored deadline.
-                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired, (scheduled_at IS NOT NONE AND scheduled_at > time::now()) AS not_yet_open FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
+                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired, (scheduled_at IS NOT NONE AND scheduled_at > time::now()) AS not_yet_open FROM ${record_ref!(assessment_id, assessment_table)};", context.surreal) {
                             Ok(body) => body
                             Err(_) => ""
                         }
@@ -1312,7 +1555,7 @@ respond! = |request, context| {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
                             bare_assessment = bare_id(assessment_id)
-                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
+                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
                                 Ok(body) => body
                                 Err(_) => ""
                             }
@@ -1328,9 +1571,9 @@ respond! = |request, context| {
                                 scored_answers = score_mcq_answers!(answers, extract_json_array(assessment_body, "questions"))
                                 submit_query =
                                     if Str.is_empty(existing_id) {
-                                        "CREATE submissions SET assessment_type = 'lesson', assessment_id = '${bare_assessment}', student = ${record_ref!(student_id, "student_profile")}, iteration = 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
+                                        "CREATE submissions SET assessment_type = '${stored_type}', assessment_id = '${bare_assessment}', student = ${record_ref!(student_id, "student_profile")}, iteration = 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
                                     } else {
-                                        "UPDATE ${record_ref!(existing_id, "submissions")} SET iteration = iteration + 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
+                                        "UPDATE ${record_ref!(existing_id, "submissions")} SET assessment_type = '${stored_type}', iteration = iteration + 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
                                     }
                                 Ok(db_response!(submit_query, context.surreal))
                             }
@@ -1362,17 +1605,46 @@ respond! = |request, context| {
                     payload_raw = read_body!(request)
                     user_id_val = extract_field(payload_raw, "userId") |> sanitize
                     profile_type_val = extract_field(payload_raw, "profileType") |> sanitize
-                    # Store the key for this user so the passport_url can be updated after upload
-                    key_val = "${profile_type_val}/passports/${user_id_val}.jpg"
-                    r2_public = match Env.var!("R2_PUBLIC_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    r2_endpoint = match Env.var!("R2_ENDPOINT_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    r2_bucket = match Env.var!("R2_BUCKET_NAME") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    if Str.is_empty(r2_endpoint) {
-                        Ok(json_response(503, "{\"error\":\"R2 not configured\"}"))
+                    # The photo lives at `<profileType>/passports/<userId>.jpg`, so the public URL
+                    # is known before the upload happens — and so is what a signature needs.
+                    r2_endpoint = env_or!("R2_ENDPOINT_URL", "")
+                    r2_bucket = env_or!("R2_BUCKET_NAME", "")
+                    r2_access = env_or!("R2_ACCESS_KEY_ID", "")
+                    r2_secret = env_or!("R2_SECRET_ACCESS_KEY", "")
+                    r2_public = env_or!("R2_PUBLIC_URL", "")
+                    unset = unset_names([
+                        { name: "R2_ENDPOINT_URL", value: r2_endpoint },
+                        { name: "R2_BUCKET_NAME", value: r2_bucket },
+                        { name: "R2_ACCESS_KEY_ID", value: r2_access },
+                        { name: "R2_SECRET_ACCESS_KEY", value: r2_secret },
+                        { name: "R2_PUBLIC_URL", value: r2_public },
+                    ])
+
+                    # Without the credentials there is nothing to sign with, and answering a URL
+                    # that does not work would only move the failure to the browser's PUT.
+                    if !List.is_empty(unset) {
+                        Ok(json_response(503, "{\"error\":\"R2 uploads are not configured: ${Str.join_with(unset, ", ")} ${if List.len(unset) == 1 { "is" } else { "are" }} not set\"}"))
+                    } else if !profile_type_ok(profile_type_val) {
+                        Ok(json_response(400, "{\"error\":\"profileType must be one of ${Str.join_with(profile_type_names, ", ")}\"}"))
+                    } else if !key_token_ok(user_id_val) {
+                        Ok(json_response(400, "{\"error\":\"userId must be a plain id: letters, digits, '-' or '_'\"}"))
                     } else {
+                        key_val = "${profile_type_val}/passports/${user_id_val}.jpg"
+                        # Long enough for a photo on a slow connection, short enough that a leaked
+                        # URL is worthless: ten minutes.
+                        expires = 600
+                        upload_url = R2.upload_url({
+                            endpoint: r2_endpoint,
+                            bucket: r2_bucket,
+                            key: key_val,
+                            access_key: r2_access,
+                            secret_key: r2_secret,
+                            amz_date: signing_timestamp!(extract_field(payload_raw, "amzDate") |> sanitize, context.dev_mode),
+                            expires: expires,
+                        })
                         public_url = "${r2_public}/${key_val}"
-                        # Return endpoint info — JS handles presigning via the port
-                        Ok(json_response(200, "{\"key\":\"${key_val}\",\"publicUrl\":\"${public_url}\",\"endpoint\":\"${r2_endpoint}\",\"bucket\":\"${r2_bucket}\"}"))
+
+                        Ok(json_response(200, "{\"key\":\"${key_val}\",\"uploadUrl\":\"${upload_url}\",\"publicUrl\":\"${public_url}\",\"expiresIn\":${U64.to_str(expires)}}"))
                     }
 
                 # --- Matrix token proxy ---
@@ -1465,6 +1737,20 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE session_term SET session_name = '${session_name}', term = ${record_ref!(term_id, "terms")}, active = false, created_at = time::now();", context.surreal))
                     }
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/session_terms" {
+                    # A session term is a name plus the term it belongs to, so both are updatable.
+                    payload_raw = read_body!(request)
+                    term_id = extract_field(payload_raw, "term") |> sanitize
+                    term_clause = if Str.is_empty(term_id) { "" } else { "term = ${record_ref!(term_id, "terms")}" }
+                    clauses = List.keep_if(
+                        [config_text_clause!("session_name", payload_raw), term_clause],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("session_term", clauses, extract_field(payload_raw, "id") |> sanitize, "session_name or term", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/session_terms/toggle-active" {
+                    # New session terms are created inactive, so this is what makes one usable.
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("session_term", payload_raw, context.surreal))
                 } else {
                     Ok(json_response(404, "{\"error\":\"Not Found\"}"))
                 }
