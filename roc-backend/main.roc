@@ -12,6 +12,7 @@ import http.Response
 import http.Method
 import SurrealDB
 import Base64
+import Url
 import Golem
 import Authentik
 
@@ -117,12 +118,16 @@ get_token = |headers| {
 # --- SurrealQL helpers ---
 
 # Read one query parameter from a request target: query_param("/api/x?a=1&b=2", "b") == "2".
+# The value is percent-decoded through Url first: a record id holds a colon, which is not a legal
+# query character, so a conforming client sends `?lesson_id=lessons%3Aabc` — read raw, that asks the
+# database for a record literally named `lessons%3Aabc` and finds nothing. A value with nothing to
+# decode (the app's own links send `lessons:abc`) comes back unchanged.
 query_param : Str, Str => Str
 query_param = |target, name|
     match List.get(Str.split_on(target, "${name}="), 1) {
         Ok(rest) =>
             match List.first(Str.split_on(rest, "&")) {
-                Ok(value) => value
+                Ok(value) => Url.decode(value)
                 Err(_) => ""
             }
         Err(_) => ""
@@ -276,6 +281,22 @@ looks_like_date = |text| {
     Str.count_utf8_bytes(text) == 10 and Str.contains(text, "-")
 }
 
+# Loose shape check for the address the create path hands to Authentik. An update validates it the
+# same way, then refuses it (see update_clauses!): the profile tables have no email column.
+looks_like_email = |text| {
+    parts = Str.split_on(text, "@")
+
+    local = match List.first(parts) { Ok(value) => value, Err(_) => "" }
+    domain = match List.last(parts) { Ok(value) => value, Err(_) => "" }
+
+    !Str.is_empty(local)
+        and !Str.contains(local, " ")
+        and !Str.contains(domain, " ")
+        and Str.contains(domain, ".")
+        and !Str.starts_with(domain, ".")
+        and !Str.ends_with(domain, ".")
+}
+
 # The profile tables are SCHEMAFULL and require these fields; the passport rule
 # mirrors validate_passport_url in the MoonBit admin agent, so both stacks accept
 # the same input.
@@ -348,6 +369,157 @@ profile_create_sql! = |role, user_id, first_name, middle_name, surname, display_
         )
 
         "CREATE type::record('${profile_table_for(role)}', '${user_id}') SET ${Str.join_with(fields, ", ")};"
+    }
+}
+
+# --- User update and soft delete (the profile table an id names) ---
+
+# The four role profile tables, as the listings group them.
+profile_tables = ["student_profile", "teacher_profile", "parent_profile", "admin_profile"]
+
+# Which table a user id names. The listings return their ids as `student_profile:<uuid>`, so the
+# table is read off the id's own prefix rather than a `role` in the payload: a request then cannot
+# claim one role while naming another role's row, and DELETE — whose payload carries nothing but the
+# id — resolves its table the same way. A bare id names no table, so it is refused instead of
+# guessed at.
+profile_table_of : Str -> [Ok(Str), Err(Str)]
+profile_table_of = |raw_id| {
+    table = match List.first(Str.split_on(raw_id, ":")) {
+        Ok(head) => head
+        Err(_) => ""
+    }
+
+    if List.contains(profile_tables, table) {
+        Ok(table)
+    } else {
+        Err("id must name a profile row (${Str.join_with(profile_tables, ", ")}), got '${table}'")
+    }
+}
+
+# The profile columns an update may write, per table. These are the tables' own fields
+# (`profile_create_sql!` writes the same ones on create); `class_level` is the payload key for the
+# student's `current_class` link, and parent_profile's single name column is `name`.
+profile_update_columns : Str -> List(Str)
+profile_update_columns = |table|
+    if table == "parent_profile" {
+        ["display_name", "name", "passport"]
+    } else if table == "admin_profile" {
+        ["display_name", "first_name", "middle_name", "surname", "passport", "role_title"]
+    } else if table == "teacher_profile" {
+        ["display_name", "first_name", "middle_name", "surname", "passport"]
+    } else {
+        ["display_name", "first_name", "middle_name", "surname", "passport", "date_of_birth", "class_level"]
+    }
+
+# Every payload field the update path knows about, so one sent for the wrong table can be named
+# back to the caller. `class_enrolled` is here to be refused: it is set on create and immutable.
+known_update_fields = ["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level", "class_enrolled"]
+
+# The fields the payload carries that this table has no column for. `name` is the legacy table's
+# shape: parent_profile still has that column (it is that table's single name field), no other
+# profile table does. Writing one has to be a 400 naming the field, not a statement the database
+# rejects wholesale with "no such field exists".
+misplaced_update_fields : Str, Str -> List(Str)
+misplaced_update_fields = |table, payload_raw| {
+    columns = profile_update_columns(table)
+
+    List.keep_if(known_update_fields, |field| {
+        carried = !Str.is_empty(extract_field(payload_raw, field) |> sanitize)
+        carried and !List.contains(columns, field)
+    })
+}
+
+# One `SET` entry for a text column, or "" when the payload does not carry that field.
+update_text_clause! : Str, Str => Str
+update_text_clause! = |field, payload_raw| {
+    value = extract_field(payload_raw, field) |> sanitize
+
+    if Str.is_empty(value) {
+        ""
+    } else {
+        "${field} = '${surreal_literal(value)}'"
+    }
+}
+
+# The `SET` clauses for a PUT /api/users, or the message for the 400 that stops it. Only columns the
+# resolved table really has are written, and the checks mirror the create path: a student's new
+# class level must exist and a date of birth must look like YYYY-MM-DD. Email is refused rather than
+# written — no profile table declares an `email` column (its home is the Authentik login, per the
+# identity/profile split), so the write would fail inside the database, and dropping the field
+# silently would report a change that never happened.
+update_clauses! : Str, Str, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
+update_clauses! = |table, payload_raw, config| {
+    display_name = extract_field(payload_raw, "display_name") |> sanitize
+    name_val = extract_field(payload_raw, "name") |> sanitize
+    email = extract_field(payload_raw, "email") |> sanitize
+    date_of_birth = extract_field(payload_raw, "date_of_birth") |> sanitize
+    class_level = extract_field(payload_raw, "class_level") |> sanitize
+    misplaced = misplaced_update_fields(table, payload_raw)
+
+    # `display_name` exists on every table. A parent's one name is stored in two columns, `name`
+    # and `display_name`, which the create path sets to the same value — so the parent branch
+    # writes the pair from whichever of the two the payload carries. Everywhere else display_name
+    # is written as sent: the caller has the row's current value from the listing.
+    name_clauses =
+        if table == "parent_profile" {
+            parent_name = if Str.is_empty(name_val) { display_name } else { name_val }
+
+            if Str.is_empty(parent_name) {
+                []
+            } else {
+                ["name = '${surreal_literal(parent_name)}'", "display_name = '${surreal_literal(parent_name)}'"]
+            }
+        } else {
+            [update_text_clause!("display_name", payload_raw)]
+        }
+
+    role_clauses =
+        if table == "parent_profile" {
+            []
+        } else if table == "admin_profile" {
+            [
+                update_text_clause!("first_name", payload_raw),
+                update_text_clause!("surname", payload_raw),
+                update_text_clause!("middle_name", payload_raw),
+                update_text_clause!("role_title", payload_raw),
+            ]
+        } else if table == "teacher_profile" {
+            [
+                update_text_clause!("first_name", payload_raw),
+                update_text_clause!("surname", payload_raw),
+                update_text_clause!("middle_name", payload_raw),
+            ]
+        } else {
+            [
+                update_text_clause!("first_name", payload_raw),
+                update_text_clause!("surname", payload_raw),
+                update_text_clause!("middle_name", payload_raw),
+                if Str.is_empty(date_of_birth) { "" } else { "date_of_birth = <datetime> '${date_of_birth}'" },
+                if Str.is_empty(class_level) { "" } else { "current_class = ${record_ref!(class_level, "class_levels")}" },
+            ]
+        }
+
+    candidates = List.concat(name_clauses, List.concat([update_text_clause!("passport", payload_raw)], role_clauses))
+    clauses = List.keep_if(candidates, |clause| !Str.is_empty(clause))
+
+    if !Str.is_empty(email) {
+        if looks_like_email(email) {
+            Err("email has no column on ${table}: it belongs to the Authentik login")
+        } else {
+            Err("email is not a valid address")
+        }
+    } else if !List.is_empty(misplaced) {
+        first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
+
+        Err("'${first}' is not a column of ${table}")
+    } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
+        Err("date_of_birth must look like YYYY-MM-DD")
+    } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
+        Err("class_level '${class_level}' does not exist")
+    } else if List.is_empty(clauses) {
+        Err("no updatable fields: send at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
+    } else {
+        Ok(clauses)
     }
 }
 
@@ -891,19 +1063,42 @@ respond! = |request, context| {
                     Ok(json_response(200, "{\"homeserver\":\"${matrix_url}\",\"token\":null}"))
 
                 } else if Method.is_eq(request.method, PUT) and request.target == "/api/users" {
+                    # Update the profile row the id names. The table comes from the id's own prefix
+                    # (`student_profile:<uuid>`, as the listings return it).
                     payload_raw = read_body!(request)
-                    
                     id_val = extract_field(payload_raw, "id") |> sanitize
-                    name_val = extract_field(payload_raw, "name") |> sanitize
-                    email_val = extract_field(payload_raw, "email") |> sanitize
-                    
-                    Ok(db_response!("UPDATE student:${id_val} SET name = '${name_val}', email = '${email_val}', updated_at = time::now();", context.surreal))
+
+                    if Str.is_empty(id_val) {
+                        Ok(json_response(400, "{\"error\":\"id is required\"}"))
+                    } else {
+                        match profile_table_of(id_val) {
+                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
+                            Ok(table) =>
+                                match update_clauses!(table, payload_raw, context.surreal) {
+                                    Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
+                                    Ok(clauses) => {
+                                        set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()"]), ", ")
+                                        # db_response! answers 500 with the statement's own message
+                                        # when the write is rejected, instead of a false 200.
+                                        Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET ${set_clause};", context.surreal))
+                                    }
+                                }
+                        }
+                    }
                 } else if Method.is_eq(request.method, DELETE) and request.target == "/api/users" {
+                    # Soft delete: the listings filter on `deleted_at IS NONE`, so the row (and its
+                    # history) stays in the database and simply stops appearing.
                     payload_raw = read_body!(request)
-                    
                     id_val = extract_field(payload_raw, "id") |> sanitize
-                    
-                    Ok(db_response!("UPDATE student:${id_val} SET deleted_at = time::now();", context.surreal))
+
+                    if Str.is_empty(id_val) {
+                        Ok(json_response(400, "{\"error\":\"id is required\"}"))
+                    } else {
+                        match profile_table_of(id_val) {
+                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
+                            Ok(table) => Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", context.surreal))
+                        }
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
                     # Prod names this table in the singular.
                     res = SurrealDB.query!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
