@@ -155,9 +155,13 @@ pass.
 EXISTS` for sub-fields that did not exist, no `REMOVE`, no `DELETE`, no rewrite. Verified on a prod-mirroring
 sandbox first (pre-existing row untouched, updates still work, an unknown `type` rejected), then on prod: both
 assessment tables held 0 rows before and after, and a probe row created with questions → published → read back →
-removed, leaving the counts at 0.
+removed, leaving the counts at 0. That set came from `db/schema-v3.surql`, so the schema file already described it;
+the answers set is the new `db/schema-v7-submission-answers.surql` above. One divergence in the other direction
+remains: v3 also declares the same `questions.*.*` fields for `general_assessments`, which prod does not have (that
+table is empty and the feature is unimplemented), so a database rebuilt from `db/schema-v*.surql` is stricter there
+than prod — harmless, and it matches as soon as general assessments land.
 
-### Student answer-taking — implemented, blocked on one prod field set
+### Student answer-taking — done
 
 - **The form** (`www/index.html`): an assessment in the student's tab opens a question form — radio groups for
   MCQ questions (option letters a/b/c as the value), a textarea for anything without options — with a live
@@ -171,24 +175,22 @@ removed, leaving the counts at 0.
   twelve write paths (subjects, terms, class levels, session terms, user creation, assessment create/publish,
   submit, grade, release, and the legacy `PUT`/`DELETE /api/users`), answering 500 with the statement's own
   message. Reads are unchanged.
-- **Blocker**: `submissions` is SCHEMAFULL and prod defines only `answers` (`array<object>`) and `answers.*`
-  (`object`) — no sub-fields, so *every* answer object is rejected:
-  `Found field 'answers[0].allocated_mark', but no such field exists for table 'submissions'`. Storing answers
-  needs four additive field definitions (`answers.*.question_index` `int`, `.answer_type` `string`,
-  `.answer_text` `string`, `.allocated_mark` `int`), the same pattern as the `questions.*` change below.
-  Prod's `submissions` table holds 0 rows, so there is nothing to migrate. **Awaiting approval to apply it.**
-- **Sandbox proof**: with those four statements applied to the sandbox only, the browser lifecycle passes
-  14/14 (`tests/e2e/e2e_assessments.cjs`, uncommitted extension) — the form renders, both answer kinds are
-  stored (`{"answer_text":"b","answer_type":"mcq","allocated_mark":4,"question_index":0}`), the teacher's
-  grading tab shows the student, and the released grade appears. Without them the same run stops at the submit
-  step, which is now the honest failure rather than a false success.
-- `fixtures/sandbox-schema.surql` deliberately still mirrors prod (no `answers.*.*` fields), so the sandbox
-  keeps reproducing the prod rejection until the change is applied to both.
+- **The schema gap that made answers unstorable**: `submissions` is SCHEMAFULL and prod declared only `answers`
+  (`array<object>`) and `answers.*` (`object`) — no sub-fields — so every answer object was rejected
+  (`Found field 'answers[0].allocated_mark', but no such field exists for table 'submissions'`), which is also
+  why the table held 0 rows. `db/schema-v7-submission-answers.surql` (new) declares the four fields the form
+  sends; prod has them, and the sandbox fixture carries the same statements, so a sandbox built from the
+  fixture matches prod field-for-field (`submissions` 15 fields, `lesson_assessments` 21).
+
+**Verified** on a sandbox built from the fixture: browser lifecycle 14/14
+(`tests/e2e/e2e_assessments.cjs` — the form renders, both answer kinds store as
+`{"question_index":0,"answer_type":"mcq","answer_text":"b","allocated_mark":4}`, the teacher's grading tab
+shows the student, the released grade appears), API lifecycle 21/21 (`tests/e2e/assessment_flow.sh`), admin
+creation 5/5. Prod: the v7 statements applied with both assessment tables at 0 rows before and after, and a
+probe row (one MCQ answer, one theory answer) created, read back identical, then deleted.
 
 ### Remaining
 
-- [ ] `submissions.answers` needs the four sub-field definitions on prod (and in the sandbox fixture) before the
-  student answer flow can store anything — see the blocker above.
 - [ ] MCQ auto-scoring on submit, and enforcement of `deadline` / `max_resubmissions` / `scheduled_at` (they are
   accepted but not enforced).
 - [ ] `PUT` / `DELETE /api/users` still write the legacy `student` table (no UI calls them); they now report the
