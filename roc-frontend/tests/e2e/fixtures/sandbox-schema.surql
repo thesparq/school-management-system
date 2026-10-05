@@ -1,5 +1,12 @@
 # Throwaway database for the admin check: the prod profile tables (SCHEMAFULL, same fields and
 # assertions) plus the class levels the create path validates against.
+#
+# Self-contained: creates the namespace and database too, so a fresh server accepts it in one pass.
+DEFINE NAMESPACE IF NOT EXISTS main;
+USE NS main;
+DEFINE DATABASE IF NOT EXISTS lessons;
+USE DB lessons;
+
 DEFINE TABLE class_levels SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON class_levels TYPE string;
 DEFINE FIELD code ON class_levels TYPE string;

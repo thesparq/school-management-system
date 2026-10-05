@@ -36,6 +36,10 @@ global.window = { location: { pathname: '/', search: '', hash: '', origin: appUr
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} } };
 global.localStorage = window.localStorage;
 global.crypto = { getRandomValues: (a) => { for (let i = 0; i < a.length; i++) a[i] = i; return a; } };
+// The page's own code must not reach the network while we drive it, so fetch and timers are stubbed;
+// keep the real ones for fetching the lesson under test.
+const realFetch = global.fetch;
+const realSetTimeout = global.setTimeout;
 global.fetch = async () => ({ ok: true, json: async () => [] });
 global.setTimeout = () => 0;
 
@@ -45,8 +49,11 @@ global.setTimeout = () => 0;
     .replace(/^\s*import \{ mount \} from '.*';$/m, '');
   const factory = new Function('mount', 'return (async () => {\n' + script + '\nreturn { renderLesson };\n})();');
   const api = await factory(async () => ({ onPort() {}, sendUrl() {} }));
+  global.setTimeout = realSetTimeout; // undici needs real timers for the request below
 
-  const res = await fetch(`${appUrl}/api/student/lesson?lesson_id=${encodeURIComponent(lessonId)}`,
+  // Send the record id as-is: the backend does not percent-decode query parameters, and the app itself
+  // passes ids like `lessons:abc` raw.
+  const res = await realFetch(`${appUrl}/api/student/lesson?lesson_id=${lessonId}`,
     { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
   const lesson = (Array.isArray(data) ? data[0]?.result : data.result)?.[0];

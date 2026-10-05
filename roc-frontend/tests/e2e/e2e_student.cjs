@@ -7,9 +7,10 @@
 const { chromium } = require('playwright');
 
 const appUrl = process.env.APP_URL || 'http://127.0.0.1:8000';
-const subject = process.env.SUBJECT || 'Agricultural Science';
-const term = process.env.TERM || 'Noel Term';
-const lesson = process.env.LESSON || 'Packaging Criteria for Farm Produce';
+// Prefixed names: SUBJECT and TERM already exist in many shells (TERM=xterm-256color).
+const subject = process.env.E2E_SUBJECT || 'Agricultural Science';
+const term = process.env.E2E_TERM || 'Noel Term';
+const lesson = process.env.E2E_LESSON || 'Packaging Criteria for Farm Produce';
 
 const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const token = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
