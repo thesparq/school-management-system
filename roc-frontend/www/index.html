@@ -32,6 +32,15 @@
     const REDIRECT_URI = window.location.origin + CALLBACK_PATH;
     const SCOPES = 'openid profile email';
 
+    // ─── Passport upload state ───────────────────────────────────────────
+    // Declared up here because the upload's change listener is bound at mount, while the module
+    // body is still running: anything below that point would not exist yet.
+    // The chosen photo's preview and the upload's outcome; both are JavaScript's, so they are
+    // re-applied after the app re-renders the form.
+    let _passportPreviewSrc = null;
+    let _passportUploadMessage = null;
+    let _passportUploadBound = false;
+
     function generateCodeVerifier() {
         const array = new Uint8Array(32);
         crypto.getRandomValues(array);
@@ -222,6 +231,11 @@
 
     // Port handlers, registered through mount's `setup` hook (see the mount call above).
     function registerPorts(app) {
+        // Bound here, before the app renders anything: the passport form's change listener is
+        // document-level (the app rebuilds the form on state changes), and it has to exist
+        // before the form does.
+        bindPassportUpload();
+
         // Port: push_state — update browser URL on navigation
         app.onPort("push_state", (url) => {
             setTimeout(() => { window.history.pushState(null, '', url); setupPageJS(); }, 0);
@@ -371,7 +385,8 @@
         const path = window.location.pathname;
 
         // --- Passport upload handler (admin user management) ---
-        setupPassportUpload();
+        // Only re-apply the preview and the upload's outcome; the listener was bound at mount.
+        applyPassportUploadState();
 
         // --- Lesson viewer (student) ---
         if (path === "/student/lesson") {
@@ -423,29 +438,108 @@
     // PASSPORT PHOTO UPLOAD
     // ========================================================
 
-    function setupPassportUpload() {
-        const fileInput = document.getElementById("passport-file-input");
-        const preview = document.getElementById("passport-preview");
-        if (!fileInput) return;
-
-        fileInput.addEventListener("change", async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            if (file.size > 5 * 1024 * 1024) {
-                alert("File too large. Maximum size is 5 MB.");
-                return;
+    function bindPassportUpload() {
+        if (_passportUploadBound) return;
+        _passportUploadBound = true;
+        document.addEventListener("change", (event) => {
+            if (event.target && event.target.id === "passport-file-input") {
+                handlePassportFile(event.target);
             }
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                if (preview) {
-                    preview.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover rounded-full" alt="Preview">`;
-                }
-            };
-            reader.readAsDataURL(file);
-            // Note: actual upload happens after user creation (JS will POST to /api/upload-url)
-            fileInput._pendingFile = file;
         });
+    }
+
+    async function handlePassportFile(fileInput) {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        if (file.type && !file.type.startsWith("image/")) {
+            setPassportUploadMessage("Choose a JPEG or PNG image.", true);
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setPassportUploadMessage("File too large. Maximum size is 5 MB.", true);
+            return;
+        }
+
+        // The local preview shows the photo the admin picked, before any upload happens.
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            _passportPreviewSrc = ev.target.result;
+            applyPassportUploadState();
+        };
+        reader.readAsDataURL(file);
+
+        setPassportUploadMessage("Requesting an upload URL...", false);
+        try {
+            const publicUrl = await uploadPassport(file);
+            // The URL field is what the form submits (and what an edit would send), so the photo's
+            // public URL goes into it through the same input event a typed URL produces.
+            setPassportUrl(publicUrl);
+            setPassportUploadMessage("Photo uploaded. The passport URL below is what the profile stores.", false);
+            // The URL reaching the model re-renders the form; re-apply in case that lands after
+            // the line above.
+            setTimeout(applyPassportUploadState, 100);
+        } catch (err) {
+            setPassportUploadMessage(err && err.message ? err.message : String(err), true);
+        }
+    }
+
+    // Ask the backend to sign a PUT for this photo, upload it, and hand back the public URL.
+    // The account does not exist yet while the form is being filled in, so the object key uses an
+    // id generated here; the backend only signs keys under `<profileType>/passports/`.
+    async function uploadPassport(file) {
+        const roleSelect = document.getElementById("new-user-role-select");
+        const profileType = (roleSelect && roleSelect.value ? roleSelect.value : "Student").toLowerCase();
+
+        const res = await fetch("/api/upload-url", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "")
+            },
+            body: JSON.stringify({ userId: newUploadId(), profileType: profileType })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Upload URL request failed (HTTP ${res.status})`);
+        if (!data.uploadUrl || !data.publicUrl) throw new Error("The backend did not return an upload URL");
+
+        const put = await fetch(data.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "image/jpeg" },
+            body: file
+        });
+        if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`);
+
+        return data.publicUrl;
+    }
+
+    function setPassportUrl(url) {
+        const field = document.getElementById("passport-url-field");
+        const input = field && field.querySelector("input");
+        if (!input) return;
+        input.value = url;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function setPassportUploadMessage(message, isError) {
+        _passportUploadMessage = { message: message, isError: isError };
+        applyPassportUploadState();
+    }
+
+    function applyPassportUploadState() {
+        const preview = document.getElementById("passport-preview");
+        if (preview && _passportPreviewSrc) {
+            preview.innerHTML = `<img src="${_passportPreviewSrc}" class="w-full h-full object-cover rounded-full" alt="Preview">`;
+        }
+        const status = document.getElementById("passport-upload-status");
+        if (!status) return;
+        status.textContent = _passportUploadMessage ? _passportUploadMessage.message : "";
+        status.className = "text-xs " + (_passportUploadMessage && _passportUploadMessage.isError ? "text-red-600" : "text-muted-foreground");
+    }
+
+    function newUploadId() {
+        if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+        return "upload-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
     }
 
     // ========================================================

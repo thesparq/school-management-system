@@ -8,11 +8,13 @@ import pf.Env
 import pf.OsStr
 import pf.Path
 import pf.Stdout
+import pf.Utc
 import http.Response
 import http.Method
 import SurrealDB
 import Base64
 import Url
+import R2
 import Golem
 import Authentik
 
@@ -848,6 +850,53 @@ serve_static! = |target, static_dir| {
     }
 }
 
+# --- R2 upload helpers ---
+
+# The object key a passport photo lives under starts with one of these, so an upload can only
+# ever be signed into a profile's own folder.
+profile_type_names = ["student", "teacher", "parent", "admin"]
+
+profile_type_ok : Str -> Bool
+profile_type_ok = |text| List.contains(profile_type_names, text)
+
+# The user id part of the key: the Authentik pk for an account that exists, or the id the page
+# generates for a photo chosen before the account does. Either way it has to be a plain token —
+# a slash or a space would let the caller pick a key of its own choosing.
+key_token_ok : Str -> Bool
+key_token_ok = |text| {
+    !Str.is_empty(text)
+        and Str.count_utf8_bytes(text) <= 64
+        and List.all(Str.to_utf8(text), |byte| is_key_token_byte(byte))
+}
+
+is_key_token_byte : U8 -> Bool
+is_key_token_byte = |byte| {
+    (byte >= 48 and byte <= 57) or (byte >= 97 and byte <= 122) or (byte >= 65 and byte <= 90) or byte == 45 or byte == 95
+}
+
+# The names of the variables whose value is empty. The endpoint reads all five R2 variables up
+# front, so a missing one is named in the 503 rather than discovered by the browser's PUT.
+unset_names : List({ name : Str, value : Str }) -> List(Str)
+unset_names = |variables| List.map(List.keep_if(variables, |variable| Str.is_empty(variable.value)), |variable| variable.name)
+
+# `20130524T000000Z`, the form SigV4 writes its timestamp in.
+looks_like_amz_date : Str -> Bool
+looks_like_amz_date = |text| {
+    Str.count_utf8_bytes(text) == 16 and Str.ends_with(text, "Z") and Str.contains(text, "T")
+}
+
+# The timestamp to sign with: the clock, except in DEV_MODE where the request may pin it, so a
+# test can compare two signatures instead of racing the second. A pinned value that is not the
+# SigV4 shape is ignored rather than signed.
+signing_timestamp! : Str, Bool => Str
+signing_timestamp! = |pinned, dev_mode| {
+    if dev_mode and looks_like_amz_date(pinned) {
+        pinned
+    } else {
+        R2.amz_date_of(Utc.to_iso_8601(Utc.now!()))
+    }
+}
+
 # --- Main request handler ---
 
 respond! : Server.Request, Context => [Ok(Server.Outcome), Err([ServerErr(Str)])]
@@ -1277,17 +1326,46 @@ respond! = |request, context| {
                     payload_raw = read_body!(request)
                     user_id_val = extract_field(payload_raw, "userId") |> sanitize
                     profile_type_val = extract_field(payload_raw, "profileType") |> sanitize
-                    # Store the key for this user so the passport_url can be updated after upload
-                    key_val = "${profile_type_val}/passports/${user_id_val}.jpg"
-                    r2_public = match Env.var!("R2_PUBLIC_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    r2_endpoint = match Env.var!("R2_ENDPOINT_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    r2_bucket = match Env.var!("R2_BUCKET_NAME") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    if Str.is_empty(r2_endpoint) {
-                        Ok(json_response(503, "{\"error\":\"R2 not configured\"}"))
+                    # The photo lives at `<profileType>/passports/<userId>.jpg`, so the public URL
+                    # is known before the upload happens — and so is what a signature needs.
+                    r2_endpoint = env_or!("R2_ENDPOINT_URL", "")
+                    r2_bucket = env_or!("R2_BUCKET_NAME", "")
+                    r2_access = env_or!("R2_ACCESS_KEY_ID", "")
+                    r2_secret = env_or!("R2_SECRET_ACCESS_KEY", "")
+                    r2_public = env_or!("R2_PUBLIC_URL", "")
+                    unset = unset_names([
+                        { name: "R2_ENDPOINT_URL", value: r2_endpoint },
+                        { name: "R2_BUCKET_NAME", value: r2_bucket },
+                        { name: "R2_ACCESS_KEY_ID", value: r2_access },
+                        { name: "R2_SECRET_ACCESS_KEY", value: r2_secret },
+                        { name: "R2_PUBLIC_URL", value: r2_public },
+                    ])
+
+                    # Without the credentials there is nothing to sign with, and answering a URL
+                    # that does not work would only move the failure to the browser's PUT.
+                    if !List.is_empty(unset) {
+                        Ok(json_response(503, "{\"error\":\"R2 uploads are not configured: ${Str.join_with(unset, ", ")} ${if List.len(unset) == 1 { "is" } else { "are" }} not set\"}"))
+                    } else if !profile_type_ok(profile_type_val) {
+                        Ok(json_response(400, "{\"error\":\"profileType must be one of ${Str.join_with(profile_type_names, ", ")}\"}"))
+                    } else if !key_token_ok(user_id_val) {
+                        Ok(json_response(400, "{\"error\":\"userId must be a plain id: letters, digits, '-' or '_'\"}"))
                     } else {
+                        key_val = "${profile_type_val}/passports/${user_id_val}.jpg"
+                        # Long enough for a photo on a slow connection, short enough that a leaked
+                        # URL is worthless: ten minutes.
+                        expires = 600
+                        upload_url = R2.upload_url({
+                            endpoint: r2_endpoint,
+                            bucket: r2_bucket,
+                            key: key_val,
+                            access_key: r2_access,
+                            secret_key: r2_secret,
+                            amz_date: signing_timestamp!(extract_field(payload_raw, "amzDate") |> sanitize, context.dev_mode),
+                            expires: expires,
+                        })
                         public_url = "${r2_public}/${key_val}"
-                        # Return endpoint info — JS handles presigning via the port
-                        Ok(json_response(200, "{\"key\":\"${key_val}\",\"publicUrl\":\"${public_url}\",\"endpoint\":\"${r2_endpoint}\",\"bucket\":\"${r2_bucket}\"}"))
+
+                        Ok(json_response(200, "{\"key\":\"${key_val}\",\"uploadUrl\":\"${upload_url}\",\"publicUrl\":\"${public_url}\",\"expiresIn\":${U64.to_str(expires)}}"))
                     }
 
                 # --- Matrix token proxy ---

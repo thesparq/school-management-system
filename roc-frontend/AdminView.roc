@@ -170,15 +170,19 @@ admin_users_view = |model| {
                             Html.text("📷")
                         ]),
                         Html.div([Attribute.class("flex-1 space-y-1")], [
+                            # The upload itself is the page's JavaScript: it asks the backend to
+                            # sign a PUT, sends the file, and writes the public URL into the field
+                            # below, which is what the form submits.
                             Html.input([
                                 Attribute.type("file"),
                                 Attribute.id("passport-file-input"),
                                 Attribute.class("block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer")
                             ]),
-                            Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("JPEG or PNG, max 5 MB. Automatic upload is not wired up yet: paste the photo URL below so the profile can be created.")])
+                            Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("JPEG or PNG, max 5 MB. Choosing a file uploads it to R2 and fills the URL below; a photo that is already hosted can be pasted there instead.")]),
+                            Html.p([Attribute.id("passport-upload-status"), Attribute.class("text-xs text-muted-foreground")], [])
                         ])
                     ]),
-                    Html.div([Attribute.class("space-y-2 pt-3")], [
+                    Html.div([Attribute.id("passport-url-field"), Attribute.class("space-y-2 pt-3")], [
                         UI.label({ classes: "" }, [Html.text("Passport URL (required)")]),
                         UI.input({
                             type: "text",
