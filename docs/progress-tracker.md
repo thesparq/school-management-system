@@ -210,21 +210,65 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
   page errors, and the probe objects were deleted afterwards (signed `DELETE` 204, `GET` 404). The bucket's
   preflight already allows `PUT` from any origin with `content-type`. What remains unexercised is only the
   account-creation path storing that URL on a real profile (sandboxed, since prod profiles are the school's).
-- [ ] **Role-based authorization is missing in the backend.** It validates the token and scopes queries to the
-  caller's own record, but it never reads the token's `groups`, so any valid token can call any route —
-  teacher and admin endpoints included. The retired agent stack did gate by role (`agents/app-agents/auth.mbt`),
-  so this is a regression introduced by the Roc rewrite. Closing it means deriving the caller's role from the
-  userinfo response, gating `/api/student/*`, `/api/teacher/*`, `/api/users` and the configuration endpoints,
-  and deciding what `dev-skip` means in `DEV_MODE` so the sandbox suites keep working.
+### Authorization — done
+
+The backend now reads the token's `groups` and gates every route, answering 403 with the role the route needs
+(unauthenticated stays 401). One function holds the matrix by route family: `/api/student/*` → student,
+`/api/teacher/*` → teacher, user and configuration writes → admin, the shared reads (the pickers, the hub tabs,
+the student cards) → any authenticated role, and **an admin may go anywhere** — which is what lets one `dev-skip`
+token keep driving every suite. `dev-skip`/`test-token` act as admin; `dev-student`/`dev-teacher` were added so
+`tests/e2e/authz.sh` (27 checks) proves the gate bites, and a real-looking token's role comes from the mock's new
+instance-wide userinfo endpoint. The role list is the page's own list, mirrored with a comment to keep the two in
+step. Also admin-only now: `/api/students`, `/api/teachers` (whole-school rosters), `/api/enroll` (the retired
+Golem prototype, which writes an enrolment) and `/api/upload-url` (the passport signer behind the admin form).
+
+### General assessments — closed out
+
+- **The flow suite is self-isolating**: it creates its own subject per run, so the per-term weight budget starts
+  empty and it can run twice in a row (it used to fail on its fourth run). It also reads the stored `questions`
+  and `answers` back out of the database when `SURREAL_URL` is set, checking them against the schema the fixture
+  mirrors.
+- **A real bug fixed**: a resubmit after a released grade was accepted and replaced the answers the released mark
+  was awarded for, leaving `scored_mark` and `grade_released_at` pointing at answers that no longer existed. The
+  MoonBit stack refused that; the backend now answers 409.
+- **Compared against the legacy stack** (its general-assessment code), with verdicts: the legacy's list queries
+  and budget check compared record links as quoted strings and therefore matched **nothing** — the Roc version's
+  `type::record(...)` literals are the fix, not a deviation; the legacy's question struct is unrepresentable in
+  the schema; `compositions` and weighted term results exist in neither stack; `max_resubmissions = 0` means
+  unlimited here and one attempt there; `answer_type` for non-MCQ answers stores the question's own type rather
+  than the legacy's `theoretical`.
+- **Reported, not changed** (see the leftover list): no student grade view, no 0..total_mark range check on
+  `grade-submission`, no weight-remaining summary, and `percentage_weight` goes through the digits-only scanner
+  (`10.5` → 105, `-5` → 5; the form refuses both client-side).
+
+### Remaining
+
+- [ ] **No student grade view.** The legacy stack had `/student/my-grades` (answers hidden until release) and
+  `project-overview.md` lists "view own grades and feedback after grading" as a student feature; the Roc app has
+  no such page. The data is all there (`submissions` with `scored_mark`/`grade_released_at`).
+- [ ] `POST /api/teacher/grade-submission` has **no 0..total_mark range check** (the legacy `teacher_manual_grade`
+  had one, and the page's prompt says 0-100). Shared with the lesson flow, so it needs one decision, not a patch.
+- [ ] No **weight-remaining summary** for a teacher: the legacy had `teacher_get_percentage_summary` feeding two
+  cards and capping the create modal's weight; here only the backend's 100% refusal.
+- [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
+  neither read nor written — no code path in either stack computes the weighted sum).
+- [ ] **The Golem/MoonBit durable layer is built but not wired** — parked for now, at the developer's request.
+  Six agent types still exist and build (`moon check` 0 errors, `app-agents.wasm` 1.1 MB) and CI still deploys
+  them, but the Roc backend's only call is the stale `POST /api/enroll` → a `cs101` prototype (no auth key,
+  unused by the UI), and the eight `golem-*` services are in `devops/legacy/docker-compose.golem.yml`, out of the
+  deployed stack. Which operations must be durable is still open.
+- [ ] R2 uploads are verified end to end against the **real** bucket (credentials from Infisical): a
+  backend-signed `PUT` answered 200, the public URL served the object byte-for-byte, a real browser upload
+  through the admin form produced `https://r2.johnethel.school/student/passports/<uuid>.jpg` with no CORS or
+  page errors, and the probe objects were deleted afterwards (signed `DELETE` 204, `GET` 404). The bucket's
+  preflight already allows `PUT` from any origin with `content-type`. What remains unexercised is only the
+  account-creation path storing that URL on a real profile (sandboxed, since prod profiles are the school's).
+- [ ] `e2e_general_assessments.cjs` still creates on the subject its pickers select (10% + 1% per run), so it
+  needs a fixture reload after ~9 runs — `general_assessment_flow.sh` no longer has that limit.
 - [ ] `docs/architecture.md` is written for the Roc stack now, but the retired path could still use a fuller
   account (the agent table, the RPC fan-out) if anyone needs it beyond git history.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
-- [ ] **The Golem/MoonBit durable layer is built but not wired.** Six agent types still exist and build
-  (`moon check` 0 errors, `app-agents.wasm` 1.1 MB) and CI still deploys them, but the Roc backend's only call
-  is the stale `POST /api/enroll` → a `cs101` prototype (no auth key, unused by the UI), and the eight
-  `golem-*` services are in `devops/legacy/docker-compose.golem.yml`, out of the deployed stack. Deciding which
-  operations must be durable — and therefore route through the agents — is open.
 
 ### Three parallel workstreams — two done
 
