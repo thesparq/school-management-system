@@ -4,7 +4,7 @@ import html.Html
 import html.Attribute
 
 import UI
-import State exposing [Model, Msg]
+import State exposing [Model, Msg, list_state]
 
 view = |model| {
     match model.route {
@@ -34,20 +34,29 @@ teacher_classes_view = |model| {
             Attribute.on_input(|s| GotSubjectsData(s))
         ]),
 
-        if Str.is_empty(model.subjectsData) {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
-                teacher_subject_skeleton(""),
-                teacher_subject_skeleton("")
-            ])
-        } else {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")],
-                List.map(Str.split_on(model.subjectsData, "\n"), |line| {
-                    parts = Str.split_on(line, "|")
-                    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown Subject" }
-                    teacher_subject_card(id, name)
-                })
-            )
+        # The subjects list in its three states: skeleton placeholders while it has not been
+        # answered, the backend's own message with a retry when it failed, and the cards once it
+        # loaded (or a real empty state when it holds no rows).
+        match list_state(model.subjectsData) {
+            Pending =>
+                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+                    teacher_subject_skeleton(""),
+                    teacher_subject_skeleton("")
+                ])
+            Failed(message) => UI.list_error_state("Could not load your classes", message, Click(RetryList("/api/subjects")))
+            Ready(rows) =>
+                if List.is_empty(rows) {
+                    UI.list_empty_state("📖", "No subjects yet", "Subjects appear here once an administrator adds them.")
+                } else {
+                    Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")],
+                        List.map(rows, |line| {
+                            parts = Str.split_on(line, "|")
+                            id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                            name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown Subject" }
+                            teacher_subject_card(id, name)
+                        })
+                    )
+                }
         }
     ])
 }
@@ -68,6 +77,8 @@ teacher_subject_skeleton = |_| {
 teacher_subject_card = |id, name| {
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+        # A view change, so the page starts its top border progress bar for the click.
+        Attribute.data("nav", ""),
         Attribute.on_click(NavigateTo(TeacherLessonViewer))
     ], [
         Html.div([Attribute.class("flex items-center gap-4")], [
@@ -100,22 +111,29 @@ teacher_lesson_picker = |model| {
             Attribute.value(model.teacherLessonsData),
             Attribute.on_input(|s| GotTeacherLessonsData(s))
         ]),
-        if Str.is_empty(model.teacherLessonsData) {
-            Html.div([Attribute.class("space-y-3")], [
-                teacher_lesson_skeleton(""),
-                teacher_lesson_skeleton(""),
-                teacher_lesson_skeleton("")
-            ])
-        } else {
-            Html.div([Attribute.class("space-y-3")],
-                List.map(Str.split_on(model.teacherLessonsData, "\n"), |line| {
-                    parts = Str.split_on(line, "|")
-                    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Lesson" }
-                    week = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                    teacher_lesson_row(id, title, week)
-                })
-            )
+        # The lessons list in its three states, like the subjects above it.
+        match list_state(model.teacherLessonsData) {
+            Pending =>
+                Html.div([Attribute.class("space-y-3")], [
+                    teacher_lesson_skeleton(""),
+                    teacher_lesson_skeleton(""),
+                    teacher_lesson_skeleton("")
+                ])
+            Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/teacher/lessons")))
+            Ready(rows) =>
+                if List.is_empty(rows) {
+                    UI.list_empty_state("📖", "No lessons yet", "Lessons appear here once they are added to a subject.")
+                } else {
+                    Html.div([Attribute.class("space-y-3")],
+                        List.map(rows, |line| {
+                            parts = Str.split_on(line, "|")
+                            id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                            title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Lesson" }
+                            week = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                            teacher_lesson_row(id, title, week)
+                        })
+                    )
+                }
         }
     ])
 }
@@ -130,6 +148,7 @@ teacher_lesson_skeleton = |_| {
 teacher_lesson_row = |id, title, week| {
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
+        Attribute.data("nav", ""),
         Attribute.on_click(OpenTeacherLesson(id))
     ], [
         Html.div([Attribute.class("flex-1 min-w-0")], [
@@ -155,7 +174,9 @@ teacher_lesson_view = |model| {
                     ]),
                     Html.div([Attribute.class("flex items-start justify-between gap-6")], [
                         Html.div([Attribute.class("space-y-2")], [
-                            Html.div([Attribute.id("lesson-title"), Attribute.class("text-3xl font-bold text-primary leading-tight")], [Html.text("Loading lesson...")]),
+                            Html.div([Attribute.id("lesson-title"), Attribute.class("text-3xl font-bold text-primary leading-tight")], [
+                                UI.skeleton_bar("h-8 w-64")
+                            ]),
                             Html.div([Attribute.id("lesson-meta"), Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")], [Html.text("Subject · Term")])
                         ]),
                         Html.div([Attribute.id("lesson-week-badge"), Attribute.class("hidden")], [])
@@ -175,17 +196,21 @@ teacher_lesson_view = |model| {
                     Html.button([
                         Attribute.id("tab-lesson"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
-                        Attribute.type("button")
+                        Attribute.type("button"),
+                        # A tab switch changes the view: data-nav starts the top border progress bar.
+                        Attribute.data("nav", "")
                     ], [Html.text("Lesson")]),
                     Html.button([
                         Attribute.id("tab-assessments"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
-                        Attribute.type("button")
+                        Attribute.type("button"),
+                        Attribute.data("nav", "")
                     ], [Html.text("Assessments")]),
                     Html.button([
                         Attribute.id("tab-grading"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
-                        Attribute.type("button")
+                        Attribute.type("button"),
+                        Attribute.data("nav", "")
                     ], [Html.text("Grading")])
                 ]),
 
@@ -210,7 +235,7 @@ teacher_lesson_view = |model| {
                         ], [Html.text("+ Create Assessment")])
                     ]),
                     Html.div([Attribute.id("assessments-list")], [
-                        Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+                        UI.list_skeleton_cards(["w-40", "w-24"])
                     ])
                 ]),
 
@@ -218,7 +243,7 @@ teacher_lesson_view = |model| {
                 Html.div([Attribute.id("grading-panel"), Attribute.class("hidden space-y-4 pb-16")], [
                     Html.h2([Attribute.class("text-xl font-bold text-primary")], [Html.text("Grading")]),
                     Html.div([Attribute.id("grading-list")], [
-                        Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading submissions...")])
+                        UI.list_skeleton_cards(["w-40", "w-32"])
                     ])
                 ]),
 
@@ -341,12 +366,14 @@ teacher_assessments_view = |_model| {
             Html.button([
                 Attribute.id("tab-general-assessments"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
-                Attribute.type("button")
+                Attribute.type("button"),
+                Attribute.data("nav", "")
             ], [Html.text("General Assessments")]),
             Html.button([
                 Attribute.id("tab-general-grading"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
-                Attribute.type("button")
+                Attribute.type("button"),
+                Attribute.data("nav", "")
             ], [Html.text("Grading")])
         ]),
 
@@ -380,7 +407,7 @@ teacher_assessments_view = |_model| {
                 ], [Html.text("+ Create General Assessment")])
             ]),
             Html.div([Attribute.id("general-assessments-list")], [
-                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+                UI.list_skeleton_cards(["w-40", "w-24"])
             ])
         ]),
 
@@ -388,7 +415,7 @@ teacher_assessments_view = |_model| {
         Html.div([Attribute.id("general-grading-panel"), Attribute.class("hidden space-y-4 pb-16")], [
             Html.h2([Attribute.class("text-xl font-bold text-primary")], [Html.text("Grading")]),
             Html.div([Attribute.id("grading-list")], [
-                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading submissions...")])
+                UI.list_skeleton_cards(["w-40", "w-32"])
             ])
         ]),
 

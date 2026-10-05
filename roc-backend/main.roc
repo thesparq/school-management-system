@@ -1894,6 +1894,15 @@ respond! = |request, context| {
                                 }
                         }
                     }
+                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
+                    # The nav bar's badge: the one active session term, with its term's own name joined
+                    # in (`term.name` follows the record link). The page refetches it on every
+                    # navigation. Under /api/session_terms, so every authenticated role may read it.
+                    res = SurrealDB.query!("SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
                     # Prod names this table in the singular.
                     res = SurrealDB.query!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)

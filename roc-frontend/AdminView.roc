@@ -4,7 +4,7 @@ import html.Html
 import html.Attribute
 
 import UI
-import State exposing [Model, Msg, AdminConfigTab, AdminUserTab]
+import State exposing [Model, Msg, AdminConfigTab, AdminUserTab, list_state]
 
 view = |model| {
     match model.route {
@@ -39,131 +39,40 @@ admin_users_view = |model| {
             ])
         },
 
-        # Add New User card
+        # Add New User card: the name parts together, then the contact address and the role, then the
+        # profile fields the chosen role's create uses, then the passport — with one primary action
+        # for the whole form.
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [
-                Html.div([Attribute.class("flex items-center justify-between")], [
-                    Html.div([], [
-                        UI.card_title({ classes: "" }, [Html.text("Add New User")]),
-                        Html.p([Attribute.class("text-sm text-muted-foreground mt-1")], [Html.text("Create a new account and optionally upload a passport photograph.")])
-                    ])
-                ])
+                UI.card_title({ classes: "" }, [Html.text("Add New User")]),
+                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Create a new account and optionally upload a passport photograph.")])
             ]),
-            UI.card_content({ classes: "space-y-4" }, [
-                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4")], [
-                    # First Name
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("First Name")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserFirstName,
-                            placeholder: "e.g. Adamu",
-                            on_input: Input(|s| UpdateNewUserFirstName(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    # Middle Name
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Middle Name (optional)")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserMiddleName,
-                            placeholder: "e.g. Ibrahim",
-                            on_input: Input(|s| UpdateNewUserMiddleName(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    # Surname
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Surname")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserSurname,
-                            placeholder: "e.g. Musa",
-                            on_input: Input(|s| UpdateNewUserSurname(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    # Email
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Email Address")]),
-                        UI.input({
-                            type: "email",
-                            value: model.newUserEmail,
-                            placeholder: "e.g. adamu@johnethel.school",
-                            on_input: Input(|s| UpdateNewUserEmail(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    # Role
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Role")]),
-                        Html.div([Attribute.class("relative")], [
-                            Html.select([
-                                Attribute.class("w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 appearance-none"),
-                                Attribute.id("new-user-role-select"),
-                                Attribute.on_change(|s| UpdateNewUserRole(s))
-                            ], [
-                                Html.option([Attribute.value("Student")], [Html.text("Student")]),
-                                Html.option([Attribute.value("Teacher")], [Html.text("Teacher")]),
-                                Html.option([Attribute.value("Parent")], [Html.text("Parent")]),
-                                Html.option([Attribute.value("Admin")], [Html.text("Administrator")])
-                            ]),
-                            Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
-                        ])
-                    ]),
-                    # Submit button
-                    Html.div([Attribute.class("space-y-2 flex items-end")], [
-                        UI.button(
-                            { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full" },
-                            [Html.text(if model.isSubmitting { "Adding..." } else { "Add User" })]
-                        )
-                    ])
+            UI.card_content({ classes: "space-y-6" }, [
+                # Name
+                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+                    user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
+                    user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
+                    user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
                 ]),
 
-                # Role-specific details (student class and birth date, admin job title)
-                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Date of Birth (students)")]),
-                        UI.input({
-                            type: "date",
-                            value: model.newUserDateOfBirth,
-                            placeholder: "",
-                            on_input: Input(|s| UpdateNewUserDateOfBirth(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Class Level (students)")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserClassLevel,
-                            placeholder: "jss_1, jss_2, jss_3, year_1 ...",
-                            on_input: Input(|s| UpdateNewUserClassLevel(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ]),
-                    Html.div([Attribute.class("space-y-2")], [
-                        UI.label({ classes: "" }, [Html.text("Role Title (admins)")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserRoleTitle,
-                            placeholder: "e.g. Bursar",
-                            on_input: Input(|s| UpdateNewUserRoleTitle(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ])
+                # Contact and role; the role reveals the profile fields below.
+                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+                    user_form_field("Email address (*)", UI.input({
+                        type: "email",
+                        value: model.newUserEmail,
+                        placeholder: "e.g. adamu@johnethel.school",
+                        on_input: Input(|s| UpdateNewUserEmail(s)),
+                        is_disabled: model.isSubmitting,
+                        classes: ""
+                    })),
+                    user_form_field("Role", user_role_select(model))
                 ]),
+
+                # The chosen role's own profile fields.
+                user_role_fields(model),
 
                 # Passport upload row
-                Html.div([Attribute.class("border-t pt-4")], [
+                Html.div([Attribute.class("border-t pt-6")], [
                     Html.p([Attribute.class("text-sm font-medium mb-2")], [Html.text("Passport Photograph")]),
                     Html.div([Attribute.class("flex items-center gap-4")], [
                         Html.div([Attribute.id("passport-preview"), Attribute.class("w-16 h-16 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center text-2xl overflow-hidden")], [
@@ -193,6 +102,14 @@ admin_users_view = |model| {
                             classes: ""
                         })
                     ])
+                ]),
+
+                # The form's single primary action.
+                Html.div([Attribute.class("flex justify-end border-t pt-6")], [
+                    UI.button(
+                        { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+                        [Html.text(if model.isSubmitting { "Adding..." } else { "Add User" })]
+                    )
                 ])
             ])
         ]),
@@ -269,43 +186,103 @@ user_tab = |active_tab, this_tab, label| {
     Html.button([
         Attribute.class(classes),
         Attribute.type("button"),
+        # A tab switch is a view change of its own: data-nav is what starts the top border
+        # progress bar for one (see www/index.html).
+        Attribute.data("nav", ""),
         Attribute.on_click(SetUserTab(this_tab))
     ], [Html.text(label)])
 }
 
-users_for_tab = |model| {
-    raw_data = match model.activeUserTab {
-        Students => model.usersStudentsData
-        Teachers => model.usersTeachersData
-        Parents => model.usersParentsData
-        Admins => model.usersAdminsData
-    }
-    empty_label = match model.activeUserTab {
-        Students => "No students found"
-        Teachers => "No teachers found"
-        Parents => "No parents found"
-        Admins => "No administrators found"
-    }
-    if Str.is_empty(raw_data) {
-        [
-            UI.table_row({ classes: "" }, [
-                UI.table_cell({ classes: "text-center text-muted-foreground py-12 col-span-5" }, [
-                    Html.div([Attribute.class("flex flex-col items-center gap-2")], [
-                        Html.span([Attribute.class("text-3xl")], [Html.text("👥")]),
-                        Html.p([Attribute.class("text-sm font-medium")], [Html.text(if model.isLoading { "Loading..." } else { empty_label })]),
-                        Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(if model.isLoading { "Fetching data from server" } else { "Add a user above to get started" })])
-                    ])
-                ])
-            ])
-        ]
+# --- Add New User form pieces ---
+
+# One labelled field of the create form.
+user_form_field = |label_text, field| {
+    Html.div([Attribute.class("space-y-2")], [
+        UI.label({ classes: "" }, [Html.text(label_text)]),
+        field
+    ])
+}
+
+user_form_text_input = |placeholder, value, is_disabled, to_msg| {
+    UI.input({
+        type: "text",
+        value,
+        placeholder,
+        on_input: Input(to_msg),
+        is_disabled,
+        classes: ""
+    })
+}
+
+# The role picker: its value is the model's, so the selection survives the re-render a role
+# change causes.
+user_role_select = |model| {
+    Html.div([Attribute.class("relative")], [
+        Html.select([
+            Attribute.class(config_select_classes),
+            Attribute.id("new-user-role-select"),
+            Attribute.value(model.newUserRole),
+            Attribute.on_change(|s| UpdateNewUserRole(s))
+        ], [
+            Html.option([Attribute.value("Student")], [Html.text("Student")]),
+            Html.option([Attribute.value("Teacher")], [Html.text("Teacher")]),
+            Html.option([Attribute.value("Parent")], [Html.text("Parent")]),
+            Html.option([Attribute.value("Admin")], [Html.text("Administrator")])
+        ]),
+        Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
+    ])
+}
+
+# The profile fields the chosen role's create actually reads: date_of_birth and class_level for a
+# student, role_title for an admin, nothing extra for a teacher or a parent.
+user_role_fields = |model| {
+    if model.newUserRole == "Admin" {
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+            user_form_field("Role title (optional)", user_form_text_input("e.g. Bursar", model.newUserRoleTitle, model.isSubmitting, |s| UpdateNewUserRoleTitle(s)))
+        ])
+    } else if model.newUserRole == "Student" {
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+            user_form_field("Date of birth (*)", UI.input({
+                type: "date",
+                value: model.newUserDateOfBirth,
+                placeholder: "",
+                on_input: Input(|s| UpdateNewUserDateOfBirth(s)),
+                is_disabled: model.isSubmitting,
+                classes: ""
+            })),
+            user_form_field("Class level (*)", user_form_text_input("jss_1, jss_2, jss_3, year_1 ...", model.newUserClassLevel, model.isSubmitting, |s| UpdateNewUserClassLevel(s)))
+        ])
     } else {
-        List.map(Str.split_on(raw_data, "\n"), |line| {
-            parts = Str.split_on(line, "|")
-            name = match List.get(parts, 0) { Ok(n) => n, Err(_) => "Unknown" }
-            email = match List.get(parts, 1) { Ok(e) => e, Err(_) => "" }
-            is_active = match List.get(parts, 2) { Ok(s) => s == "true", Err(_) => Bool.True }
-            user_row(name, email, is_active)
-        })
+        Html.div([], [])
+    }
+}
+
+users_for_tab = |model| {
+    (payload, retry_url, empty_title, empty_description) = match model.activeUserTab {
+        Students => (model.usersStudentsData, "/api/users?role=Student", "No students yet", "Add a student above to get started.")
+        Teachers => (model.usersTeachersData, "/api/users?role=Teacher", "No teachers yet", "Add a teacher above to get started.")
+        Parents => (model.usersParentsData, "/api/users?role=Parent", "No parents yet", "Add a parent above to get started.")
+        Admins => (model.usersAdminsData, "/api/users?role=Admin", "No administrators yet", "Add an administrator above to get started.")
+    }
+
+    # The table's five columns: avatar, name, email, status, actions.
+    column_widths = ["w-8", "w-40", "w-56", "w-20", "w-24"]
+
+    match list_state(payload) {
+        Pending => UI.table_skeleton_rows(column_widths)
+        Failed(message) => [UI.table_error_state(5, "Could not load this list", message, Click(RetryList(retry_url)))]
+        Ready(rows) =>
+            if List.is_empty(rows) {
+                [UI.table_empty_state(5, "👥", empty_title, empty_description)]
+            } else {
+                List.map(rows, |line| {
+                    parts = Str.split_on(line, "|")
+                    name = match List.get(parts, 0) { Ok(n) => n, Err(_) => "Unknown" }
+                    email = match List.get(parts, 1) { Ok(e) => e, Err(_) => "" }
+                    is_active = match List.get(parts, 2) { Ok(s) => s == "true", Err(_) => Bool.True }
+                    user_row(name, email, is_active)
+                })
+            }
     }
 }
 
@@ -411,6 +388,9 @@ config_tab = |active_tab, this_tab, label| {
     Html.button([
         Attribute.class(classes),
         Attribute.type("button"),
+        # A section switch is a view change of its own: data-nav is what starts the top border
+        # progress bar for one (see www/index.html).
+        Attribute.data("nav", ""),
         Attribute.on_click(SetConfigTab(this_tab))
     ], [Html.text(label)])
 }
@@ -506,17 +486,6 @@ config_table = |headers, rows| {
 					UI.table_row({ classes: "" }, List.map(headers, |header| UI.table_head({ classes: "" }, [Html.text(header)])))
 				]),
 				UI.table_body({ classes: "" }, rows)
-			])
-		])
-	])
-}
-
-config_empty_row = |message| {
-	UI.table_row({ classes: "" }, [
-		UI.table_cell({ classes: "text-center text-muted-foreground py-12" }, [
-			Html.div([Attribute.class("flex flex-col items-center gap-2")], [
-				Html.span([Attribute.class("text-3xl")], [Html.text("🗂️")]),
-				Html.p([Attribute.class("text-sm font-medium")], [Html.text(message)])
 			])
 		])
 	])
@@ -657,11 +626,19 @@ terms_config_view = |model| {
 	])
 }
 
+# The terms table's rows: the same three states as every other list fed by the page's fetch_data
+# port — skeleton placeholders while the list has not been answered, the backend's own message with
+# a retry when it failed, a real empty state when it loaded no rows.
 terms_rows = |model| {
-	if Str.is_empty(model.termsData) {
-		[config_empty_row(if model.isLoading { "Loading terms..." } else { "No terms yet. Create the first one above." })]
-	} else {
-		List.map(Str.split_on(model.termsData, "\n"), |line| terms_row(model, line))
+	match list_state(model.termsData) {
+		Pending => UI.table_skeleton_rows(["w-40", "w-16", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(4, "Could not load the terms", message, Click(RetryList("/api/terms")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(4, "🗂️", "No terms yet", "Create the first one above.")]
+			} else {
+				List.map(rows, |line| terms_row(model, line))
+			}
 	}
 }
 
@@ -704,10 +681,15 @@ class_levels_config_view = |model| {
 }
 
 class_levels_rows = |model| {
-	if Str.is_empty(model.classLevelsData) {
-		[config_empty_row(if model.isLoading { "Loading class levels..." } else { "No class levels yet. Create the first one above." })]
-	} else {
-		List.map(Str.split_on(model.classLevelsData, "\n"), |line| class_levels_row(model, line))
+	match list_state(model.classLevelsData) {
+		Pending => UI.table_skeleton_rows(["w-40", "w-16", "w-24", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(5, "Could not load the class levels", message, Click(RetryList("/api/class_levels?all=true")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(5, "🗂️", "No class levels yet", "Create the first one above.")]
+			} else {
+				List.map(rows, |line| class_levels_row(model, line))
+			}
 	}
 }
 
@@ -749,10 +731,15 @@ curriculum_config_view = |model| {
 }
 
 curriculum_rows = |model| {
-	if Str.is_empty(model.curriculumData) {
-		[config_empty_row(if model.isLoading { "Loading the curriculum..." } else { "No subject is linked to a class level yet." })]
-	} else {
-		List.map(Str.split_on(model.curriculumData, "\n"), |line| curriculum_row(model, line))
+	match list_state(model.curriculumData) {
+		Pending => UI.table_skeleton_rows(["w-36", "w-44", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(4, "Could not load the curriculum", message, Click(RetryList("/api/curriculum?all=true")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(4, "🗂️", "No subject is linked to a class level yet", "Link one above to define what a class level studies.")]
+			} else {
+				List.map(rows, |line| curriculum_row(model, line))
+			}
 	}
 }
 
@@ -784,10 +771,15 @@ session_terms_config_view = |model| {
 }
 
 session_terms_rows = |model| {
-	if Str.is_empty(model.sessionTermsData) {
-		[config_empty_row(if model.isLoading { "Loading session terms..." } else { "No session terms yet. Create the first one above." })]
-	} else {
-		List.map(Str.split_on(model.sessionTermsData, "\n"), |line| session_terms_row(model, line))
+	match list_state(model.sessionTermsData) {
+		Pending => UI.table_skeleton_rows(["w-32", "w-36", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(4, "Could not load the session terms", message, Click(RetryList("/api/session_terms")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(4, "🗂️", "No session terms yet", "Create the first one above.")]
+			} else {
+				List.map(rows, |line| session_terms_row(model, line))
+			}
 	}
 }
 
@@ -829,10 +821,15 @@ subjects_config_view = |model| {
 }
 
 subjects_rows = |model| {
-	if Str.is_empty(model.configSubjectsData) {
-		[config_empty_row(if model.isLoading { "Loading subjects..." } else { "No subjects yet. Create the first one above." })]
-	} else {
-		List.map(Str.split_on(model.configSubjectsData, "\n"), |line| subjects_row(model, line))
+	match list_state(model.configSubjectsData) {
+		Pending => UI.table_skeleton_rows(["w-40", "w-16", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(4, "Could not load the subjects", message, Click(RetryList("/api/subjects?all=true")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(4, "🗂️", "No subjects yet", "Create the first one above.")]
+			} else {
+				List.map(rows, |line| subjects_row(model, line))
+			}
 	}
 }
 

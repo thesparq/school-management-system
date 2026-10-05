@@ -10,7 +10,7 @@ import html.Attribute exposing [class]
 import pf.DOM
 import pf.Sub exposing [Sub]
 
-import State exposing [Route]
+import State exposing [Route, list_state]
 import UI
 
 import DashboardView
@@ -202,6 +202,29 @@ render = |model| {
 		}
 
 	# Top Nav Bar
+	# The active session term the page's JavaScript fetches on boot and on every navigation
+	# (60-second cache). While the first answer is on its way the bar shows a small spinner; it shows
+	# the badge once the term is known and nothing at all when there is none (or the fetch failed),
+	# because this is a marker on the bar, not a page-level state.
+	session_term_bar =
+		match list_state(model.sessionTermData) {
+			Pending =>
+				span([class("hidden sm:flex items-center"), Attribute.aria("label", "Loading the active session term")], [
+					span([class("h-3.5 w-3.5 rounded-full border-2 border-secondary-500 border-t-transparent animate-spin")], [])
+				])
+			Failed(_) => span([], [])
+			Ready(rows) =>
+				# One row: the badge text the page built from the session term's own two names.
+				match rows {
+					[term_label, .. as _rest] =>
+						span([
+							Attribute.id("active-session-term"),
+							class("hidden sm:inline-flex items-center gap-1.5 rounded-full border border-secondary-300 bg-secondary-50 px-2.5 py-0.5 text-xs font-medium text-secondary-800 dark:border-secondary-700 dark:bg-secondary-900/40 dark:text-secondary-200")
+						], [text(term_label)])
+					_ => span([], [])
+				}
+		}
+
 	top_nav =
 		div([class("h-16 border-b bg-card flex items-center justify-between px-4 md:px-6 shrink-0 shadow-sm z-10 relative")], [
 			div([class("flex items-center gap-3")], List.concat(
@@ -212,24 +235,27 @@ render = |model| {
 				],
 				[div([class("flex items-center text-sm font-medium text-muted-foreground")], breadcrumb_items)]
 			)),
-			div([class("flex items-center gap-2")], [
-				UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleTheme) }, [
-					text(match model.theme { Light => "🌙", Dark => "☀️" })
-				]),
-				UI.button({ ..UI.default_button, variant: Ghost, size: Icon }, [
-					text("🔔")
-				]),
-				div([class("relative group")], [
-					UI.button({ ..UI.default_button, variant: Ghost, size: Icon, classes: "rounded-full bg-muted" }, [
-						text(user_initial)
+			div([class("flex items-center gap-2")], List.concat(
+				[session_term_bar],
+				[
+					UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleTheme) }, [
+						text(match model.theme { Light => "🌙", Dark => "☀️" })
 					]),
-					div([class("absolute right-0 mt-2 w-48 bg-card border rounded-md shadow-md py-1 hidden group-hover:block z-50")], [
-						UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
-							text("Sign Out")
+					UI.button({ ..UI.default_button, variant: Ghost, size: Icon }, [
+						text("🔔")
+					]),
+					div([class("relative group")], [
+						UI.button({ ..UI.default_button, variant: Ghost, size: Icon, classes: "rounded-full bg-muted" }, [
+							text(user_initial)
+						]),
+						div([class("absolute right-0 mt-2 w-48 bg-card border rounded-md shadow-md py-1 hidden group-hover:block z-50")], [
+							UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
+								text("Sign Out")
+							])
 						])
 					])
-				])
-			])
+				]
+			))
 		])
 
 	# Main Content Area dispatched by Route
@@ -246,6 +272,14 @@ render = |model| {
 		}
 
 	div([class(theme_class)], [
+		# The active session term: fed by the page's JavaScript on boot and on every navigation
+		# (see refreshActiveSessionTerm in www/index.html). Its payload is what session_term_bar reads.
+		Html.input([
+			Attribute.type("hidden"),
+			Attribute.id("active_session_term_input"),
+			Attribute.value(model.sessionTermData),
+			Attribute.on_input(|s| GotSessionTermData(s))
+		]),
 		mobile_sidebar,
 		sidebar,
 		div([class("flex-1 flex flex-col h-full overflow-hidden")], [

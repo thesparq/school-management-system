@@ -17,6 +17,10 @@
 </head>
 <body class="bg-background text-foreground antialiased font-sans">
   <div id="app"></div>
+  <!-- The navigation bar the retired SvelteKit app drew while `$navigating` was set: a thin amber
+       line across the top. Shown when a navigation or an in-page tab switch starts and hidden once
+       the new view has rendered (see beginNavProgress / noteNavProgressRender below). -->
+  <div id="nav-progress" class="hidden fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-sm"></div>
   <script type="module">
     import { mount } from '/runtime.js';
 
@@ -40,6 +44,21 @@
     let _passportPreviewSrc = null;
     let _passportUploadMessage = null;
     let _passportUploadBound = false;
+
+    // ─── Navigation feedback and the session-term badge ──────────────────
+    // Also declared up here: the push_state and fetch_data port handlers are registered while this
+    // module body is awaiting `mount`, and `init` sends them messages immediately, so anything they
+    // touch has to be initialized before that point.
+    const NAV_PROGRESS_MIN_MS = 220;
+    const NAV_PROGRESS_SETTLE_MS = 150;
+    const NAV_PROGRESS_MAX_MS = 1500;
+    let _navProgressShownAt = 0;
+    let _navProgressEnd = null;
+    let _navProgressActive = false;
+    const SESSION_TERM_CACHE_MS = 60000;
+    let _sessionTermPayload = null;
+    let _sessionTermAt = 0;
+    let _sessionTermInFlight = false;
 
     function generateCodeVerifier() {
         const array = new Uint8Array(32);
@@ -217,6 +236,11 @@
           setup: registerPorts,
         });
 
+        // The nav bar's active session term: the app has rendered its hidden inputs by the time
+        // mount resolves, so the first payload can be handed over now (each navigation refreshes
+        // it again).
+        refreshActiveSessionTerm();
+
         // Browser back/forward support
         window.addEventListener('popstate', () => {
             const path = window.location.pathname || '/';
@@ -235,92 +259,33 @@
         // document-level (the app rebuilds the form on state changes), and it has to exist
         // before the form does.
         bindPassportUpload();
+        setupNavFeedback();
 
         // Port: push_state — update browser URL on navigation
         app.onPort("push_state", (url) => {
-            setTimeout(() => { window.history.pushState(null, '', url); setupPageJS(); }, 0);
+            setTimeout(() => {
+                // The navigation is underway: the bar is up until the app's DOM settles (or the
+                // new page's JavaScript has drawn what it will draw).
+                beginNavProgress();
+                window.history.pushState(null, '', url);
+                refreshActiveSessionTerm();
+                setupPageJS();
+            }, 0);
         });
 
-        // Port: fetch_data — fetch from backend API with smart routing
+        // Port: fetch_data — fetch from backend API with smart routing. Every outcome is
+        // dispatched, a failure included, so a list never waits on a request that is over: the
+        // view shows its skeleton until the answer lands and an error with a retry if it failed.
         app.onPort("fetch_data", (url) => {
             fetch(url, {
                 headers: { "Authorization": "Bearer " + finalToken }
             })
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
                 return res.json();
             })
-            .then(data => {
-                const rows = unwrapRows(data);
-
-                // Role-specific user tabs
-                if (url.includes("/api/users?role=Student")) {
-                    dispatchToInput("users_students_data_input", formatUsers(data));
-                } else if (url.includes("/api/users?role=Teacher")) {
-                    dispatchToInput("users_teachers_data_input", formatUsers(data));
-                } else if (url.includes("/api/users?role=Parent")) {
-                    dispatchToInput("users_parents_data_input", formatUsers(data));
-                } else if (url.includes("/api/users?role=Admin")) {
-                    dispatchToInput("users_admins_data_input", formatUsers(data));
-
-                // Config: terms (admin hub)
-                } else if (url === "/api/terms") {
-                    const formatted = rows.length ? rows.map(t => (t.id||"") + "|" + (t.name||"Term") + "|" + (t.sort_order||"") + "|" + (t.active !== false)).join("\n") : "";
-                    dispatchToInput("terms_data_input", formatted);
-
-                // Config: every subject, active or not. The hub edits and toggles rows, so it asks
-                // for the whole table; /api/subjects stays the active-only list the student's
-                // cards and the hub's pickers use.
-                } else if (url === "/api/subjects?all=true") {
-                    const formatted = rows.map(s => (s.id||"") + "|" + (s.name||"Unknown") + "|" + (s.code||"") + "|" + (s.active !== false)).join("\n");
-                    dispatchToInput("config_subjects_data_input", formatted);
-
-                // Config: class levels (admin hub). ?all=true keeps a deactivated level in the
-                // list so it can be switched back on.
-                } else if (url === "/api/class_levels?all=true") {
-                    const formatted = rows.map(c => (c.id||"") + "|" + (c.name||"Unknown") + "|" + (c.code||"") + "|" + (c.age_range||"") + "|" + (c.active !== false)).join("\n");
-                    dispatchToInput("class_levels_data_input", formatted);
-
-                // Config: the curriculum (class_levels -> subjects edges), the inactive links too
-                } else if (url === "/api/curriculum?all=true") {
-                    const formatted = rows.map(e => (e.id||"") + "|" + (e.in||"") + "|" + (e.out||"") + "|" + (e.active !== false)).join("\n");
-                    dispatchToInput("curriculum_data_input", formatted);
-
-                // Config: session terms (admin hub)
-                } else if (url === "/api/session_terms") {
-                    const formatted = rows.map(s => (s.id||"") + "|" + (s.session_name||"Session") + "|" + (s.term||"") + "|" + (s.active === true)).join("\n");
-                    dispatchToInput("session_terms_data_input", formatted);
-
-                // Subjects list
-                } else if (url === "/api/subjects" || url === "/api/student/subjects") {
-                    const formatted = rows.map(s => (s.id||"") + "|" + (s.name||"Unknown") + "|" + (s.code||"")).join("\n");
-                    dispatchToInput("subjects_data_input", formatted);
-
-                // Student LMS drill-down: terms for a subject
-                } else if (url.includes("/api/student/terms")) {
-                    const formatted = rows.map(t => (t.id||"") + "|" + (t.name||"Term") + "|" + (t.sort_order||"")).join("\n");
-                    dispatchToInput("student_terms_data_input", formatted);
-
-                // Student LMS drill-down: lessons list for a term
-                } else if (url.includes("/api/student/lessons")) {
-                    const formatted = rows.map(l => (l.id||"") + "|" + (l.topic_title||"Lesson") + "|" + (l.week||"")).join("\n");
-                    dispatchToInput("student_lessons_data_input", formatted);
-
-                // Teacher lesson picker
-                } else if (url.includes("/api/teacher/lessons")) {
-                    const formatted = rows.map(l => (l.id||"") + "|" + (l.topic_title||"Lesson") + "|" + (l.week||"")).join("\n");
-                    dispatchToInput("teacher_lessons_data_input", formatted);
-
-                // Student LMS drill-down: full lesson content
-                } else if (url.includes("/api/student/lesson")) {
-                    const lesson = rows[0] || {};
-                    // Store raw JSON so Roc knows content arrived
-                    dispatchToInput("lesson_content_data_input", JSON.stringify(lesson));
-                    // Also trigger JS lesson renderer (runs after WASM re-render)
-                    setTimeout(() => renderLesson(lesson), 50);
-                }
-            })
-            .catch(err => console.error('Fetch error for ' + url + ':', err));
+            .then((data) => dispatchFetched(url, data))
+            .catch((err) => dispatchFetchFailed(url, err));
         });
 
         // Port: save_theme — persist theme choice
@@ -370,12 +335,245 @@
         return Array.isArray(data) ? data : [];
     }
 
+    // ========================================================
+    // List payloads: not loaded yet, loaded, failed
+    // ========================================================
+
+    // Every list the app reads through a hidden input carries one of these payloads, so a list has
+    // three states rather than two: "" (nothing has answered yet — the view shows its skeleton),
+    // "ok" with the formatted rows (a real empty state when there are none), and "error" with the
+    // backend's own message. State.roc's `list_state` decodes exactly this.
+    function okPayload(rows) {
+        return rows.length ? "ok\n" + rows.join("\n") : "ok";
+    }
+
+    function errorPayload(message) {
+        return "error\n" + String(message || "Request failed").replace(/\s*\n\s*/g, " ");
+    }
+
+    // The backend's own message for a failed request: {"error": …, "detail": …} with a non-2xx
+    // status (and the same object inside SurrealDB's one-element envelope), else the status line.
+    async function failureMessage(res) {
+        let body = null;
+        try { body = await res.json(); } catch (e) { body = null; }
+        const row = Array.isArray(body) ? body[0] : body;
+        const error = row && row.error ? String(row.error) : "";
+        const detail = row && row.detail ? String(row.detail) : "";
+        if (error && detail) return `${error}: ${detail}`;
+        return error || detail || `HTTP ${res.status}`;
+    }
+
+    // Which hidden input a fetched URL feeds, and how one of its rows is written out. The tests are
+    // checked in order, so a more specific URL comes first (/api/subjects?all=true before
+    // /api/subjects, /api/student/lessons before /api/student/lesson). This is a function rather
+    // than a table so it is hoisted: the fetch_data handler can run before this part of the module
+    // body has executed.
+    function fetchRouteFor(url) {
+        const routes = [
+            { match: (u) => u.includes("/api/users?role=Student"), input: "users_students_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Teacher"), input: "users_teachers_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Parent"), input: "users_parents_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Admin"), input: "users_admins_data_input", format: formatUsers },
+            { match: (u) => u === "/api/terms", input: "terms_data_input", format: formatTerms },
+            { match: (u) => u === "/api/subjects?all=true", input: "config_subjects_data_input", format: formatSubjectsAll },
+            { match: (u) => u === "/api/class_levels?all=true", input: "class_levels_data_input", format: formatClassLevels },
+            { match: (u) => u === "/api/curriculum?all=true", input: "curriculum_data_input", format: formatCurriculum },
+            { match: (u) => u === "/api/session_terms", input: "session_terms_data_input", format: formatSessionTerms },
+            { match: (u) => u === "/api/subjects" || u === "/api/student/subjects", input: "subjects_data_input", format: formatSubjectsActive },
+            { match: (u) => u.includes("/api/student/terms"), input: "student_terms_data_input", format: formatTerms },
+            { match: (u) => u.includes("/api/student/lessons"), input: "student_lessons_data_input", format: formatLessons },
+            { match: (u) => u.includes("/api/teacher/lessons"), input: "teacher_lessons_data_input", format: formatLessons },
+            { match: (u) => u.includes("/api/student/lesson"), input: "lesson_content_data_input", format: formatLessonContent },
+        ];
+        return routes.find((r) => r.match(url));
+    }
+
+    function dispatchFetched(url, data) {
+        const route = fetchRouteFor(url);
+        if (!route) return;
+        dispatchToInput(route.input, okPayload(route.format(data)));
+        // The lesson viewer paints the lesson itself, once the app has re-rendered the panel around it.
+        if (route.input === "lesson_content_data_input") {
+            const lesson = unwrapRows(data)[0];
+            if (lesson) setTimeout(() => renderLesson(lesson), 50);
+        }
+    }
+
+    function dispatchFetchFailed(url, err) {
+        const route = fetchRouteFor(url);
+        if (!route) return;
+        dispatchToInput(route.input, errorPayload(err && err.message ? err.message : String(err)));
+    }
+
+    // --- One row per list, in the "|"-separated line format the views split back apart ---
+
     function formatUsers(data) {
-        const rows = unwrapRows(data);
-        return rows.map(u => {
-                const name = u.display_name || ((u.first_name||"") + " " + (u.surname||"")).trim() || u.name || "Unknown";
-                return name + "|" + (u.email||"") + "|" + String(u.is_active !== false);
-            }).join("\n");
+        return unwrapRows(data).map(u => {
+            const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || "Unknown";
+            return name + "|" + (u.email || "") + "|" + String(u.is_active !== false);
+        });
+    }
+
+    function formatTerms(data) {
+        return unwrapRows(data).map(t => (t.id || "") + "|" + (t.name || "Term") + "|" + (t.sort_order || "") + "|" + (t.active !== false));
+    }
+
+    // The hub's own subject list: every subject, active or not.
+    function formatSubjectsAll(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.name || "Unknown") + "|" + (s.code || "") + "|" + (s.active !== false));
+    }
+
+    // The active-only list the student's cards and the pickers read.
+    function formatSubjectsActive(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.name || "Unknown") + "|" + (s.code || ""));
+    }
+
+    function formatClassLevels(data) {
+        return unwrapRows(data).map(c => (c.id || "") + "|" + (c.name || "Unknown") + "|" + (c.code || "") + "|" + (c.age_range || "") + "|" + (c.active !== false));
+    }
+
+    function formatCurriculum(data) {
+        return unwrapRows(data).map(e => (e.id || "") + "|" + (e.in || "") + "|" + (e.out || "") + "|" + (e.active !== false));
+    }
+
+    function formatSessionTerms(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.session_name || "Session") + "|" + (s.term || "") + "|" + (s.active === true));
+    }
+
+    function formatLessons(data) {
+        return unwrapRows(data).map(l => (l.id || "") + "|" + (l.topic_title || "Lesson") + "|" + (l.week || ""));
+    }
+
+    // One row: the lesson's own JSON, which the renderer parses back out of the payload.
+    function formatLessonContent(data) {
+        return [JSON.stringify(unwrapRows(data)[0] || {})];
+    }
+
+    // The lesson object inside a lesson-content payload, or null while the payload is not a loaded
+    // lesson (empty, still on its way, or an error the view is showing instead).
+    function lessonFromPayload(value) {
+        if (!value || value.indexOf("ok\n") !== 0) return null;
+        try { return JSON.parse(value.slice(3)); } catch (e) { return null; }
+    }
+
+    // ========================================================
+    // Skeletons and error states for the lists this file renders
+    // ========================================================
+
+    // Grey placeholder cards shaped like the rows a list will draw, so a fetch still in flight shows
+    // what is coming instead of a sentence.
+    function skeletonCards(rowWidths) {
+        const widths = rowWidths || ["w-40", "w-24"];
+        return '<div class="space-y-3">' + [0, 1, 2].map(() =>
+            '<div class="rounded-lg border p-4 flex items-center gap-4">' +
+            widths.map(w => `<div class="h-4 ${w} rounded bg-muted animate-pulse" data-skeleton></div>`).join("") +
+            "</div>").join("") + "</div>";
+    }
+
+    // A loaded-and-empty list, presented the way the views present theirs.
+    function listEmptyState(icon, title, description) {
+        return `<div class="rounded-lg border p-10 flex flex-col items-center gap-2 text-center" data-empty-state>
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">${icon}</div>
+            <p class="text-sm font-medium text-foreground">${escHtml(title)}</p>
+            <p class="text-xs text-muted-foreground">${escHtml(description)}</p>
+        </div>`;
+    }
+
+    // A failed list: what could not be loaded, the server's own message, and a control that asks for
+    // it again — never a skeleton or a spinner left behind.
+    function listErrorState(title, message, retry) {
+        return `<div class="rounded-lg border p-6 text-center space-y-2" data-error-state>
+            <p class="text-sm font-medium text-destructive">${escHtml(title)}</p>
+            <p class="text-xs text-muted-foreground">${escHtml(String(message || "Request failed"))}</p>
+            <button type="button" onclick="${retry}" class="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent cursor-pointer">Retry</button>
+        </div>`;
+    }
+
+    // ========================================================
+    // Navigation feedback: the top border bar and the session-term badge
+    // ========================================================
+
+    // The retired SvelteKit app drew this bar while `$navigating` was set; this SPA has no such
+    // store, so the bar is started explicitly — a click on a control the views mark `data-nav`, a
+    // `push_state` from the app, or a tab switch this file drives — and ended once the app's DOM
+    // has settled: a floor so a fast transition is still visible, and a ceiling so a bar that
+    // nothing mutates after it can never stick. Its state is declared at the top of this module.
+    function beginNavProgress() {
+        const bar = document.getElementById("nav-progress");
+        if (!bar) return;
+        if (!_navProgressActive) {
+            _navProgressActive = true;
+            _navProgressShownAt = Date.now();
+            bar.classList.remove("hidden");
+        }
+        scheduleNavProgressEnd(NAV_PROGRESS_MAX_MS);
+    }
+
+    function scheduleNavProgressEnd(delay) {
+        if (!_navProgressActive) return;
+        const floor = Math.max(0, NAV_PROGRESS_MIN_MS - (Date.now() - _navProgressShownAt));
+        if (_navProgressEnd) clearTimeout(_navProgressEnd);
+        _navProgressEnd = setTimeout(endNavProgress, Math.max(delay, floor));
+    }
+
+    // The app re-rendered: the transition is over unless it mutates again.
+    function noteNavProgressRender() {
+        if (_navProgressActive) scheduleNavProgressEnd(NAV_PROGRESS_SETTLE_MS);
+    }
+
+    function endNavProgress() {
+        if (_navProgressEnd) { clearTimeout(_navProgressEnd); _navProgressEnd = null; }
+        _navProgressActive = false;
+        const bar = document.getElementById("nav-progress");
+        if (bar) bar.classList.add("hidden");
+    }
+
+    // The app root's own updates are what "the new view has rendered" means here.
+    function setupNavFeedback() {
+        const root = document.getElementById("app");
+        if (root && window.MutationObserver) {
+            new MutationObserver(noteNavProgressRender).observe(root, { childList: true, subtree: true });
+        }
+        // A click on a control the views marked navigates (or switches a tab) inside the app: start
+        // the bar before the click's own work, so the transition is covered from its beginning.
+        document.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!target || !target.closest) return;
+            if (!target.closest("#app")) return;
+            if (target.closest("[data-nav]") || target.closest("a")) beginNavProgress();
+        }, true);
+    }
+
+    // ─── Active session term (the top bar's badge) ───
+    // Fetched on boot and on every navigation with the 60-second cache the retired app used, and fed
+    // to the app's `active_session_term_input` through the same three-state payload the lists use.
+    // Nothing is shown when there is no active term or the fetch failed: the badge is a marker, not
+    // a page-level state, and a failed fetch must not leave a spinner in the bar.
+    function refreshActiveSessionTerm() {
+        const cached = _sessionTermPayload !== null && (Date.now() - _sessionTermAt) < SESSION_TERM_CACHE_MS;
+        if (cached) {
+            dispatchToInput("active_session_term_input", _sessionTermPayload);
+            return;
+        }
+        if (_sessionTermInFlight) return;
+        _sessionTermInFlight = true;
+        // Pending means the bar's small spinner, and only when nothing is known yet: a stale badge
+        // stays put until the answer lands rather than flashing.
+        if (_sessionTermPayload === null) dispatchToInput("active_session_term_input", "");
+        fetch("/api/session_terms/active", { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                const row = unwrapRows(await res.json())[0] || null;
+                const label = row ? [row.session_name, row.term_name].filter(Boolean).join(" — ") : "";
+                return okPayload(label ? [label] : []);
+            })
+            .catch((err) => errorPayload(err && err.message ? err.message : "Could not load the active session term"))
+            .then((payload) => {
+                _sessionTermPayload = payload;
+                _sessionTermAt = Date.now();
+                _sessionTermInFlight = false;
+                dispatchToInput("active_session_term_input", payload);
+            });
     }
 
     // ========================================================
@@ -412,9 +610,8 @@
             setupLessonTabs(false);
             // If lesson content is already in the hidden input (re-render after nav), render it
             const contentInput = document.getElementById("lesson_content_data_input");
-            if (contentInput && contentInput.value) {
-                try { renderLesson(JSON.parse(contentInput.value)); } catch(e) {}
-            }
+            const readyLesson = contentInput ? lessonFromPayload(contentInput.value) : null;
+            if (readyLesson) renderLesson(readyLesson);
             // Also watch for content arriving via hidden input mutation
             setupLessonContentObserver();
         }
@@ -439,18 +636,16 @@
         if (_lessonContentObserver) { _lessonContentObserver.disconnect(); _lessonContentObserver = null; }
         const input = document.getElementById("lesson_content_data_input");
         if (!input) return;
-        _lessonContentObserver = new MutationObserver(() => {
-            if (input.value) {
-                try { renderLesson(JSON.parse(input.value)); } catch(e) {}
-            }
-        });
+        // Only a loaded payload is a lesson: while it is empty (not answered yet) or an error, the
+        // view's own skeleton or error state is what belongs on the page.
+        const render = () => {
+            const lesson = lessonFromPayload(input.value);
+            if (lesson) renderLesson(lesson);
+        };
+        _lessonContentObserver = new MutationObserver(render);
         _lessonContentObserver.observe(input, { attributes: true, attributeFilter: ["value"] });
         // Also listen for input event (triggered by dispatchToInput)
-        input.addEventListener("input", () => {
-            if (input.value) {
-                try { renderLesson(JSON.parse(input.value)); } catch(e) {}
-            }
-        });
+        input.addEventListener("input", render);
     }
 
     // ========================================================
@@ -576,7 +771,10 @@
             _currentLessonId = lessonId;
             loadLesson(lessonId, isTeacher);
         } else if (!lessonId) {
-            // Show placeholder message
+            // Show placeholder message. The title is the view's skeleton until a lesson is picked, so
+            // the placeholder has to replace it too.
+            const titleEl = document.getElementById("lesson-title");
+            if (titleEl) titleEl.textContent = "Select a Lesson";
             const panel = document.getElementById("lesson-panel");
             if (panel) {
                 panel.innerHTML = `
@@ -645,17 +843,34 @@
 
     async function loadLesson(lessonId, isTeacher) {
         const endpoint = isTeacher ? "/api/teacher/lessons" : "/api/student/lesson";
+        const panel = document.getElementById("lesson-panel");
+        // The panel's own three states, the same ones the view draws before this runs.
+        if (panel) panel.innerHTML = skeletonCards(["w-56", "w-32"]);
         try {
             const res = await fetch(`${endpoint}?lesson_id=${lessonId}`, {
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
             });
-            const data = await res.json();
-            const rows = unwrapRows(data);
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
             const lesson = rows[0];
-            if (!lesson) return;
+            if (!lesson) {
+                if (panel) panel.innerHTML = listEmptyState("📖", "No lesson found", "This lesson has no content stored yet.");
+                return;
+            }
             renderLesson(lesson);
-        } catch(e) { console.error("Failed to load lesson:", e); }
+        } catch(e) {
+            const message = e && e.message ? e.message : String(e);
+            if (panel) panel.innerHTML = listErrorState("Could not load the lesson", message, "retryLesson()");
+            const titleEl = document.getElementById("lesson-title");
+            if (titleEl) titleEl.textContent = "Lesson unavailable";
+        }
     }
+
+    // The retry control the lesson panel draws when its fetch failed.
+    window.retryLesson = () => {
+        const id = new URLSearchParams(window.location.search).get("id");
+        if (id) loadLesson(id, true);
+    };
 
     // The lesson currently open in the viewer: the assessment modal builds its question picker from it.
     let _currentLesson = null;
@@ -984,21 +1199,21 @@
     async function loadAssessments(isTeacher) {
         const list = document.getElementById("assessments-list");
         if (!list) return;
-        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading assessments...</div>';
+        // Not loaded yet: the same grey placeholders the view draws, until the rows arrive.
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
         const lessonQuery = _currentLessonId ? `?lesson_id=${_currentLessonId}` : "";
         const endpoint = (isTeacher ? "/api/teacher/lesson-assessments" : "/api/student/assessments") + lessonQuery;
         try {
             const res = await fetch(endpoint, { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } });
-            const data = await res.json();
-            const rows = unwrapRows(data);
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
             _lastAssessments = rows;
             const submittedNote = (!isTeacher && _justSubmitted)
                 ? `<div class="rounded-md border border-green-200 bg-green-50 text-green-800 text-sm p-3">Submitted: ${escHtml(_justSubmitted)}. Your teacher will grade it.</div>`
                 : "";
             _justSubmitted = "";
             if (!rows.length) {
-                list.innerHTML = submittedNote + '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No assessments yet.</p>' +
-                    (isTeacher ? '<p class="text-xs">Create one above; it stays a draft until you publish it.</p>' : '') + '</div>';
+                list.innerHTML = submittedNote + listEmptyState("📋", "No assessments yet", isTeacher ? "Create one above; it stays a draft until you publish it." : "Assessments your teachers publish appear here.");
                 return;
             }
             list.innerHTML = submittedNote + rows.map(a => `
@@ -1024,8 +1239,13 @@
                         `}
                     </div>
                 </div>`).join("");
-        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), `retryAssessments(${isTeacher ? "true" : "false"})`);
+        }
     }
+
+    // The retry control a failed assessment list draws.
+    window.retryAssessments = (isTeacher) => { loadAssessments(isTeacher === true); };
 
     // Teachers publish a draft when it is ready; students only ever see published ones. The type
     // picks the table and which list to refresh; absent means a lesson assessment.
@@ -1050,7 +1270,7 @@
     async function loadSubmissions() {
         const list = document.getElementById("grading-list");
         if (!list) return;
-        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading submissions...</div>';
+        list.innerHTML = skeletonCards(["w-40", "w-32"]);
         const query = _gradingAssessmentId ? `?assessment_id=${_gradingAssessmentId}` : "";
         try {
             const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
@@ -1065,11 +1285,11 @@
             const questionsByAssessment = {};
             [...lessonAssessments, ...generalAssessments].forEach(a => { if (a && a.id) questionsByAssessment[String(a.id).split(":").pop()] = a.questions; });
             const res = await fetch("/api/teacher/submissions" + query, { headers: auth });
-            const data = await res.json();
-            const rows = unwrapRows(data);
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
             const filterNote = _gradingAssessmentId ? '<button onclick="clearGradingFilter()" class="text-xs text-primary hover:underline cursor-pointer">Show all submissions</button>' : "";
             if (!rows.length) {
-                list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📊</div><p class="text-sm">No submissions to grade yet.</p>' + filterNote + '</div>';
+                list.innerHTML = listEmptyState("📊", "No submissions to grade yet", "Submissions appear here once students hand their work in.") + filterNote;
                 return;
             }
             list.innerHTML = filterNote + `<div class="space-y-3">` + rows.map(s => {
@@ -1094,8 +1314,13 @@
                     </div>
                 </div>`;
             }).join("") + `</div>`;
-        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load submissions.</div>'; }
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the submissions", e && e.message ? e.message : String(e), "retrySubmissions()");
+        }
     }
+
+    // The retry control a failed grading list draws.
+    window.retrySubmissions = () => { loadSubmissions(); };
 
     // What a submission's MCQs scored. The backend awards MCQ marks at submit time and the schema
     // has no per-answer scored field, so the awarded mark sits in answers[*].allocated_mark (the
@@ -1324,7 +1549,7 @@
         const sessionEl = document.getElementById("ga-session-term-select");
         const subjectId = subjectEl ? subjectEl.value : "";
         const sessionId = sessionEl ? sessionEl.value : "";
-        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading assessments...</div>';
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
         try {
             const params = new URLSearchParams();
             if (subjectId) params.set("subject_id", subjectId);
@@ -1333,9 +1558,10 @@
             const res = await fetch("/api/teacher/general-assessments" + (qs ? `?${qs}` : ""), {
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
             });
+            if (!res.ok) throw new Error(await failureMessage(res));
             const rows = unwrapRows(await res.json());
             if (!rows.length) {
-                list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No general assessments for this subject and term yet.</p><p class="text-xs">Create one above; it stays a draft until you publish it.</p></div>';
+                list.innerHTML = listEmptyState("📋", "No general assessments for this subject and term yet", "Create one above; it stays a draft until you publish it.");
                 return;
             }
             list.innerHTML = rows.map(a => `
@@ -1354,17 +1580,20 @@
                         <button onclick="viewGeneralSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
                     </div>
                 </div>`).join("");
-        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), "retryGeneralAssessments()");
+        }
     }
 
     async function loadStudentGeneralAssessments() {
         const list = document.getElementById("general-assessments-list");
         if (!list) return;
-        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading assessments...</div>';
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
         try {
             const res = await fetch("/api/student/general-assessments", {
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
             });
+            if (!res.ok) throw new Error(await failureMessage(res));
             const rows = unwrapRows(await res.json());
             _generalAssessments = rows;
             const submittedNote = _justSubmitted
@@ -1372,7 +1601,7 @@
                 : "";
             _justSubmitted = "";
             if (!rows.length) {
-                list.innerHTML = submittedNote + '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No general assessments yet.</p><p class="text-xs">Term assessments published by your teachers appear here.</p></div>';
+                list.innerHTML = submittedNote + listEmptyState("📋", "No general assessments yet", "Term assessments published by your teachers appear here.");
                 return;
             }
             list.innerHTML = submittedNote + rows.map(a => {
@@ -1390,7 +1619,9 @@
                     <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitGeneralAssessment('${a.id}')">${label}</button>
                 </div>`;
             }).join("");
-        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), "retryGeneralAssessments()");
+        }
     }
 
     // The student opens a general assessment: same answer form as a lesson's, into the assignments
@@ -1613,17 +1844,37 @@
             if (!select) return;
             select.innerHTML = rows.map(r => `<option value="${escHtml(r.id || "")}">${escHtml(label(r))}</option>`).join("");
         };
+        // A select cannot show a skeleton, so a failed fetch leaves it naming what it could not load;
+        // the list below carries the same error with its retry.
+        const fillBroken = (selectId, label) => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = `<option value="">${escHtml(label)}</option>`;
+        };
         try {
-            const subjects = unwrapRows(await (await fetch("/api/subjects", { headers: auth })).json());
-            fill("ga-subject-select", subjects, s => s.name || s.code || "Subject");
-            const sessions = unwrapRows(await (await fetch("/api/session_terms", { headers: auth })).json());
+            const subjectRes = await fetch("/api/subjects", { headers: auth });
+            if (!subjectRes.ok) throw new Error(await failureMessage(subjectRes));
+            fill("ga-subject-select", unwrapRows(await subjectRes.json()), s => s.name || s.code || "Subject");
+            const sessionRes = await fetch("/api/session_terms", { headers: auth });
+            if (!sessionRes.ok) throw new Error(await failureMessage(sessionRes));
+            const sessions = unwrapRows(await sessionRes.json());
             // Prefer an active term, otherwise the first one.
             const active = sessions.filter(s => s.active === true);
             const ordered = active.length ? [...active, ...sessions.filter(s => s.active !== true)] : sessions;
             fill("ga-session-term-select", ordered, s => s.session_name || "Session term");
-        } catch(e) { console.error("Failed to load the assessment pickers:", e); }
+        } catch(e) {
+            console.error("Failed to load the assessment pickers:", e);
+            fillBroken("ga-subject-select", "Could not load subjects");
+            fillBroken("ga-session-term-select", "Could not load session terms");
+        }
         loadTeacherGeneralAssessments();
     }
+
+    // The retry control a failed general-assessment list draws: the pickers are refetched too, so a
+    // retry after a picker failure fills them in as well.
+    window.retryGeneralAssessments = () => {
+        if (_assessmentHubRole === "teacher") { loadGeneralAssessmentPickers(); } else { loadStudentGeneralAssessments(); }
+    };
 
     // --- Hub wiring: one document-level listener per page visit, torn down on navigation ---
 

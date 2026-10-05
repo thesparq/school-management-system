@@ -4,7 +4,7 @@ import html.Html
 import html.Attribute
 
 import UI
-import State exposing [Model, Msg]
+import State exposing [Model, Msg, list_state]
 
 view = |model| {
     match model.route {
@@ -34,22 +34,31 @@ student_subjects_view = |model| {
             Attribute.on_input(|s| GotSubjectsData(s))
         ]),
 
-        if Str.is_empty(model.subjectsData) {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")], [
-                subject_skeleton(""),
-                subject_skeleton(""),
-                subject_skeleton("")
-            ])
-        } else {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")],
-                List.map(Str.split_on(model.subjectsData, "\n"), |line| {
-                    parts = Str.split_on(line, "|")
-                    id   = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown Subject" }
-                    code = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                    subject_card(id, name, code)
-                })
-            )
+        # The subjects list in its three states: skeleton placeholders while it has not been
+        # answered, the backend's own message with a retry when it failed, and the cards once it
+        # loaded (or a real empty state when it holds no rows).
+        match list_state(model.subjectsData) {
+            Pending =>
+                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")], [
+                    subject_skeleton(""),
+                    subject_skeleton(""),
+                    subject_skeleton("")
+                ])
+            Failed(message) => UI.list_error_state("Could not load your subjects", message, Click(RetryList("/api/student/subjects")))
+            Ready(rows) =>
+                if List.is_empty(rows) {
+                    UI.list_empty_state("📚", "No subjects yet", "Your subjects appear here once your class is set up.")
+                } else {
+                    Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")],
+                        List.map(rows, |line| {
+                            parts = Str.split_on(line, "|")
+                            id   = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                            name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown Subject" }
+                            code = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                            subject_card(id, name, code)
+                        })
+                    )
+                }
         }
     ])
 }
@@ -66,6 +75,8 @@ subject_skeleton = |_| {
 subject_card = |id, name, code| {
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+        # A view change, so the page starts its top border progress bar for the click.
+        Attribute.data("nav", ""),
         Attribute.on_click(SelectSubject(id, name))
     ], [
         Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📚")]),
@@ -147,22 +158,29 @@ student_terms_view = |model| {
             Attribute.on_input(|s| GotStudentTermsData(s))
         ]),
 
-        if Str.is_empty(model.studentTermsData) {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-                term_skeleton(""),
-                term_skeleton(""),
-                term_skeleton("")
-            ])
-        } else {
-            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")],
-                List.map(Str.split_on(model.studentTermsData, "\n"), |line| {
-                    parts = Str.split_on(line, "|")
-                    id   = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Term" }
-                    num  = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                    term_card(id, name, num)
-                })
-            )
+        # The terms list in its three states, like the subjects above it.
+        match list_state(model.studentTermsData) {
+            Pending =>
+                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+                    term_skeleton(""),
+                    term_skeleton(""),
+                    term_skeleton("")
+                ])
+            Failed(message) => UI.list_error_state("Could not load the terms", message, Click(RetryList("/api/student/terms")))
+            Ready(rows) =>
+                if List.is_empty(rows) {
+                    UI.list_empty_state("📅", "No terms yet", "Your school's terms appear here once they are published.")
+                } else {
+                    Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")],
+                        List.map(rows, |line| {
+                            parts = Str.split_on(line, "|")
+                            id   = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                            name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Term" }
+                            num  = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                            term_card(id, name, num)
+                        })
+                    )
+                }
         }
     ])
 }
@@ -184,6 +202,7 @@ term_card = |id, name, num| {
     }
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+        Attribute.data("nav", ""),
         Attribute.on_click(SelectTerm(id, name))
     ], [
         Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text(icon)]),
@@ -234,22 +253,29 @@ student_lessons_list_view = |model| {
             Attribute.on_input(|s| GotStudentLessonsData(s))
         ]),
 
-        if Str.is_empty(model.studentLessonsData) {
-            Html.div([Attribute.class("space-y-3")], [
-                lesson_list_skeleton(""),
-                lesson_list_skeleton(""),
-                lesson_list_skeleton("")
-            ])
-        } else {
-            Html.div([Attribute.class("space-y-3")],
-                List.map_with_index(Str.split_on(model.studentLessonsData, "\n"), |line, idx| {
-                    parts = Str.split_on(line, "|")
-                    id    = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Lesson" }
-                    week  = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                    lesson_list_row(id, title, week, idx)
-                })
-            )
+        # The lessons list in its three states, like the subjects above it.
+        match list_state(model.studentLessonsData) {
+            Pending =>
+                Html.div([Attribute.class("space-y-3")], [
+                    lesson_list_skeleton(""),
+                    lesson_list_skeleton(""),
+                    lesson_list_skeleton("")
+                ])
+            Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/student/lessons?subject_id=${model.selectedSubjectId}&term_id=${model.selectedTermId}")))
+            Ready(rows) =>
+                if List.is_empty(rows) {
+                    UI.list_empty_state("📖", "No lessons yet", "Lessons for this term appear here once they are published.")
+                } else {
+                    Html.div([Attribute.class("space-y-3")],
+                        List.map_with_index(rows, |line, idx| {
+                            parts = Str.split_on(line, "|")
+                            id    = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                            title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Lesson" }
+                            week  = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                            lesson_list_row(id, title, week, idx)
+                        })
+                    )
+                }
         }
     ])
 }
@@ -296,6 +322,7 @@ lesson_list_row = |id, title, week, idx| {
     n = idx_to_str(idx)
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
+        Attribute.data("nav", ""),
         Attribute.on_click(SelectLesson(id))
     ], [
         Html.div([Attribute.class("flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary")], [
@@ -355,7 +382,7 @@ student_lesson_content_view = |model| {
                             Html.div([
                                 Attribute.id("lesson-title"),
                                 Attribute.class("text-3xl font-bold text-primary leading-tight")
-                            ], [Html.text(if Str.is_empty(model.currentLessonContent) { "Loading..." } else { "Lesson" })]),
+                            ], [lesson_title_placeholder(model)]),
                             Html.div([
                                 Attribute.id("lesson-meta"),
                                 Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")
@@ -379,25 +406,17 @@ student_lesson_content_view = |model| {
                     ], [Html.text("Assessments")])
                 ]),
 
-                # Lesson content panel — JS renders section cards here
+                # Lesson content panel — JS renders section cards here; before it does, the panel
+                # shows what state the lesson fetch is in.
                 Html.div([Attribute.id("lesson-panel"), Attribute.class("space-y-8 pb-16")], [
-                    if Str.is_empty(model.currentLessonContent) {
-                        Html.div([Attribute.class("flex items-center justify-center py-16 text-muted-foreground")], [
-                            Html.div([Attribute.class("text-center space-y-2")], [
-                                Html.div([Attribute.class("text-4xl animate-pulse")], [Html.text("📖")]),
-                                Html.p([Attribute.class("text-sm font-medium")], [Html.text("Loading lesson content...")])
-                            ])
-                        ])
-                    } else {
-                        Html.div([Attribute.class("text-sm text-muted-foreground")], [Html.text("Rendering content...")])
-                    }
+                    lesson_content_panel(model)
                 ]),
 
                 # Assessments panel
                 Html.div([Attribute.id("assessments-panel"), Attribute.class("hidden space-y-4 pb-16")], [
                     Html.h2([Attribute.class("text-xl font-bold text-primary")], [Html.text("Assessments")]),
                     Html.div([Attribute.id("assessments-list")], [
-                        Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+                        UI.list_skeleton_cards(["w-40", "w-24"])
                     ])
                 ])
             ]),
@@ -431,6 +450,40 @@ student_lesson_content_view = |model| {
     ])
 }
 
+# The lesson title while the content is on its way, and what to say when it could not be read.
+lesson_title_placeholder = |model| {
+    match list_state(model.currentLessonContent) {
+        Pending => UI.skeleton_bar("h-8 w-64")
+        Failed(_) => Html.text("Lesson unavailable")
+        Ready(_) => Html.text("Lesson")
+    }
+}
+
+# The lesson panel before the page's JavaScript has rendered the lesson into it: skeleton sections
+# while the content is on its way, and the backend's own message with a retry when it failed.
+lesson_content_panel = |model| {
+    match list_state(model.currentLessonContent) {
+        Pending =>
+            Html.div([Attribute.class("space-y-8")], [
+                Html.div([Attribute.class("space-y-3")], [
+                    UI.skeleton_bar("h-5 w-40"),
+                    UI.skeleton_bar("h-4 w-full"),
+                    UI.skeleton_bar("h-4 w-5/6"),
+                    UI.skeleton_bar("h-4 w-2/3")
+                ]),
+                Html.div([Attribute.class("space-y-3")], [
+                    UI.skeleton_bar("h-5 w-48"),
+                    UI.skeleton_bar("h-4 w-3/4"),
+                    UI.skeleton_bar("h-4 w-1/2")
+                ])
+            ])
+
+        Failed(message) => UI.list_error_state("Could not load the lesson", message, Click(RetryList("/api/student/lesson?lesson_id=${model.selectedLessonId}")))
+
+        Ready(_) => Html.div([Attribute.class("text-sm text-muted-foreground")], [Html.text("Rendering content...")])
+    }
+}
+
 # -------------------------------------------------------
 # ASSIGNMENTS VIEW
 # -------------------------------------------------------
@@ -448,24 +501,27 @@ student_assignments_view = |_model| {
             Html.button([
                 Attribute.id("tab-general-assessments"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
-                Attribute.type("button")
+                Attribute.type("button"),
+                # A tab switch changes the view: data-nav starts the top border progress bar.
+                Attribute.data("nav", "")
             ], [Html.text("General Assessments")]),
             Html.button([
                 Attribute.id("tab-lesson-assessments"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
-                Attribute.type("button")
+                Attribute.type("button"),
+                Attribute.data("nav", "")
             ], [Html.text("Lesson Assessments")])
         ]),
 
         Html.div([Attribute.id("general-assessments-panel"), Attribute.class("space-y-4 pb-16")], [
             Html.div([Attribute.id("general-assessments-list")], [
-                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+                UI.list_skeleton_cards(["w-40", "w-24"])
             ])
         ]),
 
         Html.div([Attribute.id("assessments-panel"), Attribute.class("hidden space-y-4 pb-16")], [
             Html.div([Attribute.id("assessments-list")], [
-                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+                UI.list_skeleton_cards(["w-40", "w-24"])
             ])
         ])
     ])

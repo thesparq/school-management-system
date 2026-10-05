@@ -1,7 +1,7 @@
-module [default_sidebar_nav_item, default_button, card, card_header, card_title, card_content, badge, button, table, table_header, table_body, table_row, table_head, table_cell, sidebar, sidebar_header, sidebar_nav, sidebar_nav_item, input, label]
+module [default_sidebar_nav_item, default_button, card, card_header, card_title, card_content, badge, button, table, table_header, table_body, table_row, table_head, table_cell, skeleton_bar, list_skeleton_cards, table_skeleton_rows, table_empty_state, table_error_state, list_empty_state, list_error_state, sidebar, sidebar_header, sidebar_nav, sidebar_nav_item, input, label]
 
-import html.Html exposing [Html, div, h3, aside, nav, a, input, label, text]
-import html.Attribute exposing [class, type, disabled, on_click, href, value, placeholder, on_input]
+import html.Html exposing [Html, div, h3, p, aside, nav, a, input, label, text]
+import html.Attribute exposing [class, type, disabled, on_click, href, value, placeholder, on_input, attribute, data]
 
 # --- BUTTON ---
 
@@ -205,7 +205,10 @@ sidebar_nav_item = |config, children| {
 		
 	final_classes = Str.join_with([base_classes, active_classes, config.classes], " ")
 	
-	attrs = [class(final_classes)]
+	# data-nav marks a control that changes the view without a full page load: the page's own
+	# JavaScript starts the top border progress bar on a click that lands on one (and on a
+	# push_state, for the navigation the click leads to).
+	attrs = [class(final_classes), data("nav", "")]
 	final_attrs = match config.on_click {
 		None => attrs
 		Click(msg) => List.append(attrs, on_click(msg))
@@ -259,5 +262,74 @@ default_table_cell = { classes: "" }
 table_cell = |config, children| {
 	final_classes = Str.join_with(["p-4 align-middle [&:has([role=checkbox])]:pr-0", config.classes], " ")
 	Html.td([class(final_classes)], children)
+}
+
+# --- LIST STATES ---
+# Every list fed by the page's fetch_data port has three states, and the views render all three:
+# not loaded yet (skeleton), loaded (the rows, or a real empty state), and failed (what failed,
+# the backend's own message, and a retry). A failure never leaves a skeleton or a spinner behind.
+
+# One grey bar of a skeleton, sized by the caller's width class. `data-skeleton` marks the
+# placeholder so the browser checks can tell "not loaded yet" apart from a loaded list.
+skeleton_bar = |classes| {
+	div([class("rounded bg-muted animate-pulse ${classes}"), data("skeleton", "")], [])
+}
+
+# Card-shaped skeleton rows, for the lists the page's JavaScript renders into a panel (assessments,
+# submissions) and for the ones the views draw as cards rather than table rows.
+list_skeleton_cards = |row_widths| {
+	div([class("space-y-3")], List.map([1, 2, 3], |_row| {
+		div([class("rounded-lg border p-4 flex items-center gap-4")], List.map(row_widths, |width| skeleton_bar("h-4 ${width}")))
+	}))
+}
+
+# Skeleton rows shaped like the table's own columns: a few rows of grey bars, one per column.
+table_skeleton_rows = |column_widths| {
+	List.map([1, 2, 3, 4], |_row| table_row({ classes: "" }, List.map(column_widths, |width| {
+		table_cell({ classes: "" }, [skeleton_bar("h-4 ${width}")])
+	})))
+}
+
+# The single cell that carries a table's empty or failed state across its columns.
+table_state_row = |column_count, content| {
+	table_row({ classes: "" }, [
+		Html.td([class("px-4 py-12 text-center"), attribute("colspan", U64.to_str(column_count))], [content])
+	])
+}
+
+# A real empty state: the list loaded and holds no rows. `data-empty-state` marks it, like the
+# page's own JavaScript-rendered empty states, so the two are the same thing to a browser check.
+table_empty_state = |column_count, icon, title, description| {
+	table_state_row(column_count, div([class("flex flex-col items-center gap-2"), data("empty-state", "")], [
+		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg")], [text(icon)]),
+		p([class("text-sm font-medium text-foreground")], [text(title)]),
+		p([class("text-xs text-muted-foreground")], [text(description)])
+	]))
+}
+
+# A failed list: the backend's own message is what the user reads. `data-error-state` marks it.
+table_error_state = |column_count, title, message, retry_msg| {
+	table_state_row(column_count, div([class("flex flex-col items-center gap-2"), data("error-state", "")], [
+		p([class("text-sm font-medium text-destructive")], [text(title)]),
+		p([class("text-xs text-muted-foreground")], [text(message)]),
+		button({ ..default_button, variant: Outline, size: Sm, on_click: retry_msg }, [text("Retry")])
+	]))
+}
+
+# The same empty and failed states for the lists that are card grids rather than tables.
+list_empty_state = |icon, title, description| {
+	div([class("rounded-lg border bg-card p-10 flex flex-col items-center gap-2 text-center"), data("empty-state", "")], [
+		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg")], [text(icon)]),
+		p([class("text-sm font-medium text-foreground")], [text(title)]),
+		p([class("text-xs text-muted-foreground")], [text(description)])
+	])
+}
+
+list_error_state = |title, message, retry_msg| {
+	div([class("rounded-lg border bg-card p-10 flex flex-col items-center gap-2 text-center"), data("error-state", "")], [
+		p([class("text-sm font-medium text-destructive")], [text(title)]),
+		p([class("text-xs text-muted-foreground")], [text(message)]),
+		button({ ..default_button, variant: Outline, size: Sm, on_click: retry_msg }, [text("Retry")])
+	])
 }
 

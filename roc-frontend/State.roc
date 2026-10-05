@@ -1,4 +1,4 @@
-module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab]
+module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state]
 
 import pf.Effect exposing [Effect]
 import pf.Http
@@ -26,6 +26,26 @@ Route : [
 
 Role : [Admin, Teacher, Student, Parent, Unauthenticated]
 
+# What one hidden input's payload says about a list. The page's JavaScript answers every fetch —
+# a request that failed answers `error` with the backend's own message — so a list is never left
+# waiting: `""` means no answer yet (the view shows its skeleton and nobody is stuck), `ok` carries
+# the formatted rows (possibly none, which is a real empty state), and `error` carries what failed.
+ListState : [Pending, Ready(List(Str)), Failed(Str)]
+
+# Decode a payload: `"ok"` and `"ok\n<row>\n<row>"` are the loaded rows, `"error\n<message>"` is a
+# failure, and anything else (including the model's own initial `""`) has not been answered yet.
+list_state : Str -> ListState
+list_state = |payload| {
+	match Str.split_on(payload, "\n") {
+		["ok", .. as rows] => Ready(rows)
+		["error", .. as message_parts] => {
+			message = Str.join_with(message_parts, "\n")
+			Failed(if Str.is_empty(message) { "Request failed" } else { message })
+		}
+		_ => if Str.is_empty(payload) { Pending } else { Failed("Unexpected response") }
+	}
+}
+
 Model : {
 	route : Route,
 	role : Role,
@@ -40,7 +60,6 @@ Model : {
 	newUserSurname : Str,
 	newUserEmail : Str,
 	isSubmitting : Bool,
-	isLoading : Bool,
 	mobileMenuOpen : Bool,
 	usersData : Str,
 	termsData : Str,
@@ -50,6 +69,9 @@ Model : {
 	activeUserTab : AdminUserTab,
 	newUserRole : Str,
 	newUserPassportKey : Str,
+	# The nav bar's active-session-term payload, refetched by the page's JavaScript on every
+	# navigation. Its own status is what tells the bar whether to show a spinner, a badge or nothing.
+	sessionTermData : Str,
 	newUserDateOfBirth : Str,
 	newUserClassLevel : Str,
 	newUserRoleTitle : Str,
@@ -116,7 +138,11 @@ Msg : [
 	GotUsersData(Str),
 	GotTermsData(Str),
 	GotSubjectsData(Str),
-	DataLoaded,
+	GotSessionTermData(Str),
+	# Ask for one list again, by the URL the page's fetch_data port takes: what a failed list's
+	# Retry control sends. The list keeps its payload until the answer lands, so a retry never
+	# flashes a skeleton over data that is already there.
+	RetryList(Str),
 	SubmitCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	SetConfigTab(AdminConfigTab),
 	SignOut,
@@ -219,8 +245,8 @@ init = |flags| {
 		newUserSurname: "",
 		newUserEmail: "",
 		isSubmitting: Bool.False,
-		isLoading: Bool.True,
 		mobileMenuOpen: Bool.False,
+		sessionTermData: "",
 		usersData: "",
 		termsData: "",
 		subjectsData: "",
@@ -446,7 +472,24 @@ update = |model, msg|
 			}
 			({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, fetches)
 		}
-		# Entering the hub fetches its lists: the page's hidden inputs only exist there.
+		# Entering a page fetches what it cannot show without: the hub its five lists (its hidden
+		# inputs only exist there), and user management the list of the tab it opens on, so it shows
+		# current data rather than whatever a previous visit left in the model.
+		NavigateTo(AdminUserManagement) => {
+			active_tab_url = match model.activeUserTab {
+				Students => "/api/users?role=Student"
+				Teachers => "/api/users?role=Teacher"
+				Parents => "/api/users?role=Parent"
+				Admins => "/api/users?role=Admin"
+			}
+			(
+				{ ..model, route: AdminUserManagement, mobileMenuOpen: Bool.False },
+				[
+					Port.send("push_state", "/admin/users"),
+					Port.send("fetch_data", active_tab_url),
+				]
+			)
+		}
 		NavigateTo(AdminConfigurationHub) => (
 			{ ..model, route: AdminConfigurationHub, mobileMenuOpen: Bool.False },
 			[
@@ -529,7 +572,7 @@ update = |model, msg|
 			({ ..model, activeConfigTab: tab, configSubmitResult: None }, [])
 		UpdateNewUserEmail(s) =>
 			({ ..model, newUserEmail: s }, [])
-		GotUsersData(str) => ({ ..model, usersData: str, isLoading: Bool.False }, [])
+		GotUsersData(str) => ({ ..model, usersData: str }, [])
 		GotTermsData(str) => ({ ..model, termsData: str }, [])
 		GotSubjectsData(str) => ({ ..model, subjectsData: str }, [])
 		GotClassLevelsData(str) => ({ ..model, classLevelsData: str }, [])
@@ -586,7 +629,8 @@ update = |model, msg|
 			}
 			({ ..cleared, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
 		}
-		DataLoaded => ({ ..model, isLoading: Bool.False }, [])
+		# A retry re-runs exactly the fetch the failed list's control names.
+		RetryList(url) => (model, [Port.send("fetch_data", url)])
 		# --- Editing and activating a configuration row ---
 		# Opening a row prefills the draft from its own fetched line, so the inputs start on the
 		# current values and a save only has to send what the user changed.
@@ -729,13 +773,24 @@ update = |model, msg|
 			}
 			({ ..model, isSubmitting: Bool.False, submitResult: newResult, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
 		}
-		SetUserTab(tab) => ({ ..model, activeUserTab: tab }, [])
+		# Switching tabs fetches that tab's own list: the four lists are separate payloads, so a tab
+		# never stays on its skeleton waiting for a fetch the previous tab started.
+		SetUserTab(tab) => {
+			url = match tab {
+				Students => "/api/users?role=Student"
+				Teachers => "/api/users?role=Teacher"
+				Parents => "/api/users?role=Parent"
+				Admins => "/api/users?role=Admin"
+			}
+			({ ..model, activeUserTab: tab }, [Port.send("fetch_data", url)])
+		}
+		GotSessionTermData(s) => ({ ..model, sessionTermData: s }, [])
 		UpdateNewUserRole(s) => ({ ..model, newUserRole: s }, [])
 		SetPassportKey(k) => ({ ..model, newUserPassportKey: k }, [])
-		GotStudentsData(s) => ({ ..model, usersStudentsData: s, isLoading: Bool.False }, [])
-		GotTeachersData(s) => ({ ..model, usersTeachersData: s, isLoading: Bool.False }, [])
-		GotParentsData(s) => ({ ..model, usersParentsData: s, isLoading: Bool.False }, [])
-		GotAdminsData(s) => ({ ..model, usersAdminsData: s, isLoading: Bool.False }, [])
+		GotStudentsData(s) => ({ ..model, usersStudentsData: s }, [])
+		GotTeachersData(s) => ({ ..model, usersTeachersData: s }, [])
+		GotParentsData(s) => ({ ..model, usersParentsData: s }, [])
+		GotAdminsData(s) => ({ ..model, usersAdminsData: s }, [])
 		LoadLessons(_subjectId, _termId) => (model, [])
 		ViewLesson(_lessonId) => (model, [])
 		SelectSubject(id, name) => (

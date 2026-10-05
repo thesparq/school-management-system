@@ -39,6 +39,7 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. | Sandbox backend, mock Authentik and its database |
 | `authz.sh` | Role-based authorization over the API with curl: `dev-skip` (admin) still reaches a student route, a teacher route and the user/configuration writes; `dev-student` and `dev-teacher` are refused the routes outside their role with a 403 naming the role the route needs; the role of a real-looking token comes from the mock userinfo `groups` claim; and a missing or bogus token is still a 401. | Sandbox backend, mock Authentik with `AUTHENTIK_ISSUER_URL` |
 | `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
+| `e2e_loading.cjs` | Loading states in Chromium, driven by *clicking* — landing on the dashboard and going through the sidebar — because that is the path the suites above never took. The users list shows a skeleton that hands over to its table, no list is left on a loading message, the top border bar shows for a navigation and for a tab switch and goes away once the view has rendered, the nav bar carries the active session term, and with `/api/users?role=*` answering 500 the list shows the backend's own message with a retry (and the retry loads the list) instead of a spinner. | Sandbox backend |
 | `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. Creates its own subject per run, so it never spends the fixture's weight budget. | Sandbox backend |
 
 ```sh
@@ -52,6 +53,7 @@ node tests/e2e/e2e_admin.cjs
 node tests/e2e/e2e_admin_config.cjs
 node tests/e2e/e2e_assessments.cjs
 node tests/e2e/e2e_general_assessments.cjs
+node tests/e2e/e2e_loading.cjs
 sh tests/e2e/assessment_flow.sh
 sh tests/e2e/users_api.sh
 sh tests/e2e/general_assessment_flow.sh
@@ -117,6 +119,9 @@ assessments with questions can be created there. `general_assessment_flow.sh` re
 of the database when `SURREAL_URL` is set (the same address the backend uses, e.g.
 `SURREAL_URL=http://127.0.0.1:8002/sql`), which is how it checks the stored questions and answers against
 those field definitions.
+
+`e2e_loading.cjs` writes nothing, but it reads the fixture: it asserts the nav bar's badge against the
+seeded `session_term` ("2026/2027 — Noel Term"), so it wants that sandbox too.
 
 The general-assessment checks consume the term/subject weight budget (100%). `general_assessment_flow.sh`
 creates its own subject through the API on every run, so it starts from an empty budget and can be run
