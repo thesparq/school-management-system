@@ -191,16 +191,17 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 
 ### Remaining
 
-- [ ] `scheduled_at` is accepted on assessments but still ignored (the deadline and `max_resubmissions` are now
-  enforced).
-- [ ] **Where a user's email lives**: the four profile tables have no `email` column, but `GET /api/users`
-  selects one and the admin list renders an Email column — always empty. The address exists in Authentik (the
-  create path sends it there, and the profile id *is* the Authentik pk), so the listing should read it from
-  there in one call and merge by pk. `PUT /api/users` currently validates an email and refuses it with a clear
-  400 rather than dropping it. Awaiting a decision: read from Authentik (recommended) or add a column.
+- [ ] **Where a user's email lives** — see the user-management note below: the four profile tables have no
+  `email` column, `GET /api/users` selects one anyway, and the admin list renders an Email column that is
+  therefore always empty; `is_active` is selected too, so every row reads as active. The addresses exist in
+  Authentik (the create path sends them there, and the profile id *is* the Authentik pk). `PUT /api/users`
+  validates an email and refuses it with a clear 400 rather than dropping it. **The pattern is decided**
+  (IdP as the system of record, a projection in the app); the implementation is the next piece of work.
+- [ ] `DELETE /api/users` soft-deletes the profile row only — the Authentik login stays enabled, so a
+  "deleted" user can still authenticate. Part of the same user-management pass.
 - [ ] The admin Configuration Hub is UI-only (`terms_config_view` and friends take `|_model|`), though the
-  endpoints for terms, subjects, class levels and session terms exist. *(One of the three parallel
-  workstreams below is on this.)*
+  endpoints for terms, subjects, class levels and session terms exist. *(One of the parallel workstreams
+  below is on this.)*
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
   assessments are.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
@@ -227,18 +228,34 @@ and the mock's port argument were added for exactly this).
   `create-lesson-assessment` can finally set `max_resubmissions` — the column and its default existed but
   nothing could write it.
 - The teacher's grading list shows the auto-scored marks inline (`MCQ auto-scored: 4 / 4`, `Q1 ✓ 4/4`).
-- **Follow-up by me**: submit also refuses an unpublished assessment (409) and an unknown one (404) — a draft
+**Follow-up by me**: submit also refuses an unpublished assessment (409) and an unknown one (404) — a draft
   was unsubmittable in the legacy agent and is now here too; two of the new API cases had been submitting to
-  drafts, which is why they now publish first.
+  drafts, which is why they now publish first. Then `scheduled_at`: it was stored and ignored, so submit now
+  refuses an answer before it opens (409, same database-side comparison as the deadline), and the create modal
+  finally collects the rules — open time, close time and attempt limit — as `datetime-local` fields converted to
+  UTC, with the answer form and list button saying when an assessment opens.
 
 **Backend correctness** (merged as `7e744e6`, from the agent's `3e8a0c6`): `PUT`/`DELETE /api/users` resolve the
 profile table from the id's own prefix instead of writing the legacy `student` table, validate like the create
 path, and soft-delete; `query_param` percent-decodes through the new pure `Url` module (`UrlTest.roc`, 16 cases).
 
 **Verified by me, not just reported**: `roc check main.roc` 0 errors / 3 warnings; `roc test UrlTest.roc` 16/16;
-`sh tests/e2e/assessment_flow.sh` 37/37; `node tests/e2e/e2e_assessments.cjs` 16/16;
+`sh tests/e2e/assessment_flow.sh` 41/41; `node tests/e2e/e2e_assessments.cjs` 17/17;
 `e2e_student.cjs` 7/7; `e2e_admin.cjs` 5/5; plus my own curl run of the user-update lifecycle and the
 encoded-vs-raw query comparison (13/13). The third workstream (the admin Configuration Hub) is still running.
+
+### How user management should work (decided)
+
+The identity provider owns identity; the app database owns school data. Concretely: Authentik holds the login,
+the email, whether the account is enabled and the groups that decide the role; `student_profile` and its
+siblings hold what only this app knows (class level, date of birth, passport, role title) and are keyed by the
+Authentik pk, which is already the case. Reads of identity attributes go to Authentik — one list call, merged by
+pk — rather than being copied into SurrealDB, so there is exactly one source of truth per attribute; writes go
+through the Authentik API first, then the profile row, which the create path already does. That is the standard
+shape (IdP as system of record, app tables for domain attributes, subject id as the key, never email); SCIM is
+the heavier enterprise variant, worth it only if users should be provisioned from the IdP side. Applying it
+fixes three things at once: the empty Email column, the always-active column, and `DELETE` leaving the login
+enabled.
 
 ---
 ### Deployment pass — built, awaiting the deploy
