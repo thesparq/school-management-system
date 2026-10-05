@@ -449,8 +449,8 @@ looks_like_date = |text| {
     Str.count_utf8_bytes(text) == 10 and Str.contains(text, "-")
 }
 
-# Loose shape check for the address the create path hands to Authentik. An update validates it the
-# same way, then refuses it (see update_clauses!): the profile tables have no email column.
+# Loose shape check for the address the create path hands to Authentik, and for a new one an
+# update sends there.
 looks_like_email = |text| {
     parts = Str.split_on(text, "@")
 
@@ -611,10 +611,9 @@ update_text_clause! = |field, payload_raw| {
 
 # The `SET` clauses for a PUT /api/users, or the message for the 400 that stops it. Only columns the
 # resolved table really has are written, and the checks mirror the create path: a student's new
-# class level must exist and a date of birth must look like YYYY-MM-DD. Email is refused rather than
-# written — no profile table declares an `email` column (its home is the Authentik login, per the
-# identity/profile split), so the write would fail inside the database, and dropping the field
-# silently would report a change that never happened.
+# class level must exist and a date of birth must look like YYYY-MM-DD. Email is validated here but
+# not written — no profile table declares an `email` column (its home is the Authentik login, per the
+# identity/profile split), so the handler patches Authentik with it after these clauses pass.
 update_clauses! : Str, Str, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
 update_clauses! = |table, payload_raw, config| {
     display_name = extract_field(payload_raw, "display_name") |> sanitize
@@ -670,12 +669,8 @@ update_clauses! = |table, payload_raw, config| {
     candidates = List.concat(name_clauses, List.concat([update_text_clause!("passport", payload_raw)], role_clauses))
     clauses = List.keep_if(candidates, |clause| !Str.is_empty(clause))
 
-    if !Str.is_empty(email) {
-        if looks_like_email(email) {
-            Err("email has no column on ${table}: it belongs to the Authentik login")
-        } else {
-            Err("email is not a valid address")
-        }
+    if !Str.is_empty(email) and !looks_like_email(email) {
+        Err("email is not a valid address")
     } else if !List.is_empty(misplaced) {
         first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
 
@@ -684,11 +679,90 @@ update_clauses! = |table, payload_raw, config| {
         Err("date_of_birth must look like YYYY-MM-DD")
     } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
         Err("class_level '${class_level}' does not exist")
-    } else if List.is_empty(clauses) {
-        Err("no updatable fields: send at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
+    } else if List.is_empty(clauses) and Str.is_empty(email) {
+        Err("no updatable fields: send an email or at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
     } else {
         Ok(clauses)
     }
+}
+
+# --- User listing: the profile rows joined with the identity attributes Authentik owns ---
+
+# Whether this element of Authentik's user list is the user a profile row's bare id names.
+# Authentik's own API sends the pk as a number (`"pk": 3`), the sandbox mock as a string
+# (`"pk":"mock_uuid_3"`); both are compared as text.
+user_pk_matches! = |element, pk| {
+    quoted = extract_field(element, "pk")
+
+    if !Str.is_empty(quoted) {
+        quoted == pk
+    } else {
+        extract_number_field(element, "pk") == pk
+    }
+}
+
+# The element of Authentik's user list whose pk is this row's, or "" when the login is not in it.
+# `List.map` and `List.keep_if` only take pure functions and the scanners carry an effect, so the
+# walk is recursive — the same reason score_elements! is.
+matching_user! : List(Str), Str => Str
+matching_user! = |elements, pk| {
+    match elements {
+        [] => ""
+        [element, .. as rest] => if user_pk_matches!(element, pk) { element } else { matching_user!(rest, pk) }
+    }
+}
+
+# One row of the rebuilt listing: the profile's own fields (the ones the listing selects) plus the
+# two identity attributes no profile table has. `id` keeps its full record form
+# (`student_profile:<pk>`), which is what PUT and DELETE resolve their table from.
+# A row whose pk is not in Authentik's list carries neither identity field: nothing is known about
+# that login, and answering `"is_active":false` would report an account that was never switched
+# off. The frontend renders an empty email there and a missing `is_active` as active.
+user_row_with_identity! = |row, users| {
+    pk = bare_id(extract_field(row, "id"))
+    user = matching_user!(users, pk)
+    identity =
+        if Str.is_empty(user) {
+            []
+        } else {
+            [
+                "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
+                "\"is_active\":${json_bool(user, "is_active")}",
+            ]
+        }
+    fields = [
+        "\"id\":\"${sanitize_json_text(extract_field(row, "id"))}\"",
+        "\"display_name\":\"${sanitize_json_text(extract_field(row, "display_name"))}\"",
+        "\"first_name\":\"${sanitize_json_text(extract_field(row, "first_name"))}\"",
+        "\"surname\":\"${sanitize_json_text(extract_field(row, "surname"))}\"",
+        "\"passport\":\"${sanitize_json_text(extract_field(row, "passport"))}\"",
+        "\"created_at\":\"${sanitize_json_text(extract_field(row, "created_at"))}\"",
+        "\"current_class\":\"${sanitize_json_text(extract_field(row, "current_class"))}\"",
+    ]
+
+    "{${Str.join_with(List.concat(fields, identity), ",")}}"
+}
+
+# The element-wise pass over the rows, effectful for the same reason as matching_user!.
+rows_with_identity! : List(Str), List(Str), List(Str) => List(Str)
+rows_with_identity! = |rows, users, out| {
+    match rows {
+        [] => out
+        [row, .. as rest] => rows_with_identity!(rest, users, List.append(out, user_row_with_identity!(row, users)))
+    }
+}
+
+# GET /api/users: the profile rows (school data) with the login attributes Authentik owns (email,
+# whether the account is enabled) merged in by pk. Both sides are text: the database body and
+# Authentik's `{"pagination":…,"results":[…]}` are read with the scanners above rather than a
+# parser, and the result is rebuilt as the one-element envelope the frontend's `unwrapRows` reads
+# (`data[0].result`). Rebuilding from the known fields is more predictable than editing JSON text
+# in place, at the cost of dropping anything else the row carried.
+merge_identity! = |body, users_body| {
+    users = split_json_elements(extract_json_array(users_body, "results"))
+    rows = rows_with_identity!(split_json_elements(extract_json_array(body, "result")), users, [])
+
+    "[{\"result\":[${Str.join_with(rows, ",")}],\"status\":\"OK\"}]"
 }
 
 # --- Input sanitization ---
@@ -1058,11 +1132,22 @@ respond! = |request, context| {
                         else if Str.contains(request.target, "role=Parent") { "parent_profile" }
                         else if Str.contains(request.target, "role=Admin") { "admin_profile" }
                         else { "student_profile" }
-                    query = "SELECT id, display_name, first_name, surname, email, is_active, passport, created_at, current_class FROM ${role_param} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
-                    res = SurrealDB.query!(query, context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                    # The profile tables hold the app's own fields only, so no email or is_active here:
+                    # both are identity attributes Authentik owns (see the merge below).
+                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM ${role_param} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    match db_body!(query, context.surreal) {
+                        Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                        Ok(body) =>
+                            match Authentik.listUsers!("200") {
+                                Ok(users_body) => Ok(json_response(200, merge_identity!(body, users_body))),
+                                Err(_) =>
+                                    # Authentik is unreachable (or no token is configured): answer the
+                                    # rows as the database has them rather than failing the listing.
+                                    # Their identity columns are then unknown, which is why nothing
+                                    # is invented for them — no email, and no is_active that would
+                                    # report a login state that was never observed.
+                                    Ok(json_response(200, body)),
+                            }
                     }
 
                 # --- Student Lesson APIs ---
@@ -1305,22 +1390,46 @@ respond! = |request, context| {
                         Ok(json_response(400, "{\"error\":\"id is required\"}"))
                     } else {
                         match profile_table_of(id_val) {
-                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
+                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                             Ok(table) =>
                                 match update_clauses!(table, payload_raw, context.surreal) {
-                                    Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
+                                    Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                                     Ok(clauses) => {
-                                        set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()"]), ", ")
-                                        # db_response! answers 500 with the statement's own message
-                                        # when the write is rejected, instead of a false 200.
-                                        Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET ${set_clause};", context.surreal))
+                                        email = extract_field(payload_raw, "email") |> sanitize
+                                        # Identity first, then the profile: the email is the address
+                                        # the login is found by, so an Authentik failure has to stop
+                                        # the update instead of leaving the two sides disagreeing.
+                                        auth_res =
+                                            if Str.is_empty(email) {
+                                                Ok("")
+                                            } else {
+                                                Authentik.updateUser!(bare_id(id_val), "{\"email\": \"${sanitize_json_text(email)}\"}")
+                                            }
+                                        match auth_res {
+                                            Err(message) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(message)}\"}")),
+                                            Ok(_) =>
+                                                if List.is_empty(clauses) {
+                                                    # An identity-only update (email and nothing else):
+                                                    # the profile row has no column to change, so
+                                                    # there is no statement to run for it.
+                                                    Ok(json_response(200, "{\"id\":\"${sanitize_json_text(id_val)}\"}"))
+                                                } else {
+                                                    set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()"]), ", ")
+                                                    # db_response! answers 500 with the statement's own message
+                                                    # when the write is rejected, instead of a false 200.
+                                                    Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET ${set_clause};", context.surreal))
+                                                }
+                                        }
                                     }
                                 }
                         }
                     }
                 } else if Method.is_eq(request.method, DELETE) and request.target == "/api/users" {
-                    # Soft delete: the listings filter on `deleted_at IS NONE`, so the row (and its
-                    # history) stays in the database and simply stops appearing.
+                    # Soft delete the profile row, then switch the login off. The listings filter on
+                    # `deleted_at IS NONE`, so the row (and its history) stays in the database and
+                    # simply stops appearing; the live login is what still lets the user in, so it is
+                    # disabled right after, and a failure there is reported (502) rather than answered
+                    # as a success the admin would trust.
                     payload_raw = read_body!(request)
                     id_val = extract_field(payload_raw, "id") |> sanitize
 
@@ -1328,8 +1437,16 @@ respond! = |request, context| {
                         Ok(json_response(400, "{\"error\":\"id is required\"}"))
                     } else {
                         match profile_table_of(id_val) {
-                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}"))
-                            Ok(table) => Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", context.surreal))
+                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                            Ok(table) =>
+                                match db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", context.surreal) {
+                                    Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                    Ok(body) =>
+                                        match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
+                                            Ok(_) => Ok(json_response(200, body)),
+                                            Err(message) => Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}")),
+                                        }
+                                }
                         }
                     }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {

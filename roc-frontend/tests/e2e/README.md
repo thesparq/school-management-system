@@ -30,6 +30,7 @@ this app.)
 | `e2e_admin_config.cjs` | Admin configuration hub in Chromium: every section (terms, class levels, subjects, session terms, the curriculum edge) lists the fixture's rows, a create through the form appears in the list afterwards, and a refused create shows the backend's own text (400 validation, or the database's statement message). Re-entering the hub from the dashboard refetches the lists. | Sandbox backend |
 | `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher's grading list shows the auto-scored MCQ marks; the teacher grades and releases. | Sandbox backend |
 | `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
+| `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. | Sandbox backend, mock Authentik and its database |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -42,13 +43,14 @@ node tests/e2e/e2e_admin.cjs
 node tests/e2e/e2e_admin_config.cjs
 node tests/e2e/e2e_assessments.cjs
 sh tests/e2e/assessment_flow.sh
+sh tests/e2e/users_api.sh
 ```
 
 ## Sandbox for the admin and assessment checks
 
-`e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs` and `assessment_flow.sh` write rows, so they
-must not run against prod. Start a throwaway SurrealDB, load the schema fixture, and point a backend at it
-plus the mock Authentik:
+`e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs`, `assessment_flow.sh` and `users_api.sh` write
+rows, so they must not run against prod. Start a throwaway SurrealDB, load the schema fixture, and point a
+backend at it plus the mock Authentik:
 
 ```sh
 surreal start --bind 127.0.0.1:8002 --user root --pass root surrealkv:///tmp/school-sandbox/db &
@@ -69,8 +71,18 @@ seeds the class levels, terms, one subject with its `has_subject` edge, one less
 `student_profile:dev_user` so the dev-skip caller resolves a name. The
 lesson's `content.mcq_questions` carry a `correct_answer` letter, which is what the create-assessment modal
 stores as the question's `answer` and what submit-time MCQ scoring compares against. The
-mock hands out a fresh `pk` per create and accepts `DELETE`, which is what the compensation path calls; the
-repo's `mock_authentik.py` returns a constant `pk`, so per-role runs would collide on the record id.
+mock keeps a user table: a fresh `pk` per create, which is what keeps each created account's record id
+distinct; GET lists in Authentik's own shape, PATCH updates the fields it is given, DELETE removes one (the
+compensation path's call) and an unknown pk answers 404. The repo's `mock_authentik.py` returns a constant
+`pk`, so per-role runs would collide on the record id.
+
+`users_api.sh` needs the mock and the database it points at, not just the backend, because it checks both
+sides of a delete. Run it with the sandbox's own addresses:
+
+```sh
+APP_URL=http://127.0.0.1:8000 MOCK_AUTHENTIK_URL=http://127.0.0.1:9000 \
+  SURREAL_URL=http://127.0.0.1:8002/sql sh tests/e2e/users_api.sh
+```
 
 Two schema notes learned from the prod tables: relations are created with `RELATE` (`CREATE` on a relation
 table is rejected), and `questions` / `answers` are `array<object>`, which implies their `.*` sub-field.
