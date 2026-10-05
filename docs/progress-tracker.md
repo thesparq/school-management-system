@@ -205,40 +205,40 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
 
-### Deployment pass — scoped, two decisions needed
+### Deployment pass — built, awaiting the deploy
 
-What the Roc stack needs to run outside this machine, from checking the repo and the real artifact:
+**Decided**: the app answers on `app.johnethel.school` and ships as a service in `devops/docker-compose.yml`,
+the same Dokploy/Traefik pattern as everything else on that host.
 
-- **The artifact**: `roc build main.roc` produces a 5.8 MB statically linked binary in ~10 s (the build
-  output is gitignored). It serves the API *and* the static frontend from `STATIC_DIR`, so one process is the
-  whole app. Verified with production settings (`BIND_HOST=0.0.0.0`, `DEV_MODE=false`, prod credentials):
-  listens on `0.0.0.0:8000`, `/health` → `surreal db is healthy`, serves `www/index.html`, and rejects
-  `dev-skip` — the bypass is off, so only real Authentik tokens pass.
-- **Listen address**: `BIND_HOST` (default `127.0.0.1`) now overrides the platform's loopback-only default;
-  the port stays 8000. Without this nothing outside the process's own namespace could reach it.
-- **Environment**: `SURREAL_URL`/`SURREAL_USER`/`SURREAL_PASS` (or `SURREAL_AUTH`), `AUTHENTIK_USERINFO_URL`
-  (or `AUTHENTIK_ISSUER_URL`), `AUTHENTIK_API_URL` + `AUTHENTIK_API_TOKEN` (user creation), `STATIC_DIR`,
-  `DEV_MODE` unset/false.
-- **The frontend build**: `cd roc-frontend && roc run build.roc` needs `roc`, `node` with
-  `@tailwindcss/cli`, and the vendored Joy platform — all of `roc-frontend/joy/` is tracked, including the
-  patched `host.wasm`, so a fresh clone can build. Its outputs `www/app.wasm` and `www/runtime.js` are
-  gitignored, so the deploy machine (or image build) has to produce them; `index.html` and `dist.css` are
-  tracked.
-- **Auth**: the frontend is a public OAuth2 PKCE client (`CLIENT_ID` in `www/index.html`, hardcoded) with
-  `REDIRECT_URI = window.location.origin + '/'`, so the deployed origin must be registered on the Authentik
-  provider — this is the one manual step per environment. The backend validates the bearer against
-  Authentik's userinfo endpoint and derives the caller's profile id from it.
-- **Host**: production is a Dokploy server — services in `devops/docker-compose.yml` share the external
-  `dokploy-network` and Traefik publishes them by label (`Host(\`…\`)`, `certresolver=letsencrypt`), as
-  `chat.johnethel.school`, the Golem services and SurrealDB (`db2.johnethel.school`) already do. The app fits
-  the same pattern as one more service on port 8000. Nothing in the repo builds or deploys the Roc stack yet
-  (the only workflow, `.github/workflows/deploy-backend.yml`, deploys the MoonBit agents to Golem).
+- **`Dockerfile.app`** (repo root) builds everything in two stages: the pinned Roc nightly from
+  `roc-lang/nightlies` — the channel for this compiler, since the older `roc-lang/roc` nightly tag stops at a
+  build that predates it — then `npm ci` + Tailwind + `roc run build.roc` for the bundle and
+  `roc build main.roc` for the binary. The runtime stage carries the binary, `www/`, and the CA roots, and
+  sets `BIND_HOST=0.0.0.0` / `DEV_MODE=false`.
+- **The `app` service**: Traefik labels for `app.johnethel.school` → port 8000, the in-network SurrealDB URL
+  (`http://surrealdb:8000/sql`), `AUTHENTIK_ISSUER_URL` for token validation,
+  `AUTHENTIK_SERVICE_ACCOUNT_TOKEN` for creating logins, both networks, `restart: unless-stopped`.
+- **Cleanup**: the eight `golem-*` services and their four volumes moved to
+  `devops/legacy/docker-compose.golem.yml` (the retired agent runtime, out of the deployed stack, kept for
+  rollback); the four stale `docker-compose.yml.*` variants are deleted (two were identical 775-line files with
+  the authentik block duplicated into every service, so YAML kept only the last); `.env.example` documents the
+  app's variables; the README now describes what is actually deployed instead of the earlier Caddy-based local
+  stack.
+- **Stale stylesheet**: the committed `www/dist.css` predated a lot of the UI — regenerating it added nine
+  utilities the markup already used and dropped none, so the answer form's controls had been rendering with
+  browser defaults. `www/app.css` also scans `index.html` explicitly now, since most of this app's markup lives
+  in the page's JavaScript.
 
-**Open decisions**: the app's domain (and therefore the redirect URI to add in Authentik), and whether to
-ship it as a Dokploy service in `devops/docker-compose.yml` (recommended — same network, TLS and pattern as
-everything else there) or as a systemd unit on the host. Both need a build step for the binary and the
-frontend bundle; a multi-stage Dockerfile (roc + node in the builder, binary + `www/` in the runtime image)
-keeps it reproducible.
+**Verified** without a Docker daemon (none on this machine, so the image build itself is the one step not run
+here): the same sequence against a clean copy of the sources with the compiler extracted from the pinned
+tarball — 0 errors, and the resulting binary served `/health` (`surreal db is healthy`), `index.html`,
+`dist.css`, `runtime.js` and `app.wasm` on `0.0.0.0:8000`, rejected the dev token with `DEV_MODE=false`, and
+passed the browser drill-down 7/7 against prod data.
+
+**Still to do on the server**: a DNS record for `app.johnethel.school`, the origin registered as a redirect URI
+on the Authentik provider (`https://app.johnethel.school/` — the frontend sends `<origin>/`), and the Dokploy
+deploy of this compose. Then the sandbox suites are worth re-running against the deployed origin with
+`DEV_MODE` off and a real token.
 
 ---
 
