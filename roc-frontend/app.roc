@@ -1,0 +1,256 @@
+app [Model, Msg, init, update, render, subscriptions] {
+	# Joy 0.33.0 with the host allocator patch vendored in joy-platform/ — see JOY_HOST_PATCH.md.
+	# Swap back to the release URL once the fix ships upstream.
+	pf: platform "joy/platform/main.roc",
+	html: "https://github.com/niclas-ahden/joy-html/releases/download/0.16.0/56NBT6VkQ5xm87Wjzcv9mRuNT4RACiAmuAmPbXwc8cuk.tar.zst",
+}
+
+import html.Html exposing [Html, div, h1, text, a, span]
+import html.Attribute exposing [class]
+import pf.DOM
+import pf.Sub exposing [Sub]
+
+import State exposing [Route]
+import UI
+
+import DashboardView
+import AdminView
+import TeacherView
+import StudentView
+import MessagingView
+
+Model : State.Model
+Msg : State.Msg
+
+init = State.init
+
+subscriptions : Model -> List(Sub(Msg))
+subscriptions = |_model| [
+	DOM.on_url_change(|url| UrlChanged(url))
+]
+
+update = State.update
+
+render : Model -> Html(Msg)
+render = |model| {
+	theme_class =
+		match model.theme {
+			Dark => "dark flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans"
+			Light => "flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans"
+		}
+
+	# Sidebar Navigation Items
+	sidebar_navs =
+		List.concat(
+			[
+				UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("Dashboard")])
+			],
+			match model.role {
+				Admin => [
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminUserManagement, on_click: Click(NavigateTo(AdminUserManagement)) }, [text("User Management")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminConfigurationHub, on_click: Click(NavigateTo(AdminConfigurationHub)) }, [text("Configuration Hub")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+				]
+				Teacher => [
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherMyClasses, on_click: Click(NavigateTo(TeacherMyClasses)) }, [text("My Classes")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherAssessments, on_click: Click(NavigateTo(TeacherAssessments)) }, [text("Assessments & Grading")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+				]
+				Student => [
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == StudentSubjects, on_click: Click(NavigateTo(StudentSubjects)) }, [text("My Subjects")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+				]
+				Parent => [
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("My Children")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+				]
+				Unauthenticated => []
+			}
+		)
+
+	# User initials for avatar
+	user_initial =
+		if Str.is_empty(model.userName) {
+			match model.role { Admin => "A", Teacher => "T", Student => "S", Parent => "P", _ => "U" }
+		} else {
+			match Str.to_utf8(model.userName) |> List.first {
+				Ok(b) => match Str.from_utf8([b]) { Ok(s) => s, Err(_) => "U" }
+				Err(_) => "U"
+			}
+		}
+
+	user_display_name =
+		if Str.is_empty(model.userName) {
+			match model.role { Admin => "Admin User", Teacher => "Teacher", Student => "Student", Parent => "Parent", _ => "User" }
+		} else {
+			model.userName
+		}
+
+	user_display_email =
+		if Str.is_empty(model.userEmail) { "user@school.com" } else { model.userEmail }
+
+	# Sidebar Header Content
+	sidebar_header_content =
+		UI.sidebar_header({ classes: "p-0 border-b shrink-0 flex items-center h-16" }, [
+			Html.div([Attribute.class("flex items-center justify-center px-4 py-2 w-full")], [
+				Html.img([Attribute.src("/logo.jpg"), Attribute.alt("John Ethel Academy"), Attribute.class("h-10 object-contain")])
+			])
+		])
+
+	# Sidebar User Footer
+	sidebar_user_footer =
+		div([class("p-4 border-t bg-muted/20 shrink-0")], [
+			div([class("flex items-center gap-3")], [
+				div([class("w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary")], [
+					text(user_initial)
+				]),
+				div([class("flex flex-col overflow-hidden")], [
+					div([class("text-sm font-medium leading-tight truncate")], [text(user_display_name)]),
+					div([class("text-xs text-muted-foreground truncate")], [text(user_display_email)])
+				])
+			])
+		])
+
+	# Desktop Sidebar
+	sidebar =
+		UI.sidebar({ classes: "w-64 h-full hidden md:flex flex-col flex-shrink-0" }, [
+			sidebar_header_content,
+			div([class("flex-1 overflow-y-auto p-4")], [
+				UI.sidebar_nav({ classes: "space-y-1" }, sidebar_navs)
+			]),
+			sidebar_user_footer
+		])
+
+	# Mobile Sidebar Overlay
+	mobile_sidebar =
+		if model.mobileMenuOpen {
+			div([class("fixed inset-0 z-50 md:hidden")], [
+				div([class("fixed inset-0 bg-black/50"), Attribute.on_click(ToggleMobileMenu)], []),
+				div([class("fixed left-0 top-0 bottom-0 w-64 bg-card border-r shadow-xl flex flex-col z-51")], [
+					sidebar_header_content,
+					div([class("flex-1 overflow-y-auto p-4")], [
+						UI.sidebar_nav({ classes: "space-y-1" }, sidebar_navs)
+					]),
+					sidebar_user_footer
+				])
+			])
+		} else {
+			div([], [])
+		}
+
+	# Breadcrumbs (clickable)
+	breadcrumb_items =
+		match model.route {
+			Dashboard => [
+				span([class("text-foreground font-semibold")], [text("Dashboard")])
+			]
+			AdminUserManagement => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("User Management")])
+			]
+			AdminConfigurationHub => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Configuration Hub")])
+			]
+			TeacherLessonViewer => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Lesson Viewer")])
+			]
+			TeacherAssessments => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Assessments & Grading")])
+			]
+			StudentLessonViewer => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("My Lessons")])
+			]
+			StudentAssignments => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Assignments")])
+			]
+			StudentSubjects => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("My Subjects")])
+			]
+			StudentLesson => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Lesson")])
+			]
+			TeacherMyClasses => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("My Classes")])
+			]
+			Messaging => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Messaging")])
+			]
+			_ => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Page")])
+			]
+		}
+
+	# Top Nav Bar
+	top_nav =
+		div([class("h-16 border-b bg-card flex items-center justify-between px-4 md:px-6 shrink-0 shadow-sm z-10 relative")], [
+			div([class("flex items-center gap-3")], List.concat(
+				[
+					UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleMobileMenu), classes: "md:hidden" }, [
+						text("☰")
+					])
+				],
+				[div([class("flex items-center text-sm font-medium text-muted-foreground")], breadcrumb_items)]
+			)),
+			div([class("flex items-center gap-2")], [
+				UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleTheme) }, [
+					text(match model.theme { Light => "🌙", Dark => "☀️" })
+				]),
+				UI.button({ ..UI.default_button, variant: Ghost, size: Icon }, [
+					text("🔔")
+				]),
+				div([class("relative group")], [
+					UI.button({ ..UI.default_button, variant: Ghost, size: Icon, classes: "rounded-full bg-muted" }, [
+						text(user_initial)
+					]),
+					div([class("absolute right-0 mt-2 w-48 bg-card border rounded-md shadow-md py-1 hidden group-hover:block z-50")], [
+						UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
+							text("Sign Out")
+						])
+					])
+				])
+			])
+		])
+
+	# Main Content Area dispatched by Route
+	content =
+		match model.route {
+			Dashboard => DashboardView.view(model)
+			AdminUserManagement | AdminConfigurationHub => AdminView.view(model)
+			TeacherLessonViewer | TeacherAssessments => TeacherView.view(model)
+			StudentLessonViewer | StudentAssignments => StudentView.view(model)
+			StudentSubjects | StudentLesson => StudentView.view(model)
+			TeacherMyClasses => TeacherView.view(model)
+			Messaging => MessagingView.view(model)
+			_ => div([], [h1([], [text("404 Not Found")])])
+		}
+
+	div([class(theme_class)], [
+		mobile_sidebar,
+		sidebar,
+		div([class("flex-1 flex flex-col h-full overflow-hidden")], [
+			top_nav,
+			div([class("flex-1 overflow-auto bg-muted/10")], [content])
+		])
+	])
+}

@@ -1,0 +1,24 @@
+{
+  "name": "roc-frontend",
+  "version": "1.0.0",
+  "description": "[TodoMVC](https://todomvc.com) written in [Joy](https://github.com/niclas-ahden/joy), a framework for building web apps in [Roc](https://www.roc-lang.org). It is a small but complete app, so it is also the fastest way to start one of your own: clone it and edit `app.roc`.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "dev": "concurrently \"npx @tailwindcss/cli -i www/app.css -o www/dist.css --watch\" \"/tmp/roc/roc run watch.roc\"",
+    "build": "./build.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
