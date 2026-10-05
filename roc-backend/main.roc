@@ -64,8 +64,13 @@ init! = || {
     static_dir_str = env_or!("STATIC_DIR", "../roc-frontend/www")
     # The platform default is loopback-only on 8000. That is the right default locally, but a
     # container (or any reverse proxy in another network namespace) cannot reach it, so deployments
-    # set BIND_HOST=0.0.0.0. The port stays the platform default; map it at the proxy.
+    # set BIND_HOST=0.0.0.0. The port is configurable too, so a second instance (another sandbox, a
+    # test run) can sit beside the first.
     bind_host = env_or!("BIND_HOST", "127.0.0.1")
+    port = match U16.from_str(env_or!("PORT", "8000")) {
+        Ok(parsed) => parsed
+        Err(_) => 8000
+    }
 
     if Str.is_empty(surreal_auth) {
         warn!("No SurrealDB credentials: set SURREAL_USER/SURREAL_PASS (or SURREAL_AUTH).")
@@ -74,7 +79,7 @@ init! = || {
     }
 
     Ok({
-        config: Server.default_config.with_listen({ host: bind_host, port: 8000 }),
+        config: Server.default_config.with_listen({ host: bind_host, port }),
         context: {
             surreal: { url: surreal_url, ns: surreal_ns, db: surreal_db, auth: surreal_auth },
             dev_mode: dev_mode_str == "true",

@@ -4,7 +4,10 @@
 # profile gets its own record id) and accepts DELETE, which the backend calls to compensate when a
 # profile write fails.
 #
-#   python3 tests/e2e/fixtures/mock_authentik_unique.py
+#   python3 tests/e2e/fixtures/mock_authentik_unique.py [port]
+#
+# The port defaults to 9000 and can also come from MOCK_AUTHENTIK_PORT, so several sandboxes can run
+# side by side.
 #
 # Then point the backend at it:
 #   AUTHENTIK_API_URL=http://127.0.0.1:9000/api/v3/core/users/ AUTHENTIK_API_TOKEN=mock
@@ -13,8 +16,10 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import itertools
 import json
+import os
+import sys
 
-PORT = 9000
+PORT = int(sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MOCK_AUTHENTIK_PORT', '9000'))
 counter = itertools.count(1)
 
 
