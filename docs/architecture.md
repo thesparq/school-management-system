@@ -1,5 +1,12 @@
 # Architecture
 
+> **Stack in transition.** The tables and flows below describe the MoonBit/Golem path (SvelteKit + durable
+> agents), which is being retired. What runs today is the Roc stack: a Roc backend (`roc-backend/main.roc`,
+> one process serving the API and the static frontend) and a Joy/WASM single-page app
+> (`roc-frontend/`, `www/index.html` for the page's own logic), against the same SurrealDB. Authentik, the
+> database and the storage model are unchanged. `docs/progress-tracker.md` (Phase 8) is the current state;
+> the agent-era sections are kept as the record of how the old path worked.
+
 ## Stack
 
 | Layer | Technology | Version | Role |
@@ -505,10 +512,16 @@ When a teacher creates or updates an assignment, the Teacher Agent pushes the co
 5. Golem guarantees exactly-once delivery of each RPC. If a student agent is temporarily unreachable, delivery is retried with backoff.
 
 Deadline enforcement happens at two levels:
-- **Client-side (Student Agent)**: Checks `now > deadline` before sending the submission RPC. Returns immediate error if expired.
-- **Server-side (Teacher Agent)**: Checks deadline again upon receipt. This is the authoritative check and handles clock skew.
+- **Client-side (the page)**: the answer form disables submit once the deadline has passed, for immediate feedback.
+- **Server-side (the Roc backend)**: `POST /api/student/submit-assessment` re-reads the assessment and asks the
+  database whether it is expired (`deadline < time::now()`), refusing with 409 when it is. This is the
+  authoritative check, so the page's button is cosmetic. The same handler enforces `max_resubmissions`
+  (0 = unlimited).
 
-The SvelteKit UI renders a deadline clock for students based on the deadline timestamp provided by the Teacher Agent.
+The page renders the deadline from the assessment row itself (`lesson_assessments.deadline`).
+
+*(These two levels were the Student Agent's local check and the Teacher Agent's check on receipt; both agents
+are retired.)*
 
 ### Long-Running Admin Tasks (Promise-Based)
 
@@ -609,7 +622,10 @@ These rules must never be violated by any code change, refactor, or new feature.
 
 4. **The Admin Agent is the sole writer of `user_profile` records.** Agents read their profile from SurrealDB on first request via the cache-first pattern. Agents never write their own profile.
 
-5. **Assignment deadlines are enforced authoritatively by the Teacher Agent.** The Student Agent performs a local check for immediate user feedback, but the Teacher Agent's timestamp comparison on receipt is the final word. The Teacher Agent's clock is the authority.
+5. **Assignment deadlines are enforced authoritatively by the Roc backend.** The page disables submit for
+   immediate feedback, but the check that counts is the database's own timestamp comparison in
+   `POST /api/student/submit-assessment`, which also enforces `max_resubmissions`. (In the retired agent path
+   this authority sat with the Teacher Agent.)
 
 6. **Student-to-Teacher submission RPCs are sent directly, not routed through the Admin Agent or a central queue.** The Student Agent discovers the `teacher_id` via `AdminAgent.getTeacherFor(student_id, subject_id)` and caches it, then communicates directly with the Teacher Agent for all assignment operations.
 
