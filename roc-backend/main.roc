@@ -274,6 +274,166 @@ json_array_or_empty! = |body, field| {
     if Str.is_empty(taken) { "[]" } else { taken }
 }
 
+# A numeric JSON field as an integer; missing or malformed counts as 0. The JSON scanners in this
+# file carry an effect, so anything reading a number through them does too.
+field_int! : Str, Str => U64
+field_int! = |json_str, field| {
+    match U64.from_str(extract_number_field(json_str, field)) {
+        Ok(number) => number
+        Err(_) => 0
+    }
+}
+
+# Split a JSON array literal into its top-level element texts: `["a","b"]` -> ["\"a\"", "\"b\""].
+# Depth- and string-aware like take_json_array, so commas inside nested objects or strings do not
+# split and escaped quotes survive. Anything that is not an array yields no elements.
+split_json_elements : Str -> List(Str)
+split_json_elements = |json_str| {
+    trimmed = Str.trim(json_str)
+    if Str.starts_with(trimmed, "[") {
+        # The walk starts after the array's own opening bracket; its closing bracket ends it.
+        collect_elements(List.drop_first(Str.to_utf8(trimmed), 1), 0, Bool.False, [], [])
+    } else {
+        []
+    }
+}
+
+# Walk an array literal's bytes. `depth` counts the nested [] and {} inside it: a comma at depth 0
+# separates elements and the first ] at depth 0 closes the array.
+collect_elements : List(U8), U64, Bool, List(U8), List(Str) -> List(Str)
+collect_elements = |bytes, depth, in_string, current, out| {
+    match bytes {
+        [] => out
+        [byte, .. as rest] => {
+            if in_string {
+                next = List.append(current, byte)
+                if byte == 92 {
+                    match rest {
+                        [] => out
+                        [escaped, .. as after] => collect_elements(after, depth, Bool.True, List.append(next, escaped), out)
+                    }
+                } else if byte == 34 {
+                    collect_elements(rest, depth, Bool.False, next, out)
+                } else {
+                    collect_elements(rest, depth, Bool.True, next, out)
+                }
+            } else if byte == 34 {
+                collect_elements(rest, depth, Bool.True, List.append(current, byte), out)
+            } else if byte == 91 or byte == 123 {
+                collect_elements(rest, depth + 1, Bool.False, List.append(current, byte), out)
+            } else if byte == 93 or byte == 125 {
+                if depth == 0 { flush_element(current, out) } else { collect_elements(rest, depth - 1, Bool.False, List.append(current, byte), out) }
+            } else if byte == 44 and depth == 0 {
+                collect_elements(rest, 0, Bool.False, [], flush_element(current, out))
+            } else {
+                collect_elements(rest, depth, Bool.False, List.append(current, byte), out)
+            }
+        }
+    }
+}
+
+flush_element : List(U8), List(Str) -> List(Str)
+flush_element = |bytes, out| {
+    match Str.from_utf8(bytes) {
+        Ok(text) => {
+            trimmed = Str.trim(text)
+            if Str.is_empty(trimmed) { out } else { List.append(out, trimmed) }
+        }
+        Err(_) => out
+    }
+}
+
+# Replace one field's numeric value in a JSON object literal, leaving the rest of the literal
+# verbatim: replace_number_field("{\"a\":1,\"b\":2}", "a", "0") == "{\"a\":0,\"b\":2}".
+replace_number_field : Str, Str, Str -> Str
+replace_number_field = |json_str, field, value| {
+    marker = "\"${field}\":"
+    match Str.split_on(json_str, marker) {
+        [head, second, .. as tail] => {
+            rest = Str.join_with(List.concat([second], tail), marker)
+            kept = match Str.from_utf8(drop_number(Str.to_utf8(Str.trim(rest)))) {
+                Ok(text) => text
+                Err(_) => ""
+            }
+            "${head}${marker}${value}${kept}"
+        }
+        _ => json_str
+    }
+}
+
+# Digits plus the punctuation of a numeric literal (sign, decimal point, exponent).
+drop_number : List(U8) -> List(U8)
+drop_number = |bytes| {
+    match bytes {
+        [] => []
+        [byte, .. as rest] => if is_number_byte(byte) { drop_number(rest) } else { bytes }
+    }
+}
+
+is_number_byte = |byte| {
+    (byte >= 48 and byte <= 57) or byte == 45 or byte == 43 or byte == 46 or byte == 101 or byte == 69
+}
+
+# The assessment question a submission answer refers to: its `question_index` is the position in
+# the assessment's `questions` array, the same index the student form numbers its answers with.
+# "" when there is no such question.
+question_for! : List(Str), Str => Str
+question_for! = |questions, index_text| {
+    match U64.from_str(index_text) {
+        Ok(index) => match List.get(questions, index) { Ok(question) => question, Err(_) => "" }
+        Err(_) => ""
+    }
+}
+
+# MCQ auto-scoring, following the MoonBit student agent (student_handler_assessment.mbt): an MCQ
+# earns the question's marks when its letter matches the question's stored `answer`, and 0
+# otherwise; an MCQ whose stored answer is empty cannot be scored and keeps what the client sent,
+# which is the agent's unscored case. `answers.*` has exactly four sub-fields, so there is no
+# field to hold a separate awarded mark: the award goes into `allocated_mark`, and the question's
+# own allocation stays readable in the assessment's `questions[*].marks`.
+score_one_answer! : Str, List(Str) => Str
+score_one_answer! = |element, questions| {
+    if extract_field(element, "answer_type") != "mcq" {
+        element
+    } else {
+        question = question_for!(questions, extract_number_field(element, "question_index"))
+        correct = extract_field(question, "answer")
+        allocated = extract_number_field(element, "allocated_mark")
+        if Str.is_empty(correct) or Str.is_empty(allocated) {
+            # Nothing to compare against, or the mark is not a number: leave the answer as sent.
+            element
+        } else {
+            marks = extract_number_field(question, "marks")
+            awarded =
+                if Str.trim(extract_field(element, "answer_text")) == Str.trim(correct) {
+                    if Str.is_empty(marks) { allocated } else { marks }
+                } else {
+                    "0"
+                }
+            replace_number_field(element, "allocated_mark", awarded)
+        }
+    }
+}
+
+# The element-wise pass. `List.map` only takes a pure function and the answer scanners carry an
+# effect, so the walk is recursive.
+score_elements! : List(Str), List(Str), List(Str) => List(Str)
+score_elements! = |elements, questions, out| {
+    match elements {
+        [] => out
+        [element, .. as rest] => score_elements!(rest, questions, List.append(out, score_one_answer!(element, questions)))
+    }
+}
+
+# Score a whole answers array against the assessment's questions. The stored text keeps the
+# client's own fields; only an MCQ's `allocated_mark` is rewritten.
+score_mcq_answers! : Str, Str => Str
+score_mcq_answers! = |answers_json, questions_json| {
+    questions = split_json_elements(questions_json)
+    scored = score_elements!(split_json_elements(answers_json), questions, [])
+    "[${Str.join_with(scored, ",")}]"
+}
+
 # --- User creation (T7) ---
 
 # Loose shape check; the database casts to datetime and rejects anything else.
@@ -960,9 +1120,12 @@ respond! = |request, context| {
                     } else {
                         total_mark = extract_number_field(payload_raw, "total_mark")
                         total_mark_clause = if Str.is_empty(total_mark) { "0" } else { total_mark }
+                        # Optional, like the deadline: absent stores the schema default, 0 = unlimited.
+                        max_resubmissions = extract_number_field(payload_raw, "max_resubmissions")
+                        max_resubmissions_clause = if Str.is_empty(max_resubmissions) { "" } else { ", max_resubmissions = ${max_resubmissions}" }
                         description_clause = if Str.is_empty(description) { "" } else { ", description = '${surreal_literal(description)}'" }
                         deadline_clause = if Str.is_empty(deadline) { "" } else { ", deadline = <datetime> '${deadline}'" }
-                        create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause};"
+                        create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause};"
                         Ok(db_response!(create_query, context.surreal))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/toggle-assessment-active" {
@@ -986,7 +1149,9 @@ respond! = |request, context| {
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/student/submit-assessment" {
                     # One submission per student and assessment; a resubmission bumps the iteration
-                    # in place so the teacher's grading list stays one row per student.
+                    # in place so the teacher's grading list stays one row per student. The deadline
+                    # and the resubmission limit are enforced here — the page's disabled button is
+                    # cosmetic, this is the authority.
                     payload_raw = read_body!(request)
                     assessment_id = extract_field(payload_raw, "assessment_id") |> sanitize
                     answers = json_array_or_empty!(payload_raw, "answers")
@@ -996,27 +1161,40 @@ respond! = |request, context| {
                     } else if Str.contains(answers, ";") {
                         Ok(json_response(400, "{\"error\":\"answers must be a JSON array without statement separators\"}"))
                     } else {
-                        bare_assessment = bare_id(assessment_id)
-                        total_mark_res = SurrealDB.query!("SELECT total_mark FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal)
-                        total_mark = match total_mark_res {
-                            Ok(body) => {
-                                found = extract_number_field(body, "total_mark")
-                                if Str.is_empty(found) { "0" } else { found }
-                            }
-                            Err(_) => "0"
-                        }
-                        existing_res = SurrealDB.query!("SELECT meta::id(id) AS submission_id FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal)
-                        existing_id = match existing_res {
-                            Ok(body) => extract_field(body, "submission_id")
+                        # One read of the assessment feeds the checks, the total mark and the
+                        # questions. `expired` is decided by the database, so no clock or date
+                        # parsing here and no gap between the check and the stored deadline.
+                        assessment_body = match SurrealDB.query!("SELECT total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
+                            Ok(body) => body
                             Err(_) => ""
                         }
-                        submit_query =
-                            if Str.is_empty(existing_id) {
-                                "CREATE submissions SET assessment_type = 'lesson', assessment_id = '${bare_assessment}', student = ${record_ref!(student_id, "student_profile")}, iteration = 1, status = 'submitted', submitted_at = time::now(), answers = ${answers}, total_mark = ${total_mark};"
-                            } else {
-                                "UPDATE ${record_ref!(existing_id, "submissions")} SET iteration = iteration + 1, status = 'submitted', submitted_at = time::now(), answers = ${answers}, total_mark = ${total_mark};"
+                        if json_bool(assessment_body, "expired") == "true" {
+                            Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
+                        } else {
+                            bare_assessment = bare_id(assessment_id)
+                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
+                                Ok(body) => body
+                                Err(_) => ""
                             }
-                        Ok(db_response!(submit_query, context.surreal))
+                            existing_id = extract_field(existing_body, "submission_id")
+                            max_resubmissions = field_int!(assessment_body, "max_resubmissions")
+                            attempts = field_int!(existing_body, "iteration")
+                            # max_resubmissions 0 (the schema default) means unlimited.
+                            if !Str.is_empty(existing_id) and max_resubmissions > 0 and attempts >= max_resubmissions {
+                                Ok(json_response(409, "{\"error\":\"Resubmission limit reached\"}"))
+                            } else {
+                                found_mark = extract_number_field(assessment_body, "total_mark")
+                                total_mark = if Str.is_empty(found_mark) { "0" } else { found_mark }
+                                scored_answers = score_mcq_answers!(answers, extract_json_array(assessment_body, "questions"))
+                                submit_query =
+                                    if Str.is_empty(existing_id) {
+                                        "CREATE submissions SET assessment_type = 'lesson', assessment_id = '${bare_assessment}', student = ${record_ref!(student_id, "student_profile")}, iteration = 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
+                                    } else {
+                                        "UPDATE ${record_ref!(existing_id, "submissions")} SET iteration = iteration + 1, status = 'submitted', submitted_at = time::now(), answers = ${scored_answers}, total_mark = ${total_mark};"
+                                    }
+                                Ok(db_response!(submit_query, context.surreal))
+                            }
+                        }
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/grade-submission" {
                     payload_raw = read_body!(request)

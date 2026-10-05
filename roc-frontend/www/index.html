@@ -920,7 +920,14 @@
         list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading submissions...</div>';
         const query = _gradingAssessmentId ? `?assessment_id=${_gradingAssessmentId}` : "";
         try {
-            const res = await fetch("/api/teacher/submissions" + query, { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } });
+            const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+            // The questions each submission was scored against; a failure here only costs the
+            // auto-score line, so the grading list still renders.
+            const assessments = await fetch("/api/teacher/lesson-assessments", { headers: auth })
+                .then(r => r.json()).then(unwrapRows).catch(() => []);
+            const questionsByAssessment = {};
+            assessments.forEach(a => { if (a && a.id) questionsByAssessment[String(a.id).split(":").pop()] = a.questions; });
+            const res = await fetch("/api/teacher/submissions" + query, { headers: auth });
             const data = await res.json();
             const rows = unwrapRows(data);
             const filterNote = _gradingAssessmentId ? '<button onclick="_gradingAssessmentId = null; loadSubmissions();" class="text-xs text-primary hover:underline cursor-pointer">Show all submissions</button>' : "";
@@ -928,20 +935,53 @@
                 list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📊</div><p class="text-sm">No submissions to grade yet.</p>' + filterNote + '</div>';
                 return;
             }
-            list.innerHTML = filterNote + `<div class="space-y-3">` + rows.map(s => `
+            list.innerHTML = filterNote + `<div class="space-y-3">` + rows.map(s => {
+                const auto = autoScoredMcqs(s, questionsByAssessment[String(s.assessment_id || "")]);
+                return `
                 <div class="border rounded-lg p-4 flex items-center justify-between">
                     <div>
                         <p class="font-medium text-sm">${escHtml(s.student_name || s.student || "Student")}</p>
                         <p class="text-xs text-muted-foreground">${s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "Unknown time"}${s.iteration > 1 ? ` · attempt ${s.iteration}` : ""}</p>
                         ${s.scored_mark !== undefined && s.scored_mark !== null ? `<p class="text-xs text-muted-foreground">Score: ${s.scored_mark}${s.total_mark ? ` / ${s.total_mark}` : ""}</p>` : ""}
+                        ${auto ? `<div class="mt-2 space-y-1" data-auto-score>
+                            <p class="text-xs text-muted-foreground">MCQ auto-scored: <span class="font-medium text-foreground">${auto.awarded} / ${auto.total}</span></p>
+                            <div class="flex flex-wrap gap-1">
+                                ${auto.parts.map(p => `<span class="rounded px-1.5 py-0.5 text-xs ${p.correct ? "bg-success-100 text-success-700" : "bg-error-100 text-error-700"}">Q${p.index + 1} ${p.correct ? "✓" : "✗"} ${p.got}/${p.marks}</span>`).join("")}
+                            </div>
+                        </div>` : ""}
                     </div>
                     <div class="flex items-center gap-2">
                         ${s.grade_released_at ? `<span class="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">Grades Released</span>` :
                           s.graded ? `<button onclick="releaseGrade('${s.id}')" class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded cursor-pointer">Release Grade</button>` :
                           `<button onclick="gradeSubmission('${s.id}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded cursor-pointer">Grade</button>`}
                     </div>
-                </div>`).join("") + `</div>`;
+                </div>`;
+            }).join("") + `</div>`;
         } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load submissions.</div>'; }
+    }
+
+    // What a submission's MCQs scored. The backend awards MCQ marks at submit time and the schema
+    // has no per-answer scored field, so the awarded mark sits in answers[*].allocated_mark (the
+    // question's own allocation stays in the assessment's questions[*].marks). Answers the backend
+    // could not score — a question with no stored correct answer — are left out, as it skips them.
+    function autoScoredMcqs(submission, questions) {
+        const answers = Array.isArray(submission && submission.answers) ? submission.answers : [];
+        const asked = Array.isArray(questions) ? questions : [];
+        const parts = [];
+        let awarded = 0;
+        let total = 0;
+        answers.forEach(a => {
+            if (!a || a.answer_type !== "mcq" || !Number.isInteger(a.question_index)) return;
+            const q = asked[a.question_index];
+            const correct = q && typeof q.answer === "string" ? q.answer.trim() : "";
+            if (!correct) return;
+            const marks = q && typeof q.marks === "number" ? q.marks : Number(a.allocated_mark) || 0;
+            const got = Number(a.allocated_mark) || 0;
+            awarded += got;
+            total += marks;
+            parts.push({ index: a.question_index, correct: String(a.answer_text || "").trim() === correct, got, marks });
+        });
+        return parts.length ? { awarded, total, parts } : null;
     }
 
     async function createAssessment() {

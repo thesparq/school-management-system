@@ -27,8 +27,8 @@ this app.)
 | `auth_config_check.cjs` | An origin's auth wiring against the *real* Authentik, no browser: the advertised userinfo endpoint is the instance-wide one and matches what the backend derives, it answers 401 for a bad token, and the app's redirect URI is registered (with an unregistered one rejected as a control). | Network access to Authentik |
 | `e2e_student.cjs` | Student drill-down in Chromium: subject cards from prod, terms, lessons filtered by subject+term, full lesson content, scroll-spy sections, no page errors. | Backend |
 | `e2e_admin.cjs` | Admin user management in Chromium: the form creates a user, the new account appears in the table, and a validation error surfaces in the UI. | Sandbox backend |
-| `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher grades and releases. | Sandbox backend |
-| `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules and the validation errors. | Sandbox backend |
+| `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher's grading list shows the auto-scored MCQ marks; the teacher grades and releases. | Sandbox backend |
+| `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -64,6 +64,8 @@ cd ../../../roc-backend && DEV_MODE=true \
 The fixture schema mirrors the prod profile, lesson and assessment tables (SCHEMAFULL, including the required
 `passport`, `display_name` and `questions` fields), seeds the class levels, terms, one subject with its
 `has_subject` edge, one lesson, and a `student_profile:dev_user` so the dev-skip caller resolves a name. The
+lesson's `content.mcq_questions` carry a `correct_answer` letter, which is what the create-assessment modal
+stores as the question's `answer` and what submit-time MCQ scoring compares against. The
 mock hands out a fresh `pk` per create and accepts `DELETE`, which is what the compensation path calls; the
 repo's `mock_authentik.py` returns a constant `pk`, so per-role runs would collide on the record id.
 

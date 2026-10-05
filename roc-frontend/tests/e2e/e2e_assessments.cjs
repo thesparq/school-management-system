@@ -100,11 +100,20 @@ async function newPage(browser, token) {
   }, title);
   check('the chosen option is stored', !!storedAnswers && storedAnswers[0] && storedAnswers[0].answer_text === 'b' && storedAnswers[0].answer_type === 'mcq' && storedAnswers[0].allocated_mark === 4, JSON.stringify(storedAnswers && storedAnswers[0]));
   check('the typed answer is stored', !!storedAnswers && storedAnswers[1] && String(storedAnswers[1].answer_text).includes('containers'), JSON.stringify(storedAnswers && storedAnswers[1]));
+  // The theory question is not scored at submit time, so its allocation must survive the rescore.
+  check('the theory answer keeps its allocation', !!storedAnswers && storedAnswers[1] && storedAnswers[1].allocated_mark === 5, JSON.stringify(storedAnswers && storedAnswers[1]));
 
   // --- Teacher: grade it and release the grade ---
   await teacher.click('#tab-grading');
   await teacher.waitForSelector('text=Test Student', { timeout: 30000 });
   check('submission shows the student name', true);
+  // The MCQ is scored by the backend at submit time; the grading list has to show the award
+  // without opening anything. This run's MCQ is worth 4 marks and option b was the answer.
+  const autoScore = await teacher.evaluate(() => {
+    const el = document.querySelector('#grading-list [data-auto-score]');
+    return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+  });
+  check('the grading list shows the auto-scored MCQ marks', autoScore.includes('MCQ auto-scored: 4 / 4'), autoScore);
   await teacher.click('#grading-list >> text=Grade');
   await teacher.waitForTimeout(2000);
   await teacher.click('#grading-list >> text=Release Grade');

@@ -9,6 +9,12 @@
 -- These four fields are exactly what the student answer form sends, and what the MoonBit agents'
 -- `SubmissionAnswer` carried: one entry per question, in question order.
 --
+-- `allocated_mark` is the mark awarded to that answer as far as the backend can tell at submit time:
+-- an MCQ is scored there (`allocated_mark` = the question's `questions[*].marks` when the chosen letter
+-- matches the question's stored `answer`, 0 otherwise), and any other answer keeps what the form sent
+-- (the question's allocation). There is no separate per-answer scored field, and the question's own
+-- allocation stays readable in `lesson_assessments.questions[*].marks`.
+--
 -- Additive only: `IF NOT EXISTS` on sub-fields that did not exist, no `REMOVE`, no rewrite. Applied
 -- to prod on 2026-10-05 with the table at 0 rows; `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql`
 -- mirrors it.
