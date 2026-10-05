@@ -235,10 +235,26 @@ tarball — 0 errors, and the resulting binary served `/health` (`surreal db is 
 `dist.css`, `runtime.js` and `app.wasm` on `0.0.0.0:8000`, rejected the dev token with `DEV_MODE=false`, and
 passed the browser drill-down 7/7 against prod data.
 
-**Still to do on the server**: a DNS record for `app.johnethel.school`, the origin registered as a redirect URI
-on the Authentik provider (`https://app.johnethel.school/auth/callback` — see below), and the Dokploy deploy of
-this compose. Then the sandbox suites are worth re-running against the deployed origin with `DEV_MODE` off and a
-real token.
+**Still to do on the server**: the Dokploy deploy of this compose — note that the `app` service and
+`Dockerfile.app` live on this branch (`feat/hotfix-16-codebase-polish`), while `main` is 146 commits behind and
+has no Roc stack at all, so the deployment has to point at this branch (or land after a merge).
+
+**Pre-deploy checks done from here** (nothing on the server was touched):
+
+- DNS: `app.johnethel.school` → `185.214.135.229`, the same host as `auth.`/`db2.`/`chat.`; Traefik answers 404 on
+  port 80 for that host, i.e. nothing is published there yet.
+- Authentik accepts `https://app.johnethel.school/auth/callback` on the authorize endpoint (302 into the login
+  flow) and rejects an unregistered URI (400), so the provider registration is correct.
+- **A blocking bug found here**: the backend derived its token-validation URL as
+  `AUTHENTIK_ISSUER_URL + "userinfo"`, but Authentik serves *one* userinfo endpoint per instance
+  (`/application/o/userinfo/`) — the derived URL 404s, so every real token would have been rejected with 401 as
+  soon as `DEV_MODE` was off. `dev-skip` never calls Authentik, so nothing local caught it. The rule now lives in
+  `roc-backend/AuthUrls.roc` (pure, covered by `AuthUrlsTest.roc`, 4/4) and the compose sets
+  `AUTHENTIK_USERINFO_URL` explicitly. `tests/e2e/auth_config_check.cjs` (new) checks all of it against the real
+  Authentik for a given origin — 5/5 for the deployed origin.
+
+After the deploy: `node tests/e2e/auth_config_check.cjs` plus `/health` and the static assets on the deployed
+origin, then a real login, and the sandbox suites re-run with `DEV_MODE` off.
 
 **The OAuth callback path**: the frontend used to send `redirect_uri = <origin>/`, so the login return landed on
 the app root and the registered URI had to be the bare origin. It now uses `<origin>/auth/callback`, a real
