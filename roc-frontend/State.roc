@@ -65,6 +65,7 @@ Model : {
 	selectedLessonId : Str,
 	studentTermsData : Str,
 	studentLessonsData : Str,
+	teacherLessonsData : Str,
 	currentLessonContent : Str,
 }
 
@@ -103,6 +104,8 @@ Msg : [
 	SelectTerm(Str, Str),
 	SelectLesson(Str),
 	GotStudentTermsData(Str),
+	GotTeacherLessonsData(Str),
+	OpenTeacherLesson(Str),
 	GotStudentLessonsData(Str),
 	GotLessonContent(Str),
 	BackToSubjects,
@@ -187,16 +190,18 @@ init = |flags| {
 		selectedLessonId: "",
 		studentTermsData: "",
 		studentLessonsData: "",
+		teacherLessonsData: "",
 		currentLessonContent: "",
 	}
 
 	(model, [
-		Port.send("fetch_data", "/api/users?role=Student"),
+			Port.send("fetch_data", "/api/users?role=Student"),
 		Port.send("fetch_data", "/api/users?role=Teacher"),
 		Port.send("fetch_data", "/api/users?role=Parent"),
 		Port.send("fetch_data", "/api/users?role=Admin"),
 		Port.send("fetch_data", "/api/terms"),
 		Port.send("fetch_data", "/api/subjects"),
+		Port.send("fetch_data", "/api/teacher/lessons"),
 	])
 }
 
@@ -378,6 +383,13 @@ update = |model, msg|
 		)
 		GotStudentTermsData(s) => ({ ..model, studentTermsData: s }, [])
 		GotStudentLessonsData(s) => ({ ..model, studentLessonsData: s }, [])
+		GotTeacherLessonsData(s) => ({ ..model, teacherLessonsData: s }, [])
+		# The viewer reads the lesson from the URL, so open it through the address bar.
+		OpenTeacherLesson(id) =>
+			(
+				{ ..model, selectedLessonId: id },
+				[Port.send("push_state", "/teacher/lessons?id=${id}")]
+			)
 		GotLessonContent(s) => ({ ..model, currentLessonContent: s }, [])
 		BackToSubjects => (
 			{ ..model,

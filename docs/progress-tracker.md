@@ -121,9 +121,12 @@ without writing.
 
 ### Remaining
 
-- [ ] Assessments against prod: the UI's assessment/grading tabs still query an `assessments` table that does
-  not exist; prod has `lesson_assessments` / `general_assessments` / `submissions` (see the MoonBit agents'
-  `db_assessment.mbt` for the intended shapes). Out of the migration's scope so far.
+- [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
+  assessments are.
+- [ ] The student's assessment tab submits without answers (the question-taking UI is not built), so grading is
+  manual.
+- [ ] Question storage needs the schema-v3 sub-field definitions (see the assessments section above) before the
+  teacher's question picker can be built.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
 - [ ] Query parameters are not percent-decoded, so a client that URL-encodes a record id (`lessons%3Aabc`)
   gets an empty result; the UI passes ids raw.

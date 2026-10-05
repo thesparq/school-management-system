@@ -85,11 +85,64 @@ teacher_subject_card = |id, name| {
 }
 
 # -------------------------------------------------------
-# TEACHER LESSON VIEWER (same structure as student but with
-# teacher-specific tabs: Lesson | Assessments | Grading)
+# LESSON PICKER (the viewer needs a concrete lesson)
 # -------------------------------------------------------
 
-teacher_lesson_view = |_model| {
+teacher_lesson_picker = |model| {
+    Html.div([Attribute.class("space-y-3")], [
+        Html.div([], [
+            Html.h2([Attribute.class("text-xl font-bold")], [Html.text("Choose a lesson")]),
+            Html.p([Attribute.class("text-sm text-muted-foreground mt-1")], [Html.text("Open a lesson to view its content and manage its assessments.")])
+        ]),
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("teacher_lessons_data_input"),
+            Attribute.value(model.teacherLessonsData),
+            Attribute.on_input(|s| GotTeacherLessonsData(s))
+        ]),
+        if Str.is_empty(model.teacherLessonsData) {
+            Html.div([Attribute.class("space-y-3")], [
+                teacher_lesson_skeleton(""),
+                teacher_lesson_skeleton(""),
+                teacher_lesson_skeleton("")
+            ])
+        } else {
+            Html.div([Attribute.class("space-y-3")],
+                List.map(Str.split_on(model.teacherLessonsData, "\n"), |line| {
+                    parts = Str.split_on(line, "|")
+                    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                    title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Lesson" }
+                    week = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                    teacher_lesson_row(id, title, week)
+                })
+            )
+        }
+    ])
+}
+
+teacher_lesson_skeleton = |_| {
+    Html.div([Attribute.class("rounded-lg border bg-card p-4 space-y-2 animate-pulse")], [
+        Html.div([Attribute.class("h-4 w-56 rounded bg-muted")], []),
+        Html.div([Attribute.class("h-3 w-24 rounded bg-muted")], [])
+    ])
+}
+
+teacher_lesson_row = |id, title, week| {
+    Html.div([
+        Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
+        Attribute.on_click(OpenTeacherLesson(id))
+    ], [
+        Html.div([Attribute.class("flex-1 min-w-0")], [
+            Html.h3([Attribute.class("font-medium text-foreground group-hover:text-primary transition-colors truncate")], [Html.text(title)]),
+            Html.p([Attribute.class("text-xs text-muted-foreground")], [
+                Html.text(if Str.is_empty(week) { "Lesson" } else { "Week ${week}" })
+            ])
+        ]),
+        Html.span([Attribute.class("text-muted-foreground text-sm group-hover:text-primary transition-colors")], [Html.text("→")])
+    ])
+}
+
+teacher_lesson_view = |model| {
     Html.div([Attribute.class("relative")], [
         Html.div([Attribute.class("flex min-h-screen")], [
             # Main content column
@@ -108,6 +161,14 @@ teacher_lesson_view = |_model| {
                         Html.div([Attribute.id("lesson-week-badge"), Attribute.class("hidden")], [])
                     ])
                 ]),
+
+                # Lesson picker: the viewer needs a lesson id for its own content and for creating
+                # assessments on that lesson.
+                if Str.is_empty(model.selectedLessonId) {
+                    teacher_lesson_picker(model)
+                } else {
+                    Html.div([], [])
+                },
 
                 # Tab bar: Lesson | Assessments | Grading
                 Html.div([Attribute.class("flex border-b border-border")], [
@@ -182,7 +243,8 @@ teacher_lesson_view = |_model| {
                                 ])
                             ]),
                             Html.div([Attribute.id("assessment-questions-area"), Attribute.class("space-y-3")], [
-                                Html.p([Attribute.class("text-sm text-muted-foreground italic")], [Html.text("Questions from this lesson will appear here.")])
+                                Html.p([Attribute.class("text-sm text-muted-foreground italic")], [Html.text("Question selection from this lesson's bank is not wired up yet, so the assessment is created without questions.")]),
+                                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is saved as a draft; publish it from the list when you are ready for students to see it.")])
                             ])
                         ]),
                         Html.div([Attribute.class("flex justify-end gap-3 p-6 border-t")], [
