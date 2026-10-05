@@ -191,6 +191,12 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 
 ### Remaining
 
+- [ ] **Role-based authorization is missing in the backend.** It validates the token and scopes queries to the
+  caller's own record, but it never reads the token's `groups`, so any valid token can call any route —
+  teacher and admin endpoints included. The retired agent stack did gate by role (`agents/app-agents/auth.mbt`),
+  so this is a regression introduced by the Roc rewrite. Closing it means deriving the caller's role from the
+  userinfo response, gating `/api/student/*`, `/api/teacher/*`, `/api/users` and the configuration endpoints,
+  and deciding what `dev-skip` means in `DEV_MODE` so the sandbox suites keep working.
 - [ ] **Where a user's email lives** — see the user-management note below: the four profile tables have no
   `email` column, `GET /api/users` selects one anyway, and the admin list renders an Email column that is
   therefore always empty; `is_active` is selected too, so every row reads as active. The addresses exist in
