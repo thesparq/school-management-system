@@ -104,12 +104,29 @@ Verified read-only against prod: students/teachers `[]`, curriculum returns the 
 `session_term` returns the 2026/2027 sessions, `class_arms` returns 410, and the retired POSTs return 400
 without writing.
 
+### Build and tests — done
+
+- Joy 0.33.0 is vendored at `roc-frontend/joy/` with the host allocator patch applied
+  (`joy/host-bump-span.patch`), and `app.roc` points at it, so `cd roc-frontend && roc run build.roc` builds
+  a working app on any machine. The layout mirrors a Joy checkout (`platform/…` plus `www/runtime.js`) so the
+  template's own `build.roc` copies the runtime unchanged. Swap `app.roc` back to the release URL once the fix
+  ships upstream.
+- `roc-frontend/tests/e2e/` holds the checks used during this migration: `e2e_student.cjs` (student drill-down
+  against the backend), `e2e_admin.cjs` (user creation in a sandbox), `render_lesson_check.cjs` (the lesson
+  renderer, no browser), plus `fixtures/sandbox-schema.surql` and `fixtures/mock_authentik_unique.py`.
+  `tests/e2e/README.md` has the commands. All three pass as committed.
+- The Roc stack is now in git (it had been untracked). Left untracked on purpose: the stale generators
+  (`roc-backend/gen_main.py`, `main_fallback.py`, `refactor.py`), scratch `test_json*.roc`, the downloaded
+  Golem component blob, and `roc-agents/` (a prototype pointing at an external `roc-golem` checkout).
+
 ### Remaining
 
 - [ ] Assessments against prod: the UI's assessment/grading tabs still query an `assessments` table that does
   not exist; prod has `lesson_assessments` / `general_assessments` / `submissions` (see the MoonBit agents'
   `db_assessment.mbt` for the intended shapes). Out of the migration's scope so far.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
+- [ ] Query parameters are not percent-decoded, so a client that URL-encodes a record id (`lessons%3Aabc`)
+  gets an empty result; the UI passes ids raw.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
 
