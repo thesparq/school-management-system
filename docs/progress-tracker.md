@@ -191,20 +191,56 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 
 ### Remaining
 
-- [ ] MCQ auto-scoring on submit, and enforcement of `deadline` / `max_resubmissions` / `scheduled_at` (they are
-  accepted but not enforced).
-- [ ] `PUT` / `DELETE /api/users` still write the legacy `student` table (no UI calls them); they now report the
-  failure instead of answering 200.
+- [ ] `scheduled_at` is accepted on assessments but still ignored (the deadline and `max_resubmissions` are now
+  enforced).
+- [ ] **Where a user's email lives**: the four profile tables have no `email` column, but `GET /api/users`
+  selects one and the admin list renders an Email column — always empty. The address exists in Authentik (the
+  create path sends it there, and the profile id *is* the Authentik pk), so the listing should read it from
+  there in one call and merge by pk. `PUT /api/users` currently validates an email and refuses it with a clear
+  400 rather than dropping it. Awaiting a decision: read from Authentik (recommended) or add a column.
 - [ ] The admin Configuration Hub is UI-only (`terms_config_view` and friends take `|_model|`), though the
-  endpoints for terms, subjects, class levels and session terms exist.
+  endpoints for terms, subjects, class levels and session terms exist. *(One of the three parallel
+  workstreams below is on this.)*
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
   assessments are.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
-- [ ] Query parameters are not percent-decoded, so a client that URL-encodes a record id (`lessons%3Aabc`)
-  gets an empty result; the UI passes ids raw.
+- [ ] `docs/architecture.md` still describes the retired agent path section by section (the stack table, the
+  monorepo layout, the system boundaries); only the deadline authority and a note at the top have been updated.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
 
+### Three parallel workstreams — two done
+
+The leftover list was worked through by three agents in parallel, each in its own worktree with its own sandbox
+ports (SurrealDB 8202/8203/8204, mock Authentik 9202/9203/9204, backend 8302/8303/8304 — the backend's `PORT`
+and the mock's port argument were added for exactly this).
+
+**Assessments now behave** (merged as `215b7ab`, from the agent's `0b3eb3d`):
+
+- MCQs are scored server-side at submit. `answers.*` has only its four declared sub-fields, so the awarded mark
+  goes into `allocated_mark` (the question's marks when the chosen letter matches the question's stored
+  `answer`, 0 otherwise); the question's own allocation stays readable in the assessment's
+  `questions[*].marks`, and non-MCQ answers are passed through untouched. Submission-level `scored_mark` is left
+  alone, so auto-scored MCQs do not skip the teacher's grade/release flow.
+- A passed `deadline` and an exhausted `max_resubmissions` (0 = unlimited) both answer **409** with a message;
+  the deadline is decided by the database (`deadline < time::now()`) so there is no clock handling in Roc.
+  `create-lesson-assessment` can finally set `max_resubmissions` — the column and its default existed but
+  nothing could write it.
+- The teacher's grading list shows the auto-scored marks inline (`MCQ auto-scored: 4 / 4`, `Q1 ✓ 4/4`).
+- **Follow-up by me**: submit also refuses an unpublished assessment (409) and an unknown one (404) — a draft
+  was unsubmittable in the legacy agent and is now here too; two of the new API cases had been submitting to
+  drafts, which is why they now publish first.
+
+**Backend correctness** (merged as `7e744e6`, from the agent's `3e8a0c6`): `PUT`/`DELETE /api/users` resolve the
+profile table from the id's own prefix instead of writing the legacy `student` table, validate like the create
+path, and soft-delete; `query_param` percent-decodes through the new pure `Url` module (`UrlTest.roc`, 16 cases).
+
+**Verified by me, not just reported**: `roc check main.roc` 0 errors / 3 warnings; `roc test UrlTest.roc` 16/16;
+`sh tests/e2e/assessment_flow.sh` 37/37; `node tests/e2e/e2e_assessments.cjs` 16/16;
+`e2e_student.cjs` 7/7; `e2e_admin.cjs` 5/5; plus my own curl run of the user-update lifecycle and the
+encoded-vs-raw query comparison (13/13). The third workstream (the admin Configuration Hub) is still running.
+
+---
 ### Deployment pass — built, awaiting the deploy
 
 **Decided**: the app answers on `app.johnethel.school` and ships as a service in `devops/docker-compose.yml`,
