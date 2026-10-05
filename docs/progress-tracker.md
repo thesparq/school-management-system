@@ -236,9 +236,16 @@ tarball — 0 errors, and the resulting binary served `/health` (`surreal db is 
 passed the browser drill-down 7/7 against prod data.
 
 **Still to do on the server**: a DNS record for `app.johnethel.school`, the origin registered as a redirect URI
-on the Authentik provider (`https://app.johnethel.school/` — the frontend sends `<origin>/`), and the Dokploy
-deploy of this compose. Then the sandbox suites are worth re-running against the deployed origin with
-`DEV_MODE` off and a real token.
+on the Authentik provider (`https://app.johnethel.school/auth/callback` — see below), and the Dokploy deploy of
+this compose. Then the sandbox suites are worth re-running against the deployed origin with `DEV_MODE` off and a
+real token.
+
+**The OAuth callback path**: the frontend used to send `redirect_uri = <origin>/`, so the login return landed on
+the app root and the registered URI had to be the bare origin. It now uses `<origin>/auth/callback`, a real
+callback path like the older SvelteKit app's `<origin>/api/auth/callback` — the root stays free of OAuth
+parameters and the registration is explicit. The backend's SPA fallback already serves `index.html` for that
+path, and a visit without a code starts the app from the root. `tests/e2e/e2e_auth_callback.cjs` drives the whole
+round trip with Authentik's endpoints intercepted and asserts the URI on both legs (12/12).
 
 ---
 

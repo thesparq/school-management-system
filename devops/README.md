@@ -32,10 +32,11 @@ service), `AUTHENTIK_ISSUER_URL` for token validation, `AUTHENTIK_SERVICE_ACCOUN
 logins, `AUTHENTIK_HOST` for the fallback API URL. `DEV_MODE=false` is set in the compose file and
 is what turns the local auth bypass off — never run the deployed app with it on.
 
-**Authentik**: the frontend is a public PKCE client and sends `redirect_uri = <origin>/`, so the
-deployed origin must be registered on its provider (Applications → the school app's provider →
-Redirect URIs): `https://app.johnethel.school/`. Without it the login round trip fails with
-`invalid_redirect_uri`.
+**Authentik**: the frontend is a public PKCE client and sends `redirect_uri = <origin>/auth/callback`, so
+the deployed origin must have that exact URI registered on its provider (Applications → the school
+app's provider → Redirect URIs): `https://app.johnethel.school/auth/callback`. Without it the login
+round trip fails with `invalid_redirect_uri`. (The older SvelteKit app used
+`<origin>/api/auth/callback`; that is a separate registration and stays as it is.)
 
 ## Legacy
 

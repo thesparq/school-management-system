@@ -25,7 +25,11 @@
     const AUTH_HOST = 'https://auth.johnethel.school';
     const AUTHORIZE_URL = AUTH_HOST + '/application/o/authorize/';
     const TOKEN_URL = AUTH_HOST + '/application/o/token/';
-    const REDIRECT_URI = window.location.origin + '/';
+    // The OAuth2 redirect URI is this exact path on whatever origin serves the app — `origin +
+    // '/auth/callback'` — so each deployed origin has to have it registered on the Authentik
+    // provider. The code is exchanged here; the app itself starts from the root.
+    const CALLBACK_PATH = '/auth/callback';
+    const REDIRECT_URI = window.location.origin + CALLBACK_PATH;
     const SCOPES = 'openid profile email';
 
     function generateCodeVerifier() {
@@ -162,6 +166,10 @@
         finalToken = window.location.hash.split('access_token=')[1].split('&')[0];
         localStorage.setItem('auth_token', finalToken);
         window.history.replaceState(null, null, window.location.pathname);
+    } else if (window.location.pathname === CALLBACK_PATH) {
+        // Reached the callback without a code: a reload after the exchange, or a stray visit. Start
+        // from the root rather than letting the router see a path that is not a page.
+        window.history.replaceState(null, null, '/');
     }
 
     // Validate the token
