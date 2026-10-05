@@ -117,6 +117,37 @@ get_token = |headers| {
     }
 }
 
+# --- DEV_MODE tokens ---
+
+# The tokens that stand in for a login while DEV_MODE=true. Each names the role it acts as, so a
+# sandbox run can drive a student, a teacher or an admin without a real Authentik session:
+# `dev-skip` is the all-access admin the suites use (it has no userinfo body to read groups from),
+# and `test-token` is its older alias, kept as an admin so it reaches everything it could before
+# the routes were gated. Production runs DEV_MODE=false, which rejects all of them before a role
+# can matter.
+dev_tokens = ["dev-skip", "test-token", "dev-student", "dev-teacher"]
+
+dev_token_role : Str -> Str
+dev_token_role = |token| {
+    if token == "dev-student" {
+        "student"
+    } else if token == "dev-teacher" {
+        "teacher"
+    } else {
+        "admin"
+    }
+}
+
+# The caller id a dev token stands for. `dev-skip` has to stay `dev_user`: the sandbox fixture
+# seeds `student_profile:dev_user`, so the student flows resolve a name and an owner for it.
+dev_token_body : Str -> Str
+dev_token_body = |token| {
+    if token == "dev-student" { "dev_student" }
+    else if token == "dev-teacher" { "dev_teacher" }
+    else if token == "test-token" { "user_123" }
+    else { "dev_user" }
+}
+
 # --- SurrealQL helpers ---
 
 # Read one query parameter from a request target: query_param("/api/x?a=1&b=2", "b") == "2".
@@ -273,6 +304,56 @@ caller_id! = |user| {
         } else {
             bare_id(user)
         }
+    }
+}
+
+# The role a caller's `groups` claim maps to. This is the same list the page uses in
+# `www/index.html` (super admins/administrators/admin → admin, teachers/teacher/staff → teacher,
+# parents/parent → parent, anything else → student); keep the two lists in step, because the page
+# routes by this role and the backend decides with it. A token without a `groups` claim is a
+# student, which is what the page assumes too.
+role_from_groups! : Str => Str
+role_from_groups! = |user_json| {
+    groups = List.map(split_json_elements(extract_json_array(user_json, "groups")), |element| ascii_lowercase(json_string_text(element)))
+
+    if List.any(groups, |group| group == "super admins" or group == "administrators" or group == "admin") {
+        "admin"
+    } else if List.any(groups, |group| group == "teachers" or group == "teacher" or group == "staff") {
+        "teacher"
+    } else if List.any(groups, |group| group == "parents" or group == "parent") {
+        "parent"
+    } else {
+        "student"
+    }
+}
+
+# The text of one element of a JSON string array: `"Students"` -> `Students`. An element that is
+# not a quoted string (a number, an object) has no group name and comes back empty, so it matches
+# nothing.
+json_string_text : Str -> Str
+json_string_text = |element| {
+    trimmed = Str.trim(element)
+
+    if Str.starts_with(trimmed, "\"") {
+        match List.get(Str.split_on(trimmed, "\""), 1) {
+            Ok(text) => text
+            Err(_) => ""
+        }
+    } else {
+        ""
+    }
+}
+
+# ASCII lowercase, byte by byte: the group names being matched are ASCII, `Str` has no case
+# conversion in this compiler, and `Administrators` and `administrators` have to be one name.
+# Bytes past ASCII belong to multi-byte characters, which lowercasing would not change anyway.
+ascii_lowercase : Str -> Str
+ascii_lowercase = |text| {
+    lowered = List.map(Str.to_utf8(text), |byte| if byte >= 65 and byte <= 90 { byte + 32 } else { byte })
+
+    match Str.from_utf8(lowered) {
+        Ok(result) => result
+        Err(_) => text
     }
 }
 
@@ -1017,6 +1098,72 @@ signing_timestamp! = |pinned, dev_mode| {
     }
 }
 
+# --- Route authorization ---
+
+# The role each route needs, as one matrix rather than a check inside every branch: everything
+# under /api/student/ needs a student, everything under /api/teacher/ a teacher, the writes that
+# manage accounts and configuration an admin, and "" means any authenticated role. Route families,
+# not individual routes, so a new endpoint under an existing prefix inherits its rule.
+#
+# The `role` query parameter on GET /api/users?role=… is a tab *filter* and is never read here.
+#
+# `may_call` then lets an admin through anywhere. That is the top of the hierarchy the page's own
+# navigation implies, and it is also what keeps one `dev-skip` token able to drive every suite.
+config_route_prefixes = ["/api/terms", "/api/subjects", "/api/class_levels", "/api/curriculum", "/api/session_terms", "/api/class_arms"]
+
+required_role : Method, Str -> Str
+required_role = |method, target| {
+    if Str.starts_with(target, "/api/student/") {
+        "student"
+    } else if Str.starts_with(target, "/api/teacher/") {
+        "teacher"
+    } else if target == "/api/users" or Str.starts_with(target, "/api/users?") {
+        # Reading the directory is any role's business (the hub's tabs, the pickers); creating,
+        # renaming or disabling an account is the admin's.
+        if Method.is_eq(method, GET) { "" } else { "admin" }
+    } else if target == "/api/students" or target == "/api/teachers" {
+        # The older, unfiltered roster endpoints and their superseded creates: every student or
+        # teacher in the school, so admin-only. The page's user management uses /api/users.
+        "admin"
+    } else if target == "/api/enroll" {
+        # The retired Golem enrollment prototype: unused by the page, but it writes someone's
+        # enrolment, so it stays with the admin.
+        "admin"
+    } else if target == "/api/upload-url" {
+        # The passport signer behind the admin's create-user form.
+        "admin"
+    } else if List.any(config_route_prefixes, |prefix| Str.starts_with(target, prefix)) {
+        # The lookup tables and the curriculum edge: every role reads them (the pickers, the
+        # student cards, the hub's lists), only the admin writes (creates, the PUT patches, the
+        # toggle-actives). /api/class_arms answers 410 either way but belongs to the same family.
+        if Method.is_eq(method, GET) { "" } else { "admin" }
+    } else {
+        # /api/matrix/token (the chat proxy, which every role uses) and anything the dispatch chain
+        # below will answer 404 to: no requirement here.
+        ""
+    }
+}
+
+# Whether a caller with `role` may use a route whose requirement is `required`: any authenticated
+# role satisfies a "", every other route has to be the caller's own role, and an admin may call
+# anything.
+may_call : Str, Str -> Bool
+may_call = |role, required| {
+    if Str.is_empty(required) {
+        Bool.True
+    } else if role == "admin" {
+        Bool.True
+    } else {
+        role == required
+    }
+}
+
+# The 403 for a route outside the caller's role: it names the role the route needs, so a student
+# hitting an admin endpoint is told what that endpoint expects rather than only "Forbidden".
+forbidden_response = |role, required| {
+    json_response(403, "{\"error\":\"Forbidden: this route requires the ${required} role; your role is ${role}\"}")
+}
+
 # --- Main request handler ---
 
 respond! : Server.Request, Context => [Ok(Server.Outcome), Err([ServerErr(Str)])]
@@ -1041,19 +1188,32 @@ respond! = |request, context| {
     # --- API routes (require auth) ---
     } else if Str.starts_with(request.target, "/api/") {
         token_res = get_token(request.headers)
-        
-        user_result = 
+
+        # The caller's identity and role together: a DEV_MODE token names both directly, a real
+        # token's body comes from Authentik and its role from that body's `groups` claim.
+        auth =
             match token_res {
-                Ok("dev-skip") => if context.dev_mode { Ok("dev_user") } else { Err("Invalid token") }
-                Ok("test-token") => if context.dev_mode { Ok("user_123") } else { Err("Invalid token") }
-                Ok(t) => Authentik.validateToken!(t)
+                Ok(token) =>
+                    if context.dev_mode and List.contains(dev_tokens, token) {
+                        Ok({ body: dev_token_body(token), role: dev_token_role(token) })
+                    } else {
+                        match Authentik.validateToken!(token) {
+                            Ok(body) => Ok({ body, role: role_from_groups!(body) })
+                            Err(e) => Err(e)
+                        }
+                    }
                 Err(e) => Err(e)
             }
-            
-        match user_result {
+
+        required = required_role(request.method, request.target)
+
+        match auth {
             Err(e) => 
                 Ok(json_response(401, "{\"error\":\"Unauthorized: ${e}\"}"))
-            Ok(user_json) => {
+            Ok(caller) if !may_call(caller.role, required) =>
+                Ok(forbidden_response(caller.role, required))
+            Ok(caller) => {
+                user_json = caller.body
                 if Method.is_eq(request.method, GET) and request.target == "/api/students" {
                     res = SurrealDB.query!("SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM student_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
@@ -1555,15 +1715,22 @@ respond! = |request, context| {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
                             bare_assessment = bare_id(assessment_id)
-                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
+                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration, (grade_released_at IS NOT NONE) AS released FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
                                 Ok(body) => body
                                 Err(_) => ""
                             }
                             existing_id = extract_field(existing_body, "submission_id")
+                            # max_resubmissions 0 (the schema default) means unlimited.
                             max_resubmissions = field_int!(assessment_body, "max_resubmissions")
                             attempts = field_int!(existing_body, "iteration")
-                            # max_resubmissions 0 (the schema default) means unlimited.
-                            if !Str.is_empty(existing_id) and max_resubmissions > 0 and attempts >= max_resubmissions {
+                            # A released grade is final: the MoonBit stack refused a resubmit once
+                            # grade_released_at was set (student_handler_assessment.mbt). Without the
+                            # check the resubmit replaces the answers the released mark was awarded for
+                            # while scored_mark and grade_released_at stay on the row, so the teacher's
+                            # released grade would point at answers that no longer exist.
+                            if !Str.is_empty(existing_id) and json_bool(existing_body, "released") == "true" {
+                                Ok(json_response(409, "{\"error\":\"The grade for this assessment has been released; it can no longer be resubmitted\"}"))
+                            } else if !Str.is_empty(existing_id) and max_resubmissions > 0 and attempts >= max_resubmissions {
                                 Ok(json_response(409, "{\"error\":\"Resubmission limit reached\"}"))
                             } else {
                                 found_mark = extract_number_field(assessment_body, "total_mark")
