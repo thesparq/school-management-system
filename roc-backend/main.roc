@@ -1164,11 +1164,18 @@ respond! = |request, context| {
                         # One read of the assessment feeds the checks, the total mark and the
                         # questions. `expired` is decided by the database, so no clock or date
                         # parsing here and no gap between the check and the stored deadline.
-                        assessment_body = match SurrealDB.query!("SELECT total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
+                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired FROM ${record_ref!(assessment_id, "lesson_assessments")};", context.surreal) {
                             Ok(body) => body
                             Err(_) => ""
                         }
-                        if json_bool(assessment_body, "expired") == "true" {
+                        # A draft is invisible to students, and the list endpoint only ever hands out
+                        # published ones — so a submission naming a draft (a stale tab, a hand-made
+                        # request) is refused rather than silently accepted.
+                        if Str.is_empty(extract_field(assessment_body, "id")) {
+                            Ok(json_response(404, "{\"error\":\"No such assessment\"}"))
+                        } else if json_bool(assessment_body, "active") != "true" {
+                            Ok(json_response(409, "{\"error\":\"This assessment is not published\"}"))
+                        } else if json_bool(assessment_body, "expired") == "true" {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
                             bare_assessment = bare_id(assessment_id)

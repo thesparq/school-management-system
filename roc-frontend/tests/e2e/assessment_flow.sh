@@ -44,6 +44,10 @@ import json,os,sys
 rows=json.load(sys.stdin)[0]['result']
 print(sum(1 for r in rows if r.get('title') == os.environ['TITLE']))")
 check "student cannot see the draft" "$DRAFT_VISIBLE" "0"
+# A draft is unsubmittable, not just invisible: a stale tab or a hand-made request naming one is refused.
+check "a submission to the draft is refused" "$(submit "$AID")" "not published"
+check "and it is a 409" "$(submit_status "$AID")" "409"
+check "a submission to an unknown assessment is refused" "$(submit "lesson_assessments:nope_$(date +%s)")" "No such assessment"
 check "publish flips active" "$(curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$AID\",\"active\":true}")" '"active":true'
 check "student sees it once published" "$(curl -s "$B/api/student/assessments?lesson_id=$L" -H "$T")" "\"title\":\"$TITLE\""
 check "first submit is iteration 1" "$(curl -s -X POST "$B/api/student/submit-assessment" -H "$T" -H "$C" -d "{\"assessment_id\":\"$AID\"}")" '"iteration":1'
@@ -88,11 +92,14 @@ curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\
 check "a submission past the deadline is rejected" "$(submit "$PAST_AID")" "deadline for this assessment has passed"
 check "the deadline rejection is a 409" "$(submit_status "$PAST_AID")" "409"
 OPEN_AID=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE open\",\"deadline\":\"2099-01-01T00:00:00Z\"}" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])")
+# Published, so the only thing standing between the student and a submit is the deadline.
+curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$OPEN_AID\",\"active\":true}" > /dev/null
 check "a submission before the deadline is accepted" "$(submit "$OPEN_AID")" '"iteration":1'
 
 # --- max_resubmissions: 0 is unlimited, otherwise the iteration is capped ---
 LIMIT_CREATE=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE limited\",\"max_resubmissions\":1}")
 LIMIT_AID=$(echo "$LIMIT_CREATE" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])")
+curl -s -X POST "$B/api/teacher/toggle-assessment-active" -H "$T" -H "$C" -d "{\"assessment_id\":\"$LIMIT_AID\",\"active\":true}" > /dev/null
 check "the resubmission limit is stored" "$LIMIT_CREATE" '"max_resubmissions":1'
 check "the first submit is within the limit" "$(submit "$LIMIT_AID")" '"iteration":1'
 check "a resubmit past max_resubmissions is rejected" "$(submit "$LIMIT_AID")" "Resubmission limit reached"
