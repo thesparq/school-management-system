@@ -5,6 +5,7 @@ import http.Response
 import pf.Http
 import pf.Env
 import pf.OsStr
+import AuthUrls
 
 validateToken! : Str => [Ok(Str), Err(Str)]
 validateToken! = |token| {
@@ -13,8 +14,8 @@ validateToken! = |token| {
         Ok(os) => OsStr.display(os)
         Err(_) =>
             match Env.var!("AUTHENTIK_ISSUER_URL") {
-                Ok(os) => "${OsStr.display(os)}userinfo"
-                Err(_) => "http://localhost:9000/application/o/school-management-system/userinfo"
+                Ok(os) => AuthUrls.userinfo_url(OsStr.display(os))
+                Err(_) => "http://localhost:9000/application/o/userinfo/"
             }
     }
 

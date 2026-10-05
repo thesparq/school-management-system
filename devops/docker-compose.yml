@@ -24,6 +24,10 @@ services:
     # Token validation reads the issuer (or AUTHENTIK_USERINFO_URL); user creation needs the
     # service-account token, and falls back to https://${AUTHENTIK_HOST}/api/v3/core/users/.
     - AUTHENTIK_ISSUER_URL=${AUTHENTIK_ISSUER_URL:-https://auth.johnethel.school/application/o/school-management-system/}
+    # Authentik serves one userinfo endpoint for the whole instance, not one per application, so the
+    # issuer cannot simply have "userinfo" appended to it. The backend derives this correctly now
+    # (`roc-backend/AuthUrls.roc`); setting it here keeps the deployed value explicit.
+    - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL:-https://auth.johnethel.school/application/o/userinfo/}
     - AUTHENTIK_API_TOKEN=${AUTHENTIK_SERVICE_ACCOUNT_TOKEN:-}
     - AUTHENTIK_HOST=${AUTHENTIK_HOST:-auth.johnethel.school}
     labels:
