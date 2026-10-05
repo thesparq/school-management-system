@@ -133,7 +133,20 @@ CREATE subjects:agricultural_science SET name = 'Agricultural Science', code = '
 # Relations are created with RELATE; CREATE on a relation table is rejected.
 DEFINE TABLE has_subject TYPE RELATION IN class_levels OUT subjects SCHEMALESS PERMISSIONS FULL;
 RELATE class_levels:jss_1->has_subject:test_edge->subjects:agricultural_science SET active = true;
-CREATE lessons:test_lesson SET topic_title = 'Packaging Criteria for Farm Produce', week = 1, term = terms:noel_term, has_subject = has_subject:test_edge, active = true, duration_mins = 40, slug = 'test-lesson';
+CREATE lessons:test_lesson SET topic_title = 'Packaging Criteria for Farm Produce', week = 1, term = terms:noel_term, has_subject = has_subject:test_edge, active = true, duration_mins = 40, slug = 'test-lesson', content = {
+  introduction: 'Packaging protects farm produce.',
+  objectives: [{ objective: 'Define packaging of farm produce.' }],
+  content_sections: [{ header: 'WHAT IS PACKAGING?', body: 'Putting produce into containers.', sub_points: [{ text: 'Protection' }] }],
+  key_points: ['Packaging protects produce.'],
+  conclusion: 'In summary, packaging matters.',
+  mcq_questions: [
+    { question: 'What does packaging mean in agriculture?', option_a: 'Cooking produce', option_b: 'Putting produce into containers', option_c: 'Planting seeds', correct_answer: 'b', explanation: 'It means putting produce into containers.' },
+    { question: 'Which material suits tomatoes?', option_a: 'Ventilated crate', option_b: 'Sealed sack', option_c: 'Open basket', correct_answer: 'a', explanation: 'Tomatoes need ventilation.' }
+  ],
+  theoretical_questions: [
+    { question: 'Define packaging of farm produce.', model_answer: 'Putting harvested crops into containers for storage or sale.', marking_scheme: '5 marks for a complete definition.' }
+  ]
+};
 
 # The dev-skip token identifies the caller as `dev_user`, so give that caller a student profile:
 # submission rows then resolve a display name instead of showing a bare id.

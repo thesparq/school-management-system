@@ -135,12 +135,19 @@ non-existent `assessments` table, following the MoonBit agents' conventions wher
 - The teacher's lesson page has a **lesson picker** (the viewer needs a concrete lesson id, previously a backlog
   item), `/api/teacher/lessons?lesson_id=` returns the full record, and the tab shows Draft/Published with a
   Publish/Unpublish button.
+- **Question picker**: the create modal lists the lesson's own bank (`content.mcq_questions` /
+  `content.theoretical_questions`) with a checkbox and a marks field per question (MCQ default 1, theory 5, matching
+  the generated lessons' own marking). The selection is stored in the strict shape the schema enforces — `type`,
+  `question`, `options`, `answer`, `explanation`, `marks` — and `total_mark` is the sum of the picks. MCQ answers
+  keep the bank's option letter and `options` preserves a/b/c order, so the letter maps back.
 - Two JS wiring bugs surfaced and are fixed: listeners on individual nodes died on every app re-render (tabs,
   create-assessment modal), so those controls are delegated at the document level, and `showTab` re-queries its
   elements instead of holding references.
 
-**Verified**: API lifecycle 16/16 (`tests/e2e/assessment_flow.sh`) and the browser flow 8/8
-(`tests/e2e/e2e_assessments.cjs`) against the sandbox; the student (7/7) and admin (5/5) checks still pass.
+**Verified**: API lifecycle 21/21 (`tests/e2e/assessment_flow.sh`, including the stored question shape and the
+schema's rejection of an unknown question type) and the browser flow 9/9 (`tests/e2e/e2e_assessments.cjs`,
+including a picked question landing in the stored assessment); the student (7/7) and admin (5/5) checks still
+pass.
 
 **Schema change applied to prod (2026-10-05)**: `lesson_assessments` now carries the strict question shapes from
 `db/schema-v3.surql` — `questions.*.type` (asserted to `mcq|boolean|short_answer|essay`), `.question`, `.options`,
@@ -156,8 +163,6 @@ removed, leaving the counts at 0.
   assessments are.
 - [ ] The student's assessment tab submits without answers (the question-taking UI is not built), so grading is
   manual.
-- [ ] Question storage needs the schema-v3 sub-field definitions (see the assessments section above) before the
-  teacher's question picker can be built.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
 - [ ] Query parameters are not percent-decoded, so a client that URL-encodes a record id (`lessons%3Aabc`)
   gets an empty result; the UI passes ids raw.

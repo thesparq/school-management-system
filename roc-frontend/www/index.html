@@ -497,7 +497,7 @@
                 if (hit("#tab-lesson")) { showTab("lesson"); return; }
                 if (hit("#tab-assessments")) { showTab("assessments"); loadAssessments(isTeacher); return; }
                 if (hit("#tab-grading")) { showTab("grading"); loadSubmissions(); return; }
-                if (hit("#create-assessment-btn")) { modal && modal.classList.remove("hidden"); return; }
+                if (hit("#create-assessment-btn")) { renderQuestionPicker(); modal && modal.classList.remove("hidden"); return; }
                 if (hit("#close-create-modal") || hit("#cancel-create-modal")) { modal && modal.classList.add("hidden"); return; }
                 if (hit("#submit-create-assessment")) { createAssessment(); return; }
             });
@@ -519,7 +519,11 @@
         } catch(e) { console.error("Failed to load lesson:", e); }
     }
 
+    // The lesson currently open in the viewer: the assessment modal builds its question picker from it.
+    let _currentLesson = null;
+
     function renderLesson(lesson) {
+        _currentLesson = lesson;
         // Update header
         const titleEl = document.getElementById("lesson-title");
         const metaEl = document.getElementById("lesson-meta");
@@ -739,6 +743,97 @@
         });
     }
 
+    // ---- Question picker for the create-assessment modal ----
+
+    // The lesson content carries the generated bank: mcq_questions with option_a..c and a letter in
+    // correct_answer, theoretical_questions with model_answer and marking_scheme.
+    function bankQuestions() {
+        const content = (_currentLesson && _currentLesson.content) || {};
+        const mcq = Array.isArray(content.mcq_questions) ? content.mcq_questions : [];
+        const theory = Array.isArray(content.theoretical_questions) ? content.theoretical_questions : [];
+        return [
+            ...mcq.map(q => ({ kind: "mcq", data: q || {} })),
+            ...theory.map(q => ({ kind: "theory", data: q || {} })),
+        ];
+    }
+
+    // Map one bank entry onto the strict shape lesson_assessments.questions enforces.
+    function bankQuestionToStored(entry, marks) {
+        const q = entry.data || {};
+        if (entry.kind === "mcq") {
+            const options = [q.option_a, q.option_b, q.option_c, q.option_d]
+                .filter(o => typeof o === "string" && o.trim() !== "");
+            return {
+                type: "mcq",
+                question: String(q.question || ""),
+                ...(options.length ? { options } : {}),
+                // The bank keeps the answer as an option letter; options preserve a/b/c order.
+                answer: String(q.correct_answer || ""),
+                ...(q.explanation ? { explanation: String(q.explanation) } : {}),
+                marks,
+            };
+        }
+        return {
+            type: "essay",
+            question: String(q.question || ""),
+            answer: String(q.model_answer || ""),
+            ...(q.marking_scheme ? { explanation: String(q.marking_scheme) } : {}),
+            marks,
+        };
+    }
+
+    function renderQuestionPicker() {
+        const area = document.getElementById("assessment-questions-area");
+        if (!area) return;
+        const entries = bankQuestions();
+        const draftHint = '<p class="text-xs text-muted-foreground">It is saved as a draft; publish it from the list when you are ready for students to see it.</p>';
+        if (!entries.length) {
+            area.innerHTML = '<p class="text-sm text-muted-foreground italic">This lesson has no question bank, so the assessment is created without questions.</p>' + draftHint;
+            return;
+        }
+        area.innerHTML = `
+            <p class="text-sm font-medium">Questions from this lesson (${entries.length})</p>
+            <p class="text-xs text-muted-foreground">Tick the ones to include and set their marks (MCQ default 1, theory 5).</p>
+            <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                ${entries.map((entry, i) => `
+                <label class="flex items-start gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <input type="checkbox" class="mt-1" data-q-check="${i}">
+                    <span class="flex-1 space-y-0.5">
+                        <span class="block text-sm">${escHtml(String(entry.data.question || "Question"))}</span>
+                        <span class="block text-xs text-muted-foreground">${entry.kind === "mcq" ? "Multiple choice" : "Theory"}</span>
+                    </span>
+                    <input type="number" min="0" step="1" value="${entry.kind === "mcq" ? 1 : 5}" data-q-marks="${i}"
+                        class="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm">
+                </label>`).join("")}
+            </div>
+            <p class="text-xs text-muted-foreground">Selected: <span id="assessment-selected-count">0</span> · total marks: <span id="assessment-total-marks">0</span></p>
+            ${draftHint}`;
+
+        const updateTotals = () => {
+            const chosen = selectedBankQuestions();
+            const count = document.getElementById("assessment-selected-count");
+            const total = document.getElementById("assessment-total-marks");
+            if (count) count.textContent = String(chosen.length);
+            if (total) total.textContent = String(chosen.reduce((sum, q) => sum + (q.marks || 0), 0));
+        };
+        area.querySelectorAll("[data-q-check], [data-q-marks]").forEach(el => el.addEventListener("input", updateTotals));
+        updateTotals();
+    }
+
+    // The ticked questions, already in the stored shape, with their marks.
+    function selectedBankQuestions() {
+        const area = document.getElementById("assessment-questions-area");
+        const entries = bankQuestions();
+        if (!area || !entries.length) return [];
+        return entries.map((entry, i) => {
+            const check = area.querySelector(`[data-q-check="${i}"]`);
+            if (!check || !check.checked) return null;
+            const marksEl = area.querySelector(`[data-q-marks="${i}"]`);
+            const marks = Math.max(0, parseInt(marksEl && marksEl.value, 10) || 0);
+            return bankQuestionToStored(entry, marks);
+        }).filter(Boolean);
+    }
+
     async function loadAssessments(isTeacher) {
         const list = document.getElementById("assessments-list");
         if (!list) return;
@@ -834,10 +929,12 @@
         const title = titleInput ? titleInput.value.trim() : "";
         if (!title) { alert("Please enter a title."); return; }
         try {
+            const questions = selectedBankQuestions();
+            const totalMark = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
             const res = await fetch("/api/teacher/create-lesson-assessment", {
                 method: "POST",
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
-                body: JSON.stringify({ title, lesson_id: _currentLessonId || "none" })
+                body: JSON.stringify({ title, lesson_id: _currentLessonId || "none", questions, total_mark: totalMark })
             });
             const data = await res.json().catch(() => null);
             const failure = data && (Array.isArray(data) ? data[0]?.error : data.error);

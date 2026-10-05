@@ -44,9 +44,20 @@ async function newPage(browser, token) {
   await teacher.waitForSelector('#create-assessment-btn', { timeout: 20000 });
   await teacher.click('#create-assessment-btn');
   await teacher.fill('#assessment-title-input', title);
+  // Pick the first question from the lesson's bank and give it marks.
+  await teacher.waitForSelector('[data-q-check="0"]', { timeout: 20000 });
+  await teacher.check('[data-q-check="0"]');
+  await teacher.fill('[data-q-marks="0"]', '4');
   await teacher.click('#submit-create-assessment');
   await teacher.waitForSelector(`text=${title}`, { timeout: 20000 });
   check('created assessment appears', true);
+  const stored = await teacher.evaluate(async (t) => {
+    const res = await fetch('/api/teacher/lesson-assessments', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('auth_token') || '') } });
+    const rows = (await res.json())[0].result || [];
+    const mine = rows.find(r => r.title === t);
+    return mine ? { count: (mine.questions || []).length, type: (mine.questions || [])[0]?.type, marks: mine.total_mark } : null;
+  }, title);
+  check('the picked question is stored in the strict shape', !!stored && stored.count === 1 && stored.type === 'mcq' && stored.marks === 4, JSON.stringify(stored));
   check('it starts as a draft', await teacher.evaluate(() => document.body.innerText.includes('Draft')));
   await teacher.click('#assessments-list >> text=Publish');
   await teacher.waitForTimeout(1500);

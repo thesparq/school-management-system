@@ -44,6 +44,14 @@ check "grade_released_at is set" "$(curl -s "$B/api/teacher/submissions?assessme
 check "a title is required" "$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\"}")" "title is required"
 check "a lesson is required" "$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d '{"title":"x"}')" "lesson_id is required"
 
+# Questions in the strict shape the schema now enforces
+WITH_Q=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE with questions\",\"total_mark\":3,\"questions\":[{\"type\":\"mcq\",\"question\":\"Pick one\",\"options\":[\"a\",\"b\"],\"answer\":\"b\",\"marks\":3}]}")
+check "questions are stored" "$WITH_Q" '"type":"mcq"'
+check "options are stored" "$WITH_Q" '"options":["a","b"]'
+check "marks are stored" "$WITH_Q" '"marks":3'
+check "total_mark is stored" "$WITH_Q" '"total_mark":3'
+check "an unknown question type is rejected" "$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$T" -H "$C" -d "{\"lesson_id\":\"$L\",\"title\":\"$TITLE bad\",\"questions\":[{\"type\":\"multiple_choice\",\"question\":\"x\",\"answer\":\"a\"}]}")" "must conform"
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
