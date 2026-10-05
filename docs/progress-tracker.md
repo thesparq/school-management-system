@@ -195,13 +195,11 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
   `email` column, `GET /api/users` selects one anyway, and the admin list renders an Email column that is
   therefore always empty; `is_active` is selected too, so every row reads as active. The addresses exist in
   Authentik (the create path sends them there, and the profile id *is* the Authentik pk). `PUT /api/users`
-  validates an email and refuses it with a clear 400 rather than dropping it. **The pattern is decided**
-  (IdP as the system of record, a projection in the app); the implementation is the next piece of work.
+  validates an email and refuses it with a clear 400 rather than dropping it. **The pattern is decided and the
+  pass is in progress**: listing reads identity attributes from Authentik, `DELETE` disables the login there,
+  and an email change goes through Authentik first.
 - [ ] `DELETE /api/users` soft-deletes the profile row only — the Authentik login stays enabled, so a
-  "deleted" user can still authenticate. Part of the same user-management pass.
-- [ ] The admin Configuration Hub is UI-only (`terms_config_view` and friends take `|_model|`), though the
-  endpoints for terms, subjects, class levels and session terms exist. *(One of the parallel workstreams
-  below is on this.)*
+  "deleted" user can still authenticate. Same pass.
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
   assessments are.
 - [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
@@ -209,6 +207,9 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
   monorepo layout, the system boundaries); only the deadline authority and a note at the top have been updated.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
+- [ ] The admin hub lists and creates; it has no edit/activate/deactivate for those rows (session terms are
+  created inactive, so promoting one still needs the database), and `/api/subjects` + `/api/class_levels` stay
+  active-only, so those tables show no status column.
 
 ### Three parallel workstreams — two done
 
@@ -242,7 +243,23 @@ path, and soft-delete; `query_param` percent-decodes through the new pure `Url` 
 **Verified by me, not just reported**: `roc check main.roc` 0 errors / 3 warnings; `roc test UrlTest.roc` 16/16;
 `sh tests/e2e/assessment_flow.sh` 41/41; `node tests/e2e/e2e_assessments.cjs` 17/17;
 `e2e_student.cjs` 7/7; `e2e_admin.cjs` 5/5; plus my own curl run of the user-update lifecycle and the
-encoded-vs-raw query comparison (13/13). The third workstream (the admin Configuration Hub) is still running.
+encoded-vs-raw query comparison (13/13).
+
+**The admin Configuration Hub** (merged as `6ac72bc`, from the agent's `e7e29be`) replaced its `|_model|` stubs
+with real sections: Academic Terms, Class Levels, Subjects, Session Terms (the Class Arms tab, since class arms
+answer 410) and Curriculum each list their endpoint's rows and create new ones, showing the backend's own
+message on failure — including the `detail` from `db_response!`. `POST /api/curriculum` now relates a
+class-level/subject pair, and the three existing creates validate their required fields. The fixture gained
+prod's unique indexes and a seeded `session_term`. Verified on the merged tree: `e2e_admin_config.cjs` **25/25**,
+`e2e_admin.cjs` 5/5, `e2e_assessments.cjs` 17/17, `assessment_flow.sh` 41/41, `e2e_student.cjs` 7/7,
+`e2e_auth_callback.cjs` 12/12.
+
+**Merge notes** (three worktrees touching the same files): `www/dist.css` conflicted and was regenerated from
+the merged sources (the removals were classes the hub's own edit deleted); the e2e README kept both sides of
+its conflict (the fixture's new indexes + `session_term` seed, and the `correct_answer` note). The admin agent
+also documented a compiler landmine in `JOY_HOST_PATCH.md`: two shapes (an `if`/`else` producing a
+`List(Effect(Msg))`, and `List.keep_if` + `match List.first(...)` in a view helper) compile with 0 errors into a
+wasm that renders nothing, so a page load after a rebuild is part of the workflow.
 
 ### How user management should work (decided)
 
