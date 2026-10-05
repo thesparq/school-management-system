@@ -119,6 +119,37 @@ without writing.
   (`roc-backend/gen_main.py`, `main_fallback.py`, `refactor.py`), scratch `test_json*.roc`, the downloaded
   Golem component blob, and `roc-agents/` (a prototype pointing at an external `roc-golem` checkout).
 
+### Assessments — done (lesson assessments)
+
+All twelve assessment endpoints now use the prod tables (`lesson_assessments`, `submissions`) instead of a
+non-existent `assessments` table, following the MoonBit agents' conventions where they affect stored data:
+
+- **Drafts**: `POST /api/teacher/create-lesson-assessment` always writes `active = false`; the teacher publishes
+  with `POST /api/teacher/toggle-assessment-active`. Students only ever see `active = true` rows.
+- **Submissions**: one row per student and assessment. The first submit writes `iteration = 1`, a resubmit bumps
+  it in place, and `assessment_id` stores the **bare** record id (the agents' convention) so both stacks find
+  each other's rows. `assessment_type` is `lesson`, `status` starts as `submitted`.
+- **Grading**: `grade-submission` sets `scored_mark` (prod has no `graded_at` column — listings return
+  `scored_mark IS NOT NONE AS graded` instead) and `release-grades` sets `grade_released_at` plus
+  `status = 'graded'`.
+- The teacher's lesson page has a **lesson picker** (the viewer needs a concrete lesson id, previously a backlog
+  item), `/api/teacher/lessons?lesson_id=` returns the full record, and the tab shows Draft/Published with a
+  Publish/Unpublish button.
+- Two JS wiring bugs surfaced and are fixed: listeners on individual nodes died on every app re-render (tabs,
+  create-assessment modal), so those controls are delegated at the document level, and `showTab` re-queries its
+  elements instead of holding references.
+
+**Verified**: API lifecycle 16/16 (`tests/e2e/assessment_flow.sh`) and the browser flow 8/8
+(`tests/e2e/e2e_assessments.cjs`) against the sandbox; the student (7/7) and admin (5/5) checks still pass.
+
+**Schema change applied to prod (2026-10-05)**: `lesson_assessments` now carries the strict question shapes from
+`db/schema-v3.surql` — `questions.*.type` (asserted to `mcq|boolean|short_answer|essay`), `.question`, `.options`,
+`.answer`, `.explanation`, `.marks` — so question objects are storable. Purely additive: `DEFINE FIELD IF NOT
+EXISTS` for sub-fields that did not exist, no `REMOVE`, no `DELETE`, no rewrite. Verified on a prod-mirroring
+sandbox first (pre-existing row untouched, updates still work, an unknown `type` rejected), then on prod: both
+assessment tables held 0 rows before and after, and a probe row created with questions → published → read back →
+removed, leaving the counts at 0.
+
 ### Remaining
 
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson

@@ -94,6 +94,15 @@ DEFINE FIELD max_resubmissions ON lesson_assessments TYPE int DEFAULT 0;
 # `array<object>` implies `questions.*`, so no explicit sub-field definition is needed here
 # (prod carries one anyway).
 DEFINE FIELD questions ON lesson_assessments TYPE array<object>;
+
+# Strict question shapes, mirroring what prod now has (db/schema-v3.surql). Without these,
+# this SurrealDB generation rejects question objects: only an empty array is storable.
+DEFINE FIELD questions.*.type ON lesson_assessments TYPE string ASSERT $value INSIDE ['mcq', 'boolean', 'short_answer', 'essay'];
+DEFINE FIELD questions.*.question ON lesson_assessments TYPE string;
+DEFINE FIELD questions.*.options ON lesson_assessments TYPE option<array<string>>;
+DEFINE FIELD questions.*.answer ON lesson_assessments TYPE string;
+DEFINE FIELD questions.*.explanation ON lesson_assessments TYPE option<string>;
+DEFINE FIELD questions.*.marks ON lesson_assessments TYPE option<number>;
 DEFINE FIELD scheduled_at ON lesson_assessments TYPE none | datetime;
 DEFINE FIELD title ON lesson_assessments TYPE string ASSERT $value != NONE;
 DEFINE FIELD total_mark ON lesson_assessments TYPE int;
