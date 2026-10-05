@@ -367,11 +367,22 @@
     function setupPageJS() {
         // Clean up any previous scroll listeners
         if (_lessonScrollCleanup) { _lessonScrollCleanup(); _lessonScrollCleanup = null; }
+        // The assessment hub's document-level listeners are page-scoped: tear the previous page's
+        // down so its controls cannot act on a page whose elements are gone.
+        teardownAssessmentHub();
 
         const path = window.location.pathname;
 
         // --- Passport upload handler (admin user management) ---
         setupPassportUpload();
+
+        // --- General assessments: the teacher hub and the student's assignments page ---
+        if (path === "/teacher/assessments") {
+            setupAssessmentHub(true);
+        }
+        if (path === "/student/assignments") {
+            setupAssessmentHub(false);
+        }
 
         // --- Lesson viewer (student) ---
         if (path === "/student/lesson") {
@@ -864,6 +875,9 @@
     let _lastAssessments = null;
     let _justSubmitted = "";
     let _openAssessmentId = null;
+    // Which list the open answer form belongs to: "lesson" (the lesson viewer) or "general" (the
+    // assignments page). It also decides which table the backend reads on submit.
+    let _openAssessmentType = "lesson";
 
     async function loadAssessments(isTeacher) {
         const list = document.getElementById("assessments-list");
@@ -911,14 +925,16 @@
         } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
     }
 
-    // Teachers publish a draft when it is ready; students only ever see published ones.
-    window.toggleAssessment = async (assessmentId, active) => {
-        await fetch("/api/teacher/toggle-assessment-active", {
+    // Teachers publish a draft when it is ready; students only ever see published ones. The type
+    // picks the table and which list to refresh; absent means a lesson assessment.
+    window.toggleAssessment = (assessmentId, active, assessmentType) => {
+        return fetch("/api/teacher/toggle-assessment-active", {
             method: "POST",
             headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
-            body: JSON.stringify({ assessment_id: assessmentId, active })
+            body: JSON.stringify({ assessment_id: assessmentId, active, assessment_type: assessmentType || "lesson" })
+        }).then(() => {
+            if (assessmentType === "general") { loadTeacherGeneralAssessments(); } else { loadAssessments(true); }
         });
-        loadAssessments(true);
     };
 
     // Jump to the grading tab filtered to one assessment.
@@ -936,16 +952,20 @@
         const query = _gradingAssessmentId ? `?assessment_id=${_gradingAssessmentId}` : "";
         try {
             const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
-            // The questions each submission was scored against; a failure here only costs the
-            // auto-score line, so the grading list still renders.
-            const assessments = await fetch("/api/teacher/lesson-assessments", { headers: auth })
-                .then(r => r.json()).then(unwrapRows).catch(() => []);
+            // The questions each submission was scored against, from both assessment tables; a
+            // failure here only costs the auto-score line, so the grading list still renders.
+            // The list itself is unfiltered unless one assessment was picked, and it is keyed by
+            // assessment_id, so a general submission shows up here exactly like a lesson one.
+            const [lessonAssessments, generalAssessments] = await Promise.all([
+                fetch("/api/teacher/lesson-assessments", { headers: auth }).then(r => r.json()).then(unwrapRows).catch(() => []),
+                fetch("/api/teacher/general-assessments", { headers: auth }).then(r => r.json()).then(unwrapRows).catch(() => []),
+            ]);
             const questionsByAssessment = {};
-            assessments.forEach(a => { if (a && a.id) questionsByAssessment[String(a.id).split(":").pop()] = a.questions; });
+            [...lessonAssessments, ...generalAssessments].forEach(a => { if (a && a.id) questionsByAssessment[String(a.id).split(":").pop()] = a.questions; });
             const res = await fetch("/api/teacher/submissions" + query, { headers: auth });
             const data = await res.json();
             const rows = unwrapRows(data);
-            const filterNote = _gradingAssessmentId ? '<button onclick="_gradingAssessmentId = null; loadSubmissions();" class="text-xs text-primary hover:underline cursor-pointer">Show all submissions</button>' : "";
+            const filterNote = _gradingAssessmentId ? '<button onclick="clearGradingFilter()" class="text-xs text-primary hover:underline cursor-pointer">Show all submissions</button>' : "";
             if (!rows.length) {
                 list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📊</div><p class="text-sm">No submissions to grade yet.</p>' + filterNote + '</div>';
                 return;
@@ -955,7 +975,7 @@
                 return `
                 <div class="border rounded-lg p-4 flex items-center justify-between">
                     <div>
-                        <p class="font-medium text-sm">${escHtml(s.student_name || s.student || "Student")}</p>
+                        <p class="font-medium text-sm">${escHtml(s.student_name || s.student || "Student")}${s.assessment_type === "general" ? ' <span class="text-xs font-normal text-muted-foreground">(general assessment)</span>' : ""}</p>
                         <p class="text-xs text-muted-foreground">${s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "Unknown time"}${s.iteration > 1 ? ` · attempt ${s.iteration}` : ""}</p>
                         ${s.scored_mark !== undefined && s.scored_mark !== null ? `<p class="text-xs text-muted-foreground">Score: ${s.scored_mark}${s.total_mark ? ` / ${s.total_mark}` : ""}</p>` : ""}
                         ${auto ? `<div class="mt-2 space-y-1" data-auto-score>
@@ -1041,6 +1061,9 @@
         const rows = _lastAssessments || [];
         const assessment = rows.find(a => a.id === assessmentId);
         _openAssessmentId = assessmentId;
+        // A lesson assessment: the form and the submit both follow this, and the student's
+        // assignments page uses the same flow for its Lesson Assessments tab.
+        _openAssessmentType = "lesson";
         renderAssessmentForm(assessmentId, assessment);
     };
 
@@ -1060,7 +1083,10 @@
     }
 
     function renderAssessmentForm(assessmentId, assessment) {
-        const list = document.getElementById("assessments-list");
+        // General assessments have their own list (the assignments page); a lesson assessment's form
+        // goes back into the lesson viewer's list. The ids differ, the markup below does not.
+        const listId = _openAssessmentType === "general" ? "general-assessments-list" : "assessments-list";
+        const list = document.getElementById(listId);
         if (!list) return;
         const questions = (assessment && Array.isArray(assessment.questions)) ? assessment.questions : [];
         const title = (assessment && assessment.title) || "Assessment";
@@ -1120,7 +1146,8 @@
     }
 
     window.submitAssessmentAnswers = async (assessmentId) => {
-        const rows = _lastAssessments || [];
+        // The open form's assessment comes from whichever list the form was opened from.
+        const rows = (_openAssessmentType === "general" ? _generalAssessments : _lastAssessments) || [];
         const assessment = rows.find(a => a.id === assessmentId) || {};
         const questions = Array.isArray(assessment.questions) ? assessment.questions : [];
         const answers = collectAnswers(questions);
@@ -1131,7 +1158,9 @@
             const res = await fetch("/api/student/submit-assessment", {
                 method: "POST",
                 headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
-                body: JSON.stringify({ assessment_id: assessmentId, answers })
+                // The type tells the backend which assessment table to read and which row to bump;
+                // a lesson assessment is the default and what the lesson viewer sends.
+                body: JSON.stringify({ assessment_id: assessmentId, assessment_type: _openAssessmentType || "lesson", answers })
             });
             const data = await res.json().catch(() => null);
             // A failed write answers 500 with the database's own message in `detail` (see db_response!).
@@ -1141,7 +1170,7 @@
             if (!res.ok || failure) { alert(failure || "Could not submit the assessment."); return; }
             _justSubmitted = assessment.title || "";
             _openAssessmentId = null;
-            loadAssessments(false);
+            if (_openAssessmentType === "general") { loadStudentGeneralAssessments(); } else { loadAssessments(false); }
         } catch(e) { alert("Could not submit the assessment."); }
     };
 
@@ -1165,6 +1194,398 @@
         });
         loadSubmissions();
     };
+
+    // ========================================================
+    // GENERAL ASSESSMENTS (teacher hub + student assignments page)
+    // ========================================================
+
+    // The student's general list, the counterpart of _lastAssessments for lesson assessments.
+    let _generalAssessments = null;
+    // Which page the hub listeners serve, so showGeneralTab knows whose list to load.
+    let _assessmentHubRole = "student";
+
+    function generalAssessmentMeta(a) {
+        const bits = [];
+        if (a.subject_name) bits.push(a.subject_name);
+        if (a.session_term_name) bits.push(a.session_term_name);
+        if (a.percentage_weight) bits.push(`${a.percentage_weight}% of the term`);
+        bits.push(a.total_mark ? `${a.total_mark} marks` : "No marks set");
+        if (Array.isArray(a.questions) && a.questions.length) bits.push(`${a.questions.length} question${a.questions.length === 1 ? "" : "s"}`);
+        if (a.deadline) bits.push(`due ${new Date(a.deadline).toLocaleDateString()}`);
+        return bits.map(escHtml).join(" · ");
+    }
+
+    async function loadTeacherGeneralAssessments() {
+        const list = document.getElementById("general-assessments-list");
+        if (!list) return;
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const subjectId = subjectEl ? subjectEl.value : "";
+        const sessionId = sessionEl ? sessionEl.value : "";
+        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading assessments...</div>';
+        try {
+            const params = new URLSearchParams();
+            if (subjectId) params.set("subject_id", subjectId);
+            if (sessionId) params.set("session_term_id", sessionId);
+            const qs = params.toString();
+            const res = await fetch("/api/teacher/general-assessments" + (qs ? `?${qs}` : ""), {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            const rows = unwrapRows(await res.json());
+            if (!rows.length) {
+                list.innerHTML = '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No general assessments for this subject and term yet.</p><p class="text-xs">Create one above; it stays a draft until you publish it.</p></div>';
+                return;
+            }
+            list.innerHTML = rows.map(a => `
+                <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-medium">${escHtml(a.title || "General assessment")}</h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs rounded-full px-2 py-0.5 ${a.active ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">${a.active ? "Published" : "Draft"}</span>
+                            <span class="text-xs text-muted-foreground">${a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                        </div>
+                    </div>
+                    ${a.description ? `<p class="text-sm text-muted-foreground">${escHtml(a.description)}</p>` : ""}
+                    <p class="text-xs text-muted-foreground">${generalAssessmentMeta(a)}</p>
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleAssessment('${a.id}', ${a.active ? "false" : "true"}, 'general')" class="text-xs text-primary hover:underline cursor-pointer">${a.active ? "Unpublish" : "Publish"}</button>
+                        <button onclick="viewGeneralSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
+                    </div>
+                </div>`).join("");
+        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
+    }
+
+    async function loadStudentGeneralAssessments() {
+        const list = document.getElementById("general-assessments-list");
+        if (!list) return;
+        list.innerHTML = '<div class="text-center py-6 text-muted-foreground text-sm">Loading assessments...</div>';
+        try {
+            const res = await fetch("/api/student/general-assessments", {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            const rows = unwrapRows(await res.json());
+            _generalAssessments = rows;
+            const submittedNote = _justSubmitted
+                ? `<div class="rounded-md border border-green-200 bg-green-50 text-green-800 text-sm p-3">Submitted: ${escHtml(_justSubmitted)}. Your teacher will grade it.</div>`
+                : "";
+            _justSubmitted = "";
+            if (!rows.length) {
+                list.innerHTML = submittedNote + '<div class="text-center py-10 text-muted-foreground space-y-2"><div class="text-3xl">📋</div><p class="text-sm">No general assessments yet.</p><p class="text-xs">Term assessments published by your teachers appear here.</p></div>';
+                return;
+            }
+            list.innerHTML = submittedNote + rows.map(a => {
+                const closed = a.deadline && new Date(a.deadline).getTime() < Date.now();
+                const notOpen = a.scheduled_at && new Date(a.scheduled_at).getTime() > Date.now();
+                const label = closed ? "Review (closed)" : (notOpen ? `Opens ${new Date(a.scheduled_at).toLocaleDateString()}` : "Take Assessment");
+                return `
+                <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-medium">${escHtml(a.title || "General assessment")}</h4>
+                        <span class="text-xs text-muted-foreground">${a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                    </div>
+                    ${a.description ? `<p class="text-sm text-muted-foreground">${escHtml(a.description)}</p>` : ""}
+                    <p class="text-xs text-muted-foreground">${generalAssessmentMeta(a)}</p>
+                    <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitGeneralAssessment('${a.id}')">${label}</button>
+                </div>`;
+            }).join("");
+        } catch(e) { list.innerHTML = '<div class="text-center py-6 text-red-500 text-sm">Failed to load assessments.</div>'; }
+    }
+
+    // The student opens a general assessment: same answer form as a lesson's, into the assignments
+    // page's own list.
+    window.submitGeneralAssessment = (assessmentId) => {
+        const rows = _generalAssessments || [];
+        const assessment = rows.find(a => a.id === assessmentId);
+        _openAssessmentId = assessmentId;
+        _openAssessmentType = "general";
+        renderAssessmentForm(assessmentId, assessment);
+    };
+
+    // --- Teacher: questions are authored here (a general assessment has no lesson bank to pick from) ---
+
+    function addGeneralQuestionRow() {
+        const area = document.getElementById("ga-questions-area");
+        if (!area) return;
+        const row = document.createElement("div");
+        row.className = "rounded-md border p-3 space-y-2";
+        row.setAttribute("data-ga-question-row", "");
+        row.innerHTML = `
+            <div class="flex items-center gap-2">
+                <select data-ga-type class="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="mcq">Multiple choice</option>
+                    <option value="essay">Theory</option>
+                </select>
+                <input type="number" data-ga-marks value="1" class="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm">
+                <span class="text-xs text-muted-foreground">marks</span>
+                <button type="button" data-ga-remove class="ml-auto text-muted-foreground hover:text-destructive text-sm cursor-pointer">✕ remove</button>
+            </div>
+            <input type="text" data-ga-question placeholder="Question" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <div data-ga-mcq class="space-y-1">
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="text" data-ga-option="0" placeholder="Option a" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                    <input type="text" data-ga-option="1" placeholder="Option b" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                    <input type="text" data-ga-option="2" placeholder="Option c" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                </div>
+                <label class="flex items-center gap-2 text-xs text-muted-foreground">Correct option
+                    <select data-ga-answer class="h-8 rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="a">a</option>
+                        <option value="b">b</option>
+                        <option value="c">c</option>
+                    </select>
+                </label>
+            </div>
+            <div data-ga-essay class="hidden">
+                <input type="text" data-ga-model placeholder="Model answer / marking notes (optional)" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            </div>`;
+        area.appendChild(row);
+        updateGeneralQuestionTotals();
+    }
+
+    function toggleGeneralQuestionKind(row) {
+        const typeEl = row.querySelector("[data-ga-type]");
+        if (!typeEl) return;
+        const isMcq = typeEl.value === "mcq";
+        const mcq = row.querySelector("[data-ga-mcq]");
+        const essay = row.querySelector("[data-ga-essay]");
+        if (mcq) mcq.classList.toggle("hidden", !isMcq);
+        if (essay) essay.classList.toggle("hidden", isMcq);
+        const marks = row.querySelector("[data-ga-marks]");
+        // New rows start at the defaults the lesson bank uses: 1 for an MCQ, 5 for theory.
+        if (marks && (marks.value === "" || marks.value === "1" || marks.value === "5")) marks.value = isMcq ? "1" : "5";
+    }
+
+    // What the teacher built, in the strict stored shape (type/question/options/answer/marks).
+    function collectGeneralQuestions() {
+        const area = document.getElementById("ga-questions-area");
+        if (!area) return [];
+        return Array.from(area.querySelectorAll("[data-ga-question-row]")).map(row => {
+            const type = ((row.querySelector("[data-ga-type]") || {}).value) || "mcq";
+            const question = ((row.querySelector("[data-ga-question]") || {}).value || "").trim();
+            const marksEl = row.querySelector("[data-ga-marks]");
+            const marks = Math.max(0, parseInt(marksEl && marksEl.value, 10) || 0);
+            if (type === "mcq") {
+                const options = [0, 1, 2].map(i => {
+                    const el = row.querySelector(`[data-ga-option="${i}"]`);
+                    return el ? el.value.trim() : "";
+                }).filter(o => o !== "");
+                const answer = ((row.querySelector("[data-ga-answer]") || {}).value) || "a";
+                return { type: "mcq", question, ...(options.length ? { options } : {}), answer, marks };
+            }
+            const modelEl = row.querySelector("[data-ga-model]");
+            return { type: "essay", question, answer: modelEl ? modelEl.value.trim() : "", marks };
+        }).filter(q => q.question !== "");
+    }
+
+    function updateGeneralQuestionTotals() {
+        const questions = collectGeneralQuestions();
+        const count = document.getElementById("ga-question-count");
+        const total = document.getElementById("ga-total-marks");
+        if (count) count.textContent = String(questions.length);
+        if (total) total.textContent = String(questions.reduce((sum, q) => sum + (q.marks || 0), 0));
+    }
+
+    // datetime-local gives local wall-clock time with no zone; send UTC so the stored instant is
+    // unambiguous. A blank field means "no rule".
+    function localDateTimeToUtc(v) {
+        if (!v) return "";
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? "" : d.toISOString();
+    }
+
+    function openCreateGeneralModal() {
+        const modal = document.getElementById("create-general-assessment-modal");
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const context = document.getElementById("ga-modal-context");
+        if (context) {
+            const subjectName = subjectEl && subjectEl.selectedOptions && subjectEl.selectedOptions[0] ? subjectEl.selectedOptions[0].textContent : "";
+            const sessionName = sessionEl && sessionEl.selectedOptions && sessionEl.selectedOptions[0] ? sessionEl.selectedOptions[0].textContent : "";
+            context.textContent = (subjectName && sessionName) ? `For ${subjectName} · ${sessionName}` : "Pick a subject and session term above.";
+        }
+        const area = document.getElementById("ga-questions-area");
+        if (area && !area.querySelector("[data-ga-question-row]")) addGeneralQuestionRow();
+        modal && modal.classList.remove("hidden");
+    }
+
+    async function createGeneralAssessment() {
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const subjectId = subjectEl ? subjectEl.value : "";
+        const sessionTermId = sessionEl ? sessionEl.value : "";
+        if (!subjectId || !sessionTermId) { alert("Choose a subject and a session term first."); return; }
+        const titleInput = document.getElementById("ga-title-input");
+        const title = titleInput ? titleInput.value.trim() : "";
+        if (!title) { alert("Please enter a title."); return; }
+        const weightEl = document.getElementById("ga-weight-input");
+        const weightRaw = weightEl ? weightEl.value : "";
+        if (weightRaw === "") { alert("Please enter the percentage weight for the term result."); return; }
+        // The column is an int and the backend reads whole numbers, so refuse a fraction here rather
+        // than storing a rounded number the teacher did not type.
+        const weight = Number(weightRaw);
+        if (!Number.isFinite(weight) || weight < 0 || Math.round(weight) !== weight) {
+            alert("The percentage weight must be a whole number.");
+            return;
+        }
+        const questions = collectGeneralQuestions();
+        const totalMark = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+        const value = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+        const deadline = localDateTimeToUtc(value("ga-deadline-input"));
+        const scheduledAt = localDateTimeToUtc(value("ga-scheduled-input"));
+        const maxResubmissions = value("ga-resubmissions-input");
+        try {
+            const res = await fetch("/api/teacher/create-general-assessment", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    subject_id: subjectId, session_term_id: sessionTermId, title,
+                    description: value("ga-description-input"),
+                    percentage_weight: weight, questions, total_mark: totalMark,
+                    ...(deadline ? { deadline } : {}),
+                    ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+                    ...(maxResubmissions ? { max_resubmissions: Number(maxResubmissions) } : {}),
+                })
+            });
+            const data = await res.json().catch(() => null);
+            // A failed write carries the database's own message in `detail` (see db_response!).
+            const failure = data && (Array.isArray(data)
+                ? (data[0] && (data[0].error || data[0].detail))
+                : (data.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null));
+            if (!res.ok || failure) { alert(failure || "Failed to create the assessment."); return; }
+            const modal = document.getElementById("create-general-assessment-modal");
+            modal && modal.classList.add("hidden");
+            if (titleInput) titleInput.value = "";
+            ["ga-description-input", "ga-weight-input", "ga-deadline-input", "ga-scheduled-input", "ga-resubmissions-input"]
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+            const area = document.getElementById("ga-questions-area");
+            if (area) area.innerHTML = "";
+            updateGeneralQuestionTotals();
+            loadTeacherGeneralAssessments();
+        } catch(e) { alert("Failed to create the assessment."); }
+    }
+
+    // Jump to the grading tab filtered to one general assessment.
+    window.viewGeneralSubmissions = (assessmentId) => {
+        _gradingAssessmentId = assessmentId;
+        const tab = document.getElementById("tab-general-grading");
+        if (tab) { tab.click(); } else { loadSubmissions(); }
+    };
+
+    window.clearGradingFilter = () => { _gradingAssessmentId = null; loadSubmissions(); };
+
+    function showGeneralTab(which) {
+        const activeTabCls = "px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer";
+        const inactiveTabCls = "px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer";
+        const tabs = {
+            general: document.getElementById("tab-general-assessments"),
+            grading: document.getElementById("tab-general-grading"),
+            lesson: document.getElementById("tab-lesson-assessments"),
+        };
+        const panels = {
+            general: document.getElementById("general-assessments-panel"),
+            grading: document.getElementById("general-grading-panel"),
+            lesson: document.getElementById("assessments-panel"),
+        };
+        Object.entries(tabs).forEach(([name, el]) => {
+            if (!el) return;
+            el.className = name === which ? activeTabCls : inactiveTabCls;
+        });
+        Object.entries(panels).forEach(([name, el]) => {
+            if (!el) return;
+            el.classList.toggle("hidden", name !== which);
+        });
+        if (which === "general") { loadGeneralAssessmentsForRole(); }
+        if (which === "grading") { loadSubmissions(); }
+        if (which === "lesson") { loadAssessments(false); }
+    }
+
+    function loadGeneralAssessmentsForRole() {
+        if (_assessmentHubRole === "teacher") { loadTeacherGeneralAssessments(); } else { loadStudentGeneralAssessments(); }
+    }
+
+    // The teacher's hub fetches its pickers first: the lists are scoped to one subject and one
+    // session term.
+    async function loadGeneralAssessmentPickers() {
+        const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+        const fill = (selectId, rows, label) => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = rows.map(r => `<option value="${escHtml(r.id || "")}">${escHtml(label(r))}</option>`).join("");
+        };
+        try {
+            const subjects = unwrapRows(await (await fetch("/api/subjects", { headers: auth })).json());
+            fill("ga-subject-select", subjects, s => s.name || s.code || "Subject");
+            const sessions = unwrapRows(await (await fetch("/api/session_terms", { headers: auth })).json());
+            // Prefer an active term, otherwise the first one.
+            const active = sessions.filter(s => s.active === true);
+            const ordered = active.length ? [...active, ...sessions.filter(s => s.active !== true)] : sessions;
+            fill("ga-session-term-select", ordered, s => s.session_name || "Session term");
+        } catch(e) { console.error("Failed to load the assessment pickers:", e); }
+        loadTeacherGeneralAssessments();
+    }
+
+    // --- Hub wiring: one document-level listener per page visit, torn down on navigation ---
+
+    let _assessmentHubClick = null;
+    let _assessmentHubInput = null;
+
+    function teardownAssessmentHub() {
+        if (_assessmentHubClick) { document.removeEventListener("click", _assessmentHubClick); _assessmentHubClick = null; }
+        if (_assessmentHubInput) {
+            document.removeEventListener("input", _assessmentHubInput);
+            document.removeEventListener("change", _assessmentHubInput);
+            _assessmentHubInput = null;
+        }
+    }
+
+    function setupAssessmentHub(isTeacher) {
+        teardownAssessmentHub();
+        _assessmentHubRole = isTeacher ? "teacher" : "student";
+
+        // The app re-renders its DOM on state changes, so every control is handled by one
+        // document-level listener rather than by listeners attached to the nodes.
+        _assessmentHubClick = (event) => {
+            const hit = (selector) => event.target.closest && event.target.closest(selector);
+            const modal = document.getElementById("create-general-assessment-modal");
+            if (hit("#tab-general-assessments")) { showGeneralTab("general"); return; }
+            if (hit("#tab-general-grading")) { showGeneralTab("grading"); return; }
+            if (hit("#tab-lesson-assessments")) { showGeneralTab("lesson"); return; }
+            if (hit("#create-general-assessment-btn")) { openCreateGeneralModal(); return; }
+            if (hit("#close-create-general-modal") || hit("#cancel-create-general-modal")) { modal && modal.classList.add("hidden"); return; }
+            if (hit("#ga-add-question")) { addGeneralQuestionRow(); return; }
+            if (hit("[data-ga-remove]")) {
+                const row = hit("[data-ga-remove]").closest("[data-ga-question-row]");
+                if (row) { row.remove(); updateGeneralQuestionTotals(); }
+                return;
+            }
+            if (hit("#ga-submit-create")) { createGeneralAssessment(); return; }
+            // The shared answer form: the lesson viewer binds the same ids on its own page.
+            if (hit("#submit-assessment-answers")) { if (_openAssessmentId) submitAssessmentAnswers(_openAssessmentId); return; }
+            if (hit("#back-to-assessments")) {
+                _openAssessmentId = null;
+                if (_openAssessmentType === "general") { loadStudentGeneralAssessments(); } else { loadAssessments(false); }
+                return;
+            }
+        };
+        document.addEventListener("click", _assessmentHubClick);
+
+        _assessmentHubInput = (event) => {
+            if (!event.target.closest || !event.target.closest("[data-ga-question-row]")) return;
+            if (event.target.matches("[data-ga-type]")) {
+                toggleGeneralQuestionKind(event.target.closest("[data-ga-question-row]"));
+            }
+            if (event.target.matches("[data-ga-marks], [data-ga-option], [data-ga-question]")) {
+                updateGeneralQuestionTotals();
+            }
+        };
+        document.addEventListener("input", _assessmentHubInput);
+        document.addEventListener("change", _assessmentHubInput);
+
+        if (isTeacher) {
+            loadGeneralAssessmentPickers();
+        } else {
+            loadStudentGeneralAssessments();
+        }
+    }
 
     // ========================================================
     // MATRIX / SYNAPSE MESSAGING

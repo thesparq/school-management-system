@@ -30,6 +30,8 @@ this app.)
 | `e2e_admin_config.cjs` | Admin configuration hub in Chromium: every section (terms, class levels, subjects, session terms, the curriculum edge) lists the fixture's rows, a create through the form appears in the list afterwards, and a refused create shows the backend's own text (400 validation, or the database's statement message). Re-entering the hub from the dashboard refetches the lists. | Sandbox backend |
 | `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher's grading list shows the auto-scored MCQ marks; the teacher grades and releases. | Sandbox backend |
 | `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
+| `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
+| `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. | Sandbox backend |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -41,12 +43,15 @@ node tests/e2e/auth_config_check.cjs http://127.0.0.1:8000
 node tests/e2e/e2e_admin.cjs
 node tests/e2e/e2e_admin_config.cjs
 node tests/e2e/e2e_assessments.cjs
+node tests/e2e/e2e_general_assessments.cjs
 sh tests/e2e/assessment_flow.sh
+sh tests/e2e/general_assessment_flow.sh
 ```
 
 ## Sandbox for the admin and assessment checks
 
-`e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs` and `assessment_flow.sh` write rows, so they
+`e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs`, `e2e_general_assessments.cjs`, `assessment_flow.sh` and
+`general_assessment_flow.sh` write rows, so they
 must not run against prod. Start a throwaway SurrealDB, load the schema fixture, and point a backend at it
 plus the mock Authentik:
 
@@ -74,3 +79,12 @@ repo's `mock_authentik.py` returns a constant `pk`, so per-role runs would colli
 
 Two schema notes learned from the prod tables: relations are created with `RELATE` (`CREATE` on a relation
 table is rejected), and `questions` / `answers` are `array<object>`, which implies their `.*` sub-field.
+
+`general_assessments` and `compositions` are in the fixture too (prod's field definitions). The fixture
+carries the six `questions.*` sub-field statements from `db/schema-v3.surql` that prod has not had applied
+to `general_assessments`: without them this SurrealDB generation rejects every question object, so a
+sandbox could not store what the implementation writes. Apply those statements to prod before general
+assessments with questions can be created there.
+
+The general-assessment checks consume the term/subject weight budget (100%), so reload the fixture (or
+point them at another `SESSION_TERM_ID`) once a few runs have spent it.

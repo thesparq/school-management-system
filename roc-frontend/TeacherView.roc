@@ -323,42 +323,171 @@ teacher_lesson_view = |model| {
 }
 
 # -------------------------------------------------------
-# TEACHER ASSESSMENTS OVERVIEW
+# TEACHER GENERAL ASSESSMENTS + GRADING HUB
 # -------------------------------------------------------
 
+# General assessments live at the subject/term level rather than in a lesson, so this page owns the
+# whole surface: pick a subject and term, list (and publish) their general assessments, and grade.
+# The JS in www/index.html fills the pickers and the lists; nothing here depends on model state.
 teacher_assessments_view = |_model| {
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
         Html.div([], [
             Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("Assessments & Grading")]),
-            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Create assessments, review submissions, and release grades.")])
+            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Create term-weighted assessments, review submissions, and release grades.")])
         ]),
-        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            # Stats
-            Html.div([Attribute.class("rounded-xl border bg-card p-6 space-y-1")], [
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Active Assessments")]),
-                Html.p([Attribute.class("text-3xl font-bold text-primary")], [Html.text("—")]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Across all lessons")])
+
+        # Tabs: the general assessment surface and the grading list.
+        Html.div([Attribute.class("flex border-b border-border")], [
+            Html.button([
+                Attribute.id("tab-general-assessments"),
+                Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
+                Attribute.type("button")
+            ], [Html.text("General Assessments")]),
+            Html.button([
+                Attribute.id("tab-general-grading"),
+                Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
+                Attribute.type("button")
+            ], [Html.text("Grading")])
+        ]),
+
+        # General assessments panel
+        Html.div([Attribute.id("general-assessments-panel"), Attribute.class("space-y-4 pb-16")], [
+            Html.div([Attribute.class("flex flex-wrap items-end justify-between gap-3")], [
+                Html.div([Attribute.class("flex flex-wrap gap-3")], [
+                    Html.div([Attribute.class("space-y-1")], [
+                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Subject")]),
+                        Html.select([
+                            Attribute.id("ga-subject-select"),
+                            Attribute.class("h-10 min-w-44 rounded-md border border-input bg-background px-3 py-2 text-sm")
+                        ], [
+                            Html.option([Attribute.value("")], [Html.text("Loading subjects...")])
+                        ])
+                    ]),
+                    Html.div([Attribute.class("space-y-1")], [
+                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Session term")]),
+                        Html.select([
+                            Attribute.id("ga-session-term-select"),
+                            Attribute.class("h-10 min-w-44 rounded-md border border-input bg-background px-3 py-2 text-sm")
+                        ], [
+                            Html.option([Attribute.value("")], [Html.text("Loading session terms...")])
+                        ])
+                    ])
+                ]),
+                Html.button([
+                    Attribute.id("create-general-assessment-btn"),
+                    Attribute.class("inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition cursor-pointer"),
+                    Attribute.type("button")
+                ], [Html.text("+ Create General Assessment")])
             ]),
-            Html.div([Attribute.class("rounded-xl border bg-card p-6 space-y-1")], [
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Pending Submissions")]),
-                Html.p([Attribute.class("text-3xl font-bold text-amber-500")], [Html.text("—")]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Awaiting your review")])
-            ]),
-            Html.div([Attribute.class("rounded-xl border bg-card p-6 space-y-1")], [
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Grades Released")]),
-                Html.p([Attribute.class("text-3xl font-bold text-green-500")], [Html.text("—")]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Students can see scores")])
+            Html.div([Attribute.id("general-assessments-list")], [
+                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
             ])
         ]),
-        Html.div([Attribute.class("text-center py-12 text-muted-foreground space-y-3 border rounded-xl bg-card")], [
-            Html.div([Attribute.class("text-4xl")], [Html.text("📊")]),
-            Html.h3([Attribute.class("font-semibold text-lg")], [Html.text("Manage Assessments via Lessons")]),
-            Html.p([Attribute.class("text-sm max-w-xs mx-auto")], [Html.text("Navigate to My Classes, open a lesson, and use the Assessments and Grading tabs to manage student work.")]),
-            Html.div([Attribute.class("pt-2")], [
-                Html.span([
-                    Attribute.class("inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition cursor-pointer"),
-                    Attribute.on_click(NavigateTo(TeacherMyClasses))
-                ], [Html.text("Go to My Classes →")])
+
+        # Grading panel (the same list the lesson viewer's Grading tab shows, unfiltered)
+        Html.div([Attribute.id("general-grading-panel"), Attribute.class("hidden space-y-4 pb-16")], [
+            Html.h2([Attribute.class("text-xl font-bold text-primary")], [Html.text("Grading")]),
+            Html.div([Attribute.id("grading-list")], [
+                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading submissions...")])
+            ])
+        ]),
+
+        # Create general assessment modal (hidden by default)
+        Html.div([Attribute.id("create-general-assessment-modal"), Attribute.class("hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4")], [
+            Html.div([Attribute.class("bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col")], [
+                Html.div([Attribute.class("flex items-center justify-between p-6 border-b")], [
+                    Html.h3([Attribute.class("text-lg font-semibold")], [Html.text("Create General Assessment")]),
+                    Html.button([
+                        Attribute.id("close-create-general-modal"),
+                        Attribute.class("text-muted-foreground hover:text-foreground text-xl cursor-pointer"),
+                        Attribute.type("button")
+                    ], [Html.text("✕")])
+                ]),
+                Html.div([Attribute.class("flex-1 overflow-y-auto p-6 space-y-4")], [
+                    Html.p([Attribute.id("ga-modal-context"), Attribute.class("text-xs text-muted-foreground")], [Html.text("Pick a subject and session term above.")]),
+                    Html.div([Attribute.class("space-y-2")], [
+                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Assessment Title")]),
+                        Html.input([
+                            Attribute.id("ga-title-input"),
+                            Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                            Attribute.placeholder("e.g. Mid-term Test")
+                        ])
+                    ]),
+                    Html.div([Attribute.class("space-y-2")], [
+                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Description (optional)")]),
+                        Html.input([
+                            Attribute.id("ga-description-input"),
+                            Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                            Attribute.placeholder("What this assessment covers")
+                        ])
+                    ]),
+                    Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
+                        Html.div([Attribute.class("space-y-2")], [
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Percentage weight")]),
+                            Html.input([
+                                Attribute.id("ga-weight-input"),
+                                Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                Attribute.type("number"),
+                                Attribute.placeholder("e.g. 20")
+                            ]),
+                            Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Share of the term result; the weights in one term and subject may not exceed 100%.")])
+                        ]),
+                        Html.div([Attribute.class("space-y-2")], [
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed (optional)")]),
+                            Html.input([
+                                Attribute.id("ga-resubmissions-input"),
+                                Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                Attribute.type("number"),
+                                Attribute.placeholder("unlimited")
+                            ])
+                        ])
+                    ]),
+                    # The optional rules the backend enforces, like the lesson modal's. Local time in the
+                    # browser, sent as UTC so the stored instant is unambiguous.
+                    Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
+                        Html.div([Attribute.class("space-y-2")], [
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens (optional)")]),
+                            Html.input([
+                                Attribute.id("ga-scheduled-input"),
+                                Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                Attribute.type("datetime-local")
+                            ])
+                        ]),
+                        Html.div([Attribute.class("space-y-2")], [
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes (optional)")]),
+                            Html.input([
+                                Attribute.id("ga-deadline-input"),
+                                Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                                Attribute.type("datetime-local")
+                            ])
+                        ])
+                    ]),
+                    Html.div([Attribute.class("space-y-3")], [
+                        Html.div([Attribute.class("flex items-center justify-between")], [
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Questions")]),
+                            Html.button([
+                                Attribute.id("ga-add-question"),
+                                Attribute.class("text-xs text-primary hover:underline cursor-pointer"),
+                                Attribute.type("button")
+                            ], [Html.text("+ Add question")])
+                        ]),
+                        Html.div([Attribute.id("ga-questions-area"), Attribute.class("space-y-3")], []),
+                        Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Selected: "), Html.span([Attribute.id("ga-question-count")], [Html.text("0")]), Html.text(" · total marks: "), Html.span([Attribute.id("ga-total-marks")], [Html.text("0")])]),
+                        Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is saved as a draft; publish it from the list when you are ready for students to see it.")])
+                    ])
+                ]),
+                Html.div([Attribute.class("flex justify-end gap-3 p-6 border-t")], [
+                    Html.button([
+                        Attribute.id("cancel-create-general-modal"),
+                        Attribute.class("px-4 py-2 text-sm rounded-md border hover:bg-muted transition cursor-pointer"),
+                        Attribute.type("button")
+                    ], [Html.text("Cancel")]),
+                    Html.button([
+                        Attribute.id("ga-submit-create"),
+                        Attribute.class("px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition cursor-pointer"),
+                        Attribute.type("button")
+                    ], [Html.text("Create")])
+                ])
             ])
         ])
     ])

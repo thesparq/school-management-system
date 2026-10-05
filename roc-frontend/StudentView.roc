@@ -441,11 +441,31 @@ student_assignments_view = |_model| {
             Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("My Assignments")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("View and submit your assessments and assignments.")])
         ]),
-        Html.div([Attribute.id("assignments-list"), Attribute.class("space-y-4")], [
-            Html.div([Attribute.class("text-center py-16 text-muted-foreground space-y-3")], [
-                Html.div([Attribute.class("text-4xl")], [Html.text("📝")]),
-                Html.h3([Attribute.class("font-semibold text-lg")], [Html.text("No assignments yet")]),
-                Html.p([Attribute.class("text-sm")], [Html.text("Assignments from your teachers will appear here.")])
+
+        # Term-weighted general assessments first, then the assessments attached to individual
+        # lessons. Both lists are filled by the JS in www/index.html.
+        Html.div([Attribute.class("flex border-b border-border")], [
+            Html.button([
+                Attribute.id("tab-general-assessments"),
+                Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
+                Attribute.type("button")
+            ], [Html.text("General Assessments")]),
+            Html.button([
+                Attribute.id("tab-lesson-assessments"),
+                Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
+                Attribute.type("button")
+            ], [Html.text("Lesson Assessments")])
+        ]),
+
+        Html.div([Attribute.id("general-assessments-panel"), Attribute.class("space-y-4 pb-16")], [
+            Html.div([Attribute.id("general-assessments-list")], [
+                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
+            ])
+        ]),
+
+        Html.div([Attribute.id("assessments-panel"), Attribute.class("hidden space-y-4 pb-16")], [
+            Html.div([Attribute.id("assessments-list")], [
+                Html.div([Attribute.class("text-center py-8 text-muted-foreground")], [Html.text("Loading assessments...")])
             ])
         ])
     ])
