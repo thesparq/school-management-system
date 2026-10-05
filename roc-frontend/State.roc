@@ -5,7 +5,7 @@ import pf.Http
 import pf.Port
 import Auth
 
-AdminConfigTab : [Terms, ClassLevels, Curriculum, ClassArms, Subjects]
+AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects]
 
 AdminUserTab : [Students, Teachers, Parents, Admins]
 
@@ -67,6 +67,23 @@ Model : {
 	studentLessonsData : Str,
 	teacherLessonsData : Str,
 	currentLessonContent : Str,
+	# Configuration hub: the five list payloads the page's hidden inputs carry, one form per
+	# section, and the feedback from the last create.
+	classLevelsData : Str,
+	curriculumData : Str,
+	sessionTermsData : Str,
+	newTermName : Str,
+	newTermSortOrder : Str,
+	newSubjectName : Str,
+	newSubjectCode : Str,
+	newClassLevelName : Str,
+	newClassLevelCode : Str,
+	newSessionTermName : Str,
+	newSessionTermTerm : Str,
+	newCurriculumClassLevel : Str,
+	newCurriculumSubject : Str,
+	isConfigSubmitting : Bool,
+	configSubmitResult : [None, Success(Str), Error(Str)],
 }
 
 Msg : [
@@ -110,6 +127,21 @@ Msg : [
 	GotLessonContent(Str),
 	BackToSubjects,
 	BackToTerms,
+	GotClassLevelsData(Str),
+	GotCurriculumData(Str),
+	GotSessionTermsData(Str),
+	UpdateNewTermName(Str),
+	UpdateNewTermSortOrder(Str),
+	UpdateNewSubjectName(Str),
+	UpdateNewSubjectCode(Str),
+	UpdateNewClassLevelName(Str),
+	UpdateNewClassLevelCode(Str),
+	UpdateNewSessionTermName(Str),
+	UpdateNewSessionTermTerm(Str),
+	UpdateNewCurriculumClassLevel(Str),
+	UpdateNewCurriculumSubject(Str),
+	SubmitConfigCreate(AdminConfigTab),
+	ConfigCreateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 ]
 
 parse_route = |url| {
@@ -192,17 +224,128 @@ init = |flags| {
 		studentLessonsData: "",
 		teacherLessonsData: "",
 		currentLessonContent: "",
+		classLevelsData: "",
+		curriculumData: "",
+		sessionTermsData: "",
+		newTermName: "",
+		newTermSortOrder: "",
+		newSubjectName: "",
+		newSubjectCode: "",
+		newClassLevelName: "",
+		newClassLevelCode: "",
+		newSessionTermName: "",
+		newSessionTermTerm: "",
+		newCurriculumClassLevel: "",
+		newCurriculumSubject: "",
+		isConfigSubmitting: Bool.False,
+		configSubmitResult: None,
 	}
 
-	(model, [
+	# Boot fetches. Note for the next editor: keep every effect list inline inside its branch. This Roc
+	# nightly miscompiles a branch (an `if`/`else`) that yields a bound `List(Effect(Msg))`: it emits a
+	# gigantic function and the wasm then traps with "function signature mismatch" at start, blanking
+	# the page. A `match` with full inline lists (as here) compiles and runs.
+	(model, match initialRoute {
+		AdminConfigurationHub => [
 			Port.send("fetch_data", "/api/users?role=Student"),
-		Port.send("fetch_data", "/api/users?role=Teacher"),
-		Port.send("fetch_data", "/api/users?role=Parent"),
-		Port.send("fetch_data", "/api/users?role=Admin"),
-		Port.send("fetch_data", "/api/terms"),
-		Port.send("fetch_data", "/api/subjects"),
-		Port.send("fetch_data", "/api/teacher/lessons"),
-	])
+			Port.send("fetch_data", "/api/users?role=Teacher"),
+			Port.send("fetch_data", "/api/users?role=Parent"),
+			Port.send("fetch_data", "/api/users?role=Admin"),
+			Port.send("fetch_data", "/api/subjects"),
+			Port.send("fetch_data", "/api/teacher/lessons"),
+			Port.send("fetch_data", "/api/terms"),
+			Port.send("fetch_data", "/api/class_levels"),
+			Port.send("fetch_data", "/api/curriculum"),
+			Port.send("fetch_data", "/api/session_terms"),
+		]
+		_ => [
+			Port.send("fetch_data", "/api/users?role=Student"),
+			Port.send("fetch_data", "/api/users?role=Teacher"),
+			Port.send("fetch_data", "/api/users?role=Parent"),
+			Port.send("fetch_data", "/api/users?role=Admin"),
+			Port.send("fetch_data", "/api/subjects"),
+			Port.send("fetch_data", "/api/teacher/lessons"),
+		]
+	})
+}
+
+# --- Configuration hub ---
+
+# Re-fetch the list a create just changed, so the new row appears without a reload.
+config_refresh_effects = |tab| {
+	match tab {
+		Terms => [Port.send("fetch_data", "/api/terms")]
+		Subjects => [Port.send("fetch_data", "/api/subjects")]
+		ClassLevels => [Port.send("fetch_data", "/api/class_levels")]
+		Curriculum => [Port.send("fetch_data", "/api/curriculum")]
+		SessionTerms => [Port.send("fetch_data", "/api/session_terms")]
+	}
+}
+
+config_section_label = |tab| {
+	match tab {
+		Terms => "Term"
+		Subjects => "Subject"
+		ClassLevels => "Class level"
+		Curriculum => "Curriculum link"
+		SessionTerms => "Session term"
+	}
+}
+
+# The endpoint and payload for one section's create form. An empty field is sent as-is: the
+# backend validates and answers 400 with the text the form then shows.
+config_create_call = |model, tab| {
+	match tab {
+		Terms => {
+			sort_clause = if Str.is_empty(model.newTermSortOrder) { "" } else { ",\"sort_order\":${model.newTermSortOrder}" }
+			{ endpoint: "terms", payload: "{\"name\":\"${model.newTermName}\"${sort_clause}}" }
+		}
+		Subjects => {
+			{ endpoint: "subjects", payload: "{\"name\":\"${model.newSubjectName}\",\"code\":\"${model.newSubjectCode}\"}" }
+		}
+		ClassLevels => {
+			{ endpoint: "class_levels", payload: "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"}" }
+		}
+		SessionTerms => {
+			{ endpoint: "session_terms", payload: "{\"session_name\":\"${model.newSessionTermName}\",\"term\":\"${model.newSessionTermTerm}\"}" }
+		}
+		Curriculum => {
+			{ endpoint: "curriculum", payload: "{\"class_level\":\"${model.newCurriculumClassLevel}\",\"subject\":\"${model.newCurriculumSubject}\"}" }
+		}
+	}
+}
+
+# A successful create clears only its own form.
+config_form_cleared = |model, tab| {
+	match tab {
+		Terms => { ..model, newTermName: "", newTermSortOrder: "" }
+		Subjects => { ..model, newSubjectName: "", newSubjectCode: "" }
+		ClassLevels => { ..model, newClassLevelName: "", newClassLevelCode: "" }
+		SessionTerms => { ..model, newSessionTermName: "", newSessionTermTerm: "" }
+		Curriculum => { ..model, newCurriculumClassLevel: "", newCurriculumSubject: "" }
+	}
+}
+
+# One string field out of a response body: json_string_field(body, "error").
+json_string_field = |body, field| {
+	match List.get(Str.split_on(body, "\"${field}\":\""), 1) {
+		Ok(rest) => match List.first(Str.split_on(rest, "\"")) { Ok(value) => value, Err(_) => "" }
+		Err(_) => ""
+	}
+}
+
+# What a failed write should show: the database's own statement text (`detail`) when present,
+# otherwise the headline a 400 validation answer carries in `error`.
+backend_error_message = |body| {
+	detail = json_string_field(body, "detail")
+	headline = json_string_field(body, "error")
+	if !Str.is_empty(detail) {
+		if Str.is_empty(headline) { detail } else { "${headline}: ${detail}" }
+	} else if !Str.is_empty(headline) {
+		headline
+	} else {
+		"Request failed"
+	}
 }
 
 update : Model, Msg -> (Model, List(Effect(Msg)))
@@ -210,8 +353,32 @@ update = |model, msg|
 	match msg {
 		UrlChanged(url) => {
 			newRoute = parse_route(url)
-			({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, [])
+			# Browser back/forward into the hub: the page is reloaded from scratch by the runtime, so
+			# its lists are fetched again. Lists stay inline here too — see the note in init.
+			fetches = match newRoute {
+				AdminConfigurationHub => [
+					Port.send("fetch_data", "/api/terms"),
+					Port.send("fetch_data", "/api/subjects"),
+					Port.send("fetch_data", "/api/class_levels"),
+					Port.send("fetch_data", "/api/curriculum"),
+					Port.send("fetch_data", "/api/session_terms"),
+				]
+				_ => []
+			}
+			({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, fetches)
 		}
+		# Entering the hub fetches its lists: the page's hidden inputs only exist there.
+		NavigateTo(AdminConfigurationHub) => (
+			{ ..model, route: AdminConfigurationHub, mobileMenuOpen: Bool.False },
+			[
+				Port.send("push_state", "/admin/config"),
+				Port.send("fetch_data", "/api/terms"),
+				Port.send("fetch_data", "/api/subjects"),
+				Port.send("fetch_data", "/api/class_levels"),
+				Port.send("fetch_data", "/api/curriculum"),
+				Port.send("fetch_data", "/api/session_terms"),
+			]
+		)
 		NavigateTo(route) => {
 			urlStr = match route {
 				Dashboard => "/"
@@ -279,12 +446,65 @@ update = |model, msg|
 		UpdateNewUserRoleTitle(s) =>
 			({ ..model, newUserRoleTitle: s }, [])
 		SetConfigTab(tab) =>
-			({ ..model, activeConfigTab: tab }, [])
+			({ ..model, activeConfigTab: tab, configSubmitResult: None }, [])
 		UpdateNewUserEmail(s) =>
 			({ ..model, newUserEmail: s }, [])
 		GotUsersData(str) => ({ ..model, usersData: str, isLoading: Bool.False }, [])
 		GotTermsData(str) => ({ ..model, termsData: str }, [])
 		GotSubjectsData(str) => ({ ..model, subjectsData: str }, [])
+		GotClassLevelsData(str) => ({ ..model, classLevelsData: str }, [])
+		GotCurriculumData(str) => ({ ..model, curriculumData: str }, [])
+		GotSessionTermsData(str) => ({ ..model, sessionTermsData: str }, [])
+		UpdateNewTermName(s) => ({ ..model, newTermName: s }, [])
+		UpdateNewTermSortOrder(s) => ({ ..model, newTermSortOrder: s }, [])
+		UpdateNewSubjectName(s) => ({ ..model, newSubjectName: s }, [])
+		UpdateNewSubjectCode(s) => ({ ..model, newSubjectCode: s }, [])
+		UpdateNewClassLevelName(s) => ({ ..model, newClassLevelName: s }, [])
+		UpdateNewClassLevelCode(s) => ({ ..model, newClassLevelCode: s }, [])
+		UpdateNewSessionTermName(s) => ({ ..model, newSessionTermName: s }, [])
+		UpdateNewSessionTermTerm(s) => ({ ..model, newSessionTermTerm: s }, [])
+		UpdateNewCurriculumClassLevel(s) => ({ ..model, newCurriculumClassLevel: s }, [])
+		UpdateNewCurriculumSubject(s) => ({ ..model, newCurriculumSubject: s }, [])
+		SubmitConfigCreate(tab) => {
+			call = config_create_call(model, tab)
+			req = {
+				method: POST,
+				uri: "${model.appOrigin}/api/${call.endpoint}",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8(call.payload),
+				timeout_ms: NoTimeout,
+			}
+			(
+				{ ..model, isConfigSubmitting: Bool.True, configSubmitResult: None },
+				[Http.request(req, |res| ConfigCreateCompleted(tab, res))]
+			)
+		}
+		ConfigCreateCompleted(tab, res) => {
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("${config_section_label(tab)} created")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			# A create that succeeded clears its form and reloads the list so the new row shows up.
+			cleared = match newResult {
+				Success(_) => config_form_cleared(model, tab)
+				_ => model
+			}
+			refreshes = match newResult {
+				Success(_) => config_refresh_effects(tab)
+				_ => []
+			}
+			({ ..cleared, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+		}
 		DataLoaded => ({ ..model, isLoading: Bool.False }, [])
 		SubmitNewUser => {
 			payload = "{\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\",\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"role_title\":\"${model.newUserRoleTitle}\",\"passport\":\"${model.newUserPassportKey}\"}"
@@ -310,17 +530,9 @@ update = |model, msg|
 					if response.status == 200 {
 						Success("User created")
 					} else {
-						# The backend reports failures as {"error":"..."}; show that text.
-						parts = Str.split_on(Str.from_utf8_lossy(response.body), "\"error\":\"")
-						message = match List.get(parts, 1) {
-							Ok(rest) =>
-								match List.first(Str.split_on(rest, "\"")) {
-									Ok(text) => text
-									Err(_) => "Request failed"
-								}
-							Err(_) => "Request failed"
-						}
-						if Str.is_empty(message) { Error("Request failed") } else { Error(message) }
+						# Failures answer {"error":"..."} with the validation text, or a write's own
+						# {"error":"Database error","detail":"..."}; show what the backend said.
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
 					}
 				}
 				Err(HttpErr(Timeout)) => Error("The request timed out")

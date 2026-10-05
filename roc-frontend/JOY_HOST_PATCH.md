@@ -104,6 +104,25 @@ roc build --target=wasm32 --no-cache --output=www/app.wasm app.roc
 `www/app.wasm` in this tree is the build made that way, so the app works as shipped. Rebuilding it from the
 unmodified `app.roc` (remote platform URL) reproduces the crash.
 
+## Two more miscompiles in the same nightly (blank page, `function signature mismatch`)
+
+Building this app with the pinned nightly (`nightly-2026-09-19-d025939`) can also produce a wasm that
+renders nothing at all: the browser reports `RuntimeError: function signature mismatch` inside
+`exports.start` (the stack runs through `start` → a dispatcher → a `call_indirect`). Two source shapes
+reproduce it; both were found while making the admin Configuration Hub imperative. If the page goes
+blank after a rebuild, look for them first:
+
+1. **An `if`/`else` that yields a `List(Effect(Msg))`** (e.g. choosing `init`'s fetch list from the
+   route, or wrapping `Port.send` effects in a conditional). The compiler emits a gigantic function
+   (hundreds of KB of extra code) and the trap follows. A `match` whose arms are full inline lists
+   compiles fine, so `init`/`update` write the effect lists out inline per branch.
+2. **`List.keep_if` plus `match List.first(...)` inside a view helper** (a lookup that filters lines
+   and takes the first match). Rewriting the same lookup as a `List.fold` over the lines works.
+
+The symptoms are silent: `roc build` reports 0 errors, and the broken wasm is only exposed by loading
+the page. After any change to `State.roc`/the views, rebuild and load a page (the e2e checks do this)
+before trusting the bundle.
+
 ## Upstream report (ready to post to niclas-ahden/joy)
 
 > **Host allocator can overlap pages grown by the Roc boxy runtime**

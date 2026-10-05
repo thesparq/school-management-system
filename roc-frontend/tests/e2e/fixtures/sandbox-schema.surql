@@ -23,6 +23,21 @@ DEFINE FIELD name ON subjects TYPE string;
 DEFINE FIELD code ON subjects TYPE string;
 DEFINE FIELD active ON subjects TYPE bool DEFAULT true;
 
+# Prod keeps names unique on all three lookup tables; mirror it so a duplicate create answers with
+# the database's own message instead of silently adding a second "Noel Term".
+DEFINE INDEX idx_terms_name ON terms COLUMNS name UNIQUE;
+DEFINE INDEX idx_cl_name ON class_levels COLUMNS name UNIQUE;
+DEFINE INDEX idx_subjects_name ON subjects COLUMNS name UNIQUE;
+
+# The academic-period table the config hub's Session Terms section reads and writes (prod schema).
+DEFINE TABLE session_term SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD session_name ON session_term TYPE string;
+DEFINE FIELD term ON session_term TYPE record<terms>;
+DEFINE FIELD active ON session_term TYPE bool DEFAULT false;
+DEFINE FIELD created_at ON session_term TYPE datetime DEFAULT time::now();
+DEFINE FIELD deleted_at ON session_term TYPE option<datetime>;
+DEFINE INDEX idx_st_combo ON session_term COLUMNS session_name, term UNIQUE;
+
 DEFINE TABLE credentials SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON credentials TYPE string ASSERT $value != NONE;
 DEFINE FIELD active ON credentials TYPE bool DEFAULT true;
@@ -134,10 +149,13 @@ CREATE class_levels:year_1 SET name = 'Year 1', code = 'year_1', age_range = '5-
 CREATE terms:noel_term SET name = 'Noel Term', sort_order = 1, active = true;
 CREATE terms:calvary_term SET name = 'Calvary Term', sort_order = 2, active = true;
 CREATE subjects:agricultural_science SET name = 'Agricultural Science', code = 'AGR', active = true;
+CREATE session_term:session_2026_2027 SET session_name = '2026/2027', term = terms:noel_term, active = true, created_at = time::now();
 
 # The class_levels -> subjects edge students drill through, and one lesson hanging off it.
-# Relations are created with RELATE; CREATE on a relation table is rejected.
+# Relations are created with RELATE; CREATE on a relation table is rejected. The (in, out) index
+# mirrors prod, so linking the same pair twice answers with the database's own message.
 DEFINE TABLE has_subject TYPE RELATION IN class_levels OUT subjects SCHEMALESS PERMISSIONS FULL;
+DEFINE INDEX idx_hs_unique ON has_subject COLUMNS in, out UNIQUE;
 RELATE class_levels:jss_1->has_subject:test_edge->subjects:agricultural_science SET active = true;
 CREATE lessons:test_lesson SET topic_title = 'Packaging Criteria for Farm Produce', week = 1, term = terms:noel_term, has_subject = has_subject:test_edge, active = true, duration_mins = 40, slug = 'test-lesson', content = {
   introduction: 'Packaging protects farm produce.',

@@ -251,8 +251,23 @@
 
                 // Config: terms (admin hub)
                 } else if (url === "/api/terms") {
-                    const formatted = rows.length ? rows.map(t => (t.id||"") + "|" + (t.name||"Term") + "|" + (t.sort_order||"")).join("\n") : "";
+                    const formatted = rows.length ? rows.map(t => (t.id||"") + "|" + (t.name||"Term") + "|" + (t.sort_order||"") + "|" + (t.active !== false)).join("\n") : "";
                     dispatchToInput("terms_data_input", formatted);
+
+                // Config: class levels (admin hub)
+                } else if (url === "/api/class_levels") {
+                    const formatted = rows.map(c => (c.id||"") + "|" + (c.name||"Unknown") + "|" + (c.code||"") + "|" + (c.age_range||"")).join("\n");
+                    dispatchToInput("class_levels_data_input", formatted);
+
+                // Config: the curriculum (class_levels -> subjects edges)
+                } else if (url === "/api/curriculum") {
+                    const formatted = rows.map(e => (e.id||"") + "|" + (e.in||"") + "|" + (e.out||"") + "|" + (e.active !== false)).join("\n");
+                    dispatchToInput("curriculum_data_input", formatted);
+
+                // Config: session terms (admin hub)
+                } else if (url === "/api/session_terms") {
+                    const formatted = rows.map(s => (s.id||"") + "|" + (s.session_name||"Session") + "|" + (s.term||"") + "|" + (s.active === true)).join("\n");
+                    dispatchToInput("session_terms_data_input", formatted);
 
                 // Subjects list
                 } else if (url === "/api/subjects" || url === "/api/student/subjects") {

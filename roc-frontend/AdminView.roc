@@ -353,33 +353,41 @@ user_row = |name, email, is_active| {
 # -------------------------------------------------------
 
 admin_config_view = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
-        Html.div([Attribute.class("flex justify-between items-center")], [
-            Html.div([], [
-                Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("Configuration Hub")]),
-                Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage system-wide academic settings and structures.")])
-            ])
-        ]),
+	Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+		Html.div([Attribute.class("flex justify-between items-center")], [
+			Html.div([], [
+				Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("Configuration Hub")]),
+				Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage system-wide academic settings and structures.")])
+			])
+		]),
 
-        Html.div([Attribute.class("flex flex-col space-y-4")], [
-            Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-fit")], [
-                config_tab(model.activeConfigTab, Terms, "Academic Terms"),
-                config_tab(model.activeConfigTab, ClassLevels, "Class Levels"),
-                config_tab(model.activeConfigTab, Curriculum, "Curriculum"),
-                config_tab(model.activeConfigTab, ClassArms, "Class Arms"),
-                config_tab(model.activeConfigTab, Subjects, "Subjects"),
-            ]),
-            Html.div([Attribute.class("mt-4")], [
-                match model.activeConfigTab {
-                    Terms => terms_config_view(model),
-                    ClassLevels => class_levels_config_view(model),
-                    Curriculum => curriculum_config_view(model),
-                    ClassArms => class_arms_config_view(model),
-                    Subjects => subjects_config_view(model),
-                }
-            ])
-        ])
-    ])
+		# Hidden inputs fed by JS when the fetch_data port returns each list. They sit outside the
+		# tab bodies so a response that arrives while another tab is open is still delivered.
+		Html.input([Attribute.type("hidden"), Attribute.id("terms_data_input"), Attribute.value(model.termsData), Attribute.on_input(|s| GotTermsData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("subjects_data_input"), Attribute.value(model.subjectsData), Attribute.on_input(|s| GotSubjectsData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("class_levels_data_input"), Attribute.value(model.classLevelsData), Attribute.on_input(|s| GotClassLevelsData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("curriculum_data_input"), Attribute.value(model.curriculumData), Attribute.on_input(|s| GotCurriculumData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("session_terms_data_input"), Attribute.value(model.sessionTermsData), Attribute.on_input(|s| GotSessionTermsData(s))]),
+
+		Html.div([Attribute.class("flex flex-col space-y-4")], [
+			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-fit")], [
+				config_tab(model.activeConfigTab, Terms, "Academic Terms"),
+				config_tab(model.activeConfigTab, ClassLevels, "Class Levels"),
+				config_tab(model.activeConfigTab, Curriculum, "Curriculum"),
+				config_tab(model.activeConfigTab, SessionTerms, "Session Terms"),
+				config_tab(model.activeConfigTab, Subjects, "Subjects"),
+			]),
+			Html.div([Attribute.class("mt-4")], [
+				match model.activeConfigTab {
+					Terms => terms_config_view(model),
+					ClassLevels => class_levels_config_view(model),
+					Curriculum => curriculum_config_view(model),
+					SessionTerms => session_terms_config_view(model),
+					Subjects => subjects_config_view(model),
+				}
+			])
+		])
+	])
 }
 
 config_tab = |active_tab, this_tab, label| {
@@ -400,93 +408,290 @@ config_tab = |active_tab, this_tab, label| {
     ], [Html.text(label)])
 }
 
-terms_config_view = |_model| {
-    UI.card({ classes: "" }, [
-        UI.card_header({ classes: "" }, [
-            UI.card_title({ classes: "" }, [Html.text("Academic Terms")]),
-            Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Manage academic sessions and terms. Create new terms and activate them when ready.")])
-        ]),
-        UI.card_content({ classes: "space-y-4" }, [
-            Html.div([Attribute.class("rounded-md border p-4 bg-muted/50")], [
-                Html.p([Attribute.class("text-sm font-medium mb-1")], [Html.text("How it works")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Create a session (e.g. 2026/2027), then add terms within it (First Term, Second Term, Third Term). Only one term can be active at a time.")])
-            ]),
-            UI.button(
-                { variant: Primary, size: Default, on_click: None, is_disabled: Bool.False, classes: "" },
-                [Html.text("Create New Term")]
-            )
-        ])
-    ])
+# --- Shared pieces of a configuration section ---
+
+config_card = |title, description, content| {
+	UI.card({ classes: "" }, [
+		UI.card_header({ classes: "" }, [
+			UI.card_title({ classes: "" }, [Html.text(title)]),
+			Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(description)])
+		]),
+		UI.card_content({ classes: "space-y-6" }, content)
+	])
 }
 
-class_levels_config_view = |_model| {
-    UI.card({ classes: "" }, [
-        UI.card_header({ classes: "" }, [
-            UI.card_title({ classes: "" }, [Html.text("Class Levels")]),
-            Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Define the grade levels in your school.")])
-        ]),
-        UI.card_content({ classes: "space-y-4" }, [
-            Html.div([Attribute.class("rounded-md border p-4 bg-muted/50")], [
-                Html.p([Attribute.class("text-sm font-medium mb-1")], [Html.text("Suggested Levels")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("JSS 1, JSS 2, JSS 3, SS 1, SS 2, SS 3")])
-            ]),
-            UI.button(
-                { variant: Primary, size: Default, on_click: None, is_disabled: Bool.False, classes: "" },
-                [Html.text("Add Class Level")]
-            )
-        ])
-    ])
+config_form_row = |fields, button| {
+	Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4 items-end")], List.concat(fields, [button]))
 }
 
-curriculum_config_view = |_model| {
-    UI.card({ classes: "" }, [
-        UI.card_header({ classes: "" }, [
-            UI.card_title({ classes: "" }, [Html.text("Curriculum")]),
-            Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Link subjects to class levels to define what each level studies.")])
-        ]),
-        UI.card_content({ classes: "space-y-4" }, [
-            Html.div([Attribute.class("rounded-md border p-4 bg-muted/50")], [
-                Html.p([Attribute.class("text-sm font-medium mb-1")], [Html.text("How it works")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("First create class levels and subjects, then use this page to assign which subjects are taught at each level.")])
-            ])
-        ])
-    ])
+config_labeled_input = |label, placeholder, input_type, value, is_disabled, to_msg| {
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text(label)]),
+		UI.input({
+			type: input_type,
+			value: value,
+			placeholder: placeholder,
+			on_input: Input(to_msg),
+			is_disabled: is_disabled,
+			classes: "",
+		})
+	])
 }
 
-class_arms_config_view = |_model| {
-    UI.card({ classes: "" }, [
-        UI.card_header({ classes: "" }, [
-            UI.card_title({ classes: "" }, [Html.text("Class Arms")]),
-            Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Define streams or arms for classes.")])
-        ]),
-        UI.card_content({ classes: "space-y-4" }, [
-            Html.div([Attribute.class("rounded-md border p-4 bg-muted/50")], [
-                Html.p([Attribute.class("text-sm font-medium mb-1")], [Html.text("Examples")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Gold, Silver, Diamond, Science, Art, Commercial")])
-            ]),
-            UI.button(
-                { variant: Primary, size: Default, on_click: None, is_disabled: Bool.False, classes: "" },
-                [Html.text("Add Class Arm")]
-            )
-        ])
-    ])
+config_labeled_select = |label, select_id, options, to_msg| {
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text(label)]),
+		Html.div([Attribute.class("relative")], [
+			Html.select([
+				Attribute.class("w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 appearance-none"),
+				Attribute.id(select_id),
+				Attribute.on_change(to_msg)
+			], options),
+			Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
+		])
+	])
 }
 
-subjects_config_view = |_model| {
-    UI.card({ classes: "" }, [
-        UI.card_header({ classes: "" }, [
-            UI.card_title({ classes: "" }, [Html.text("Subjects")]),
-            Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Add and categorize subjects offered by the school.")])
-        ]),
-        UI.card_content({ classes: "space-y-4" }, [
-            Html.div([Attribute.class("rounded-md border p-4 bg-muted/50")], [
-                Html.p([Attribute.class("text-sm font-medium mb-1")], [Html.text("Core Subjects")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Mathematics, English Language, Physics, Chemistry, Biology, etc.")])
-            ]),
-            UI.button(
-                { variant: Primary, size: Default, on_click: None, is_disabled: Bool.False, classes: "" },
-                [Html.text("Add Subject")]
-            )
-        ])
-    ])
+config_submit_button = |model, tab, label| {
+	UI.button(
+		{ variant: Primary, size: Default, on_click: Click(SubmitConfigCreate(tab)), is_disabled: model.isConfigSubmitting, classes: "w-full" },
+		[Html.text(if model.isConfigSubmitting { "Saving..." } else { label })]
+	)
+}
+
+# The feedback from this tab's last create; SetConfigTab clears it.
+config_create_banner = |model| {
+	match model.configSubmitResult {
+		None => Html.div([], [])
+		Success(msg) => Html.div([Attribute.class("rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 flex items-center gap-2")], [
+			Html.span([Attribute.class("text-green-600 text-lg")], [Html.text("✓")]),
+			Html.p([Attribute.class("text-sm text-green-800 dark:text-green-200 font-medium")], [Html.text(msg)])
+		])
+		Error(msg) => Html.div([Attribute.class("rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 flex items-center gap-2")], [
+			Html.span([Attribute.class("text-red-600 text-lg")], [Html.text("✕")]),
+			Html.p([Attribute.class("text-sm text-red-800 dark:text-red-200 font-medium")], [Html.text(msg)])
+		])
+	}
+}
+
+config_table = |headers, rows| {
+	UI.card({ classes: "" }, [
+		UI.card_content({ classes: "p-0" }, [
+			UI.table({ classes: "" }, [
+				UI.table_header({ classes: "" }, [
+					UI.table_row({ classes: "" }, List.map(headers, |header| UI.table_head({ classes: "" }, [Html.text(header)])))
+				]),
+				UI.table_body({ classes: "" }, rows)
+			])
+		])
+	])
+}
+
+config_empty_row = |message| {
+	UI.table_row({ classes: "" }, [
+		UI.table_cell({ classes: "text-center text-muted-foreground py-12" }, [
+			Html.div([Attribute.class("flex flex-col items-center gap-2")], [
+				Html.span([Attribute.class("text-3xl")], [Html.text("🗂️")]),
+				Html.p([Attribute.class("text-sm font-medium")], [Html.text(message)])
+			])
+		])
+	])
+}
+
+config_status_badge = |is_active| {
+	Html.span([
+		Attribute.class(
+			if is_active {
+				"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+			} else {
+				"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
+			}
+		)
+	], [Html.text(if is_active { "Active" } else { "Inactive" })])
+}
+
+# The nth "|"-separated field of a fetched row, with a fallback for a short or empty field.
+config_field = |parts, index, fallback| {
+	match List.get(parts, index) {
+		Ok(value) => if Str.is_empty(value) { fallback } else { value }
+		Err(_) => fallback
+	}
+}
+
+# Display name for a record link (`terms:noel_term`) looked up in a fetched "id|name|..." list.
+# Falls back to the bare id while that list has not arrived (or the row is gone).
+#
+# Note for the next editor: the lookup is a `List.fold` over the lines on purpose. The same thing
+# written as `List.keep_if(...)` plus `match List.first(...)` makes this Roc nightly miscompile the
+# app — the wasm traps with "function signature mismatch" at start and the page stays blank.
+config_record_name = |list_data, record_id| {
+	bare = match List.last(Str.split_on(record_id, ":")) { Ok(id) => id, Err(_) => record_id }
+	List.fold(Str.split_on(list_data, "\n"), bare, |resolved, line| {
+		parts = Str.split_on(line, "|")
+		line_id = config_field(parts, 0, "")
+		if line_id == record_id or line_id == bare {
+			config_field(parts, 1, bare)
+		} else {
+			resolved
+		}
+	})
+}
+
+# Options for a record picker: one per line of a fetched "id|name|..." list.
+config_record_options = |list_data, placeholder| {
+	List.map(Str.split_on(list_data, "\n"), |line| {
+		parts = Str.split_on(line, "|")
+		Html.option([Attribute.value(config_field(parts, 0, ""))], [Html.text(config_field(parts, 1, placeholder))])
+	})
+}
+
+# --- Academic Terms ---
+
+terms_config_view = |model| {
+	config_card("Academic Terms", "Terms run in order within the school year; every term is listed here, active or not.", [
+		config_form_row([
+			config_labeled_input("Term name", "e.g. Summer Term", "text", model.newTermName, model.isConfigSubmitting, |s| UpdateNewTermName(s)),
+			config_labeled_input("Sort order", "e.g. 3", "number", model.newTermSortOrder, model.isConfigSubmitting, |s| UpdateNewTermSortOrder(s)),
+		], config_submit_button(model, Terms, "Create Term")),
+		config_create_banner(model),
+		config_table(["Term", "Sort order", "Status"], terms_rows(model))
+	])
+}
+
+terms_rows = |model| {
+	if Str.is_empty(model.termsData) {
+		[config_empty_row(if model.isLoading { "Loading terms..." } else { "No terms yet. Create the first one above." })]
+	} else {
+		List.map(Str.split_on(model.termsData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			name = config_field(parts, 1, "Term")
+			order = config_field(parts, 2, "—")
+			is_active = config_field(parts, 3, "true") == "true"
+			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
+				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(order)]),
+				UI.table_cell({ classes: "" }, [config_status_badge(is_active)])
+			])
+		})
+	}
+}
+
+# --- Class Levels ---
+
+class_levels_config_view = |model| {
+	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); only active levels are listed.", [
+		config_form_row([
+			config_labeled_input("Class level name", "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
+			config_labeled_input("Code", "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
+		], config_submit_button(model, ClassLevels, "Create Class Level")),
+		config_create_banner(model),
+		config_table(["Class level", "Code", "Age range"], class_levels_rows(model))
+	])
+}
+
+class_levels_rows = |model| {
+	if Str.is_empty(model.classLevelsData) {
+		[config_empty_row(if model.isLoading { "Loading class levels..." } else { "No class levels yet. Create the first one above." })]
+	} else {
+		List.map(Str.split_on(model.classLevelsData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			name = config_field(parts, 1, "Class level")
+			code = config_field(parts, 2, "—")
+			age_range = config_field(parts, 3, "—")
+			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
+				UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(code)]),
+				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(age_range)])
+			])
+		})
+	}
+}
+
+# --- Curriculum ---
+
+curriculum_config_view = |model| {
+	config_card("Curriculum", "Link subjects to class levels to define what each level studies.", [
+		config_form_row([
+			config_labeled_select("Class level", "new-curriculum-class-level-select", config_record_options(model.classLevelsData, "No class levels yet"), |s| UpdateNewCurriculumClassLevel(s)),
+			config_labeled_select("Subject", "new-curriculum-subject-select", config_record_options(model.subjectsData, "No subjects yet"), |s| UpdateNewCurriculumSubject(s)),
+		], config_submit_button(model, Curriculum, "Link Subject")),
+		config_create_banner(model),
+		config_table(["Class level", "Subject"], curriculum_rows(model))
+	])
+}
+
+curriculum_rows = |model| {
+	if Str.is_empty(model.curriculumData) {
+		[config_empty_row(if model.isLoading { "Loading the curriculum..." } else { "No subject is linked to a class level yet." })]
+	} else {
+		List.map(Str.split_on(model.curriculumData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			class_level = config_record_name(model.classLevelsData, config_field(parts, 1, ""))
+			subject = config_record_name(model.subjectsData, config_field(parts, 2, ""))
+			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+				UI.table_cell({ classes: "font-medium" }, [Html.text(class_level)]),
+				UI.table_cell({ classes: "" }, [Html.text(subject)])
+			])
+		})
+	}
+}
+
+# --- Session Terms ---
+
+session_terms_config_view = |model| {
+	config_card("Session Terms", "Pairs a school session (e.g. 2026/2027) with one of the terms above. New session terms start inactive.", [
+		config_form_row([
+			config_labeled_input("Session name", "e.g. 2026/2027", "text", model.newSessionTermName, model.isConfigSubmitting, |s| UpdateNewSessionTermName(s)),
+			config_labeled_select("Term", "new-session-term-select", config_record_options(model.termsData, "No terms yet"), |s| UpdateNewSessionTermTerm(s)),
+		], config_submit_button(model, SessionTerms, "Create Session Term")),
+		config_create_banner(model),
+		config_table(["Session", "Term", "Status"], session_terms_rows(model))
+	])
+}
+
+session_terms_rows = |model| {
+	if Str.is_empty(model.sessionTermsData) {
+		[config_empty_row(if model.isLoading { "Loading session terms..." } else { "No session terms yet. Create the first one above." })]
+	} else {
+		List.map(Str.split_on(model.sessionTermsData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			session = config_field(parts, 1, "Session")
+			term = config_record_name(model.termsData, config_field(parts, 2, ""))
+			is_active = config_field(parts, 3, "false") == "true"
+			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+				UI.table_cell({ classes: "font-medium" }, [Html.text(session)]),
+				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(term)]),
+				UI.table_cell({ classes: "" }, [config_status_badge(is_active)])
+			])
+		})
+	}
+}
+
+# --- Subjects ---
+
+subjects_config_view = |model| {
+	config_card("Subjects", "The subjects the school offers. Only active subjects are listed.", [
+		config_form_row([
+			config_labeled_input("Subject name", "e.g. Mathematics", "text", model.newSubjectName, model.isConfigSubmitting, |s| UpdateNewSubjectName(s)),
+			config_labeled_input("Code", "e.g. MTH", "text", model.newSubjectCode, model.isConfigSubmitting, |s| UpdateNewSubjectCode(s)),
+		], config_submit_button(model, Subjects, "Create Subject")),
+		config_create_banner(model),
+		config_table(["Subject", "Code"], subjects_rows(model))
+	])
+}
+
+subjects_rows = |model| {
+	if Str.is_empty(model.subjectsData) {
+		[config_empty_row(if model.isLoading { "Loading subjects..." } else { "No subjects yet. Create the first one above." })]
+	} else {
+		List.map(Str.split_on(model.subjectsData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			name = config_field(parts, 1, "Subject")
+			code = config_field(parts, 2, "—")
+			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
+				UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(code)])
+			])
+		})
+	}
 }
