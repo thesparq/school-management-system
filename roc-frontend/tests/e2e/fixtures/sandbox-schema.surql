@@ -111,6 +111,12 @@ DEFINE FIELD updated_at ON lesson_assessments TYPE none | datetime;
 DEFINE TABLE submissions SCHEMAFULL PERMISSIONS FULL;
 # `array<object>` implies `answers.*`, as above.
 DEFINE FIELD answers ON submissions TYPE array<object>;
+# The answer objects themselves need their sub-fields declared or a SCHEMAFULL table rejects every
+# one of them; same statements as `db/schema-v7-submission-answers.surql`, which prod has.
+DEFINE FIELD answers.*.question_index ON submissions TYPE int;
+DEFINE FIELD answers.*.answer_type ON submissions TYPE string;
+DEFINE FIELD answers.*.answer_text ON submissions TYPE string;
+DEFINE FIELD answers.*.allocated_mark ON submissions TYPE int;
 DEFINE FIELD assessment_id ON submissions TYPE string;
 DEFINE FIELD assessment_type ON submissions TYPE string;
 DEFINE FIELD grade_released_at ON submissions TYPE none | datetime;

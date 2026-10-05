@@ -44,10 +44,13 @@ async function newPage(browser, token) {
   await teacher.waitForSelector('#create-assessment-btn', { timeout: 20000 });
   await teacher.click('#create-assessment-btn');
   await teacher.fill('#assessment-title-input', title);
-  // Pick the first question from the lesson's bank and give it marks.
-  await teacher.waitForSelector('[data-q-check="0"]', { timeout: 20000 });
+  // The lesson's bank is [mcq, mcq, theory] in that order: take the first MCQ and the theory
+  // question, so the student form below has one radio group and one free-text answer.
+  await teacher.waitForSelector('[data-q-check="2"]', { timeout: 20000 });
   await teacher.check('[data-q-check="0"]');
   await teacher.fill('[data-q-marks="0"]', '4');
+  await teacher.check('[data-q-check="2"]');
+  await teacher.fill('[data-q-marks="2"]', '5');
   await teacher.click('#submit-create-assessment');
   await teacher.waitForSelector(`text=${title}`, { timeout: 20000 });
   check('created assessment appears', true);
@@ -57,7 +60,7 @@ async function newPage(browser, token) {
     const mine = rows.find(r => r.title === t);
     return mine ? { count: (mine.questions || []).length, type: (mine.questions || [])[0]?.type, marks: mine.total_mark } : null;
   }, title);
-  check('the picked question is stored in the strict shape', !!stored && stored.count === 1 && stored.type === 'mcq' && stored.marks === 4, JSON.stringify(stored));
+  check('the picked questions are stored in the strict shape', !!stored && stored.count === 2 && stored.type === 'mcq' && stored.marks === 9, JSON.stringify(stored));
   check('it starts as a draft', await teacher.evaluate(() => document.body.innerText.includes('Draft')));
   await teacher.click('#assessments-list >> text=Publish');
   await teacher.waitForTimeout(1500);
@@ -77,7 +80,26 @@ async function newPage(browser, token) {
   await student.waitForSelector(`text=${title}`, { timeout: 30000 });
   check('student sees the published assessment', true);
   await student.click('text=Take Assessment');
-  await student.waitForTimeout(2000);
+  await student.waitForSelector('#submit-assessment-answers', { timeout: 20000 });
+  check('the question form renders', true);
+  await student.locator('input[name="answer-0"]').nth(1).check(); // option b of the first MCQ
+  await student.fill('[data-answer-text="1"]', 'Putting harvested crops into containers.'); // the theory question
+  check('answered count tracks input', await student.evaluate(() => (document.getElementById('assessment-answered-count') || {}).textContent || '').then(t => t.includes('2 of 2')));
+  await student.click('#submit-assessment-answers');
+  await student.waitForTimeout(2500);
+  check('submission is acknowledged', await student.evaluate(() => document.body.innerText.includes('Submitted')));
+
+  // What the server stored, read back through the teacher's own session.
+  const storedAnswers = await teacher.evaluate(async (t) => {
+    const auth = { Authorization: 'Bearer ' + (localStorage.getItem('auth_token') || '') };
+    const list = (await (await fetch('/api/teacher/lesson-assessments', { headers: auth })).json())[0].result || [];
+    const mine = list.find(r => r.title === t);
+    if (!mine) return null;
+    const subs = (await (await fetch(`/api/teacher/submissions?assessment_id=${mine.id}`, { headers: auth })).json())[0].result || [];
+    return (subs[0] && subs[0].answers) || [];
+  }, title);
+  check('the chosen option is stored', !!storedAnswers && storedAnswers[0] && storedAnswers[0].answer_text === 'b' && storedAnswers[0].answer_type === 'mcq' && storedAnswers[0].allocated_mark === 4, JSON.stringify(storedAnswers && storedAnswers[0]));
+  check('the typed answer is stored', !!storedAnswers && storedAnswers[1] && String(storedAnswers[1].answer_text).includes('containers'), JSON.stringify(storedAnswers && storedAnswers[1]));
 
   // --- Teacher: grade it and release the grade ---
   await teacher.click('#tab-grading');
