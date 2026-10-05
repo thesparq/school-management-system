@@ -254,13 +254,21 @@
                     const formatted = rows.length ? rows.map(t => (t.id||"") + "|" + (t.name||"Term") + "|" + (t.sort_order||"") + "|" + (t.active !== false)).join("\n") : "";
                     dispatchToInput("terms_data_input", formatted);
 
-                // Config: class levels (admin hub)
-                } else if (url === "/api/class_levels") {
-                    const formatted = rows.map(c => (c.id||"") + "|" + (c.name||"Unknown") + "|" + (c.code||"") + "|" + (c.age_range||"")).join("\n");
+                // Config: every subject, active or not. The hub edits and toggles rows, so it asks
+                // for the whole table; /api/subjects stays the active-only list the student's
+                // cards and the hub's pickers use.
+                } else if (url === "/api/subjects?all=true") {
+                    const formatted = rows.map(s => (s.id||"") + "|" + (s.name||"Unknown") + "|" + (s.code||"") + "|" + (s.active !== false)).join("\n");
+                    dispatchToInput("config_subjects_data_input", formatted);
+
+                // Config: class levels (admin hub). ?all=true keeps a deactivated level in the
+                // list so it can be switched back on.
+                } else if (url === "/api/class_levels?all=true") {
+                    const formatted = rows.map(c => (c.id||"") + "|" + (c.name||"Unknown") + "|" + (c.code||"") + "|" + (c.age_range||"") + "|" + (c.active !== false)).join("\n");
                     dispatchToInput("class_levels_data_input", formatted);
 
-                // Config: the curriculum (class_levels -> subjects edges)
-                } else if (url === "/api/curriculum") {
+                // Config: the curriculum (class_levels -> subjects edges), the inactive links too
+                } else if (url === "/api/curriculum?all=true") {
                     const formatted = rows.map(e => (e.id||"") + "|" + (e.in||"") + "|" + (e.out||"") + "|" + (e.active !== false)).join("\n");
                     dispatchToInput("curriculum_data_input", formatted);
 

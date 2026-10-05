@@ -72,6 +72,10 @@ Model : {
 	classLevelsData : Str,
 	curriculumData : Str,
 	sessionTermsData : Str,
+	# The hub's own subject list: every subject, active or not. `subjectsData` above is the
+	# active-only one the student's cards and the pickers read, which is what deactivating a
+	# subject takes it out of.
+	configSubjectsData : Str,
 	newTermName : Str,
 	newTermSortOrder : Str,
 	newSubjectName : Str,
@@ -84,6 +88,14 @@ Model : {
 	newCurriculumSubject : Str,
 	isConfigSubmitting : Bool,
 	configSubmitResult : [None, Success(Str), Error(Str)],
+	# The row the hub has open for editing, and its editable columns. Only one row is edited at a
+	# time, so one draft serves every section: editId is the row's record id and the fields are
+	# its own values in the order its fetched line carries them (e.g. for a term name, sort
+	# order, —; for a session term name, term link). The section's update call names them.
+	editId : Str,
+	editField1 : Str,
+	editField2 : Str,
+	editField3 : Str,
 }
 
 Msg : [
@@ -130,6 +142,7 @@ Msg : [
 	GotClassLevelsData(Str),
 	GotCurriculumData(Str),
 	GotSessionTermsData(Str),
+	GotConfigSubjectsData(Str),
 	UpdateNewTermName(Str),
 	UpdateNewTermSortOrder(Str),
 	UpdateNewSubjectName(Str),
@@ -142,6 +155,15 @@ Msg : [
 	UpdateNewCurriculumSubject(Str),
 	SubmitConfigCreate(AdminConfigTab),
 	ConfigCreateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	StartConfigEdit(Str),
+	CancelConfigEdit,
+	UpdateEditField1(Str),
+	UpdateEditField2(Str),
+	UpdateEditField3(Str),
+	SubmitConfigUpdate(AdminConfigTab),
+	ConfigUpdateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	ToggleConfigActive(AdminConfigTab, Str, Bool),
+	ConfigToggleCompleted(AdminConfigTab, Bool, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 ]
 
 parse_route = |url| {
@@ -227,6 +249,7 @@ init = |flags| {
 		classLevelsData: "",
 		curriculumData: "",
 		sessionTermsData: "",
+		configSubjectsData: "",
 		newTermName: "",
 		newTermSortOrder: "",
 		newSubjectName: "",
@@ -239,6 +262,10 @@ init = |flags| {
 		newCurriculumSubject: "",
 		isConfigSubmitting: Bool.False,
 		configSubmitResult: None,
+		editId: "",
+		editField1: "",
+		editField2: "",
+		editField3: "",
 	}
 
 	# Boot fetches. Note for the next editor: keep every effect list inline inside its branch. This Roc
@@ -254,9 +281,10 @@ init = |flags| {
 			Port.send("fetch_data", "/api/subjects"),
 			Port.send("fetch_data", "/api/teacher/lessons"),
 			Port.send("fetch_data", "/api/terms"),
-			Port.send("fetch_data", "/api/class_levels"),
-			Port.send("fetch_data", "/api/curriculum"),
+			Port.send("fetch_data", "/api/class_levels?all=true"),
+			Port.send("fetch_data", "/api/curriculum?all=true"),
 			Port.send("fetch_data", "/api/session_terms"),
+			Port.send("fetch_data", "/api/subjects?all=true"),
 		]
 		_ => [
 			Port.send("fetch_data", "/api/users?role=Student"),
@@ -271,13 +299,15 @@ init = |flags| {
 
 # --- Configuration hub ---
 
-# Re-fetch the list a create just changed, so the new row appears without a reload.
+# Re-fetch the list a create or an update just changed, so the new row (or the new values) appear
+# without a reload. A subject change also refreshes the active-only list, which is what the
+# student's cards and the curriculum picker read.
 config_refresh_effects = |tab| {
 	match tab {
 		Terms => [Port.send("fetch_data", "/api/terms")]
-		Subjects => [Port.send("fetch_data", "/api/subjects")]
-		ClassLevels => [Port.send("fetch_data", "/api/class_levels")]
-		Curriculum => [Port.send("fetch_data", "/api/curriculum")]
+		Subjects => [Port.send("fetch_data", "/api/subjects?all=true"), Port.send("fetch_data", "/api/subjects")]
+		ClassLevels => [Port.send("fetch_data", "/api/class_levels?all=true")]
+		Curriculum => [Port.send("fetch_data", "/api/curriculum?all=true")]
 		SessionTerms => [Port.send("fetch_data", "/api/session_terms")]
 	}
 }
@@ -292,27 +322,75 @@ config_section_label = |tab| {
 	}
 }
 
+# The section's endpoint: one URL per section, used by its create, its update and its toggle.
+config_endpoint = |tab| {
+	match tab {
+		Terms => "terms"
+		Subjects => "subjects"
+		ClassLevels => "class_levels"
+		Curriculum => "curriculum"
+		SessionTerms => "session_terms"
+	}
+}
+
 # The endpoint and payload for one section's create form. An empty field is sent as-is: the
 # backend validates and answers 400 with the text the form then shows.
 config_create_call = |model, tab| {
-	match tab {
+	payload = match tab {
 		Terms => {
 			sort_clause = if Str.is_empty(model.newTermSortOrder) { "" } else { ",\"sort_order\":${model.newTermSortOrder}" }
-			{ endpoint: "terms", payload: "{\"name\":\"${model.newTermName}\"${sort_clause}}" }
+			"{\"name\":\"${model.newTermName}\"${sort_clause}}"
 		}
-		Subjects => {
-			{ endpoint: "subjects", payload: "{\"name\":\"${model.newSubjectName}\",\"code\":\"${model.newSubjectCode}\"}" }
-		}
-		ClassLevels => {
-			{ endpoint: "class_levels", payload: "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"}" }
-		}
-		SessionTerms => {
-			{ endpoint: "session_terms", payload: "{\"session_name\":\"${model.newSessionTermName}\",\"term\":\"${model.newSessionTermTerm}\"}" }
-		}
-		Curriculum => {
-			{ endpoint: "curriculum", payload: "{\"class_level\":\"${model.newCurriculumClassLevel}\",\"subject\":\"${model.newCurriculumSubject}\"}" }
-		}
+		Subjects => "{\"name\":\"${model.newSubjectName}\",\"code\":\"${model.newSubjectCode}\"}"
+		ClassLevels => "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"}"
+		SessionTerms => "{\"session_name\":\"${model.newSessionTermName}\",\"term\":\"${model.newSessionTermTerm}\"}"
+		Curriculum => "{\"class_level\":\"${model.newCurriculumClassLevel}\",\"subject\":\"${model.newCurriculumSubject}\"}"
 	}
+
+	{ endpoint: config_endpoint(tab), payload }
+}
+
+# One `"field":"value"` pair of a request body, or "" when the value is empty: the update
+# endpoints patch, so an empty field means "leave that column as it is".
+json_text_field = |field, value| {
+	if Str.is_empty(value) { "" } else { ",\"${field}\":\"${value}\"" }
+}
+
+# The same for a number (the backend reads it with extract_number_field).
+json_number_field = |field, value| {
+	if Str.is_empty(value) { "" } else { ",\"${field}\":${value}" }
+}
+
+# One "|"-separated field of a fetched row (the page's own line format), "" when the row is short.
+config_part = |parts, index| {
+	match List.get(parts, index) {
+		Ok(value) => value
+		Err(_) => ""
+	}
+}
+
+# The endpoint and payload for saving the row the hub has open for editing. The draft fields are the
+# row's own values in the order its fetched line carries them, so each section names the columns
+# they belong to; a section only offers editing for the columns its table can write.
+config_update_call = |model, tab| {
+	id_field = "{\"id\":\"${model.editId}\""
+
+	payload = match tab {
+		Terms => "${id_field}${json_text_field("name", model.editField1)}${json_number_field("sort_order", model.editField2)}}"
+		Subjects => "${id_field}${json_text_field("name", model.editField1)}${json_text_field("code", model.editField2)}}"
+		ClassLevels => "${id_field}${json_text_field("name", model.editField1)}${json_text_field("code", model.editField2)}${json_text_field("age_range", model.editField3)}}"
+		SessionTerms => "${id_field}${json_text_field("session_name", model.editField1)}${json_text_field("term", model.editField2)}}"
+		# A curriculum link has no editable column — it is linked or not — so the views only ever
+		# offer its toggle; this branch keeps the match exhaustive.
+		Curriculum => "${id_field}}"
+	}
+
+	{ endpoint: config_endpoint(tab), payload }
+}
+
+# Leaving edit mode, after a save or a cancel. Only one row is open at a time.
+config_edit_cleared = |model| {
+	{ ..model, editId: "", editField1: "", editField2: "", editField3: "" }
 }
 
 # A successful create clears only its own form.
@@ -359,8 +437,9 @@ update = |model, msg|
 				AdminConfigurationHub => [
 					Port.send("fetch_data", "/api/terms"),
 					Port.send("fetch_data", "/api/subjects"),
-					Port.send("fetch_data", "/api/class_levels"),
-					Port.send("fetch_data", "/api/curriculum"),
+					Port.send("fetch_data", "/api/subjects?all=true"),
+					Port.send("fetch_data", "/api/class_levels?all=true"),
+					Port.send("fetch_data", "/api/curriculum?all=true"),
 					Port.send("fetch_data", "/api/session_terms"),
 				]
 				_ => []
@@ -374,8 +453,9 @@ update = |model, msg|
 				Port.send("push_state", "/admin/config"),
 				Port.send("fetch_data", "/api/terms"),
 				Port.send("fetch_data", "/api/subjects"),
-				Port.send("fetch_data", "/api/class_levels"),
-				Port.send("fetch_data", "/api/curriculum"),
+				Port.send("fetch_data", "/api/subjects?all=true"),
+				Port.send("fetch_data", "/api/class_levels?all=true"),
+				Port.send("fetch_data", "/api/curriculum?all=true"),
 				Port.send("fetch_data", "/api/session_terms"),
 			]
 		)
@@ -455,6 +535,7 @@ update = |model, msg|
 		GotClassLevelsData(str) => ({ ..model, classLevelsData: str }, [])
 		GotCurriculumData(str) => ({ ..model, curriculumData: str }, [])
 		GotSessionTermsData(str) => ({ ..model, sessionTermsData: str }, [])
+		GotConfigSubjectsData(str) => ({ ..model, configSubjectsData: str }, [])
 		UpdateNewTermName(s) => ({ ..model, newTermName: s }, [])
 		UpdateNewTermSortOrder(s) => ({ ..model, newTermSortOrder: s }, [])
 		UpdateNewSubjectName(s) => ({ ..model, newSubjectName: s }, [])
@@ -506,6 +587,104 @@ update = |model, msg|
 			({ ..cleared, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
 		}
 		DataLoaded => ({ ..model, isLoading: Bool.False }, [])
+		# --- Editing and activating a configuration row ---
+		# Opening a row prefills the draft from its own fetched line, so the inputs start on the
+		# current values and a save only has to send what the user changed.
+		StartConfigEdit(line) => {
+			parts = Str.split_on(line, "|")
+			(
+				{
+					..model,
+					editId: config_part(parts, 0),
+					editField1: config_part(parts, 1),
+					editField2: config_part(parts, 2),
+					editField3: config_part(parts, 3),
+				},
+				[]
+			)
+		}
+		CancelConfigEdit => (config_edit_cleared(model), [])
+		UpdateEditField1(s) => ({ ..model, editField1: s }, [])
+		UpdateEditField2(s) => ({ ..model, editField2: s }, [])
+		UpdateEditField3(s) => ({ ..model, editField3: s }, [])
+		SubmitConfigUpdate(tab) => {
+			call = config_update_call(model, tab)
+			req = {
+				method: PUT,
+				uri: "${model.appOrigin}/api/${call.endpoint}",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8(call.payload),
+				timeout_ms: NoTimeout,
+			}
+			(
+				{ ..model, isConfigSubmitting: Bool.True, configSubmitResult: None },
+				[Http.request(req, |res| ConfigUpdateCompleted(tab, res))]
+			)
+		}
+		ConfigUpdateCompleted(tab, res) => {
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("${config_section_label(tab)} updated")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			# A saved row closes its editor and reloads the list, so the new values show up (and a
+			# refusal keeps the editor open with the backend's text in the banner).
+			closed = match newResult {
+				Success(_) => config_edit_cleared(model)
+				_ => model
+			}
+			refreshes = match newResult {
+				Success(_) => config_refresh_effects(tab)
+				_ => []
+			}
+			({ ..closed, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+		}
+		ToggleConfigActive(tab, id, active) => {
+			active_str = if active { "true" } else { "false" }
+			req = {
+				method: POST,
+				uri: "${model.appOrigin}/api/${config_endpoint(tab)}/toggle-active",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8("{\"id\":\"${id}\",\"active\":${active_str}}"),
+				timeout_ms: NoTimeout,
+			}
+			(
+				{ ..model, isConfigSubmitting: Bool.True, configSubmitResult: None },
+				[Http.request(req, |res| ConfigToggleCompleted(tab, active, res))]
+			)
+		}
+		ConfigToggleCompleted(tab, active, res) => {
+			verb = if active { "activated" } else { "deactivated" }
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("${config_section_label(tab)} ${verb}")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			# The row keeps its place in the list either way — the badge is what changes.
+			refreshes = match newResult {
+				Success(_) => config_refresh_effects(tab)
+				_ => []
+			}
+			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+		}
 		SubmitNewUser => {
 			payload = "{\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\",\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"role_title\":\"${model.newUserRoleTitle}\",\"passport\":\"${model.newUserPassportKey}\"}"
 			req = {

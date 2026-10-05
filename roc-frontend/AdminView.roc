@@ -365,6 +365,9 @@ admin_config_view = |model| {
 		# tab bodies so a response that arrives while another tab is open is still delivered.
 		Html.input([Attribute.type("hidden"), Attribute.id("terms_data_input"), Attribute.value(model.termsData), Attribute.on_input(|s| GotTermsData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("subjects_data_input"), Attribute.value(model.subjectsData), Attribute.on_input(|s| GotSubjectsData(s))]),
+		# The Subjects section lists every subject (so a deactivated one can be switched back on),
+		# which is a different payload from the active-only list above.
+		Html.input([Attribute.type("hidden"), Attribute.id("config_subjects_data_input"), Attribute.value(model.configSubjectsData), Attribute.on_input(|s| GotConfigSubjectsData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("class_levels_data_input"), Attribute.value(model.classLevelsData), Attribute.on_input(|s| GotClassLevelsData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("curriculum_data_input"), Attribute.value(model.curriculumData), Attribute.on_input(|s| GotCurriculumData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("session_terms_data_input"), Attribute.value(model.sessionTermsData), Attribute.on_input(|s| GotSessionTermsData(s))]),
@@ -443,12 +446,29 @@ config_labeled_select = |label, select_id, options, to_msg| {
 		UI.label({ classes: "" }, [Html.text(label)]),
 		Html.div([Attribute.class("relative")], [
 			Html.select([
-				Attribute.class("w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 appearance-none"),
+				Attribute.class(config_select_classes),
 				Attribute.id(select_id),
 				Attribute.on_change(to_msg)
 			], options),
 			Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
 		])
+	])
+}
+
+config_select_classes = "w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 appearance-none"
+
+# A select in an open editor: the cell has no label (the table header names the column), and it
+# opens on the row's own choice rather than the browser's first option — the runtime sets a
+# select's `value` property, which is what picks the matching option.
+config_row_select = |select_id, value, options, to_msg| {
+	Html.div([Attribute.class("relative")], [
+		Html.select([
+			Attribute.class(config_select_classes),
+			Attribute.id(select_id),
+			Attribute.value(value),
+			Attribute.on_change(to_msg)
+		], options),
+		Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
 	])
 }
 
@@ -510,6 +530,81 @@ config_status_badge = |is_active| {
 	], [Html.text(if is_active { "Active" } else { "Inactive" })])
 }
 
+# --- Editing and activating a row ---
+
+# One input of an open editor. The placeholder differs from the create form's so the two are told
+# apart at a glance (and by the browser checks).
+config_edit_input = |placeholder, input_type, value, is_disabled, to_msg| {
+	UI.input({
+		type: input_type,
+		value: value,
+		placeholder: placeholder,
+		on_input: Input(to_msg),
+		is_disabled: is_disabled,
+		classes: "",
+	})
+}
+
+# A cell holding one control of an open editor.
+config_edit_cell = |input| {
+	UI.table_cell({ classes: "min-w-40" }, [input])
+}
+
+# The Edit control of a row: it opens that row's own fields in place, so the values being changed
+# sit next to the row they belong to. The fetched line is what prefills the draft.
+config_edit_button = |model, line| {
+	UI.button(
+		{ variant: Ghost, size: Sm, on_click: Click(StartConfigEdit(line)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+		[Html.text("Edit")]
+	)
+}
+
+# The activate/deactivate control every configuration row has: the flag flips on the spot and the
+# row stays in the list, badge and all, so a deactivation can be undone.
+config_active_button = |model, tab, id, is_active| {
+	UI.button(
+		{
+			variant: Ghost,
+			size: Sm,
+			on_click: Click(ToggleConfigActive(tab, id, !is_active)),
+			is_disabled: model.isConfigSubmitting,
+			classes: "text-xs",
+		},
+		[Html.text(if is_active { "Deactivate" } else { "Activate" })]
+	)
+}
+
+config_actions_cell = |buttons| {
+	UI.table_cell({ classes: "" }, [Html.div([Attribute.class("flex items-center gap-2")], buttons)])
+}
+
+# The Actions cell of a row that can be edited: open it, or flip its flag.
+config_row_actions = |model, tab, line, id, is_active| {
+	config_actions_cell([
+		config_edit_button(model, line),
+		config_active_button(model, tab, id, is_active)
+	])
+}
+
+# The Actions cell of a row with no editable column: a curriculum link is linked or not.
+config_toggle_actions = |model, tab, id, is_active| {
+	config_actions_cell([config_active_button(model, tab, id, is_active)])
+}
+
+# The Actions cell while a row is open: Save writes the draft, Cancel drops it.
+config_edit_actions = |model, tab| {
+	config_actions_cell([
+		UI.button(
+			{ variant: Primary, size: Sm, on_click: Click(SubmitConfigUpdate(tab)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+			[Html.text(if model.isConfigSubmitting { "Saving..." } else { "Save" })]
+		),
+		UI.button(
+			{ variant: Outline, size: Sm, on_click: Click(CancelConfigEdit), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+			[Html.text("Cancel")]
+		)
+	])
+}
+
 # The nth "|"-separated field of a fetched row, with a fallback for a short or empty field.
 config_field = |parts, index, fallback| {
 	match List.get(parts, index) {
@@ -548,13 +643,13 @@ config_record_options = |list_data, placeholder| {
 # --- Academic Terms ---
 
 terms_config_view = |model| {
-	config_card("Academic Terms", "Terms run in order within the school year; every term is listed here, active or not.", [
+	config_card("Academic Terms", "Terms run in order within the school year; every term is listed here, active or not. Editing rewrites the row, deactivating keeps it.", [
 		config_form_row([
 			config_labeled_input("Term name", "e.g. Summer Term", "text", model.newTermName, model.isConfigSubmitting, |s| UpdateNewTermName(s)),
 			config_labeled_input("Sort order", "e.g. 3", "number", model.newTermSortOrder, model.isConfigSubmitting, |s| UpdateNewTermSortOrder(s)),
 		], config_submit_button(model, Terms, "Create Term")),
 		config_create_banner(model),
-		config_table(["Term", "Sort order", "Status"], terms_rows(model))
+		config_table(["Term", "Sort order", "Status", "Actions"], terms_rows(model))
 	])
 }
 
@@ -562,30 +657,45 @@ terms_rows = |model| {
 	if Str.is_empty(model.termsData) {
 		[config_empty_row(if model.isLoading { "Loading terms..." } else { "No terms yet. Create the first one above." })]
 	} else {
-		List.map(Str.split_on(model.termsData, "\n"), |line| {
-			parts = Str.split_on(line, "|")
-			name = config_field(parts, 1, "Term")
-			order = config_field(parts, 2, "—")
-			is_active = config_field(parts, 3, "true") == "true"
-			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
-				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(order)]),
-				UI.table_cell({ classes: "" }, [config_status_badge(is_active)])
-			])
-		})
+		List.map(Str.split_on(model.termsData, "\n"), |line| terms_row(model, line))
+	}
+}
+
+# One term: its name and sort order are editable, so the row turns into a two-input form while the
+# hub has it open for editing. The status badge and the activate/deactivate control sit beside it in
+# both states — a deactivated term stays visible so it can be switched back on.
+terms_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 3, "true") == "true"
+
+	if !Str.is_empty(id) and model.editId == id {
+		UI.table_row({ classes: "bg-muted/40" }, [
+			config_edit_cell(config_edit_input("Term name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(config_edit_input("Sort order", "number", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_actions(model, Terms)
+		])
+	} else {
+		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Term"))]),
+			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_row_actions(model, Terms, line, id, is_active)
+		])
 	}
 }
 
 # --- Class Levels ---
 
 class_levels_config_view = |model| {
-	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); only active levels are listed.", [
+	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); a deactivated level stays listed so it can be switched back on.", [
 		config_form_row([
 			config_labeled_input("Class level name", "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
 			config_labeled_input("Code", "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
 		], config_submit_button(model, ClassLevels, "Create Class Level")),
 		config_create_banner(model),
-		config_table(["Class level", "Code", "Age range"], class_levels_rows(model))
+		config_table(["Class level", "Code", "Age range", "Status", "Actions"], class_levels_rows(model))
 	])
 }
 
@@ -593,30 +703,44 @@ class_levels_rows = |model| {
 	if Str.is_empty(model.classLevelsData) {
 		[config_empty_row(if model.isLoading { "Loading class levels..." } else { "No class levels yet. Create the first one above." })]
 	} else {
-		List.map(Str.split_on(model.classLevelsData, "\n"), |line| {
-			parts = Str.split_on(line, "|")
-			name = config_field(parts, 1, "Class level")
-			code = config_field(parts, 2, "—")
-			age_range = config_field(parts, 3, "—")
-			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
-				UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(code)]),
-				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(age_range)])
-			])
-		})
+		List.map(Str.split_on(model.classLevelsData, "\n"), |line| class_levels_row(model, line))
+	}
+}
+
+class_levels_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 4, "true") == "true"
+
+	if !Str.is_empty(id) and model.editId == id {
+		UI.table_row({ classes: "bg-muted/40" }, [
+			config_edit_cell(config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			config_edit_cell(config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_actions(model, ClassLevels)
+		])
+	} else {
+		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Class level"))]),
+			UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_field(parts, 3, "—"))]),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_row_actions(model, ClassLevels, line, id, is_active)
+		])
 	}
 }
 
 # --- Curriculum ---
 
 curriculum_config_view = |model| {
-	config_card("Curriculum", "Link subjects to class levels to define what each level studies.", [
+	config_card("Curriculum", "Link subjects to class levels to define what each level studies. A link switched off stays listed (and keeps its lessons) so it can be restored.", [
 		config_form_row([
 			config_labeled_select("Class level", "new-curriculum-class-level-select", config_record_options(model.classLevelsData, "No class levels yet"), |s| UpdateNewCurriculumClassLevel(s)),
 			config_labeled_select("Subject", "new-curriculum-subject-select", config_record_options(model.subjectsData, "No subjects yet"), |s| UpdateNewCurriculumSubject(s)),
 		], config_submit_button(model, Curriculum, "Link Subject")),
 		config_create_banner(model),
-		config_table(["Class level", "Subject"], curriculum_rows(model))
+		config_table(["Class level", "Subject", "Status", "Actions"], curriculum_rows(model))
 	])
 }
 
@@ -624,28 +748,34 @@ curriculum_rows = |model| {
 	if Str.is_empty(model.curriculumData) {
 		[config_empty_row(if model.isLoading { "Loading the curriculum..." } else { "No subject is linked to a class level yet." })]
 	} else {
-		List.map(Str.split_on(model.curriculumData, "\n"), |line| {
-			parts = Str.split_on(line, "|")
-			class_level = config_record_name(model.classLevelsData, config_field(parts, 1, ""))
-			subject = config_record_name(model.subjectsData, config_field(parts, 2, ""))
-			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-				UI.table_cell({ classes: "font-medium" }, [Html.text(class_level)]),
-				UI.table_cell({ classes: "" }, [Html.text(subject)])
-			])
-		})
+		List.map(Str.split_on(model.curriculumData, "\n"), |line| curriculum_row(model, line))
 	}
+}
+
+# A link has no editable column — the pair is the row — so its only control is the toggle.
+curriculum_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 3, "true") == "true"
+
+	UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+		UI.table_cell({ classes: "font-medium" }, [Html.text(config_record_name(model.classLevelsData, config_field(parts, 1, "")))]),
+		UI.table_cell({ classes: "" }, [Html.text(config_record_name(model.subjectsData, config_field(parts, 2, "")))]),
+		UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+		config_toggle_actions(model, Curriculum, id, is_active)
+	])
 }
 
 # --- Session Terms ---
 
 session_terms_config_view = |model| {
-	config_card("Session Terms", "Pairs a school session (e.g. 2026/2027) with one of the terms above. New session terms start inactive.", [
+	config_card("Session Terms", "Pairs a school session (e.g. 2026/2027) with one of the terms above. New session terms start inactive; activating one is what makes it usable.", [
 		config_form_row([
 			config_labeled_input("Session name", "e.g. 2026/2027", "text", model.newSessionTermName, model.isConfigSubmitting, |s| UpdateNewSessionTermName(s)),
 			config_labeled_select("Term", "new-session-term-select", config_record_options(model.termsData, "No terms yet"), |s| UpdateNewSessionTermTerm(s)),
 		], config_submit_button(model, SessionTerms, "Create Session Term")),
 		config_create_banner(model),
-		config_table(["Session", "Term", "Status"], session_terms_rows(model))
+		config_table(["Session", "Term", "Status", "Actions"], session_terms_rows(model))
 	])
 }
 
@@ -653,45 +783,73 @@ session_terms_rows = |model| {
 	if Str.is_empty(model.sessionTermsData) {
 		[config_empty_row(if model.isLoading { "Loading session terms..." } else { "No session terms yet. Create the first one above." })]
 	} else {
-		List.map(Str.split_on(model.sessionTermsData, "\n"), |line| {
-			parts = Str.split_on(line, "|")
-			session = config_field(parts, 1, "Session")
-			term = config_record_name(model.termsData, config_field(parts, 2, ""))
-			is_active = config_field(parts, 3, "false") == "true"
-			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-				UI.table_cell({ classes: "font-medium" }, [Html.text(session)]),
-				UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(term)]),
-				UI.table_cell({ classes: "" }, [config_status_badge(is_active)])
-			])
-		})
+		List.map(Str.split_on(model.sessionTermsData, "\n"), |line| session_terms_row(model, line))
+	}
+}
+
+# A session term is a name plus the term it belongs to, so the editor offers both; the select opens
+# on the row's own term (the draft was prefilled from the row's line).
+session_terms_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 3, "false") == "true"
+
+	if !Str.is_empty(id) and model.editId == id {
+		UI.table_row({ classes: "bg-muted/40" }, [
+			config_edit_cell(config_edit_input("Session name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(config_row_select("edit-session-term-select", model.editField2, config_record_options(model.termsData, "No terms yet"), |s| UpdateEditField2(s))),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_actions(model, SessionTerms)
+		])
+	} else {
+		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Session"))]),
+			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_record_name(model.termsData, config_field(parts, 2, "")))]),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_row_actions(model, SessionTerms, line, id, is_active)
+		])
 	}
 }
 
 # --- Subjects ---
 
 subjects_config_view = |model| {
-	config_card("Subjects", "The subjects the school offers. Only active subjects are listed.", [
+	config_card("Subjects", "The subjects the school offers, active or not. Deactivating one takes it off the students' cards without deleting it, and it stays listed here.", [
 		config_form_row([
 			config_labeled_input("Subject name", "e.g. Mathematics", "text", model.newSubjectName, model.isConfigSubmitting, |s| UpdateNewSubjectName(s)),
 			config_labeled_input("Code", "e.g. MTH", "text", model.newSubjectCode, model.isConfigSubmitting, |s| UpdateNewSubjectCode(s)),
 		], config_submit_button(model, Subjects, "Create Subject")),
 		config_create_banner(model),
-		config_table(["Subject", "Code"], subjects_rows(model))
+		config_table(["Subject", "Code", "Status", "Actions"], subjects_rows(model))
 	])
 }
 
 subjects_rows = |model| {
-	if Str.is_empty(model.subjectsData) {
+	if Str.is_empty(model.configSubjectsData) {
 		[config_empty_row(if model.isLoading { "Loading subjects..." } else { "No subjects yet. Create the first one above." })]
 	} else {
-		List.map(Str.split_on(model.subjectsData, "\n"), |line| {
-			parts = Str.split_on(line, "|")
-			name = config_field(parts, 1, "Subject")
-			code = config_field(parts, 2, "—")
-			UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-				UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
-				UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(code)])
-			])
-		})
+		List.map(Str.split_on(model.configSubjectsData, "\n"), |line| subjects_row(model, line))
+	}
+}
+
+subjects_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 3, "true") == "true"
+
+	if !Str.is_empty(id) and model.editId == id {
+		UI.table_row({ classes: "bg-muted/40" }, [
+			config_edit_cell(config_edit_input("Subject name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_actions(model, Subjects)
+		])
+	} else {
+		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Subject"))]),
+			UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_row_actions(model, Subjects, line, id, is_active)
+		])
 	}
 }

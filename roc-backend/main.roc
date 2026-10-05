@@ -691,6 +691,52 @@ update_clauses! = |table, payload_raw, config| {
     }
 }
 
+# --- Configuration hub writes (lookup tables: terms, subjects, class_levels, session_term, has_subject) ---
+
+# One `SET` entry for a text column of a lookup table, or "" when the payload does not carry that
+# field. An update is a patch (`update_clauses!` reads profile updates the same way): a field the
+# caller leaves out keeps its stored value instead of being blanked.
+config_text_clause! : Str, Str => Str
+config_text_clause! = |field, payload_raw| {
+    value = extract_field(payload_raw, field) |> sanitize
+
+    if Str.is_empty(value) {
+        ""
+    } else {
+        "${field} = '${surreal_literal(value)}'"
+    }
+}
+
+# The response for a lookup-table update. `clauses` holds the SET entries the payload produced;
+# when it produced none there is nothing to write, so the 400 names the columns the table takes.
+# db_response! answers 500 with the statement's own message when the write is rejected (a duplicate
+# name against the table's unique index, a link the schema refuses).
+config_update_response! : Str, List(Str), Str, Str, SurrealDB.Config => Server.Outcome
+config_update_response! = |table, clauses, id_val, updatable, config| {
+    if Str.is_empty(id_val) {
+        json_response(400, "{\"error\":\"id is required\"}")
+    } else if List.is_empty(clauses) {
+        json_response(400, "{\"error\":\"no updatable fields: send ${updatable}\"}")
+    } else {
+        db_response!("UPDATE ${record_ref!(id_val, table)} SET ${Str.join_with(clauses, ", ")};", config)
+    }
+}
+
+# The response for a toggle: `active` is the only column written. These tables are SCHEMAFULL and
+# declare no `updated_at`, so a statement that set one would be rejected wholesale. Deactivating
+# marks the row instead of deleting it — the hub keeps listing it so it can be switched back on.
+config_toggle_response! : Str, Str, SurrealDB.Config => Server.Outcome
+config_toggle_response! = |table, payload_raw, config| {
+    id_val = extract_field(payload_raw, "id") |> sanitize
+    active = json_bool(payload_raw, "active")
+
+    if Str.is_empty(id_val) {
+        json_response(400, "{\"error\":\"id is required\"}")
+    } else {
+        db_response!("UPDATE ${record_ref!(id_val, table)} SET active = ${active};", config)
+    }
+}
+
 # --- Input sanitization ---
 
 sanitize = |val| {
@@ -916,8 +962,12 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teachers" {
                     # Superseded by POST /api/users, which writes a teacher_profile record.
                     Ok(json_response(400, "{\"error\":\"Use POST /api/users with role=Teacher\"}"))
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/subjects" {
-                    res = SurrealDB.query!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/subjects") {
+                    # The hub asks with ?all=true so a deactivated subject stays manageable; the
+                    # default list (the student's subject cards, the curriculum picker) is the
+                    # active rows only, which is what deactivating a subject takes it out of.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -936,6 +986,18 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
                     }
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/subjects" {
+                    # A patch: only the fields the payload carries are written, and an empty one
+                    # means "leave it" rather than "blank it out".
+                    payload_raw = read_body!(request)
+                    clauses = List.keep_if(
+                        [config_text_clause!("name", payload_raw), config_text_clause!("code", payload_raw)],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("subjects", clauses, extract_field(payload_raw, "id") |> sanitize, "name or code", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/subjects/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("subjects", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
                     res = SurrealDB.query!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
@@ -956,8 +1018,25 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/class_levels" {
-                    res = SurrealDB.query!("SELECT id, name, code, age_range FROM class_levels WHERE active = true ORDER BY name;", context.surreal)
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/terms" {
+                    # A term keeps its name and its place in the school year. An absent sort_order
+                    # leaves the stored one alone — requiring it is the create handler's job.
+                    payload_raw = read_body!(request)
+                    sort_order = extract_number_field(payload_raw, "sort_order")
+                    sort_clause = if Str.is_empty(sort_order) { "" } else { "sort_order = ${sort_order}" }
+                    clauses = List.keep_if(
+                        [config_text_clause!("name", payload_raw), sort_clause],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("terms", clauses, extract_field(payload_raw, "id") |> sanitize, "name or sort_order", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/terms/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("terms", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/class_levels") {
+                    # ?all=true is the hub's view: a deactivated level stays listed so it can be
+                    # edited or switched back on. Everyone else gets the active levels only.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -975,9 +1054,26 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/curriculum" {
-                    # The curriculum is the class_levels -> subjects edge in the prod schema.
-                    res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject WHERE active = true;", context.surreal)
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/class_levels" {
+                    payload_raw = read_body!(request)
+                    clauses = List.keep_if(
+                        [
+                            config_text_clause!("name", payload_raw),
+                            config_text_clause!("code", payload_raw),
+                            config_text_clause!("age_range", payload_raw),
+                        ],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("class_levels", clauses, extract_field(payload_raw, "id") |> sanitize, "name, code or age_range", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("class_levels", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/curriculum") {
+                    # The curriculum is the class_levels -> subjects edge in the prod schema. The hub
+                    # asks with ?all=true so a link that has been switched off stays listed (and can
+                    # be switched back on); the default is the active curriculum only.
+                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -996,6 +1092,11 @@ respond! = |request, context| {
                         subject_link = record_literal!("subjects", subject)
                         Ok(db_response!("RELATE ${class_link} -> has_subject -> ${subject_link} SET active = true;", context.surreal))
                     }
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum/toggle-active" {
+                    # Unlinking without losing the row: the edge keeps its lessons, it just stops
+                    # counting as part of the active curriculum.
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("has_subject", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_arms" {
@@ -1348,6 +1449,20 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE session_term SET session_name = '${session_name}', term = ${record_ref!(term_id, "terms")}, active = false, created_at = time::now();", context.surreal))
                     }
+                } else if Method.is_eq(request.method, PUT) and request.target == "/api/session_terms" {
+                    # A session term is a name plus the term it belongs to, so both are updatable.
+                    payload_raw = read_body!(request)
+                    term_id = extract_field(payload_raw, "term") |> sanitize
+                    term_clause = if Str.is_empty(term_id) { "" } else { "term = ${record_ref!(term_id, "terms")}" }
+                    clauses = List.keep_if(
+                        [config_text_clause!("session_name", payload_raw), term_clause],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("session_term", clauses, extract_field(payload_raw, "id") |> sanitize, "session_name or term", context.surreal))
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/session_terms/toggle-active" {
+                    # New session terms are created inactive, so this is what makes one usable.
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("session_term", payload_raw, context.surreal))
                 } else {
                     Ok(json_response(404, "{\"error\":\"Not Found\"}"))
                 }
