@@ -9,3 +9,6 @@ _build/
 **/.agents
 .claude
 golem-server.log
+
+# `roc build main.roc` output (see roc-backend/README.md)
+/roc-backend/main
