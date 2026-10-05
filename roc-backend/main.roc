@@ -141,6 +141,14 @@ record_ref! = |raw, table| {
     "type::record('${table}', '${bare_id(raw)}')"
 }
 
+# A record id written out as a literal (`class_levels:jss_1`), the sibling of record_ref! for
+# statements that take record links. RELATE rejects expressions, so type::record(...) cannot be
+# used there; `<>` is stripped because a `->` in the id would otherwise end the RELATE clause early.
+record_literal! = |table, raw| {
+    id = bare_id(raw) |> Str.replace_each(">", "") |> Str.replace_each("<", "")
+    "${table}:${id}"
+}
+
 # Bare record id: "lessons:abc" and "abc" both become "abc". Stored string fields such as
 # submissions.assessment_id hold the bare form (the MoonBit stack's convention), so rows written
 # by either stack are found by both.
@@ -921,7 +929,13 @@ respond! = |request, context| {
                     code_val = extract_field(payload_raw, "code") |> sanitize
                     payload_str = "{\"name\": \"${name_val}\", \"code\": \"${code_val}\"}"
                     
-                    Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
+                    # The table is SCHEMAFULL, so an unnamed subject would be stored as an empty
+                    # string. Reject it here so the form shows what is missing.
+                    if Str.is_empty(name_val) {
+                        Ok(json_response(400, "{\"error\":\"name is required\"}"))
+                    } else {
+                        Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
                     res = SurrealDB.query!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
@@ -932,8 +946,16 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/terms" {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
-                    
-                    Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
+
+                    term_name = extract_field(payload_raw, "name")
+                    sort_order = extract_number_field(payload_raw, "sort_order")
+                    if Str.is_empty(term_name) {
+                        Ok(json_response(400, "{\"error\":\"name is required\"}"))
+                    } else if Str.is_empty(sort_order) {
+                        Ok(json_response(400, "{\"error\":\"sort_order must be a whole number\"}"))
+                    } else {
+                        Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/class_levels" {
                     res = SurrealDB.query!("SELECT id, name, code, age_range FROM class_levels WHERE active = true ORDER BY name;", context.surreal)
                     match res {
@@ -943,8 +965,16 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels" {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
-                    
-                    Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
+
+                    level_name = extract_field(payload_raw, "name")
+                    level_code = extract_field(payload_raw, "code")
+                    if Str.is_empty(level_name) {
+                        Ok(json_response(400, "{\"error\":\"name is required\"}"))
+                    } else if Str.is_empty(level_code) {
+                        Ok(json_response(400, "{\"error\":\"code is required\"}"))
+                    } else {
+                        Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/curriculum" {
                     # The curriculum is the class_levels -> subjects edge in the prod schema.
                     res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject WHERE active = true;", context.surreal)
@@ -953,7 +983,19 @@ respond! = |request, context| {
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum" {
-                    Ok(json_response(400, "{\"error\":\"Curriculum is the has_subject edge; it is managed in the database, not through this endpoint\"}"))
+                    # Link one class level to one subject: the has_subject edge is the curriculum.
+                    # A repeated pair is refused by the edge's unique (in, out) index, whose own
+                    # message comes back through db_response!.
+                    payload_raw = read_body!(request)
+                    class_level = extract_field(payload_raw, "class_level") |> sanitize
+                    subject = extract_field(payload_raw, "subject") |> sanitize
+                    if Str.is_empty(class_level) or Str.is_empty(subject) {
+                        Ok(json_response(400, "{\"error\":\"class_level and subject are required\"}"))
+                    } else {
+                        class_link = record_literal!("class_levels", class_level)
+                        subject_link = record_literal!("subjects", subject)
+                        Ok(db_response!("RELATE ${class_link} -> has_subject -> ${subject_link} SET active = true;", context.surreal))
+                    }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_arms" {
