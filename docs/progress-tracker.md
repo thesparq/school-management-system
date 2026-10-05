@@ -241,8 +241,47 @@ Golem prototype, which writes an enrolment) and `/api/upload-url` (the passport 
   `grade-submission`, no weight-remaining summary, and `percentage_weight` goes through the digits-only scanner
   (`10.5` → 105, `-5` → 5; the form refuses both client-side).
 
+### Loading states, the nav bar's session term, and the user form
+
+Reported by the developer while testing the running app, and all fixed in `ef8c4c7`:
+
+- **A failed list request used to dispatch nothing**, so `State.roc`'s single global `isLoading` stayed true and
+  every tab showed `Loading... / Fetching data from server` forever — one flag for every list, which is why
+  switching tabs could not change it. A *successful* fetch with zero rows dispatched `""`, indistinguishable
+  from "never loaded". The rule is now three states per list (`ListState`: `Pending` → skeleton, `Ready` → rows or
+  a real empty state, `Failed(message)` → an error state naming what failed **with a Retry**), and the JS always
+  answers a fetch — `ok` + rows, `ok` with no rows, or `error` + the API's own `{"error","detail"}` message.
+  Applied to every list fed through `fetch_data`; user management also refetches its active tab on page entry and
+  on tab switch.
+- **A top border progress bar** on navigations and in-page tab switches (the retired app's own markup), and
+  **skeleton placeholders** (`animate-pulse`, shaped like the content) while a list is genuinely not loaded.
+- **The nav bar shows the active session term** — `GET /api/session_terms/active` with the legacy query
+  (`SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1`), shown as a
+  badge with a spinner while it loads, refetched on navigation. The retired app also toasted when it changed;
+  this app has no toast system, so the badge simply updates.
+- **The Add New User form** is a labelled grid (name row → email + role → the role-specific fields the create
+  actually reads → passport → one primary action).
+- **The bundle is served `no-cache`** (`ccb37c0`): `app.wasm` and `dist.css` were cached for an hour while
+  `index.html` was not, so a rebuild kept serving the old app against the new markup. Hashed filenames are what
+  would let the bundle be cached immutably again.
+
+**Verified** on a sandbox with the merged tree: the new `e2e_loading.cjs` **20/20** (it navigates by *clicking*
+through the sidebar rather than `goto`-ing a URL — every other suite jumps straight to the URL, which is why this
+class of bug hid — and it also intercepts a list to answer 500 and asserts an error state with a working retry),
+plus `e2e_admin` 5/5, `e2e_admin_config` 53/53, `e2e_student` 7/7, `e2e_assessments` 17/17,
+`e2e_general_assessments` 25/25, `authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+`roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors.
+
+**Dev-workflow gotcha**: changing a view's model shape (as this pass did to `State.roc`) can kill a running
+`roc run` instance mid-flight — the watcher swaps in the new wasm while the old model is live, and the process
+dies with SIGSEGV. Restart it; a fresh start runs the same sources fine.
+
 ### Remaining
 
+- [ ] **No toast system.** The retired app toasted when the active session term changed and after other
+  background events; here the badge just updates. Worth building once, for many callers.
+- [ ] `e2e_passport_upload.cjs`'s upload mode needs R2 variables in the sandbox backend and an upper-case
+  access-key id (its regex), so it reports 8/9 without them — the signed URL and the form flow pass regardless.
 - [ ] **No student grade view.** The legacy stack had `/student/my-grades` (answers hidden until release) and
   `project-overview.md` lists "view own grades and feedback after grading" as a student feature; the Roc app has
   no such page. The data is all there (`submissions` with `scored_mark`/`grade_released_at`).
