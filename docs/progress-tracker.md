@@ -205,6 +205,41 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
 
+### Deployment pass — scoped, two decisions needed
+
+What the Roc stack needs to run outside this machine, from checking the repo and the real artifact:
+
+- **The artifact**: `roc build main.roc` produces a 5.8 MB statically linked binary in ~10 s (the build
+  output is gitignored). It serves the API *and* the static frontend from `STATIC_DIR`, so one process is the
+  whole app. Verified with production settings (`BIND_HOST=0.0.0.0`, `DEV_MODE=false`, prod credentials):
+  listens on `0.0.0.0:8000`, `/health` → `surreal db is healthy`, serves `www/index.html`, and rejects
+  `dev-skip` — the bypass is off, so only real Authentik tokens pass.
+- **Listen address**: `BIND_HOST` (default `127.0.0.1`) now overrides the platform's loopback-only default;
+  the port stays 8000. Without this nothing outside the process's own namespace could reach it.
+- **Environment**: `SURREAL_URL`/`SURREAL_USER`/`SURREAL_PASS` (or `SURREAL_AUTH`), `AUTHENTIK_USERINFO_URL`
+  (or `AUTHENTIK_ISSUER_URL`), `AUTHENTIK_API_URL` + `AUTHENTIK_API_TOKEN` (user creation), `STATIC_DIR`,
+  `DEV_MODE` unset/false.
+- **The frontend build**: `cd roc-frontend && roc run build.roc` needs `roc`, `node` with
+  `@tailwindcss/cli`, and the vendored Joy platform — all of `roc-frontend/joy/` is tracked, including the
+  patched `host.wasm`, so a fresh clone can build. Its outputs `www/app.wasm` and `www/runtime.js` are
+  gitignored, so the deploy machine (or image build) has to produce them; `index.html` and `dist.css` are
+  tracked.
+- **Auth**: the frontend is a public OAuth2 PKCE client (`CLIENT_ID` in `www/index.html`, hardcoded) with
+  `REDIRECT_URI = window.location.origin + '/'`, so the deployed origin must be registered on the Authentik
+  provider — this is the one manual step per environment. The backend validates the bearer against
+  Authentik's userinfo endpoint and derives the caller's profile id from it.
+- **Host**: production is a Dokploy server — services in `devops/docker-compose.yml` share the external
+  `dokploy-network` and Traefik publishes them by label (`Host(\`…\`)`, `certresolver=letsencrypt`), as
+  `chat.johnethel.school`, the Golem services and SurrealDB (`db2.johnethel.school`) already do. The app fits
+  the same pattern as one more service on port 8000. Nothing in the repo builds or deploys the Roc stack yet
+  (the only workflow, `.github/workflows/deploy-backend.yml`, deploys the MoonBit agents to Golem).
+
+**Open decisions**: the app's domain (and therefore the redirect URI to add in Authentik), and whether to
+ship it as a Dokploy service in `devops/docker-compose.yml` (recommended — same network, TLS and pattern as
+everything else there) or as a systemd unit on the host. Both need a build step for the binary and the
+frontend bundle; a multi-stage Dockerfile (roc + node in the builder, binary + `www/` in the runtime image)
+keeps it reproducible.
+
 ---
 
 ## Completed Work
