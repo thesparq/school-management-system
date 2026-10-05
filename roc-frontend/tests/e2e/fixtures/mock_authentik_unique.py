@@ -7,6 +7,12 @@
 # and DELETE removes one. An unknown pk answers 404, the way Authentik does, so the backend's
 # cannot-disable-this-login path is observable instead of silently succeeding.
 #
+# The instance-wide userinfo endpoint the backend validates tokens against (`/application/o/
+# userinfo/`, the path AuthUrls derives from an issuer) is here too: each `mock-*-token` answers with
+# the `groups` claim a real login would carry, which is where the backend reads the caller's role
+# from. `mock-groupless-token` stands for a login in no directory group (a student). The DEV_MODE
+# tokens (`dev-skip`, `dev-student`, `dev-teacher`) never reach this handler.
+#
 #   python3 tests/e2e/fixtures/mock_authentik_unique.py [port]
 #
 # The port defaults to 9000 and can also come from MOCK_AUTHENTIK_PORT, so several sandboxes can run
@@ -14,6 +20,7 @@
 #
 # Then point the backend at it:
 #   AUTHENTIK_API_URL=http://127.0.0.1:9000/api/v3/core/users/ AUTHENTIK_API_TOKEN=mock
+#   AUTHENTIK_ISSUER_URL=http://127.0.0.1:9000/application/o/school/
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -24,8 +31,26 @@ import sys
 
 PORT = int(sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MOCK_AUTHENTIK_PORT', '9000'))
 USERS_PATH = '/api/v3/core/users/'
+USERINFO_PATH = '/application/o/userinfo/'
 counter = itertools.count(1)
 users = {}  # pk -> the login, exactly as the list endpoint returns it
+
+# token -> the userinfo body the backend reads the caller's id and role from
+userinfo = {
+    'mock-student-token': {'sub': 'mock_uuid_student', 'uid': 'mock_uuid_student', 'name': 'Sandbox Student',
+                           'email': 'student@example.com', 'groups': ['Students']},
+    'mock-teacher-token': {'sub': 'mock_uuid_teacher', 'uid': 'mock_uuid_teacher', 'name': 'Sandbox Teacher',
+                           'email': 'teacher@example.com', 'groups': ['Teachers']},
+    'mock-admin-token': {'sub': 'mock_uuid_admin', 'uid': 'mock_uuid_admin', 'name': 'Sandbox Admin',
+                         'email': 'admin@example.com', 'groups': ['Administrators']},
+    'mock-groupless-token': {'sub': 'mock_uuid_groupless', 'uid': 'mock_uuid_groupless', 'name': 'Sandbox Groupless',
+                             'email': 'groupless@example.com', 'groups': []},
+}
+
+
+def bearer_token(handler):
+    header = handler.headers.get('Authorization') or ''
+    return header[len('Bearer '):] if header.startswith('Bearer ') else ''
 
 
 def pk_of(path):
@@ -80,6 +105,12 @@ class MockHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header('Location', f"{redirect_uri}#access_token=dev-skip&expires_in=3600")
             self.end_headers()
+        elif parsed.path.rstrip('/') == USERINFO_PATH.rstrip('/'):
+            body = userinfo.get(bearer_token(self))
+            if body is None:
+                send(self, 401, {'detail': 'Invalid token.'})
+            else:
+                send(self, 200, body)
         elif pk_of(parsed.path) is None and parsed.path.rstrip('/') == USERS_PATH.rstrip('/'):
             query = parse_qs(parsed.query)
             page_size = max(1, int(query.get('page_size', ['20'])[0]))

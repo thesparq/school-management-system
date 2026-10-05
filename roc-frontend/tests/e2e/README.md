@@ -18,6 +18,12 @@ this app.)
 
 `APP_URL` overrides the target (default `http://127.0.0.1:8000`).
 
+`DEV_MODE=true` exposes the tokens that stand in for a login: each names the role it acts as, so a
+suite can drive a role without an Authentik session. `dev-skip` is the all-access admin the scripts
+here use, `dev-student` and `dev-teacher` are the same idea for the other roles, and `test-token` is
+`dev-skip`'s older alias (also an admin). The role of a real token comes from its userinfo `groups`
+claim instead; `authz.sh` is the check that the gate bites either way.
+
 ## The checks
 
 | Script | What it proves | Needs |
@@ -31,6 +37,7 @@ this app.)
 | `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher's grading list shows the auto-scored MCQ marks; the teacher grades and releases. | Sandbox backend |
 | `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
 | `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. | Sandbox backend, mock Authentik and its database |
+| `authz.sh` | Role-based authorization over the API with curl: `dev-skip` (admin) still reaches a student route, a teacher route and the user/configuration writes; `dev-student` and `dev-teacher` are refused the routes outside their role with a 403 naming the role the route needs; the role of a real-looking token comes from the mock userinfo `groups` claim; and a missing or bogus token is still a 401. | Sandbox backend, mock Authentik with `AUTHENTIK_ISSUER_URL` |
 | `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
 | `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. | Sandbox backend |
 
@@ -48,13 +55,14 @@ node tests/e2e/e2e_general_assessments.cjs
 sh tests/e2e/assessment_flow.sh
 sh tests/e2e/users_api.sh
 sh tests/e2e/general_assessment_flow.sh
+sh tests/e2e/authz.sh
 ```
 
 ## Sandbox for the admin and assessment checks
 
 `e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs`, `e2e_general_assessments.cjs`, `assessment_flow.sh`,
-`general_assessment_flow.sh` and `users_api.sh` write rows, so they must not run against prod. Start a throwaway
-SurrealDB, load the schema fixture, and point a backend at it plus the mock Authentik:
+`general_assessment_flow.sh`, `users_api.sh` and `authz.sh` write rows, so they must not run against prod. Start a
+throwaway SurrealDB, load the schema fixture, and point a backend at it plus the mock Authentik:
 
 ```sh
 surreal start --bind 127.0.0.1:8002 --user root --pass root surrealkv:///tmp/school-sandbox/db &
@@ -66,8 +74,14 @@ python3 tests/e2e/fixtures/mock_authentik_unique.py &
 cd ../../../roc-backend && DEV_MODE=true \
   SURREAL_URL=http://127.0.0.1:8002/sql SURREAL_USER=root SURREAL_PASS=root \
   AUTHENTIK_API_URL=http://127.0.0.1:9000/api/v3/core/users/ AUTHENTIK_API_TOKEN=mock \
+  AUTHENTIK_ISSUER_URL=http://127.0.0.1:9000/application/o/school/ \
   roc run main.roc
 ```
+
+`AUTHENTIK_ISSUER_URL` is what makes the backend validate real-looking tokens against the mock's
+userinfo endpoint (`AuthUrls` derives `/application/o/userinfo/` from it); without it those tokens
+would be validated against `localhost:9000` regardless of the mock's port, and every `mock-*-token`
+case in `authz.sh` would be a 401.
 
 The fixture schema mirrors the prod profile, lesson and assessment tables (SCHEMAFULL, including the required
 `passport`, `display_name` and `questions` fields) plus the lookup tables' unique indexes and `session_term`,
@@ -78,7 +92,11 @@ stores as the question's `answer` and what submit-time MCQ scoring compares agai
 mock keeps a user table: a fresh `pk` per create, which is what keeps each created account's record id
 distinct; GET lists in Authentik's own shape, PATCH updates the fields it is given, DELETE removes one (the
 compensation path's call) and an unknown pk answers 404. The repo's `mock_authentik.py` returns a constant
-`pk`, so per-role runs would collide on the record id.
+`pk`, so per-role runs would collide on the record id. It also serves the instance-wide userinfo path the
+backend validates tokens against: `mock-student-token` (`Students`), `mock-teacher-token` (`Teachers`),
+`mock-admin-token` (`Administrators`) and `mock-groupless-token` (a login in no group, i.e. a student) answer
+with the `groups` claim a real session would carry, which is where `authz.sh` gets a role without DEV_MODE
+(this is why the backend needs `AUTHENTIK_ISSUER_URL` pointing at the mock).
 
 `users_api.sh` needs the mock and the database it points at, not just the backend, because it checks both
 sides of a delete. Run it with the sandbox's own addresses:
