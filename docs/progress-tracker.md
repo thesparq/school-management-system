@@ -197,25 +197,23 @@ probe row (one MCQ answer, one theory answer) created, read back identical, then
   so this is a regression introduced by the Roc rewrite. Closing it means deriving the caller's role from the
   userinfo response, gating `/api/student/*`, `/api/teacher/*`, `/api/users` and the configuration endpoints,
   and deciding what `dev-skip` means in `DEV_MODE` so the sandbox suites keep working.
-- [ ] **Where a user's email lives** — see the user-management note below: the four profile tables have no
-  `email` column, `GET /api/users` selects one anyway, and the admin list renders an Email column that is
-  therefore always empty; `is_active` is selected too, so every row reads as active. The addresses exist in
-  Authentik (the create path sends them there, and the profile id *is* the Authentik pk). `PUT /api/users`
-  validates an email and refuses it with a clear 400 rather than dropping it. **The pattern is decided and the
-  pass is in progress**: listing reads identity attributes from Authentik, `DELETE` disables the login there,
-  and an email change goes through Authentik first.
-- [ ] `DELETE /api/users` soft-deletes the profile row only — the Authentik login stays enabled, so a
-  "deleted" user can still authenticate. Same pass.
 - [ ] General assessments (`general_assessments` + `compositions`) are not implemented; only lesson
-  assessments are.
-- [ ] Automatic passport upload (R2 presigned PUT) is still a placeholder; the form takes a URL.
+  assessments are. *(A workstream is on this.)*
+- [ ] Automatic passport upload: `POST /api/upload-url` returns the key and endpoint but signs nothing, and the
+  admin form takes a URL. *(A workstream is on this — SigV4 needs SHA-256 + HMAC, which the backend does not
+  have yet.)*
 - [ ] `docs/architecture.md` still describes the retired agent path section by section (the stack table, the
   monorepo layout, the system boundaries); only the deadline authority and a note at the top have been updated.
 - [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
   report).
 - [ ] The admin hub lists and creates; it has no edit/activate/deactivate for those rows (session terms are
   created inactive, so promoting one still needs the database), and `/api/subjects` + `/api/class_levels` stay
-  active-only, so those tables show no status column.
+  active-only, so those tables show no status column. *(A workstream is on this.)*
+- [ ] **The Golem/MoonBit durable layer is built but not wired.** Six agent types still exist and build
+  (`moon check` 0 errors, `app-agents.wasm` 1.1 MB) and CI still deploys them, but the Roc backend's only call
+  is the stale `POST /api/enroll` → a `cs101` prototype (no auth key, unused by the UI), and the eight
+  `golem-*` services are in `devops/legacy/docker-compose.golem.yml`, out of the deployed stack. Deciding which
+  operations must be durable — and therefore route through the agents — is open.
 
 ### Three parallel workstreams — two done
 
@@ -267,18 +265,34 @@ also documented a compiler landmine in `JOY_HOST_PATCH.md`: two shapes (an `if`/
 `List(Effect(Msg))`, and `List.keep_if` + `match List.first(...)` in a view helper) compile with 0 errors into a
 wasm that renders nothing, so a page load after a rebuild is part of the workflow.
 
-### How user management should work (decided)
+### How user management works now (the pattern, implemented)
 
-The identity provider owns identity; the app database owns school data. Concretely: Authentik holds the login,
-the email, whether the account is enabled and the groups that decide the role; `student_profile` and its
-siblings hold what only this app knows (class level, date of birth, passport, role title) and are keyed by the
-Authentik pk, which is already the case. Reads of identity attributes go to Authentik — one list call, merged by
-pk — rather than being copied into SurrealDB, so there is exactly one source of truth per attribute; writes go
-through the Authentik API first, then the profile row, which the create path already does. That is the standard
-shape (IdP as system of record, app tables for domain attributes, subject id as the key, never email); SCIM is
-the heavier enterprise variant, worth it only if users should be provisioned from the IdP side. Applying it
-fixes three things at once: the empty Email column, the always-active column, and `DELETE` leaving the login
-enabled.
+Identity attributes are read from Authentik and school attributes from the profile tables, joined by the
+Authentik pk:
+
+- `GET /api/users?role=` makes **one** Authentik directory call per listing and merges each row's `email` and
+  `is_active` by pk, rebuilding the envelope `unwrapRows` expects. When Authentik is unreachable — or a row's pk
+  is not in the directory — the row carries *neither* identity field rather than an invented one.
+- The pk matcher reads **both** shapes, and that is load-bearing: production Authentik sends `"pk": 10` as a
+  number (verified read-only against the real API) while the sandbox mock sends a string, so a string-only
+  match would have shown no emails in production while every sandbox check passed.
+- `DELETE /api/users` soft-deletes the profile row *and* disables the login in Authentik; a failure there
+  answers 502 saying the login is still live, because a hidden profile with a working login is the failure that
+  matters.
+- `PUT /api/users` sends a new email to Authentik (validated first) and writes the profile columns as before;
+  an email on its own is a valid update.
+- Verified on a sandbox: `users_api.sh` **28/28** (new), `assessment_flow.sh` 41/41, `e2e_admin.cjs` 5/5,
+  `e2e_admin_config.cjs` 25/25, `e2e_student.cjs` 7/7, `e2e_assessments.cjs` 17/17, `roc check` 0 errors / 3
+  warnings. The mock Authentik was rewritten to serve list/PATCH/DELETE with an in-memory table (and 404s for an
+  unknown pk, which is what makes the 502 path observable).
+
+The principle behind it: the identity provider owns identity and the app database owns school data —
+Authentik holds the login, the email, whether the account is enabled and the groups that decide the role;
+`student_profile` and its siblings hold what only this app knows (class level, date of birth, passport, role
+title) and are keyed by the Authentik pk. Reads of identity attributes go to Authentik rather than being
+copied into SurrealDB, so there is one source of truth per attribute, and writes act on the owner first. SCIM
+is the heavier enterprise variant of the same idea, worth it only if users should be provisioned from the IdP
+side rather than from the admin screen.
 
 ---
 ### Deployment pass — built, awaiting the deploy
