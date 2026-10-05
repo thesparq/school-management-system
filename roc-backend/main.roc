@@ -409,6 +409,35 @@ json_response = |status, body| {
     )
 }
 
+# SurrealDB answers HTTP 200 even when a statement fails: the failure sits in the body as
+# `"status":"ERR"` with the message in `result`. Trusting the status is how a write reports success
+# while nothing was stored, so every write goes through here. `Ok` is the raw body, for the callers
+# that still need to read values out of it.
+db_body! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+db_body! = |sql, config| {
+    match SurrealDB.query!(sql, config) {
+        Ok(body) =>
+            if Str.contains(body, "\"status\":\"ERR\"") {
+                Err(extract_field(body, "result"))
+            } else {
+                Ok(body)
+            }
+        Err(HttpErr) => Err("could not reach the database")
+        Err(JsonErr) => Err("invalid response from the database")
+        Err(SurrealErr(body)) => Err(extract_field(body, "result"))
+    }
+}
+
+# The response for a write whose body is passed through: the stored rows, or a 500 carrying the
+# statement's own message instead of a bare "Database error".
+db_response! : Str, SurrealDB.Config => Server.Outcome
+db_response! = |sql, config| {
+    match db_body!(sql, config) {
+        Ok(body) => json_response(200, body)
+        Err(detail) => json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")
+    }
+}
+
 # --- Content-Type from file extension ---
 
 content_type_for = |path| {
@@ -551,11 +580,7 @@ respond! = |request, context| {
                     code_val = extract_field(payload_raw, "code") |> sanitize
                     payload_str = "{\"name\": \"${name_val}\", \"code\": \"${code_val}\"}"
                     
-                    res = SurrealDB.query!("CREATE subjects CONTENT ${payload_str};", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                    }
+                    Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
                     res = SurrealDB.query!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
@@ -567,11 +592,7 @@ respond! = |request, context| {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
                     
-                    res = SurrealDB.query!("CREATE terms CONTENT ${safe_payload};", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                    }
+                    Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/class_levels" {
                     res = SurrealDB.query!("SELECT id, name, code, age_range FROM class_levels WHERE active = true ORDER BY name;", context.surreal)
                     match res {
@@ -582,11 +603,7 @@ respond! = |request, context| {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
                     
-                    res = SurrealDB.query!("CREATE class_levels CONTENT ${safe_payload};", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                    }
+                    Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/curriculum" {
                     # The curriculum is the class_levels -> subjects edge in the prod schema.
                     res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject WHERE active = true;", context.surreal)
@@ -631,19 +648,8 @@ respond! = |request, context| {
                             match auth_res {
                                 Ok(user_id) => {
                                     create_sql = profile_create_sql!(role, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
-                                    res = SurrealDB.query!(create_sql, context.surreal)
                                     # SurrealDB answers 200 even when a statement fails, so the body decides.
-                                    created = match res {
-                                        Ok(body) =>
-                                            if Str.contains(body, "\"status\":\"ERR\"") {
-                                                Err(extract_field(body, "result"))
-                                            } else {
-                                                Ok(body)
-                                            }
-                                        Err(HttpErr) => Err("could not reach the database")
-                                        Err(JsonErr) => Err("invalid response from the database")
-                                        Err(SurrealErr(body)) => Err(extract_field(body, "result"))
-                                    }
+                                    created = db_body!(create_sql, context.surreal)
                                     match created {
                                         Ok(body) => Ok(json_response(200, body))
                                         Err(detail) => {
@@ -776,11 +782,7 @@ respond! = |request, context| {
                         description_clause = if Str.is_empty(description) { "" } else { ", description = '${surreal_literal(description)}'" }
                         deadline_clause = if Str.is_empty(deadline) { "" } else { ", deadline = <datetime> '${deadline}'" }
                         create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause};"
-                        res = SurrealDB.query!(create_query, context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!(create_query, context.surreal))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/toggle-assessment-active" {
                     # Publishing and unpublishing: students only see active assessments.
@@ -790,11 +792,7 @@ respond! = |request, context| {
                     if Str.is_empty(assessment_id) {
                         Ok(json_response(400, "{\"error\":\"assessment_id is required\"}"))
                     } else {
-                        res = SurrealDB.query!("UPDATE ${record_ref!(assessment_id, "lesson_assessments")} SET active = ${active}, updated_at = time::now();", context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!("UPDATE ${record_ref!(assessment_id, "lesson_assessments")} SET active = ${active}, updated_at = time::now();", context.surreal))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/submissions") {
                     assessment_id = query_param(request.target, "assessment_id")
@@ -837,11 +835,7 @@ respond! = |request, context| {
                             } else {
                                 "UPDATE ${record_ref!(existing_id, "submissions")} SET iteration = iteration + 1, status = 'submitted', submitted_at = time::now(), answers = ${answers}, total_mark = ${total_mark};"
                             }
-                        res = SurrealDB.query!(submit_query, context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!(submit_query, context.surreal))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/grade-submission" {
                     payload_raw = read_body!(request)
@@ -853,11 +847,7 @@ respond! = |request, context| {
                         Ok(json_response(400, "{\"error\":\"scored_mark must be a number\"}"))
                     } else {
                         # submissions has no graded_at column; scored_mark is what marks it graded.
-                        res = SurrealDB.query!("UPDATE ${record_ref!(submission_id, "submissions")} SET scored_mark = ${score};", context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET scored_mark = ${score};", context.surreal))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/release-grades" {
                     payload_raw = read_body!(request)
@@ -865,11 +855,7 @@ respond! = |request, context| {
                     if Str.is_empty(submission_id) {
                         Ok(json_response(400, "{\"error\":\"submission_id is required\"}"))
                     } else {
-                        res = SurrealDB.query!("UPDATE ${record_ref!(submission_id, "submissions")} SET grade_released_at = time::now(), status = 'graded';", context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET grade_released_at = time::now(), status = 'graded';", context.surreal))
                     }
 
                 # --- Passport photo upload URL ---
@@ -902,21 +888,13 @@ respond! = |request, context| {
                     name_val = extract_field(payload_raw, "name") |> sanitize
                     email_val = extract_field(payload_raw, "email") |> sanitize
                     
-                    res = SurrealDB.query!("UPDATE student:${id_val} SET name = '${name_val}', email = '${email_val}', updated_at = time::now();", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                    }
+                    Ok(db_response!("UPDATE student:${id_val} SET name = '${name_val}', email = '${email_val}', updated_at = time::now();", context.surreal))
                 } else if Method.is_eq(request.method, DELETE) and request.target == "/api/users" {
                     payload_raw = read_body!(request)
                     
                     id_val = extract_field(payload_raw, "id") |> sanitize
                     
-                    res = SurrealDB.query!("UPDATE student:${id_val} SET deleted_at = time::now();", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                    }
+                    Ok(db_response!("UPDATE student:${id_val} SET deleted_at = time::now();", context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
                     # Prod names this table in the singular.
                     res = SurrealDB.query!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
@@ -931,11 +909,7 @@ respond! = |request, context| {
                     if Str.is_empty(session_name) or Str.is_empty(term_id) {
                         Ok(json_response(400, "{\"error\":\"session_name and term are required\"}"))
                     } else {
-                        res = SurrealDB.query!("CREATE session_term SET session_name = '${session_name}', term = ${record_ref!(term_id, "terms")}, active = false, created_at = time::now();", context.surreal)
-                        match res {
-                            Ok(body) => Ok(json_response(200, body))
-                            Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
-                        }
+                        Ok(db_response!("CREATE session_term SET session_name = '${session_name}', term = ${record_ref!(term_id, "terms")}, active = false, created_at = time::now();", context.surreal))
                     }
                 } else {
                     Ok(json_response(404, "{\"error\":\"Not Found\"}"))
