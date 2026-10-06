@@ -152,7 +152,7 @@ file stale. What belongs here is the shape and the rules:
    arrays). Anything richer would need a parser this Roc version does not have.
 7. **Verify against something that behaves like production.** The e2e suites run against a sandbox built from
    `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` (which mirrors the prod schema) with a mock Authentik;
-   production data is never written to. `roc check main.roc` must end at 0 errors and 3 warnings, and a page
+   production data is never written to. `roc check main.roc` must end at 0 errors and 0 warnings (the three module-header deprecations were migrated to type modules), and a page
    load belongs to any frontend rebuild — two Roc shapes compile cleanly into a wasm that renders nothing
    (`roc-frontend/JOY_HOST_PATCH.md`).
 
