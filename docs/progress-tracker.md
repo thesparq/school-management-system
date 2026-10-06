@@ -571,12 +571,12 @@ suites and the docs). Its findings and the fixes that followed are the four comm
 
 - **Deploy.** The `app` service now lists the five `R2_*` variables. Compose forwards only what a
   service's own `environment:` names, so Infisical/Dokploy interpolated them while the container read
-  them as unset and `/api/upload-url` answered 503. The two relative bind mounts carried an extra
-  `devops/` prefix — Compose resolves relative paths against the compose file's own folder, so they
-  meant `devops/devops/…` and Docker created an empty directory there — and are now
-  `./element/config.json` / `./matrix-config/homeserver.yaml`; `docker compose -f
-  devops/docker-compose.yml config` renders both against the real files and the app's `context: ..`
-  against the repository root. `.github/workflows/deploy-backend.yml` is `workflow_dispatch` only now:
+  them as unset and `/api/upload-url` answered 503. The compose's relative paths — mounts and build
+  context alike — resolve against the **project directory**, which Dokploy sets to the repository root
+  (`--project-directory …/code` in its build command), not against this file's own folder. So the two
+  binds keep their `./devops/…` prefix, and the app's build context is `.`, not `..` (the first deploy
+  failed with `failed to read dockerfile: open Dockerfile.app: no such file or directory`; see the
+  deploy-fix note at the end of this section). `.github/workflows/deploy-backend.yml` is `workflow_dispatch` only now:
   it deployed the retired Golem runtime on any push to `main` touching `agents/**`, which includes the
   merge that was about to introduce it. The job is intact for the move to roc-golem. Both
   `.env.example` files match what the code and the compose file read.
@@ -614,7 +614,9 @@ the real Authentik; and, read-only against prod, the four user tabs, 23 subjects
 
 **Independently re-verified** on its own fresh sandbox (8922/9922/8822) at `fa99fc5` by a separate
 reviewer pass: both `roc check`s, the 157-statement fixture, all thirteen suite counts above, and each
-fix adversarially — the compose renders the five `R2_*` and both mounts against `devops/`, the workflow's
+fix adversarially — the compose lists the five `R2_*` and its relative paths resolve to the real
+files under a local `docker compose config` run (Dokploy's `--project-directory` override showed up
+only on the server — see the deploy-fix note), the workflow's
 job body is byte-identical with only `workflow_dispatch` left as a trigger, both `.env.example` files are
 an exact set match with what the code and the compose file read, the no-pk create answers 502 with no row
 written (while a real pk still creates one), and the build script fails on a broken `app.roc` and on a
@@ -626,12 +628,21 @@ listed `ACME_EMAIL`, which nothing in the repository reads, so it is gone.
 
 **Left for the server / open**:
 
-- Confirm on the deploy host that `docker compose -f devops/docker-compose.yml config` renders the two
-  mounts against `devops/`, that the `R2_*` values reach the `app` service (Dokploy's environment, from
-  Infisical), and whether a stray `devops/devops/` directory exists from the old mount spelling.
-- Decide v5's fate: have the backend write `admission_number`/`staff_id` (the planned `JES`/`EMP`/`ADM`
-  id prefixes in `id_sequences`) or retire the two files. Until then the lineage is documentation, not a
-  rebuild recipe.
+- The deploy host settled the path convention for good: Dokploy passes `--project-directory` = the repo
+  root, so relative paths resolve there — the bind mounts need their `./devops/…` prefix and the app's
+  build context is `.`, which the deploy-fix commit below applies. Still to confirm there: that the
+  `R2_*` values actually reach the `app` service (from `devops/.env`, populated via Infisical).
+
+A first Dokploy deploy (after the merge) failed at the image build: `failed to read dockerfile: open
+Dockerfile.app: no such file or directory`. Cause: Dokploy runs the compose with `--project-directory`
+pointing at the repository root, so `build.context: ..` resolved *above* the repo — the review's
+"one command settles it" caveat, settled the other way. Fixed in `devops/docker-compose.yml`:
+`context: .`, the two bind mounts restored to `./devops/element/config.json` /
+`./devops/matrix-config/homeserver.yaml` (what a repo-root project directory needs), and the obsolete
+`version: '3.8'` key removed (Dokploy warned about it). Re-verified with Dokploy's own invocation
+(`docker compose --project-directory <repo> -f devops/docker-compose.yml config`): the context and both
+mounts now resolve to the real paths under the repo.
+
 - `/health` now makes an unreachable database an unhealthy container. The compose file's
   `restart: unless-stopped` reacts to exits, not to health, so the state surfaces in `docker ps` health
   and in `deploy_check.cjs` rather than as a restart loop.

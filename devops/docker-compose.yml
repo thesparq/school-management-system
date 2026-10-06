@@ -4,9 +4,12 @@ networks:
 services:
   app:
     build:
-      # The Dockerfile builds the frontend bundle and the backend binary, so the context is the
-      # repository root, one level above this file.
-      context: ..
+      # The Dockerfile builds the frontend bundle and the backend binary. Dokploy deploys this
+      # compose with `--project-directory` pointing at the repository root (see its build command),
+      # and relative paths — build context included — resolve against that directory. So the context
+      # is the repo itself, not `..`, which would point above it ("failed to read dockerfile: open
+      # Dockerfile.app: no such file or directory").
+      context: .
       dockerfile: Dockerfile.app
     depends_on:
     - surrealdb
@@ -82,8 +85,10 @@ services:
     - dokploy-network
     restart: unless-stopped
     volumes:
-    # Relative paths in this file resolve against its own folder, `devops/`, not the folder `docker compose` runs from — the same rule the app's `context: ..` relies on; check with `docker compose -f devops/docker-compose.yml config`.
-    - ./element/config.json:/app/config.json:ro
+    # Relative paths resolve against the project directory, which Dokploy sets to the repository
+    # root (`--project-directory …/code`), so the `devops/` prefix is required — `./element/…` would
+    # look one directory too high. Verify with `docker compose -f devops/docker-compose.yml config`.
+    - ./devops/element/config.json:/app/config.json:ro
   opencloud:
     command: server
     environment:
@@ -207,7 +212,7 @@ services:
     restart: unless-stopped
     volumes:
     - synapse_data:/data
-    - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+    - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
   synapse-postgresql:
     environment:
       POSTGRES_DB: synapse
@@ -225,7 +230,6 @@ services:
     restart: unless-stopped
     volumes:
     - synapse_pg_data:/var/lib/postgresql/data
-version: '3.8'
 volumes:
   opencloud_data: null
   surrealdb_data:
