@@ -1408,6 +1408,22 @@ json_response = |status, body| {
     )
 }
 
+# The 500 for a read whose SurrealDB call failed, carrying what actually happened rather than a bare
+# "Database error": the read paths used to decide on the status alone, so a dropped connection and
+# a real SurrealDB error looked identical in the Network tab and nothing in the logs said which.
+db_read_error! = |err| {
+    detail = match err {
+        HttpErr => "could not reach the database"
+        JsonErr => "invalid response from the database"
+        SurrealErr(body) => {
+            parsed = extract_field(body, "details")
+            if Str.is_empty(parsed) { body } else { parsed }
+        }
+    }
+
+    json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")
+}
+
 # SurrealDB answers HTTP 200 even when a statement fails: the failure sits in the body as
 # `"status":"ERR"` with the message in `result`. Trusting the status is how a write reports success
 # while nothing was stored, so every write goes through here. `Ok` is the raw body, for the callers
@@ -1690,7 +1706,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM student_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/students" {
                     # Superseded by POST /api/users, which writes a student_profile record.
@@ -1712,7 +1728,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at FROM teacher_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teachers" {
                     # Superseded by POST /api/users, which writes a teacher_profile record.
@@ -1725,7 +1741,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/subjects" {
                     payload_raw = read_body!(request)
@@ -1758,7 +1774,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/terms" {
                     payload_raw = read_body!(request)
@@ -1794,7 +1810,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels" {
                     payload_raw = read_body!(request)
@@ -1831,7 +1847,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum" {
                     # Link one class level to one subject: the has_subject edge is the curriculum.
@@ -1947,14 +1963,14 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                  } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/terms") {
                      # Prod: terms are school-wide (Noel/Calvary/Summer)
                      res = SurrealDB.query_read!("SELECT id, name, sort_order FROM terms WHERE active = true ORDER BY sort_order;", context.surreal)
                      match res {
                          Ok(body) => Ok(json_response(200, body))
-                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))  
+                         Err(err) => Ok(db_read_error!(err))  
                      }
                  } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/lessons") {
                      # Prod: a lesson hangs off the has_subject edge (class_levels -> subjects) and one
@@ -1974,7 +1990,7 @@ respond! = |request, context| {
                      res = SurrealDB.query_read!(lessons_query, context.surreal)
                      match res {
                          Ok(body) => Ok(json_response(200, body))
-                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                         Err(err) => Ok(db_read_error!(err))
                      }
                  } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/lesson") {
                      lesson_id = query_param(request.target, "lesson_id")
@@ -1985,7 +2001,7 @@ respond! = |request, context| {
                          res = SurrealDB.query_read!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
                          match res {
                              Ok(body) => Ok(json_response(200, body))
-                             Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                             Err(err) => Ok(db_read_error!(err))
                          }
                      }
 
@@ -2002,7 +2018,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!(lessons_query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/assessments") {
                     # Students only see published (active) assessments.
@@ -2011,7 +2027,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/lesson-assessments") {
                     # Teachers see their drafts too.
@@ -2020,7 +2036,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/create-lesson-assessment" {
                     # New assessments start as drafts: the teacher publishes them when ready.
@@ -2068,7 +2084,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/general-assessments") {
                     # Teachers see their drafts too.
@@ -2085,7 +2101,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/create-general-assessment" {
                     # A general assessment hangs off a subject and a session term instead of a lesson,
@@ -2156,7 +2172,7 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!(subs_query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/student/submit-assessment" {
                     # One submission per student and assessment; a resubmission bumps the iteration
@@ -2375,14 +2391,14 @@ respond! = |request, context| {
                     res = SurrealDB.query_read!("SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
                     # Prod names this table in the singular.
                     res = SurrealDB.query_read!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
-                        Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
+                        Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/session_terms" {
                     payload_raw = read_body!(request)
