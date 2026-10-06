@@ -638,6 +638,54 @@ listed `ACME_EMAIL`, which nothing in the repository reads, so it is gone.
 - The build-script truncation is hardened but unexplained: if a build ever fails with an empty or short
   `build.log`, the redirect is the suspect rather than the compiler.
 
+### School numbers — done (students, teachers and admins)
+
+Every member of the school now carries a permanent number, in the shape the developer settled on: the
+database stores the integer alone and the prefix is applied by the code, so the number is the person's
+identity rather than a formatting choice.
+
+- **Stored as an integer, one counter per class of member.** `student_profile.admission_number`, and
+  `staff_id` on `teacher_profile` and `admin_profile`, all `option<int>`; `id_sequences` holds a `student`
+  row and a `staff` row. Teachers and admins share the `staff` counter, and a pk that already holds a staff
+  number on either staff table *reuses* it rather than drawing a second one — which is what keeps a teacher
+  made an admin holding their own number. A student who becomes staff draws a fresh staff number; a parent
+  has none.
+- **Rendered in one place.** `main.roc` renders `JES-000123` / `EMP-000045` into the listing's
+  `school_number` field; neither the database nor the page spells a prefix a second time, so the written
+  form can change without touching a stored number. User Management shows the number read-only.
+- **Allocated inside the profile's own statement** — `CREATE … SET admission_number = (UPDATE
+  id_sequences:student SET current_value += 1 RETURN current_value)[0].current_value` — so a rejected or
+  duplicate create cannot burn a number and a retry draws the next. Verified on this SurrealDB: the
+  increment rolls back with a failing statement, and two concurrent increments serialized (3, then 4).
+  Once set, the number is immutable: a `PUT` carrying either field is a 400 naming it, the same refusal
+  `class_enrolled` gets.
+- **`db/schema-v8-ids.surql`** is the additive migration: `UPSERT` seeds for the two counters (never v5's
+  `DELETE`), `option<int>` columns with unique indexes. It supersedes the never-applied `v5` pair, whose
+  headers now say so, and the sandbox fixture mirrors it. **Applying v8 to prod is part of the deploy** —
+  prod is SCHEMAFULL, so a create that has to hand out a number fails until the columns exist; there is no
+  backfill, because prod has no profile rows.
+
+**Verified** on a fresh sandbox: `roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors;
+the fixture loads 170 statements / 0 errors; students drew `JES-000001` then `JES-000002`, a teacher and an
+admin drew `EMP-000001` then `EMP-000002` from the one `staff` counter; a rejected create (no passport) and
+a create the database itself rejected (`2011-13-45`) left both counters unmoved; a teacher's pk given an
+admin profile reused `EMP-000001` with the counter unmoved (the reverse direction too); a `PUT` carrying
+`admission_number` (string) or `staff_id` (integer, with a space after the colon) answered 400 with the
+stored values unchanged; `current_value = 999999` rendered `JES-1000000` rather than truncating; and the
+rendered cell was read back out of the DOM (header, `JES-000001`, `—` for a profile-less row and a parent,
+no editable control). Suites: `users_api.sh` 77/77 (44 checks added), `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `e2e_users_directory.cjs` 17/17, `e2e_admin.cjs` 5/5, `e2e_loading.cjs` 20/20,
+`e2e_admin_config.cjs` 53/53.
+
+**Two boundaries, both by design**: numbers on two staff tables cannot carry one global unique index, so
+cross-table uniqueness rests on the shared counter and the reuse rule being the only allocators (hand-written
+SQL could still put one number on a teacher and an admin); and when Authentik is unreachable the listing
+falls back to the raw rows, which carry the integer and no `school_number`, so that column renders empty —
+the same way email and `is_active` do there.
+
+**Still to do on the server**: apply `db/schema-v8-ids.surql` to prod (row counts either side, as always)
+**before** the backend deploy; the number column then appears in User Management. If the school ever wants a
+different written form, only the renderer in `main.roc` changes.
 ---
 
 ## Completed Work
