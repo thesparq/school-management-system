@@ -563,6 +563,68 @@ group, so it was in no tab anyway). Checked first: nothing referenced either sid
 tabs now list only real accounts: `temp-student` (pk 13), `temp-staff` (pk 11) and the admin (pk 5), each
 waiting for its school data.
 
+### Merge-readiness review and fixes — done (four commits)
+
+A review of the branch ran against `27e65b5` + `7eb6ee9` (the deploy path, the Phase 8 work, the
+suites and the docs). Its findings and the fixes that followed are the four commits after that:
+`ae18d9b` (deploy), `dd72570` (backend), `4aadb2e` (build script), `6444403` (docs and hygiene).
+
+- **Deploy.** The `app` service now lists the five `R2_*` variables. Compose forwards only what a
+  service's own `environment:` names, so Infisical/Dokploy interpolated them while the container read
+  them as unset and `/api/upload-url` answered 503. The two relative bind mounts carried an extra
+  `devops/` prefix — Compose resolves relative paths against the compose file's own folder, so they
+  meant `devops/devops/…` and Docker created an empty directory there — and are now
+  `./element/config.json` / `./matrix-config/homeserver.yaml`; `docker compose -f
+  devops/docker-compose.yml config` renders both against the real files and the app's `context: ..`
+  against the repository root. `.github/workflows/deploy-backend.yml` is `workflow_dispatch` only now:
+  it deployed the retired Golem runtime on any push to `main` touching `agents/**`, which includes the
+  merge that was about to introduce it. The job is intact for the move to roc-golem. Both
+  `.env.example` files match what the code and the compose file read.
+- **Backend.** `/health` answers 503 when the database is unreachable, decided through `db_body!`; it
+  used to answer 200 with "surreal db is down" inside the body, which the container's HEALTHCHECK read
+  as healthy. `Authentik.createUser!` no longer falls back to the literal `user_uuid_123` when a create
+  response carries no pk — the caller answers 502 and writes no profile row, instead of 200 with an
+  orphan row (the shape of the production row whose cleanup landed in `27e65b5`).
+- **Frontend build.** `roc run build.roc` failed twice during the review with "roc build failed for
+  app.roc" while a direct `roc build` of the same command succeeded: the captured output ended at the
+  warnings and lost the trailing summary line the check reads. The compiler now runs under `sh` with
+  stdout and stderr redirected into `build.log`, and the same rule is applied to that file — a summary
+  reporting errors, or a missing wasm, still fails the build. Not reproduced in five attempts on the
+  pinned platform (which has no redirect API, hence `sh`), so the truncation is unproven; the decision
+  just no longer depends on a pipe.
+- **Docs and hygiene.** `docs/architecture.md` states the role matrix the backend enforces
+  (`required_role`/`may_call`, proven by `authz.sh`) instead of calling it a missing regression, and
+  records that `db/schema-v5*.surql` were never applied to prod: no `id_sequences` table, no
+  `student_profile.admission_number`, no `staff_id`, and the backend writes none of them — so applying
+  v5 to a fresh database breaks `POST /api/users` for Student/Teacher/Admin. Both v5 files say the same
+  in a header. The root `.gitignore` ignores the untracked scratch a broad `git add -A` would otherwise
+  sweep in before a push.
+
+**Verified in this pass** (sandbox 8222/9222/8322, plus the Dockerfile's steps replayed on a clean
+`git archive` copy): `roc check main.roc` 0 errors / 3 warnings and `roc check app.roc` 0 errors;
+`users_api.sh` 54/54, `authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56,
+`e2e_users_directory.cjs` 17/17, `e2e_loading.cjs` 20/20, `e2e_admin.cjs` 5/5, `e2e_admin_config.cjs`
+53/53, `e2e_general_assessments.cjs` 25/25, `e2e_signout.cjs` 9/9, `e2e_auth_callback.cjs` 12/12, and —
+after the selector fix in `7eb6ee9` — `e2e_student.cjs` 7/7 and `e2e_assessments.cjs` 17/17 (both had
+been failing on a fresh fixture: the nav bar's session-term badge carries the term's own name, so
+`text=Noel Term` clicked the badge); `deploy_check.cjs` 8/8 against the built binary running
+`DEV_MODE=false`, which refuses `dev-skip` and serves the bundle; `auth_config_check.cjs` 5/5 against
+the real Authentik.
+
+**Left for the server / open**:
+
+- Confirm on the deploy host that `docker compose -f devops/docker-compose.yml config` renders the two
+  mounts against `devops/`, that the `R2_*` values reach the `app` service (Dokploy's environment, from
+  Infisical), and whether a stray `devops/devops/` directory exists from the old mount spelling.
+- Decide v5's fate: have the backend write `admission_number`/`staff_id` (the planned `JES`/`EMP`/`ADM`
+  id prefixes in `id_sequences`) or retire the two files. Until then the lineage is documentation, not a
+  rebuild recipe.
+- `/health` now makes an unreachable database an unhealthy container. The compose file's
+  `restart: unless-stopped` reacts to exits, not to health, so the state surfaces in `docker ps` health
+  and in `deploy_check.cjs` rather than as a restart loop.
+- The build-script truncation is hardened but unexplained: if a build ever fails with an empty or short
+  `build.log`, the redirect is the suspect rather than the compiler.
+
 ---
 
 ## Completed Work
@@ -710,74 +772,3 @@ waiting for its school data.
 - Messaging uses Matrix/Synapse homeserver at `matrix.johnethel.school`
 - Passport photos stored in Cloudflare R2 (S3-compatible)
 
-## E2E Test Results (25 tests)
-| Category | Tests | Status |
-|----------|-------|--------|
-| Authentication | 3 | ✅ All passing |
-| Theme Switcher | 2 | ✅ All passing |
-| Admin Role | 6 | ✅ All passing |
-| Teacher Role | 2 passing + 1 fixme | ✅ Sidebar + dashboard passing |
-| Student Role | 2 passing + 1 fixme | ✅ Sidebar + dashboard passing |
-| Breadcrumbs | 3 | ✅ All passing |
-| Responsive Layout | 2 | ✅ All passing |
-| Branding | 2 | ✅ All passing |
-| Backend Health | 1 | ✅ Passing |
-
-### Known Issues (test.fixme)
-- Joy framework WASM crash on `NavigateTo` for Teacher/Student routes when triggered via sidebar click
-- Tab switching in Config Hub crashes WASM on button click
-- Root cause: Chromium renderer process crash during WASM execution — not a code bug, framework-level issue
-- **Does NOT affect real browser usage** — only Playwright headless Chromium
-
-## Backend API Endpoints
-| Method | Path | Description | Status |
-|--------|------|-------------|--------|
-| GET | /health | Health check | ✅ |
-| GET | /api/students | List students | ✅ |
-| POST | /api/enroll | Enroll via Golem | ✅ |
-| GET | /api/teachers | List teachers | ✅ |
-| POST | /api/teachers | Create teacher | ✅ |
-| GET | /api/subjects | List subjects | ✅ |
-| POST | /api/subjects | Create subject | ✅ |
-| GET | /api/terms | List terms | ✅ |
-| POST | /api/terms | Create term | ✅ |
-| GET | /api/class_levels | List class levels | ✅ |
-| POST | /api/class_levels | Create class level | ✅ |
-| GET | /api/curriculum | List curriculum | ✅ |
-| POST | /api/curriculum | Create curriculum | ✅ |
-| GET | /api/class_arms | List class arms | ✅ |
-| POST | /api/class_arms | Create class arm | ✅ |
-| GET | /api/users | List users | ✅ |
-| POST | /api/users | Create user | ✅ |
-| PUT | /api/users | Update user | ✅ |
-| DELETE | /api/users | Soft delete user | ✅ |
-| GET | /api/session_terms | List session terms | ✅ |
-| POST | /api/session_terms | Create session term | ✅ |
-| GET | /* (static) | Static file serving | ✅ |
-| GET | /* (SPA) | SPA fallback to index.html | ✅ |
-
-## Remaining Work (Backlog)
-- [ ] Wire config tab forms to API (Terms, Class Levels, Curriculum, Class Arms, Subjects CRUD forms)
-- [ ] User role selector in Add User form (Admin/Teacher/Student/Parent)
-- [ ] Edit user dialog/form
-- [ ] User activation/deactivation
-- [ ] Student/Teacher/Parent list views with search/filter
-- [ ] Passport photo upload
-- [ ] LMS lesson content (subject → term → lesson browsing)
-- [ ] Assessment creation and grading
-- [ ] Parent portal (linked students view)
-- [ ] Timetable management
-- [ ] Dashboard stat cards wired to real API data
-- [ ] Toast/notification system
-- [ ] Loading skeleton components
-- [ ] Cloud deployment configuration
-- [ ] Rate limiting on backend
-- [ ] Investigate Joy framework WASM crash on Teacher/Student NavigateTo
-
-## Architecture Notes
-- **Unified Roc server**: Single `roc-backend/main.roc` serves both API and frontend on port 8000
-- **Golem is used only for critical operations** (enrollment via class agents), not the entire backend
-- Roc basic-webserver handles all direct CRUD — keeps it simple and fast
-- Frontend is a Joy WASM SPA compiled from `roc-frontend/app.roc`
-- Auth is delegated to Authentik via OAuth2 Authorization Code + PKCE flow
-- Static files served from `STATIC_DIR` env var (defaults to `../roc-frontend/www`)
