@@ -12,8 +12,12 @@ services:
       context: .
       dockerfile: Dockerfile.app
     depends_on:
-      surrealdb:
-        condition: service_healthy
+    # Plain ordering, not a health gate: `condition: service_healthy` made the app wait for the
+    # database's healthcheck, and an ungreen check (a fresh `surrealdb:latest`, a DB that is mid
+    # restart) silently kept the container from starting at all — no container, no Traefik router,
+    # every path a 404. The app tolerates a not-yet-ready DB: reads retry once (query_read!), and
+    # /health reports whether the database answers.
+    - surrealdb
     environment:
     - BIND_HOST=0.0.0.0
     - STATIC_DIR=/app/www
