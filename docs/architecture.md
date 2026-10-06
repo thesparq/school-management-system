@@ -24,7 +24,8 @@ roc-backend/            the API: main.roc (routes), Authentik.roc, SurrealDB.roc
 roc-frontend/           app.roc (the SPA), State.roc (model/messages), *View.roc (views), UI.roc,
                         www/index.html (the page's own JS: routing, forms, chat, assessments),
                         www/app.css → dist.css (Tailwind), joy/ (vendored platform), build.roc
-db/schema-v2..v7.surql  the schema lineage. Additive version files; the latest applied to prod is v7
+db/schema-v2..v7.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
+                        prod and is not replayable as it stands (see Storage model), and v7 is the latest applied
 devops/                 the compose file (Dokploy), legacy/docker-compose.golem.yml, .env.example
 docs/                   these context files
 agents/, frontend/      the retired MoonBit/Golem stack — reference for stored-data conventions, not deployed
@@ -52,17 +53,22 @@ Dockerfile.app          the deployment image: frontend bundle + backend binary
    404 and would reject every real token; `AuthUrls.roc` derives it correctly, and
    `roc-frontend/tests/e2e/auth_config_check.cjs` checks a deployed origin against the real Authentik).
 3. The caller's identity comes from the token (`sub`/`uid`, which is the Authentik `pk`), and its role from
-   the `groups` claim — the frontend routes by that role. **The backend does not yet enforce it per route:**
-   it validates the token and scopes the queries it builds to the caller's own record, but any valid token can
-   call any route, teacher and admin endpoints included. The retired agent stack did gate by role, so this is a
-   regression to close before production (it is on the leftover list in `docs/progress-tracker.md`).
-4. `DEV_MODE=true` accepts a `dev-skip` token so local work and the sandbox suites need no login.
+   the `groups` claim — the frontend routes by that role, and **the backend enforces the same role per route**
+   from one matrix in `roc-backend/main.roc`: `required_role` names what each route family needs —
+   `/api/student/*` a student, `/api/teacher/*` a teacher, the account and configuration writes an admin, the
+   shared reads any authenticated role — and `may_call` then lets an admin call anything. No token or a bad one
+   is a 401; the wrong role is a 403 naming the role the route needs. `roc-frontend/tests/e2e/authz.sh` is the
+   check that the gate bites (27 checks, a student's token refused a teacher route with that 403).
+4. `DEV_MODE=true` accepts the tokens that stand in for a login — `dev-skip` and its older `test-token` alias
+   (admin), plus `dev-student` and `dev-teacher` — so local work and the sandbox suites need no login.
    Production sets `DEV_MODE=false`, which turns that path off entirely — `deploy_check.cjs` asserts it.
 
 ## Storage model
 
-**The schema files are the definition.** `db/schema-v*.surql` (v2 … v7) are additive version files applied in
-order; the applied result lives in the database and can be read back with `INFO FOR TABLE`. This document
+**The database is the definition; the files are its lineage.** `db/schema-v*.surql` (v2 … v7) are versioned
+files meant to be applied in order — the applied result lives in the database and can be read back with
+`INFO FOR TABLE`. They are not a rebuild recipe: v5 was never applied to prod, and replaying the lineage
+against a fresh database does not produce a working one (the divergences below say why). This document
 deliberately does not duplicate the field lists — the duplication is what made the previous version of this
 file stale. What belongs here is the shape and the rules:
 
@@ -70,15 +76,22 @@ file stale. What belongs here is the shape and the rules:
   (a relation edge class_levels → subjects), `class_terms`, `teacher_assignment`, `student_profile`,
   `teacher_profile`, `parent_profile`, `admin_profile`, `lesson_assessments`, `general_assessments`,
   `compositions`, `submissions`, `credentials`.
-- **Two known divergences between the files and prod**, both in the harmless direction (the files declare more
-  than prod has, and both concern unused tables): v3 declares a `teaches` edge that was never applied, and v3
-  declares `general_assessments.questions.*` sub-fields that prod lacks (that table is empty and the feature is
-  unimplemented). A database rebuilt from `db/schema-v*.surql` would therefore be slightly stricter there than
-  prod. Nothing else differs: the sandbox fixture and prod match field-for-field on the tables the app uses.
+- **Two divergences between the files and prod were harmless, and both are closed** (the files had declared
+  more than prod, on unused tables): v3's `teaches` edge, and its `general_assessments.questions.*` sub-fields.
   *(Both were closed on 2026-10-05: the six `general_assessments.questions.*` statements were applied for the
   general-assessment feature, and applying v3 for them also brought in its `teaches` table and
-  `teacher_profile.qualifications` — empty and unread by the app. Prod and the files now agree on the tables the
-  app uses.)*
+  `teacher_profile.qualifications` — empty and unread by the app.)*
+- **The third divergence is the one that is not harmless, and it is why the lineage is not a rebuild recipe.**
+  v5 was never applied to prod: prod's `student_profile` has eleven fields and no `admission_number`, its
+  `teacher_profile` and `admin_profile` have no `staff_id`, and there is no `id_sequences` table. The file
+  declares all three as required non-empty strings with unique indexes, and the backend writes none of them —
+  so a fresh database with v5 applied breaks user creation: `POST /api/users` for a Student answers
+  `Couldn't coerce value for field 'admission_number' of 'student_profile:…': Expected 'string' but found
+  'NONE'`, and the login is rolled back so it can be retried. `db/schema-v5-init.surql` also opens with
+  `DELETE id_sequences`, against the additive-only rule below. Neither file is part of what prod runs — each
+  says so in its own header — and one side has to give (the code writes the columns, or v5 is retired) before
+  the lineage is replayed anywhere. Nothing else differs: the sandbox fixture and prod match field-for-field
+  on the tables the app uses.
 - **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username.
 - **Relations are edges**, created with `RELATE`; `has_subject` is the curriculum.
 - **Record links, not strings**: a filter on a link column must compare against a record literal

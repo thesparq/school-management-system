@@ -1,3 +1,16 @@
+-- Schema V5: admission numbers and staff ids — NOT APPLIED TO PROD, and not safe to apply as it stands.
+--
+-- Prod never ran this file: `student_profile` there has eleven fields and no `admission_number`, its
+-- `teacher_profile` and `admin_profile` have no `staff_id`, and there is no `id_sequences` table. The backend
+-- (`roc-backend/main.roc`) writes none of those columns either, yet they are declared here as required
+-- non-empty strings with unique indexes — so a fresh database with this file applied refuses `POST /api/users`
+-- for a Student/Teacher/Admin ("Couldn't coerce value for field `admission_number` of `student_profile:…`:
+-- Expected `string` but found `NONE`"), and the login is rolled back. The `permissions` array at the end of
+-- this file is unread and unwritten by the app too, but it has a default, so it does not break a write.
+--
+-- Reconcile before replaying the lineage: the code writes the columns, or this file is retired.
+-- `docs/architecture.md` ("Storage model") carries the same note.
+
 DEFINE TABLE IF NOT EXISTS id_sequences SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS type ON id_sequences TYPE string ASSERT $value IN ["student", "staff", "admin"];
 DEFINE FIELD IF NOT EXISTS prefix ON id_sequences TYPE string;
