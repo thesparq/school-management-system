@@ -3,8 +3,9 @@
 #
 #   ./build.roc
 #
-# To build app.roc into `www/app.wasm`. Run from the repo root, or let
-# ./watch.roc run it once at startup, for Joy's runtime.js.
+# To build app.roc into `www/app.wasm`. Run it from this directory — the paths
+# below are relative to it — or let ./watch.roc run it once at startup, for
+# Joy's runtime.js.
 #
 # joy-html arrives as a release bundle through the URL in app.roc's header.
 # The Joy platform is whatever app.roc's header names: a release bundle by
@@ -21,6 +22,13 @@ import pf.Path
 import pf.Stderr
 
 out_path = "www/app.wasm"
+
+# The compiler writes the summary line the check below reads to stdout, and its warnings to
+# stderr. Both are redirected into this file rather than read from pipes: capturing them
+# (`exec_output_bytes!`) can come back short, and the summary sits at the very end, so a lost
+# tail turns a good build into a failed one. A shell redirect writes to disk, where a short
+# read cannot drop it. Gitignored — it holds the last build's diagnostics, not source.
+log_path = "build.log"
 
 main! = |_args| {
 	# roc can exit 0 without writing anything, so drop the wasm up front and
@@ -87,23 +95,33 @@ platform_url! = || {
 }
 
 # roc exits 2 when it emits warnings but 0 even when it reports errors, so the
-# summary line decides, not the exit code. Any warning, an error, or a module
-# that never got written fails the build.
+# summary line decides, not the exit code. An error in that summary, or a module
+# that never got written, fails the build. The compiler runs under `sh` so that
+# both of its streams land in log_path; see that constant for why.
 build_app! = || {
-	output = capture!(
-		Cmd.new_str("roc")
-			.args_str(["build", "--target=wasm32", "--no-cache", "--output=${out_path}", "app.roc"]),
-	)?
-	clean = match output.split_on("\n").keep_oks(summary_counts).last() {
-		Ok(counts) => counts.errors == 0 and True
-		Err(_) => Bool.False
-	}
+	command = "roc build --target=wasm32 --no-cache --output=${out_path} app.roc > ${log_path} 2>&1"
 
-	if clean and Path.utf8(out_path).is_file!()? {
-		Ok({})
-	} else {
-		Stderr.line!(output)?
-		fail!("roc build failed for app.roc")
+	match Cmd.new_str("sh").args_str(["-c", command]).exec_exit_code!() {
+		Err(_) => fail!("could not run: ${command}")
+
+		Ok(_) => {
+			output = match Path.utf8(log_path).read_bytes!() {
+				Ok(bytes) => Str.from_utf8_lossy(bytes)
+				Err(_) => ""
+			}
+			clean = match output.split_on("\n").keep_oks(summary_counts).last() {
+				Ok(counts) => counts.errors == 0 and True
+				Err(_) => Bool.False
+			}
+
+			if clean and Path.utf8(out_path).is_file!()? {
+				Ok({})
+			} else {
+				Stderr.line!("--- ${log_path} ---")?
+				Stderr.line!(output)?
+				fail!("roc build failed for app.roc (the compiler's own output is above, and in ${log_path})")
+			}
+		}
 	}
 }
 
@@ -116,18 +134,6 @@ summary_counts = |line| {
 	errors = U64.from_str(at_error.before.trim()).map_err(|_| NotFound)?
 	warnings = U64.from_str(at_warning.before.trim()).map_err(|_| NotFound)?
 	Ok({ errors, warnings })
-}
-
-# roc spreads its diagnostics across stdout and stderr, and a run that reports
-# errors can exit 0, so gather both streams whatever the exit code was.
-capture! = |cmd| {
-	match cmd.exec_output_bytes!() {
-		Ok(streams) => Ok(Str.from_utf8_lossy(streams.stdout_bytes.concat(streams.stderr_bytes)))
-		Err(NonZeroExitCodeB(streams)) =>
-			Ok(Str.from_utf8_lossy(streams.stdout_bytes.concat(streams.stderr_bytes)))
-
-		Err(FailedToGetExitCodeB(_)) => fail!("could not run ${Cmd.to_str(cmd)}")
-	}
 }
 
 # Run a command with inherited stdio, exiting with the child's code when it

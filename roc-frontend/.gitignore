@@ -11,5 +11,7 @@
 # Build artifacts (runtime.js is copied out of the platform bundle by build.roc)
 www/app.wasm
 www/runtime.js
+# build.roc's compiler log: the last build's own diagnostics, written by its shell redirect
+build.log
 
 .zig-cache/
