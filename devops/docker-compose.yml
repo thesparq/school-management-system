@@ -12,7 +12,8 @@ services:
       context: .
       dockerfile: Dockerfile.app
     depends_on:
-    - surrealdb
+      surrealdb:
+        condition: service_healthy
     environment:
     - BIND_HOST=0.0.0.0
     - STATIC_DIR=/app/www

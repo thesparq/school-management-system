@@ -653,6 +653,19 @@ uses (`R2 := [].{…}`), so `roc check main.roc` and `roc build main.roc` are bo
 `users_api.sh` 77/77, `authz.sh` 27/27, `assessment_flow.sh` 41/41. The older "0 errors / 3 warnings"
 lines in this file record the state before that migration.
 
+A third issue, found while the developer tested the live app: the hub's lists (terms, class levels,
+session terms, subjects) answered intermittent 500 `{"error":"Database error"}` — a real backend 500
+(Network tab), the database never restarted, and a manual retry always landed. That is a stale
+keep-alive: the docker bridge drops the app's idle connection to `surrealdb:8000`, the first request
+after a pause fails at the socket, and the retry opens a fresh connection (it never reproduced on
+localhost, which is why the suites were green). Fixed with `SurrealDB.query_read!` (retry once on a
+connection-level failure, logged to stdout so `docker logs` confirms it), applied to every read call
+site and the user listing (`db_body_read!`), while writes stay non-retrying; and the compose now
+starts the app only after the database's healthcheck (`depends_on: condition: service_healthy`).
+Verified: `roc check main.roc` 0 errors / 0 warnings; the retry branch proven against a dead DB
+(500 plus the logged retry line); on a fresh sandbox `users_api.sh` 77/77, `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `e2e_admin_config.cjs` 53/53, `e2e_loading.cjs` 20/20.
+
 - `/health` now makes an unreachable database an unhealthy container. The compose file's
   `restart: unless-stopped` reacts to exits, not to health, so the state surfaces in `docker ps` health
   and in `deploy_check.cjs` rather than as a restart loop.
