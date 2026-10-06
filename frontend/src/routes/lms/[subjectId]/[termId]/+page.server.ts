@@ -25,51 +25,40 @@ async function resolveSubjectName(subjectId: string, userId: string): Promise<st
 	}
 }
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const userId = locals.user?.id;
 	if (!userId) redirect(302, '/');
 
 	const subjectId = params.subjectId;
 	const termId = params.termId;
 
-	const [subjectName, termName] = await Promise.all([
+	const dataPromise = Promise.all([
 		resolveSubjectName(subjectId, userId),
-		resolveTermName(termId, userId)
-	]);
-
-	const lessonsResult = await proxyToStudent(userId, '/lessons', { subject_id: subjectId, term_id: termId });
-	if (lessonsResult.error) {
-		return {
-			lessons: [], termName,
-			lessonsError: lessonsResult.error.message ?? 'Unknown error',
-			breadcrumbs: [
-				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
-				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
-				{ label: termName } as BreadcrumbItem
-			]
-		};
-	}
-
-	let lessons: Lesson[];
-	try {
-		lessons = JSON.parse(lessonsResult.data);
-	} catch {
-		return {
-			lessons: [], termName, lessonsError: 'Invalid response.',
-			breadcrumbs: [
-				{ label: 'Subjects', href: '/' } as BreadcrumbItem,
-				{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
-				{ label: termName } as BreadcrumbItem
-			]
-		};
-	}
-
-	return {
-		lessons, termName, lessonsError: null,
-		breadcrumbs: [
+		resolveTermName(termId, userId),
+    proxyToStudent(userId, '/lessons', { subject_id: subjectId, term_id: termId })
+	]).then(([subjectName, termName, lessonsResult]) => {
+    const breadcrumbs = [
 			{ label: 'Subjects', href: '/' } as BreadcrumbItem,
 			{ label: subjectName, href: `/lms/${subjectId}` } as BreadcrumbItem,
 			{ label: termName } as BreadcrumbItem
-		]
+		];
+
+    if (lessonsResult.error) {
+      return {
+        lessons: [], termName, subjectName, breadcrumbs,
+        lessonsError: lessonsResult.error.message ?? 'Unknown error',
+      };
+    }
+    
+    try {
+      const lessons: Lesson[] = JSON.parse(lessonsResult.data);
+      return { lessons, termName, subjectName, breadcrumbs, lessonsError: null };
+    } catch {
+      return { lessons: [], termName, subjectName, breadcrumbs, lessonsError: 'Invalid response.' };
+    }
+  });
+
+	return {
+		streamed: { dataPromise }
 	};
 };

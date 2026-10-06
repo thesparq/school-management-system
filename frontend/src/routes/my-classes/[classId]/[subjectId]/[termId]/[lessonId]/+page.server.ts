@@ -10,56 +10,56 @@ export const load: PageServerLoad = async ({ params, locals, fetch }) => {
 
   const { classId, subjectId, termId, lessonId } = params;
 
-  const lessonPromise = fetch(`/api/student/lesson?lesson_id=${encodeURIComponent(lessonId)}`)
-    .then(async (res) => {
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: { message: 'Failed to fetch lesson' } }));
-        return { lesson: null, lessonError: err.error?.message ?? 'Unknown error' };
-      }
-      const json = await res.json();
-      const lesson: LessonContent | null = json.data ?? null;
-      if (!lesson) {
-        return { lesson: null, lessonError: 'Lesson not found.' };
-      }
-      return { lesson, lessonError: null };
-    })
-    .catch(() => ({ lesson: null, lessonError: 'Failed to reach server.' }));
+  const dataPromise = Promise.all([
+    fetch('/api/teacher/classes'),
+    fetch('/api/teacher/terms'),
+    fetch(`/api/student/lesson?lesson_id=${encodeURIComponent(lessonId)}`)
+  ]).then(async ([classesRes, termsRes, lessonRes]) => {
+    let classLevelName = 'Class';
+    let subjectName = 'Subject';
+    let termName = 'Term';
 
-  let classLevelName = 'Class';
-  let subjectName = 'Subject';
-  let termName = 'Term';
+    if (classesRes.ok) {
+      try {
+        const classesJson = await classesRes.json();
+        const groups: TeacherClassGroup[] = classesJson.data ?? [];
+        const match = groups.find((g: TeacherClassGroup) => g.class_level_id === classId);
+        if (match) {
+          classLevelName = match.class_level_name;
+          const subjMatch = match.subjects.find(s => s.subject_id === subjectId);
+          if (subjMatch) subjectName = subjMatch.subject_name;
+        }
+      } catch { /* fallback */ }
+    }
 
-  const classesRes = await fetch('/api/teacher/classes');
-  if (classesRes.ok) {
-    try {
-      const classesJson = await classesRes.json();
-      const groups: TeacherClassGroup[] = classesJson.data ?? [];
-      const match = groups.find((g: TeacherClassGroup) => g.class_level_id === classId);
-      if (match) {
-        classLevelName = match.class_level_name;
-        const subjMatch = match.subjects.find(s => s.subject_id === subjectId);
-        if (subjMatch) subjectName = subjMatch.subject_name;
-      }
-    } catch { /* fallback */ }
-  }
+    if (termsRes.ok) {
+      try {
+        const termsJson = await termsRes.json();
+        const terms: { id: string; name: string }[] = termsJson.data ?? [];
+        const termMatch = terms.find(t => t.id === termId);
+        if (termMatch) termName = termMatch.name;
+      } catch { /* fallback */ }
+    }
 
-  const termsRes = await fetch('/api/teacher/terms');
-  if (termsRes.ok) {
-    try {
-      const termsJson = await termsRes.json();
-      const terms: { id: string; name: string }[] = termsJson.data ?? [];
-      const termMatch = terms.find(t => t.id === termId);
-      if (termMatch) termName = termMatch.name;
-    } catch { /* fallback */ }
-  }
+    const breadcrumbs: BreadcrumbItem[] = [
+      { label: 'My Classes', href: '/' },
+      { label: classLevelName, href: `/my-classes/${classId}` },
+      { label: subjectName, href: `/my-classes/${classId}/${subjectId}` },
+      { label: termName, href: `/my-classes/${classId}/${subjectId}/${termId}` },
+      { label: 'Lesson' }
+    ];
 
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'My Classes', href: '/' },
-    { label: classLevelName, href: `/my-classes/${classId}` },
-    { label: subjectName, href: `/my-classes/${classId}/${subjectId}` },
-    { label: termName, href: `/my-classes/${classId}/${subjectId}/${termId}` },
-    { label: 'Lesson' }
-  ];
+    if (!lessonRes.ok) {
+      const err = await lessonRes.json().catch(() => ({ error: { message: 'Failed to fetch lesson' } }));
+      return { lesson: null, lessonError: err.error?.message ?? 'Unknown error', breadcrumbs };
+    }
+    const json = await lessonRes.json();
+    const lesson: LessonContent | null = json.data ?? null;
+    if (!lesson) {
+      return { lesson: null, lessonError: 'Lesson not found.', breadcrumbs };
+    }
+    return { lesson, lessonError: null, breadcrumbs };
+  }).catch(() => ({ lesson: null, lessonError: 'Failed to reach server.', breadcrumbs: [] }));
 
-  return { streamed: { lesson: lessonPromise }, breadcrumbs };
+  return { streamed: { dataPromise } };
 };

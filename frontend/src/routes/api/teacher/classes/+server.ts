@@ -1,4 +1,4 @@
-import { proxyToTeacher, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -10,7 +10,7 @@ export const GET: RequestHandler = async (event) => {
     );
   }
 
-  const result = await proxyToTeacher(userId, '/classes');
+  const result = await proxyToCoreApi(userId, '/teacher/classes');
 
   if (result.error) {
     return new Response(JSON.stringify(result), { status: mapErrorCodeToHttpStatus(result.error.code), headers: { 'content-type': 'application/json' } });

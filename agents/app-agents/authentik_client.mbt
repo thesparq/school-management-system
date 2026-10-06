@@ -26,7 +26,7 @@ fn authentik_request(
   }
   match
     http_request(
-      cfg.host,
+      cfg.host + ":443",
       http_method,
       @http_types.Https,
       api_path,

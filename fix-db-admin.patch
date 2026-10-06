@@ -1,0 +1,106 @@
+--- agents/app-agents/db_admin.mbt
++++ agents/app-agents/db_admin.mbt
+@@ -49,6 +49,7 @@
+ pub fn db_admin_create_student_profile(
+   config : SharedConfig,
+   user_id : String,
++  admission_number : String,
+   surname : String,
+   first_name : String,
+   middle_name : String?,
+@@ -62,6 +63,7 @@
+     Some(_) =>
+       {
+         "user_id": user_id,
++        "admission_number": admission_number,
+         "surname": surname,
+         "first_name": first_name,
+         "middle_name": middle_name.unwrap(),
+@@ -73,6 +75,7 @@
+     None =>
+       {
+         "user_id": user_id,
++        "admission_number": admission_number,
+         "surname": surname,
+         "first_name": first_name,
+         "display_name": display_name,
+@@ -82,10 +85,34 @@
+       }
+   }
+-  let sql = if middle_name.is_some() {
+-    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, middle_name = $middle_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
+-  } else {
+-    "CREATE type::record('student_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, date_of_birth = <datetime>$dob, class_enrolled = type::record('class_levels', $cl), current_class = type::record('class_levels', $cl), passport = $passport, created_at = time::now()"
++  let sql = match middle_name {
++    Some(_) =>
++      #| CREATE type::record('student_profile', $user_id) CONTENT {
++      #|   admission_number: $admission_number,
++      #|   surname: $surname,
++      #|   first_name: $first_name,
++      #|   middle_name: $middle_name,
++      #|   display_name: $display_name,
++      #|   date_of_birth: $dob,
++      #|   class_enrolled: type::record('class_levels', $cl),
++      #|   current_class: type::record('class_levels', $cl),
++      #|   passport: $passport,
++      #|   created_at: time::now()
++      #| };
++    None =>
++      #| CREATE type::record('student_profile', $user_id) CONTENT {
++      #|   admission_number: $admission_number,
++      #|   surname: $surname,
++      #|   first_name: $first_name,
++      #|   display_name: $display_name,
++      #|   date_of_birth: $dob,
++      #|   class_enrolled: type::record('class_levels', $cl),
++      #|   current_class: type::record('class_levels', $cl),
++      #|   passport: $passport,
++      #|   created_at: time::now()
++      #| };
+   }
+   match surreal_query(config, sql, bindings=b) {
+@@ -179,6 +206,7 @@
+ pub fn db_admin_create_teacher_profile(
+   config : SharedConfig,
+   user_id : String,
++  staff_id : String,
+   surname : String,
+   first_name : String,
+   middle_name : String?,
+@@ -201,13 +229,14 @@
+       "]"
+     None => ""
+   }
+-  let sql = "CREATE type::record('teacher_profile', $user_id) SET surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
++  let sql = "CREATE type::record('teacher_profile', $user_id) SET staff_id = $staff_id, surname = $surname, first_name = $first_name, display_name = $display_name, passport = $passport, created_at = time::now()" +
+     mn_part +
+     de_part +
+     qual_part
+   let b = match (middle_name, date_employed) {
+     (Some(mn), Some(de)) =>
+       {
+         "user_id": user_id,
++        "staff_id": staff_id,
+         "surname": surname,
+         "first_name": first_name,
+@@ -218,6 +247,7 @@
+     (Some(mn), None) =>
+       {
+         "user_id": user_id,
++        "staff_id": staff_id,
+         "surname": surname,
+         "first_name": first_name,
+@@ -228,6 +258,7 @@
+     (None, Some(de)) =>
+       {
+         "user_id": user_id,
++        "staff_id": staff_id,
+         "surname": surname,
+         "first_name": first_name,
+@@ -237,6 +268,7 @@
+     (None, None) =>
+       {
+         "user_id": user_id,
++        "staff_id": staff_id,
+         "surname": surname,
+         "first_name": first_name,

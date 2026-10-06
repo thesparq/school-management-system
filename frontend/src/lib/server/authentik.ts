@@ -1,6 +1,13 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { env } from '$env/dynamic/private';
 
+let usersCache: AuthentikUser[] | null = null;
+let usersCacheTime = 0;
+
+let groupsCache: AuthentikGroup[] | null = null;
+let groupsCacheTime = 0;
+
+
 function getConfig() {
 	if (!env.AUTHENTIK_ISSUER_URL || !env.AUTHENTIK_CLIENT_ID || !env.ORIGIN) {
 		throw new Error(
@@ -247,7 +254,7 @@ async function getTargetGroupPks(): Promise<Set<string>> {
 	const token = env.AUTHENTIK_SERVICE_ACCOUNT_TOKEN;
 	if (!host || !token) return new Set();
 
-	const targetNames = ['admin', 'student', 'teacher', 'parent'];
+	const targetNames = ['super admins', 'administrators', 'students', 'teachers', 'parents', 'staff', 'staffs', 'admin', 'student', 'teacher', 'parent'];
 	const targetPks = new Set<string>();
 
 	let nextUrl: string | null = `https://${host}/api/v3/core/groups/?page_size=100`;

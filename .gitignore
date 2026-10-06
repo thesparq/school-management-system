@@ -8,3 +8,37 @@ _build/
 .agents
 **/.agents
 .claude
+golem-server.log
+
+# `roc build main.roc` output (see roc-backend/README.md)
+/roc-backend/main
+
+# Untracked scratch in the developer's working tree: root-anchored, because the real files live under
+# roc-frontend/ and roc-backend/. Two patterns match files that are already committed (`fix_compose.py`,
+# `package-lock.json`); an ignore rule never hides a tracked file, so those two only matter if the file
+# leaves the index.
+/cookies.txt
+/app.wasm
+/mock_authentik.py
+/fix_*.py
+/Test*.roc
+/test*.roc
+/explanation.md
+/plan.md
+/fix_summary.md
+# The repo installs with pnpm; the npm lockfile is scratch.
+/package-lock.json
+# Scratch directories: a second Joy checkout (the real one is roc-frontend/joy/), generated docs, a
+# Golem temp dir, agent scratch, and a stale copy of the e2e suites (the live ones are
+# roc-frontend/tests/e2e/).
+/joy/
+/generated-docs/
+/golem-temp/
+/roc-agents/
+/tests/e2e/
+# Hand-kept backups of the compose file.
+/devops/docker-compose.yml.orig
+/devops/docker-compose.yml.broken
+/devops/docker-compose.yml.broken2
+/devops/docker-compose.yml.original
+/devops/docker-compose.yml.remote

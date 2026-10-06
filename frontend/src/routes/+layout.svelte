@@ -9,18 +9,26 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import ToastContainer from '$lib/components/ui/toast/toast-container.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { page, navigating } from '$app/stores';
-	import SidebarLogo from '$lib/components/SidebarLogo.svelte';
-	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import type { LayoutData } from './$types';
-	import type { Snippet } from 'svelte';
+  import { page, navigating } from '$app/stores';
+  import SidebarLogo from '$lib/components/SidebarLogo.svelte';
+  import { Badge } from '$lib/components/ui/badge';
+  import { addToast } from '$lib/stores/toast';
+  import { onMount } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import type { LayoutData } from './$types';
+  import type { Snippet } from 'svelte';
+  import NotificationBell from '$lib/components/ui/NotificationBell.svelte';
+  import MiniChatWidget from '$lib/components/ui/MiniChatWidget.svelte';
+  import { matrixStore } from '$lib/stores/matrixStore.svelte';
 
-	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 
-	let sidebarOpen = $state(true);
-	let isLoggingOut = $state(false);
-	let error = $state('');
+  let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+  let sidebarOpen = $state(true);
+  let isLoggingOut = $state(false);
+  let error = $state('');
+  let activeSessionTerm = $state<{ id: string; session_name: string; term_name: string } | null>(null);
+  let activeStLoading = $state(false);
 
 	$effect(() => {
 		const stored = localStorage.getItem('sidebar_state');
@@ -62,11 +70,13 @@
 	}
 
 	onMount(() => {
+		if (data?.user?.id) {
+			matrixStore.init(data.user.id, data.user.id);
+		}
 		const origFetch = window.fetch.bind(window);
 		window.fetch = async (input, init) => {
 			const res = await origFetch(input, init);
 			if (res.status === 401) {
-				// Only intercept same-origin requests (not third-party APIs)
 				const reqUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input instanceof Request ? input.url : '';
 				const isSameOrigin = !reqUrl || new URL(reqUrl, window.location.origin).origin === window.location.origin;
 				if (isSameOrigin) {
@@ -78,7 +88,6 @@
 							return new Promise<Response>(() => {});
 						}
 					} catch {
-						// Response body not JSON — not our structured 401, pass through
 					}
 				}
 			}
@@ -87,6 +96,24 @@
 		return () => {
 			window.fetch = origFetch;
 		};
+	});
+
+	$effect(() => {
+		const _ = $page.url.pathname;
+		activeStLoading = true;
+		fetch('/api/admin/active-session-term').then(async (res) => {
+			if (res.ok) {
+				const json = await res.json();
+				const newTerm = json.data ?? null;
+				if (activeSessionTerm && newTerm && activeSessionTerm.id !== newTerm.id) {
+					addToast('info', 'Active session term updated', `${newTerm.session_name} — ${newTerm.term_name}`);
+				}
+				activeSessionTerm = newTerm;
+			}
+			activeStLoading = false;
+		}).catch(() => {
+			activeStLoading = false;
+		});
 	});
 </script>
 
@@ -104,21 +131,33 @@
 			<SidebarLogo />
 
 		<SidebarContent>
+			<!-- 1. Dashboard & Learning (All Users) -->
 			<SidebarGroup>
 				<SidebarGroupLabel>Navigation</SidebarGroupLabel>
 				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton isActive={$page.url.pathname === '/'}>
-							{#snippet child({ props })}
-								<a href="/" {...props}>LMS</a>
-							{/snippet}
-						</SidebarMenuButton>
-					</SidebarMenuItem>
+					{#if data.user.roles.includes('student')}
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/student')}>
+								{#snippet child({ props })}
+									<a href="/student" {...props}>Student Hub</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					{/if}
+					{#if data.user.roles.includes('parent')}
+						<SidebarMenuItem>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/parent')}>
+								{#snippet child({ props })}
+									<a href="/parent" {...props}>Parent Hub</a>
+								{/snippet}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					{/if}
 					{#if data.user.roles.includes('teacher')}
 						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/my-classes')}>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/teacher') || $page.url.pathname.startsWith('/my-classes')}>
 								{#snippet child({ props })}
-									<a href="/my-classes" {...props}>My Classes</a>
+									<a href="/teacher" {...props}>Teacher Hub</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
@@ -127,63 +166,35 @@
 			</SidebarGroup>
 
 			{#if data.user.roles.includes('admin')}
+				<!-- 2. System Configuration & Setup (Admin Only) -->
 				<SidebarGroup>
-					<SidebarGroupLabel>Configuration</SidebarGroupLabel>
+					<SidebarGroupLabel>System & Configuration</SidebarGroupLabel>
 					<SidebarMenu>
 						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/session-terms')}>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/timetable')}>
 								{#snippet child({ props })}
-									<a href="/admin/configuration/session-terms" {...props}>Session Terms</a>
+									<a href="/admin/timetable" {...props}>Timetable Engine</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/terms')}>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration')}>
 								{#snippet child({ props })}
-									<a href="/admin/configuration/terms" {...props}>Terms</a>
-								{/snippet}
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/configuration/qualifications')}>
-								{#snippet child({ props })}
-									<a href="/admin/configuration/qualifications" {...props}>Qualifications</a>
+									<a href="/admin/configuration" {...props}>Configuration Hub</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroup>
-			{/if}
 
-			{#if data.user.roles.includes('admin')}
+				<!-- 3. User Management (Admin Only) -->
 				<SidebarGroup>
-					<SidebarGroupLabel>Users</SidebarGroupLabel>
+					<SidebarGroupLabel>User Management</SidebarGroupLabel>
 					<SidebarMenu>
 						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/students')}>
+							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users')}>
 								{#snippet child({ props })}
-									<a href="/admin/users/students" {...props}>Students</a>
-								{/snippet}
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/teachers')}>
-								{#snippet child({ props })}
-									<a href="/admin/users/teachers" {...props}>Teachers</a>
-								{/snippet}
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/parents')}>
-								{#snippet child({ props })}
-									<a href="/admin/users/parents" {...props}>Parents</a>
-								{/snippet}
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-						<SidebarMenuItem>
-							<SidebarMenuButton isActive={$page.url.pathname.startsWith('/admin/users/admin-role')}>
-								{#snippet child({ props })}
-									<a href="/admin/users/admin-role" {...props}>Admin</a>
+									<a href="/admin/users" {...props}>Users Hub</a>
 								{/snippet}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
@@ -230,6 +241,17 @@
 
       <div class="flex-1"></div>
 
+			{#if activeStLoading}
+				<div class="h-5 w-5 animate-spin rounded-full border-2 border-secondary-300 border-t-secondary-600 dark:border-secondary-700 dark:border-t-secondary-400"></div>
+			{/if}
+			{#if activeSessionTerm}
+				<Badge class="text-sm bg-secondary-100 text-secondary-700 border-secondary-300 dark:bg-secondary-900 dark:text-secondary-300 dark:border-secondary-700">
+					{activeSessionTerm.session_name} &mdash; {activeSessionTerm.term_name}
+				</Badge>
+			{/if}
+
+			<NotificationBell />
+
 			<ThemeToggle />
 
 			<DropdownMenu>
@@ -268,4 +290,5 @@
 		</main>
 	</SidebarInset>
 </SidebarProvider>
+<MiniChatWidget />
 <ToastContainer />

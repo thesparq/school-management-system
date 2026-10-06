@@ -5,6 +5,7 @@
 	import {
 		Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 	} from '$lib/components/ui/table';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import {
 		Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 	} from '$lib/components/ui/dialog';
@@ -21,12 +22,11 @@
 		active: boolean;
 	}
 
-	let { data }: { data: PageData } = $props();
-	let qualifications: Qualification[] = $state(data.qualifications);
+	let { data }: { data: any } = $props();
+	let loadError = $state(data.loadError || '');
+	let qualifications: Qualification[] = $state([]);
 
-	$effect(() => {
-		qualifications = data.qualifications;
-	});
+	
 
 	let showCreateDialog = $state(false);
 	let createName = $state('');
@@ -86,45 +86,57 @@
 			deletingQual = null;
 		}
 	}
+
+	$effect(() => { 
+		if (data.streamed) {
+			data.streamed.qualificationsRes.then((res: any) => qualifications = res).catch((err: Error) => loadError = err.message);
+		}
+	});
 </script>
 
 <div class="space-y-6">
 	<PageHeader title="Qualifications" createLabel="Create Qualification" onCreate={() => showCreateDialog = true} />
 
-	{#if data.qualificationsError}
-		<StatusCard variant="error" title="Failed to load data" description={data.qualificationsError} onRetry={() => window.location.reload()} />
-	{:else if qualifications.length === 0}
-		<StatusCard variant="info" title="No qualifications created yet." description="Create a qualification to use in teacher credential assignments." />
-	{:else}
-		<Card>
-			<CardContent class="p-0">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead class="w-28">Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{#each qualifications as qual (qual.id)}
+	{#await data.streamed.qualificationsRes}
+		<TableSkeleton />
+	{:then _}
+		{#if loadError}
+			<StatusCard variant="error" title="Failed to load data" description={loadError} onRetry={() => window.location.reload()} />
+		{:else if qualifications.length === 0}
+			<StatusCard variant="info" title="No qualifications created yet." description="Create a qualification to use in teacher credential assignments." />
+		{:else}
+			<Card>
+				<CardContent class="p-0">
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell class="font-medium">{qual.name}</TableCell>
-								<TableCell>
-									<AppButton
-										variant="destructive"
-										size="sm"
-										onclick={() => confirmDelete(qual)}
-									>
-										Delete
-									</AppButton>
-								</TableCell>
+								<TableHead>Name</TableHead>
+								<TableHead class="w-28">Actions</TableHead>
 							</TableRow>
-						{/each}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
-	{/if}
+						</TableHeader>
+						<TableBody>
+							{#each qualifications as qual (qual.id)}
+								<TableRow>
+									<TableCell class="font-medium">{qual.name}</TableCell>
+									<TableCell>
+										<AppButton
+											variant="destructive"
+											size="sm"
+											onclick={() => confirmDelete(qual)}
+										>
+											Delete
+										</AppButton>
+									</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load data" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) { createError = ''; createName = ''; } }}>

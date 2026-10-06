@@ -98,27 +98,33 @@ fn http_request_raw(
       break
     }
   }
+  
+  pollable.drop()
+  timer.drop()
+
   if !http_ready {
+    future_response.drop()
     return Err("http request timed out")
   }
 
   let response = match future_response.get() {
     Some(Ok(Ok(r))) => r
-    Some(Ok(Err(_))) => return Err("http response error")
-    Some(Err(_)) => return Err("response already consumed")
-    None => return Err("response not ready after poll")
+    Some(Ok(Err(_))) => { future_response.drop(); return Err("http response error") }
+    Some(Err(_)) => { future_response.drop(); return Err("response already consumed") }
+    None => { future_response.drop(); return Err("response not ready after poll") }
   }
+  future_response.drop()
 
   let status = response.status()
   let incoming_body = match response.consume() {
     Ok(b) => b
-    Err(_) => return Err("consume body failed")
+    Err(_) => { response.drop(); return Err("consume body failed") }
   }
-
   let stream = match incoming_body.stream() {
     Ok(s) => s
     Err(_) => {
       let _ = @http_types.IncomingBody::finish(incoming_body)
+      response.drop()
       return Err("incoming stream failed")
     }
   }
@@ -138,6 +144,7 @@ fn http_request_raw(
   }
   stream.drop()
   let _ = @http_types.IncomingBody::finish(incoming_body)
+  response.drop()
 
   let total = chunks.iter().fold(init=0, fn(acc, c) { acc + c.length() })
   let bytes : FixedArray[Byte] = FixedArray::make(total, b'\x00')

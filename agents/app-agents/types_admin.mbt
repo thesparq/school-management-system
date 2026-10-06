@@ -18,6 +18,7 @@ struct StudentProfileInfo {
   date_of_birth : String
   class_enrolled : String
   current_class : String
+  class_name : String
   passport : String
   created_at : String
 } derive(ToJson, FromJson)
@@ -106,3 +107,17 @@ struct TermSimple {
   active : Bool
   sort_order : Int
 } derive(ToJson, FromJson)
+
+///|
+#derive.golem_schema
+struct ClassArmInfo {
+  id : String
+  class_level : String
+  name : String
+} derive(ToJson, FromJson)
+
+pub struct TeacherAssignmentInfo {
+  id : String
+  teacher_id : String
+  class_subject_id : String
+} derive(Show, ToJson, FromJson)

@@ -7,15 +7,42 @@ const SECURE = !dev;
 
 let inflightRefresh: Promise<TokenResponse | null> | null = null;
 
+const groupToRoleMap: Record<string, string> = {
+	'Super Admins': 'superadmin',
+	'Administrators': 'admin',
+	'Teachers': 'teacher',
+	'Students': 'student',
+	'Parents': 'parent',
+	'Staff': 'staff'
+};
+
 function setUser(
 	event: import('@sveltejs/kit').RequestEvent,
 	payload: JwtClaims
 ) {
+	const rawGroups = payload.groups ?? payload.roles ?? [];
+	// Map plural groups to singular roles
+	const baseRoles = new Set(rawGroups.map(g => groupToRoleMap[g]).filter(Boolean));
+
+	// Implement Role Hierarchy (Expansion)
+	if (baseRoles.has('superadmin')) {
+		baseRoles.add('admin');
+		baseRoles.add('staff');
+	}
+	if (baseRoles.has('admin')) {
+		baseRoles.add('staff');
+	}
+	if (baseRoles.has('teacher')) {
+		baseRoles.add('staff');
+	}
+
+	const mappedRoles = Array.from(baseRoles);
+
 	event.locals.user = {
 		id: payload.sub ?? '',
 		name: payload.name ?? payload.preferred_username ?? '',
 		email: payload.email ?? '',
-		roles: payload.groups ?? payload.roles ?? []
+		roles: mappedRoles
 	};
 }
 

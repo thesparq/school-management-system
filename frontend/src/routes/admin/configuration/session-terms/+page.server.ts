@@ -21,44 +21,20 @@ export const load: PageServerLoad = async (event) => {
 
 	const proxy = adminProxy(user);
 
-	let sessionTerms: SessionTerm[] = [];
-	let sessionTermsError: string | null = null;
-	let terms: Term[] = [];
-	let termsError: string | null = null;
+	const sessionTermsPromise = proxy('/session-terms').then(result => {
+		if (result.error) throw new Error(result.error.message);
+		const parsed = JSON.parse(result.data);
+		return (Array.isArray(parsed) ? parsed : []) as SessionTerm[];
+	});
 
-	// Fetch session terms (critical)
-	try {
-		const stResult = await proxy('/session-terms');
-		if (stResult.error) {
-			sessionTermsError = stResult.error.message;
-		} else {
-			try {
-				const parsed = JSON.parse(stResult.data);
-				sessionTerms = Array.isArray(parsed) ? parsed : [];
-			} catch {
-				sessionTermsError = 'Failed to parse session terms response.';
-			}
-		}
-	} catch {
-		sessionTermsError = 'Failed to reach backend service.';
-	}
+	const termsPromise = proxy('/terms').then(result => {
+		if (result.error) throw new Error(result.error.message);
+		const parsed = JSON.parse(result.data);
+		return (Array.isArray(parsed) ? parsed : []) as Term[];
+	});
 
-	// Fetch terms (optional — only used for create dialog dropdown)
-	try {
-		const termsResult = await proxy('/terms');
-		if (termsResult.error) {
-			termsError = termsResult.error.message;
-		} else {
-			try {
-				const parsed = JSON.parse(termsResult.data);
-				terms = Array.isArray(parsed) ? parsed : [];
-			} catch {
-				termsError = 'Failed to parse terms response.';
-			}
-		}
-	} catch {
-		termsError = 'Failed to load terms.';
-	}
-
-	return { sessionTerms, sessionTermsError, terms, termsError };
+	return { 
+		streamed: { sessionTermsPromise, termsPromise },
+		breadcrumbs: [{ label: 'Configuration' }, { label: 'Session Terms' }] as { label: string; href?: string }[]
+	};
 };

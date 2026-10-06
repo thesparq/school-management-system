@@ -1,0 +1,36 @@
+# Automatic runs are off until the roc-golem migration lands: the Golem runtime this deploys is parked
+# in `devops/legacy/`, and its agents are retired. The job is kept intact for the move to the Roc
+# platform; deploy by dispatching this workflow by hand when needed.
+name: Deploy Golem Backend (legacy, manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+
+      - name: Install Wasm-Tools
+        run: |
+          curl -L "https://github.com/bytecodealliance/wasm-tools/releases/download/wasm-tools-1.218.0/wasm-tools-1.218.0-x86_64-linux.tar.gz" | tar -xz
+          sudo mv wasm-tools-1.218.0-x86_64-linux/wasm-tools /usr/local/bin/
+
+      - name: Install Golem CLI
+        run: |
+          curl -L "https://github.com/golemcloud/golem/releases/latest/download/golem-cli-linux-amd64.tar.gz" | tar -xz
+          sudo mv golem-cli /usr/local/bin/
+
+      - name: Build & Deploy
+        env:
+          GOLEM_ROUTER_URL: ${{ secrets.GOLEM_SERVER_URL }}
+        run: |
+          export PATH="$HOME/.moon/bin:$PATH"
+          cd agents
+          moon build --target wasm --release
+          golem profile add prod --url ${{ secrets.GOLEM_SERVER_URL }} --set-active
+          golem deploy

@@ -16,7 +16,7 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/class-levels');
 
 	if (result.error) {
@@ -40,4 +40,20 @@ export const GET: RequestHandler = async (event) => {
 		JSON.stringify({ data: classLevels }),
 		{ status: 200, headers: { 'content-type': 'application/json' } }
 	);
+};
+
+export const POST: RequestHandler = async (event) => {
+	const user = event.locals.user;
+	if (!user) return new Response(JSON.stringify({ error: { code: 'UNAUTHORIZED' } }), { status: 401 });
+	if (!user.roles.includes('admin')) return new Response(JSON.stringify({ error: { code: 'FORBIDDEN' } }), { status: 403 });
+
+	const body = await event.request.json().catch(() => ({}));
+	const proxy = adminProxy(user, event.request.signal);
+	const result = await proxy('/class-levels', undefined, 'POST', body);
+
+	if (result.error) {
+		return new Response(JSON.stringify(result), { status: 502, headers: { 'content-type': 'application/json' } });
+	}
+
+	return new Response(JSON.stringify({ data: 'ok' }), { status: 200, headers: { 'content-type': 'application/json' } });
 };

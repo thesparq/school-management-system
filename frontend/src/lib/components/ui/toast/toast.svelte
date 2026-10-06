@@ -14,27 +14,27 @@
 
 	const variants: Record<Toast['variant'], { bg: string; bar: string; iconColor: string; iconPath: string }> = {
 		success: {
-			bg: 'bg-success-50 border-success-200 dark:bg-success-900 dark:border-success-700',
-			bar: 'bg-success-500',
-			iconColor: 'text-success-500',
+			bg: 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-50 dark:border-emerald-800',
+			bar: 'bg-emerald-50 text-emerald-9000',
+			iconColor: 'text-emerald-500',
 			iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
 		},
 		info: {
-			bg: 'bg-primary-50 border-primary-200 dark:bg-primary-900 dark:border-primary-700',
-			bar: 'bg-primary-500',
-			iconColor: 'text-primary-500',
+			bg: 'bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950 dark:text-blue-50 dark:border-blue-800',
+			bar: 'bg-blue-50 text-blue-9000',
+			iconColor: 'text-blue-500',
 			iconPath: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
 		},
 		warning: {
-			bg: 'bg-amber-50 border-amber-200 dark:bg-secondary-900 dark:border-secondary-700',
-			bar: 'bg-amber-500',
+			bg: 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950 dark:text-amber-50 dark:border-amber-800',
+			bar: 'bg-amber-50 text-amber-9000',
 			iconColor: 'text-amber-500',
 			iconPath: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z'
 		},
 		error: {
-			bg: 'bg-error-50 border-error-200 dark:bg-error-900 dark:border-error-700',
-			bar: 'bg-error-500',
-			iconColor: 'text-destructive',
+			bg: 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950 dark:text-red-50 dark:border-red-800',
+			bar: 'bg-red-50 text-red-9000',
+			iconColor: 'text-red-500',
 			iconPath: 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z'
 		}
 	};
@@ -86,7 +86,7 @@
 		<path stroke-linecap="round" stroke-linejoin="round" d={v.iconPath} />
 	</svg>
 	<div class="flex-1 min-w-0">
-		<p class="text-sm font-medium text-foreground">{toast.title}</p>
+		<p class="text-sm font-medium text-current">{toast.title}</p>
 		{#if toast.description}
 			<p class="text-xs text-muted-foreground mt-0.5">{toast.description}</p>
 		{/if}

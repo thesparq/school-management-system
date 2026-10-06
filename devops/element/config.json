@@ -1,0 +1,65 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://matrix.johnethel.school",
+            "server_name": "matrix.johnethel.school"
+        },
+        "m.identity_server": {
+            "base_url": ""
+        }
+    },
+    "brand": "Johnethel School Chat",
+    "integrations_ui_url": "",
+    "integrations_rest_url": "",
+    "integrations_widgets_urls": [],
+    "hosting_signup_link": "",
+    "bug_report_endpoint_url": "",
+    "uisi_autorageshake_app": "",
+    "showLabsSettings": true,
+    "piwik": {
+        "url": "",
+        "whitelistedRootDomain": "",
+        "siteId": "",
+        "policyUrl": ""
+    },
+    "roomDirectory": {
+        "servers": [
+            "matrix.johnethel.school"
+        ]
+    },
+    "enable_presence_by_hs_url": {
+        "https://matrix.johnethel.school": true
+    },
+    "terms_and_conditions_links": [],
+    "sso_redirect_options": {
+        "immediate": true
+    },
+    "disable_custom_urls": true,
+    "disable_guests": true,
+    "disable_login_language_selector": true,
+    "disable_3pid_login": true,
+    "settingDefaults": {
+        "custom_themes": [
+            {
+                "name": "Johnethel Navy Theme",
+                "is_dark": false,
+                "colors": {
+                    "accent-color": "#031737",
+                    "primary-color": "#031737",
+                    "warning-color": "#FFC520",
+                    "sidebar-color": "#f8f9fa",
+                    "roomlist-background-color": "#f8f9fa",
+                    "roomlist-text-color": "#031737",
+                    "roomlist-text-secondary-color": "#64748b",
+                    "roomlist-highlights-color": "#e2e8f0",
+                    "roomlist-separator-color": "#cbd5e1",
+                    "timeline-background-color": "#ffffff",
+                    "timeline-text-color": "#031737",
+                    "timeline-text-secondary-color": "#64748b",
+                    "timeline-highlights-color": "#f1f5f9"
+                }
+            }
+        ],
+        "theme": "Johnethel Navy Theme"
+    }
+}

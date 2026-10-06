@@ -25,7 +25,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/toggle-term-active', { term_id, active: String(active) }, 'POST');
 
 	if (result.error) {

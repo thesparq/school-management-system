@@ -24,12 +24,46 @@ pub fn validate_name(name : String) -> Result[Unit, AppError] {
 
 ///|
 pub fn validate_email(email : String) -> Result[Unit, AppError] {
-  if !email.contains("@") || !email.contains(".") {
+  if email.length() == 0 {
     return Err(AppError::{
       code: ValidationError,
-      message: "Email address is invalid",
+      message: "Email address is required",
       debug: None,
     })
+  }
+  match email.find("@") {
+    None =>
+      return Err(AppError::{
+        code: ValidationError,
+        message: "Email address is invalid",
+        debug: None,
+      })
+    Some(at_idx) => {
+      if at_idx == 0 {
+        return Err(AppError::{
+          code: ValidationError,
+          message: "Email address is invalid",
+          debug: None,
+        })
+      }
+      let domain = email[at_idx + 1:]
+      match domain.find(".") {
+        None =>
+          return Err(AppError::{
+            code: ValidationError,
+            message: "Email address is invalid",
+            debug: None,
+          })
+        Some(dot_idx) =>
+          if dot_idx == 0 || dot_idx == domain.length() - 1 {
+            return Err(AppError::{
+              code: ValidationError,
+              message: "Email address is invalid",
+              debug: None,
+            })
+          }
+      }
+    }
   }
   Ok(())
 }
@@ -82,10 +116,43 @@ pub fn validate_dob(dob : String) -> Result[Unit, AppError] {
       debug: None,
     })
   }
-  if dob.length() < 10 {
+  if dob.length() != 10 {
     return Err(AppError::{
       code: ValidationError,
-      message: "Date of birth must be a valid date",
+      message: "Date of birth must be in YYYY-MM-DD format",
+      debug: None,
+    })
+  }
+  let year_str = dob[0:4]
+  let month_str = dob[5:7]
+  let day_str = dob[8:10]
+  let sep1 = dob[4:5]
+  let sep2 = dob[7:8]
+  if sep1 != "-" || sep2 != "-" {
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Date of birth must be in YYYY-MM-DD format",
+      debug: None,
+    })
+  }
+  if year_str < "1900" || year_str > "2100" {
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Date of birth year must be between 1900 and 2100",
+      debug: None,
+    })
+  }
+  if month_str < "01" || month_str > "12" {
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Date of birth month must be between 1 and 12",
+      debug: None,
+    })
+  }
+  if day_str < "01" || day_str > "31" {
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Date of birth day is invalid",
       debug: None,
     })
   }
@@ -94,10 +161,17 @@ pub fn validate_dob(dob : String) -> Result[Unit, AppError] {
 
 ///|
 pub fn validate_passport_url(url : String) -> Result[Unit, AppError] {
-  if url.length() < 5 || !url.contains("://") {
+  if url == "" {
     return Err(AppError::{
       code: ValidationError,
       message: "Passport is required",
+      debug: None,
+    })
+  }
+  if url.length() < 5 || !url.contains("://") {
+    return Err(AppError::{
+      code: ValidationError,
+      message: "Passport URL must be a valid URL",
       debug: None,
     })
   }

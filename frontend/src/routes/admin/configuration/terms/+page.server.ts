@@ -14,24 +14,16 @@ export const load: PageServerLoad = async (event) => {
 	if (!user || !user.roles.includes('admin')) error(403, 'Forbidden');
 
 	const proxy = adminProxy(user);
-	let terms: TermItem[] = [];
-	let termsError: string | null = null;
 
-	try {
-		const result = await proxy('/terms');
-		if (result.error) {
-			termsError = result.error.message;
-		} else {
-			try {
-				const parsed = JSON.parse(result.data);
-				terms = Array.isArray(parsed) ? parsed : [];
-			} catch {
-				termsError = 'Failed to parse terms response.';
-			}
-		}
-	} catch {
-		termsError = 'Failed to reach backend service.';
-	}
+	// Do NOT await the proxy call here so navigation is instant
+	const termsPromise = proxy('/terms').then(result => {
+		if (result.error) throw new Error(result.error.message);
+		const parsed = JSON.parse(result.data);
+		return (Array.isArray(parsed) ? parsed : []) as TermItem[];
+	});
 
-	return { terms, termsError, breadcrumbs: [{ label: 'Configuration' }, { label: 'Terms' }] as { label: string; href?: string }[] };
+	return { 
+		streamed: { termsPromise },
+		breadcrumbs: [{ label: 'Configuration' }, { label: 'Terms' }] as { label: string; href?: string }[] 
+	};
 };

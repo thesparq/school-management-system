@@ -5,19 +5,21 @@ let authKey: string | null = null;
 
 function getGatewayUrl(): string {
 	if (gatewayUrl) return gatewayUrl;
-	if (!env.GOLEM_GATEWAY_URL) {
+	const val = env.GOLEM_GATEWAY_URL || process.env.GOLEM_GATEWAY_URL;
+	if (!val) {
 		throw new Error('Missing GOLEM_GATEWAY_URL environment variable');
 	}
-	gatewayUrl = env.GOLEM_GATEWAY_URL.replace(/\/+$/, '');
+	gatewayUrl = val.replace(/\/+$/, '');
 	return gatewayUrl;
 }
 
 function getAuthKey(): string {
 	if (authKey) return authKey;
-	if (!env.GOLEM_AUTH_KEY) {
+	const val = env.GOLEM_AUTH_KEY || process.env.GOLEM_AUTH_KEY;
+	if (!val) {
 		throw new Error('Missing GOLEM_AUTH_KEY environment variable');
 	}
-	authKey = env.GOLEM_AUTH_KEY;
+	authKey = val;
 	return authKey;
 }
 
@@ -43,6 +45,17 @@ function errorResult(code: string, message: string): ProxyResult {
 	return { error: { code, message } };
 }
 
+function unwrapJsonMessage(message: string): string {
+	try {
+		const parsed = JSON.parse(message);
+		if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+			if (parsed.message) return parsed.message;
+			if (parsed.errors?.[0]) return parsed.errors[0];
+		}
+	} catch {}
+	return message;
+}
+
 function extractErrorFromBody(raw: string): BackendError | null {
 	try {
 		const parsed = JSON.parse(raw);
@@ -55,14 +68,14 @@ function extractErrorFromBody(raw: string): BackendError | null {
 				if (inner.code) {
 					return {
 						code: inner.code,
-						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						message: unwrapJsonMessage(inner.message || inner.errors?.[0] || 'Unknown error'),
 						detail: inner.debug ?? null
 					};
 				}
 			} catch {
 				// inner wasn't valid JSON
 			}
-			return { code: 'AGENT_ERROR', message: parsed };
+			return { code: 'AGENT_ERROR', message: unwrapJsonMessage(parsed) };
 		}
 
 		// Format 1: Golem Err envelope {"Err": "<inner_json>"}
@@ -72,14 +85,14 @@ function extractErrorFromBody(raw: string): BackendError | null {
 				if (inner.code) {
 					return {
 						code: inner.code,
-						message: inner.message || inner.errors?.[0] || 'Unknown error',
+						message: unwrapJsonMessage(inner.message || inner.errors?.[0] || 'Unknown error'),
 						detail: inner.debug ?? null
 					};
 				}
 			} catch {
 				// inner wasn't valid JSON — use raw Err string
 			}
-			return { code: 'AGENT_ERROR', message: parsed.Err };
+			return { code: 'AGENT_ERROR', message: unwrapJsonMessage(parsed.Err) };
 		}
 
 		// Format 2: Top-level {"code":"...","errors":[...]}
@@ -87,7 +100,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 		if (parsed.code) {
 			return {
 				code: parsed.code,
-				message: parsed.message || parsed.errors?.[0] || 'Unknown error',
+				message: unwrapJsonMessage(parsed.message || parsed.errors?.[0] || 'Unknown error'),
 				detail: parsed.debug ?? null
 			};
 		}
@@ -96,7 +109,7 @@ function extractErrorFromBody(raw: string): BackendError | null {
 		if (parsed.error?.code) {
 			return {
 				code: parsed.error.code,
-				message: parsed.error.message,
+				message: unwrapJsonMessage(parsed.error.message),
 				detail: parsed.error.debug || parsed.error.detail || null
 			};
 		}
@@ -106,12 +119,15 @@ function extractErrorFromBody(raw: string): BackendError | null {
 	return null;
 }
 
-async function proxyFetch(url: string, method: string = 'GET', body?: Record<string, unknown>): Promise<ProxyResult> {
+async function proxyFetch(basePath: string, extraParams?: Record<string, string>, method: string = 'GET', body?: Record<string, unknown>, extraHeaders?: Record<string, string>, signal?: AbortSignal): Promise<ProxyResult> {
 	try {
+		const url = buildUrl(basePath, extraParams);
 		const fetchInit: RequestInit = {
+			signal,
 			method,
 			headers: {
-				'X-Golem-Auth-Key': getAuthKey()
+				'X-Golem-Auth-Key': getAuthKey(),
+				...extraHeaders
 			}
 		};
 		if (body) {
@@ -126,7 +142,7 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 		if (!res.ok) {
 			const extracted = extractErrorFromBody(raw);
 			if (extracted) return errorResult(extracted.code, extracted.message);
-			return errorResult('GATEWAY_ERROR', raw);
+			return errorResult('GATEWAY_ERROR', unwrapJsonMessage(raw));
 		}
 
 		// Gate 2: 2xx — parse Golem envelope
@@ -150,7 +166,7 @@ async function proxyFetch(url: string, method: string = 'GET', body?: Record<str
 					const errText = typeof errValue === 'string' ? errValue : JSON.stringify(errValue);
 					const extracted = extractErrorFromBody(errText);
 					if (extracted) return errorResult(extracted.code, extracted.message);
-					return errorResult('AGENT_ERROR', errText);
+					return errorResult('AGENT_ERROR', unwrapJsonMessage(errText));
 				}
 			}
 		} catch {
@@ -185,24 +201,32 @@ function buildUrl(basePath: string, extraParams?: Record<string, string>): strin
 	return url;
 }
 
-export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams), method ?? 'GET', body);
+export function proxyToAdmin(adminId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<ProxyResult> {
+	return proxyFetch(`/admin/${encodeURIComponent(adminId)}${path}`, extraParams, method ?? 'GET', body, undefined, signal);
 }
 
-export function adminProxy(user: { id: string }): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
-	return (path, extraParams, method, body) => proxyToAdmin(user.id, path, extraParams, method, body);
+export function adminProxy(user: { id: string }, signal?: AbortSignal): (path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>) => Promise<ProxyResult> {
+	return (path, extraParams, method, body) => proxyToAdmin(user.id, path, extraParams, method, body, signal);
 }
 
 export function proxyToStudent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/student/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/student/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function proxyToTeacher(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/teacher/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function proxyToParent(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
-	return proxyFetch(buildUrl(`/parent/${encodeURIComponent(userId)}${path}`, extraParams), method ?? 'GET', body);
+	return proxyFetch(`/parent/${encodeURIComponent(userId)}${path}`, extraParams, method ?? 'GET', body);
+}
+
+export function proxyToCoreApi(userId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(`/core-api/default${path}`, extraParams, method ?? 'GET', body, { 'X-Internal-User-Id': userId });
+}
+
+export function proxyToAssessmentSession(sessionId: string, path: string, extraParams?: Record<string, string>, method?: string, body?: Record<string, unknown>): Promise<ProxyResult> {
+	return proxyFetch(`/assessment-session/${encodeURIComponent(sessionId)}${path}`, extraParams, method ?? 'GET', body);
 }
 
 export function mapErrorCodeToHttpStatus(code: string): number {
@@ -212,6 +236,8 @@ export function mapErrorCodeToHttpStatus(code: string): number {
 		case 'NOT_FOUND': return 404;
 		case 'ALREADY_EXISTS': return 409;
 		case 'NOT_INITIALIZED': return 403;
+		case 'DEADLINE_EXCEEDED': return 410;
+		case 'RESUBMISSION_LIMIT': return 429;
 		case 'AUTHENTIK_ERROR':
 		case 'SURREALDB_ERROR':
 		case 'GATEWAY_ERROR': return 502;

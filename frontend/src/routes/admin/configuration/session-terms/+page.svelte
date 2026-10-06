@@ -23,6 +23,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import TableSkeleton from '$lib/components/ui/skeleton/TableSkeleton.svelte';
 	import StatusCard from '$lib/components/ui/status-card/status-card.svelte';
 	import { addToast } from '$lib/stores/toast';
 	import { goto } from '$app/navigation';
@@ -35,17 +36,19 @@
 		created_at: string;
 	}
 
-	let { data }: { data: PageData } = $props();
-	let sessionTerms: SessionTerm[] = $state(data.sessionTerms);
-
-	$effect(() => {
-		sessionTerms = data.sessionTerms;
-	});
+	let { data }: { data: any } = $props();
+	let loadError = $state(data.loadError || '');
+	let sessionTerms: SessionTerm[] = $state([]);
+	let terms: any[] = $state([]);
 
 	let showCreateDialog = $state(false);
 	let createForm = $state({ sessionName: '', termId: '', active: true });
 	let createLoading = $state(false);
 	let createError = $state('');
+	let showEditDialog = $state(false);
+	let editForm = $state({ id: '', sessionName: '', termId: '' });
+	let editLoading = $state(false);
+	let editError = $state('');
 	let activateLoading = $state<Record<string, boolean>>({});
 	let showActivateConfirm = $state(false);
 	let activatingStId = $state('');
@@ -103,34 +106,69 @@
 			activateLoading = { ...activateLoading, [stId]: false };
 		}
 	}
+
+	async function handleEdit() {
+		if (!editForm.id || !editForm.sessionName || !editForm.termId) return;
+		editLoading = true;
+		editError = '';
+		try {
+			const res = await fetch('/api/admin/session-terms/edit', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: editForm.id,
+					session_name: editForm.sessionName,
+					term_id: editForm.termId
+				})
+			});
+			const body = await res.json();
+			if (!res.ok || body.error) throw new Error(body.error?.message || 'Edit failed');
+			addToast('success', 'Session term updated', `${editForm.sessionName} has been saved.`);
+			showEditDialog = false;
+			await goto('/admin/configuration/session-terms', { invalidateAll: true });
+		} catch (err) {
+			editError = err instanceof Error ? err.message : 'Edit failed';
+		} finally {
+			editLoading = false;
+		}
+	}
+	$effect(() => {
+		if (data.streamed) {
+			data.streamed.sessionTermsPromise.then((json: any) => { sessionTerms = json; }).catch((e: Error) => { loadError = e.message; });
+			data.streamed.termsPromise.then((json: any) => { terms = json; }).catch((e: Error) => { loadError = e.message; });
+		}
+	});
 </script>
 
 <div class="space-y-6">
 	<PageHeader title="Session Terms" createLabel="Create Session Term" onCreate={() => showCreateDialog = true} />
 
-	{#if data.sessionTermsError}
-		<StatusCard variant="error" title="Failed to load data" description={data.sessionTermsError} onRetry={() => window.location.reload()} />
-	{:else if sessionTerms.length === 0}
-		<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
-	{:else}
-		<div class="space-y-4">
-			{#if !hasActive}
-				<StatusCard variant="warning" title="No active session term" description="Teacher assignments cannot be scoped to a term. Activate a session term below." />
-			{/if}
+	{#await Promise.all([data.streamed.sessionTermsPromise, data.streamed.termsPromise])}
+		<TableSkeleton />
+	{:then _}
+		{#if loadError}
+			<StatusCard variant="error" title="Failed to load data" description={loadError} onRetry={() => window.location.reload()} />
+		{:else if sessionTerms.length === 0}
+			<StatusCard variant="info" title="No session terms created yet." description="Create a session term to begin scoping assignments to a school period." />
+		{:else}
+			<div class="space-y-4">
+				{#if !hasActive}
+					<StatusCard variant="warning" title="No active session term" description="Teacher assignments cannot be scoped to a term. Activate a session term below." />
+				{/if}
 
-			<Card>
-				<CardContent class="p-0">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Session</TableHead>
-								<TableHead>Term</TableHead>
-								<TableHead>Active</TableHead>
-								<TableHead>Created</TableHead>
-								<TableHead class="w-28">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
+				<Card>
+					<CardContent class="p-0 overflow-x-auto">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Session</TableHead>
+									<TableHead>Term</TableHead>
+									<TableHead>Active</TableHead>
+									<TableHead>Created</TableHead>
+									<TableHead class="w-36">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 							{#each sessionTerms as st (st.id)}
 								<TableRow>
 									<TableCell class="font-medium">{st.session_name}</TableCell>
@@ -141,7 +179,19 @@
 										</Badge>
 									</TableCell>
 									<TableCell class="text-muted-foreground text-sm">{formatDate(st.created_at)}</TableCell>
-									<TableCell>
+									<TableCell class="flex gap-1">
+										<AppButton
+											variant="outline"
+											size="sm"
+											onclick={() => {
+												const termId = data.terms.find((t: { name: string }) => t.name === st.term_name)?.id || '';
+												editForm = { id: st.id, sessionName: st.session_name, termId };
+												editError = '';
+												showEditDialog = true;
+											}}
+										>
+											Edit
+										</AppButton>
 										<AppButton
 											variant="outline"
 											size="sm"
@@ -160,6 +210,9 @@
 			</Card>
 		</div>
 	{/if}
+	{:catch error}
+		<StatusCard variant="error" title="Failed to load data" description={error.message} onRetry={() => window.location.reload()} />
+	{/await}
 </div>
 
 <Dialog open={showCreateDialog} onOpenChange={(o) => { showCreateDialog = o; if (!o) createError = ''; }}>
@@ -222,6 +275,62 @@
 					disabled={!createForm.sessionName || !createForm.termId}
 				>
 					{createLoading ? 'Creating...' : 'Create'}
+				</AppButton>
+			</div>
+		</form>
+	</DialogContent>
+</Dialog>
+
+<Dialog open={showEditDialog} onOpenChange={(o) => { showEditDialog = o; if (!o) editError = ''; }}>
+	<DialogContent class="sm:max-w-lg">
+		<DialogHeader>
+			<DialogTitle>Edit Session Term</DialogTitle>
+			<DialogDescription>
+				Update the session name or term for this session term.
+			</DialogDescription>
+		</DialogHeader>
+		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEdit(); }}>
+			<div class="space-y-2">
+				<Label for="edit-st-session">Session</Label>
+				<Input id="edit-st-session" bind:value={editForm.sessionName} placeholder="e.g. 2024" required />
+			</div>
+			<div class="space-y-2">
+				<Label for="edit-st-term">Term</Label>
+				{#if data.terms.length > 0}
+					<select
+						id="edit-st-term"
+						class="flex h-9 w-full rounded-none border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-1 cursor-pointer"
+						bind:value={editForm.termId}
+						required
+					>
+						<option value="" disabled>Select a term…</option>
+						{#each data.terms as term (term.id)}
+							<option value={term.id}>{term.name}</option>
+						{/each}
+					</select>
+				{:else}
+					<Input id="edit-st-term" bind:value={editForm.termId} placeholder="e.g. terms:summer_term" required />
+					<p class="text-xs text-muted-foreground">Terms list unavailable. Enter the term record ID manually.</p>
+				{/if}
+			</div>
+			{#if editError}
+				<p class="text-sm text-destructive">{editError}</p>
+			{/if}
+			<div class="flex justify-end gap-2">
+				<AppButton
+					type="button"
+					variant="outline"
+					onclick={() => { showEditDialog = false; editError = ''; }}
+				>
+					Cancel
+				</AppButton>
+				<AppButton
+					type="submit"
+					variant="default"
+					loading={editLoading}
+					disabled={!editForm.id || !editForm.sessionName || !editForm.termId}
+				>
+					{editLoading ? 'Saving...' : 'Save'}
 				</AppButton>
 			</div>
 		</form>

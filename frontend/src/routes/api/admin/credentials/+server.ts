@@ -10,7 +10,7 @@ export const GET: RequestHandler = async (event) => {
 		});
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/credentials');
 
 	if (result.error) {
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/create-credential', { name: body.name }, 'POST');
 
 	if (result.error) {

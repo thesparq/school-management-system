@@ -1,0 +1,51 @@
+database:
+  args:
+    allow_unsafe_locale: true
+    cp_max: 10
+    cp_min: 5
+    database: synapse
+    host: synapse-postgresql
+    password: synapse_db_password
+    user: synapse
+  name: psycopg2
+enable_cors: true
+enable_registration: false
+form_secret: JyJC2ogA&pVX^^*o4J;NKORJZtyj:HnmA;t8ULmFbh5nS1T2Ds
+listeners:
+- bind_addresses:
+  - 0.0.0.0
+  port: 8008
+  resources:
+  - compress: false
+    names:
+    - client
+    - federation
+  tls: false
+  type: http
+  x_forwarded: true
+log_config: /data/matrix.localhost.log.config
+macaroon_secret_key: generate_a_random_string_here_for_macaroons
+media_store_path: /data/media_store
+oidc_providers:
+- client_id: jb6teCreaygrYx352wPfeHwnKKlP7JGGAK8j4TXv
+  client_secret: gsQRmGsb2aWTQ11DRukd1L8DwjSxVlmIliWNmY8qHlUudlz6AlLdp1aUFYbEzLxCavCEWSTpoZw8LZWzadUYvGrzfjfadFDjWqSXvpgiOytFSfOmqvqBQpflAgFncWd6
+  idp_id: authentik
+  idp_name: Johnethel School SSO
+  issuer: https://auth.johnethel.school/application/o/matrix/
+  scopes:
+  - openid
+  - profile
+  - email
+  user_mapping_provider:
+    config:
+      display_name_template: '{{ user.name }}'
+      localpart_template: '{{ user.preferred_username }}'
+password_config:
+  enabled: false
+pid_file: /data/homeserver.pid
+registration_shared_secret: generate_a_random_string_here_for_registration
+report_stats: false
+server_name: matrix.localhost
+signing_key_path: /data/matrix.localhost.signing.key
+trusted_key_servers:
+- server_name: matrix.org

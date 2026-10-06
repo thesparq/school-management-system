@@ -22,7 +22,7 @@ export const POST: RequestHandler = async (event) => {
 			{ status: 400, headers: { 'content-type': 'application/json' } }
 		);
 	}
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const agentBody = JSON.stringify({ authentik_pk: targetPk, is_active: false });
 	const result = await proxy('/set-user-active', undefined, 'POST', { body_json: agentBody });
 	if (result.error) {

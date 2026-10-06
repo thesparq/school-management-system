@@ -1,0 +1,53 @@
+--- agents/app-agents/admin_handler.mbt
++++ agents/app-agents/admin_handler.mbt
+@@ -1160,10 +1160,12 @@
+     Object(o) => o
+     _ => return Err(validation_error("Body must be an object"))
+   }
+-  let username = match obj.get("username") {
+-    Some(String(s)) => s
+-    _ => return Err(validation_error("Username is required"))
++  
++  let username = match db_admin_generate_next_id(config, "student") {
++    Ok(id) => id
++    Err(e) => return Err(e)
+   }
++
+   let surname = match obj.get("surname") {
+     Some(String(s)) => s
+     _ => return Err(validation_error("Surname is required"))
+@@ -1289,7 +1291,7 @@
+   match
+     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+       db_admin_create_student_profile(
+-        config, uuid, surname, first_name, middle_name, display_name, dob, cl_id,
++        config, uuid, username, surname, first_name, middle_name, display_name, dob, cl_id,
+         passport_url,
+       )
+     }) {
+@@ -1319,10 +1321,12 @@
+     Object(o) => o
+     _ => return Err(validation_error("Body must be an object"))
+   }
+-  let username = match obj.get("username") {
+-    Some(String(s)) => s
+-    _ => return Err(validation_error("Username is required"))
++  
++  let username = match db_admin_generate_next_id(config, "staff") {
++    Ok(id) => id
++    Err(e) => return Err(e)
+   }
++
+   let surname = match obj.get("surname") {
+     Some(String(s)) => s
+     _ => return Err(validation_error("Surname is required"))
+@@ -1398,8 +1402,9 @@
+   match
+     @api.with_atomic_operation(fn() -> Result[Unit, AppError] {
+       db_admin_create_teacher_profile(
+         config,
+         uuid,
++        username,
+         surname,
+         first_name,
+         middle_name,

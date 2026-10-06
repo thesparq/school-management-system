@@ -7,7 +7,7 @@ export const GET: RequestHandler = async (event) => {
 	if (!user) error(401, 'Not authenticated');
 	if (!user.roles.includes('admin')) error(403, 'Forbidden');
 
-	const proxy = adminProxy(user);
+	const proxy = adminProxy(user, event.request.signal);
 	const result = await proxy('/terms');
 
 	if (result.error) {
@@ -31,4 +31,23 @@ export const GET: RequestHandler = async (event) => {
 		JSON.stringify({ data }),
 		{ status: 200, headers: { 'content-type': 'application/json' } }
 	);
+};
+
+export const POST: RequestHandler = async (event) => {
+	const user = event.locals.user;
+	if (!user) error(401, 'Not authenticated');
+	if (!user.roles.includes('admin')) error(403, 'Forbidden');
+
+	const body = await event.request.json().catch(() => ({}));
+	const proxy = adminProxy(user, event.request.signal);
+	const result = await proxy('/terms', undefined, 'POST', body);
+
+	if (result.error) {
+		return new Response(JSON.stringify(result), {
+			status: mapErrorCodeToHttpStatus(result.error.code),
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+
+	return new Response(JSON.stringify({ data: 'ok' }), { status: 200, headers: { 'content-type': 'application/json' } });
 };

@@ -1,362 +1,845 @@
 # Progress Tracker
 
-Update this file after every meaningful implementation change.
-
-## Completed
-
-- **✅ HF-12: UI Consistency & Branding Unification — Complete**
-  Applied `PageHeader` component across all pages (4 user mgmt, session terms, terms, root page, LMS terms). Replaced `Alert` and custom HTML with `StatusCard` in LMS term page. Removed dual toast+StatusCard pattern on root page. Unified all container widths to `space-y-6`. Added `ThemeToggle` (dark mode with localStorage + `prefers-color-scheme`). School branding: custom SVG favicon + logo in sidebar header, page title via `<svelte:head>`, `theme-color` meta. Fixed bugs: My Classes link (`href="/"` → `href="/my-classes"`), sidebar teacher role check (`'teachers'` → `'teacher'`). Unified LMS data fetching to use `proxyToStudent` instead of raw `fetch`. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-12-ui-consistency-branding.md`.
-
-- **✅ HF-13: UI Polish, Branding & Edit Dialog Lazy-Load — Complete**
-  **Branding:** Replaced SVG placeholders with actual school logo (`logo.jpg` for sidebar/header, `favicon.png` for favicon). Sidebar logo changes: expanded state shows full logo at `h-10` centered; collapsed state shows nothing in sidebar (slides off-screen), full logo transitions into top bar between SidebarTrigger and breadcrumb with smooth fade+scale animation and vertical separator. `SidebarLogo.svelte` component handles both logo rendering and mobile sidebar auto-close (`$effect` watching `$page.url.pathname` → `sb.setOpenMobile(false)`).
-  
-  **Semantic CSS token migration:** Replaced all raw Tailwind color classes across 19 files with shadcn semantic tokens: `text-surface-*` → `text-foreground`/`text-muted-foreground`/`text-sidebar-foreground`/`text-card-foreground`, `text-error-500` → `text-destructive`, `bg-surface-100` → `bg-muted`/`bg-accent`, `bg-white` → `bg-background`, `border-surface-*` → `border-border`/`border-input`, `bg-error-500` → `bg-destructive`.
-  
-  **New UI patterns:**
-  - `PageSkeleton.svelte` component with 3 layout variants (`list`/`grid`/`card`) integrated across all pages
-  - Edit dialog lazy-load: opens immediately with spinner + "Loading profile data..." + disabled Save button until fetch completes (all 4 UserTables)
-  - Top loading bar slimmed from `h-2` to `h-0.5`, uses `bg-secondary-400` (brighter amber in light mode)
-  - Amber accent on active lesson tab indicator (`border-secondary-500`)
-  - Global cursor CSS in `app.css` (`@layer base`)
-  - Mobile sidebar auto-close on navigation via `SidebarLogo.svelte`'s `$effect`
-  
-  **Infrastructure:**
-  - Dark theme flash prevention: sync `<script>` in `app.html` applies dark class before first paint
-  - Removed broken `useSidebar()` call from `+layout.svelte` (context not available at script level) — moved to child component `SidebarLogo.svelte`
-  - 502 error investigation: root cause is SurrealDB cloud instance unreachable from dev machine (no local SurrealDB, no network access to `vivid-island-te-*.surreal.cloud`). `/ping` works (no DB dependency), all DB-backed endpoints timeout after Golem retries exhaust → 502 through proxy.
-  
-  Build: `pnpm check` 0 errors, 37 warnings (pre-existing). 7 commits. Spec: `docs/specs/hotfix-13-ui-polish-branding.md`.
-
-- **✅ HF-11: Frontend User Management Rework — Complete**
-  Refactored monolithic 997-line `UserTable.svelte` into 4 role-specific table components: `StudentUserTable.svelte` (columns: Name, Email, Class, Auth, Activate, Edit, Delete), `TeacherUserTable.svelte` (plus Assign + class assignment dialog), `AdminUserTable.svelte`, `ParentUserTable.svelte` (with student multi-select). Created 3 shared sub-components: `PassportUpload.svelte` (drag-drop + presigned R2 upload + 200x200 preview), `NameFields.svelte` (surname/first_name/middle_name), `CredentialsSelect.svelte` (teacher qualifications multi-select). All create/edit forms updated with new backend fields: name parts, display_name computation, DOB, class level, passport upload with preview, qualifications, role title, linked students. Edit dialogs pre-load profile from backend. Authentik group fetch fixed to include `parent`. Parent page rewritten with header + create button. All error/empty/loading states unified behind `StatusCard`. Old `UserTable.svelte` deleted. Build: `pnpm check` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-11-frontend-user-management-rework.md`.
-
-- **✅ HF-10: User Management Refactor — Complete**
-  Split `user_profile` into 4 role-specialized tables (`student_profile`, `teacher_profile`, `admin_profile`, `parent_profile`) using Authentik UUIDs as record IDs. New Parent Agent (durable, HTTP) mirrors complete student agent for multi-student read + write access. Credentials lookup table (`credentials:{slug}`) for teacher qualifications. Cloudflare R2 passport storage via presigned URLs with saga compensation on create. Schema: `db/schema-v3.surql` (5 new tables). Backend: 4 new profile types in `types_admin.mbt`, updated `StudentProfile` in `types_student.mbt`, new `types_parent.mbt`. Validation: parent role, dob, passport URL, name_part, student_ids validation. DB layer: `db_admin.mbt` gains 22 role-specific functions (fetch/create/update/soft-delete/undo per table), `db_student.mbt` uses `student_profile` table, new `db_parent.mbt` with 6 query functions. Admin handler: `admin_handler.mbt` replaced 4 generic CRUD functions with 16 role-specific handlers + 2 credential functions + shared sagas. Admin agent: `admin_agent.mbt` replaced 4 generic endpoints with 16 role-specific + `/credentials` + `/students/list`. Parent agent: new `parent_agent.mbt` (7 endpoints) + `parent_handler.mbt` (6 handler functions). `golem.yaml`: ParentAgent registered in httpApi deployments. Frontend: R2 presigned URL utility (`r2.ts`), passport upload endpoint, 5 parent LMS proxy routes, role-specific admin API routes (create/edit/delete/profile per role), credentials + student list routes, sidebar Parents entry, parent user management page. Build: `moon check` 0 errors (49 warnings baseline), `golem build` passes, `pnpm build` passes. Spec: `docs/specs/hotfix-10-user-management-refactor.md`.
-
-- **✅ HF-09: Relocate Term Toggle — Complete**
-  Moved term active/inactive toggling from Teacher Agent to Admin Agent. Removed `toggle_term_active` endpoint and `teacher_toggle_term` handler from Teacher. Added `admin_toggle_term` handler with fire-and-forget cache invalidation to all students (`"all"`) and teachers (`"class_groups"`) via `db_admin_fetch_users_by_role`. New `toggle_term_active` endpoint on AdminAgent. `TermSimple` gains `active : Bool` and `sort_order : Int` fields; `admin_fetch_terms` extracts both. Frontend: deleted `/api/teacher/toggle-term` route; teacher term page now shows padlock badge on inactive terms instead of Switch toggle; new admin `/configuration/terms` page with table layout (Name, Active Switch, Sort Order); new `/api/admin/toggle-term` proxy route; "Terms" link added to admin Configuration sidebar. Build: `moon check` 0 errors, `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-09-relocate-term-toggle.md`.
-
-- **✅ HF-08: Error Handling Unification — Complete**
-  Unified all error responses to match Golem's gateway error convention (`{"code":"...","message":"...","errors":["..."]}`). Renamed `AppError.detail` → `debug` with enforced contract: `message` = always user-facing/clean, `debug` = developer-facing (raw SQL/HTTP responses). New `to_json_string()` produces top-level `code`/`message`/`errors`/`debug` format. Frontend `extractErrorFromBody()` handles 3 formats (Golem Err envelope, top-level, legacy nested). `proxyFetch` adds `!res.ok` gate — any non-2xx response is always treated as error. `db_admin_save_profile` preserves `e.debug` from original errors (no longer lossy). All 17 `detail:` → `debug:` across 5 backend files. `parseStructuredError` removed (superseded). Build: `moon check` 0 errors (26 warnings), `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-08-error-handling-unification.md`.
-
-- **✅ HF-07: Backend Audit Fixes — Complete**
-  Fixed 19 issues from backend audit. Critical: 6 multi-step sagas wrapped in `@api.with_atomic_operation` for Golem crash-recovery atomicity (`admin_create_user`, `admin_edit_user`, `admin_delete_user`, `admin_set_teacher_subjects`, `admin_create_session_term`, `admin_activate_session_term`). SQL safety: `db_admin_create_teacher_assignments` uses `$bindings` (no manual escaping). Error propagation: `student_get_class_level` no longer discards original DB error. Cache self-healing: 8 cache-hit paths use `try_parse_*` helpers (`return None` pattern) — corrupt entries silently re-fetch from DB instead of returning `InternalError`. Toggle reliability: prerequisite lookup errors propagate, fire-and-forget RPCs stay best-effort. Cache invalidation: `admin_soft_delete_profile` and `admin_delete_user` now invalidate affected student/teacher agent caches. Type consistency: 4 outlier Admin endpoints converted from raw JSON strings to typed structs (`SessionTermDetail`, `SessionTermInfo`, `TermSimple`). Teacher caching: `teacher_fetch_terms` and `teacher_fetch_lessons` get cache-first reads with self-invalidation from toggle endpoints. Code quality: `db_teacher_update_lesson_active` dead code removed, `teacher_toggle_lesson` meta_obj dedup, `Map::new()` → `Map([], capacity=0)` consistency, `admin_fetch_active_session_term` → `_id` rename, `CACHE_TTL` constant replaces all raw `600UL`. Layer boundaries: `validate_class_level_exists` delegates to `db_admin_fetch_class_level_by_name`. Build: `moon check` 0 errors (26 warnings, same baseline), `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-07-backend-audit-fixes.md`.
-
-- **✅ HF-06: Backend Refactor — Code Organization, Handlers, Thin Agents — Complete**
-  Full reorganization of `app-agents/` package (27 source files): types extracted to `types_*.mbt` with `derive(ToJson, FromJson)`, SQL queries extracted parameterized `db_*.mbt` (4 domain modules), business logic extracted to `*_handler.mbt` (3 handlers + 1 shared), agents shrunk to thin endpoints (108/53/48 lines). `CacheSystem` adopted in all agent structs (deterministic, dependency-tracked, TTL-based). `cache_types.mbt` and `surreal_client.mbt` deleted. `AlreadyExists`, `authentik_error` dead code removed. `escape_surreal_string` usage gone from DB layer — all queries use `$bindings`. Stale cache fallback removed everywhere — DB failures propagate `Err(e)` directly. Group PK heuristic deleted (front-end always passes UUID). 3 student API routes fixed: `mapErrorCodeToHttpStatus` replaces broken `NOT_ACTIVATED` check. All cache invalidation fire-and-forget (no `return Err` after successful DB writes). Cache-first reads restored in 4 student fetch functions. 3 SvelteKit `$state(data.x)` → `$derived` + `$effect` fixes for SPA navigation staleness. `admin_id` → `_admin_id`, `method` → `http_method` to suppress framework warnings. `teacher_update_term/lesson_active` merged → `teacher_update_record_active`. `CacheEntry.created_at` field removed. `Map::new()` → `Map([], capacity=0)` in 2 files. Warnings: 42 → 25 (all generated code/framework). Build: `golem build` 0 errors, `pnpm build` passes. Spec: `docs/specs/hotfix-06-backend-refactor-cache-code-org.md`.
-
-- **✅ Session 2026-06-07: Frontend Polish & UX Fixes — Complete**
-  - **Toast dark mode contrast:** Added `success-700/800/900` + `error-700/800/900` CSS tokens, `dark:bg-*-900` backgrounds on all 4 toast variants. Bars/icons stay `*-500` (pop on dark), title/description use `text-foreground`/`text-muted-foreground`. Files: `app.css`, `toast.svelte`.
-  - **`session` → `session_name` rename:** Fixed SurrealDB reserved-word crash (protected variable `session`) across MoonBit types/SQL/handlers, `schema-v2.surql` field+index, 5 frontend files (TS interfaces, API body, form state, display). `pnpm check` 0 errors, `moon` generated files regenerate on user build. 9 source files across all layers.
-  - **Assign button delay fixed:** `TeacherUserTable.svelte:openClassAssign()` now opens dialog synchronously before any fetch calls. Lazy-loads teacher-subjects + session-term data inside the dialog with loading spinners.
-  - **SearchSelect shared component:** Created `frontend/src/lib/components/ui/search-select/search-select.svelte` — generic `<SearchSelect>` with `generics="T"`, `items`, `search` (bindable), `placeholder`, `filterFn`, `onSelect`, `children` snippet. Uses `hover:bg-primary-50 dark:hover:bg-accent` for proper dark mode highlight contrast. Replaced 4 inline dropdowns: 2 in `ParentUserTable.svelte` (create + edit), 1 in `TeacherUserTable.svelte` (class-subject pair search), 1 in `CredentialsSelect.svelte` (qualifications). Cleaned up unused dead variables across all files. Build: `pnpm check` 0 errors.
-
-- **✅ HF-14: Qualifications Configuration CRUD — Complete**
-  New "Qualifications" tab under admin Configuration. Backend: `db_admin_delete_credential` (hard DELETE from `credentials` table), `admin_delete_credential` handler (JSON body with `id`), `POST /delete-credential` agent endpoint. Frontend API: `POST /api/admin/credentials` (create), `DELETE /api/admin/credentials/[id]` (delete). Frontend page: `/admin/configuration/qualifications` with table list, create dialog (name input), delete confirmation (AlertDialog). Sidebar menu item under Configuration group. Build: `pnpm check` 0 errors, `moon check --target wasm` 0 errors. 4 commits. Spec: `docs/specs/hotfix-14-qualifications-crud.md`.
-
-- **✅ Unit 21: Teacher Agent — Term & Lesson Toggle — Complete**
-  Added `toggle_term_active` and `toggle_lesson_active` endpoints to Teacher Agent with fire-and-forget cache invalidation to affected Student Agents. Backend: `POST /toggle-term-active` updates `terms.active` in SurrealDB, queries `teacher_assignment` → `user_profile` for affected students, fires `trigger_invalidate_cache` per student. `POST /toggle-lesson-active` discovers lesson's class/subject/term via `SELECT FROM ONLY lessons`, updates `lessons.active`, fires two invalidations (`lessons:{subj}|{term}` + `lesson:{id}`) per student. Frontend: installed shadcn-svelte `Switch` component, created `POST /api/teacher/toggle-term` and `POST /api/teacher/toggle-lesson` proxy routes. Updated subject page (`[classId]/[subjectId]`) and lesson list page (`[classId]/[subjectId]/[termId]`) — all terms/lessons now render at full opacity as clickable cards with Switch toggles; inactive items show amber "Hidden from students" badge. Removed `opacity-50 pointer-events-none` + lock icon pattern. Optimistic UI updates with toast feedback and rollback on error. Spec: `docs/specs/21-teacher-term-lesson-toggle.md`.
-
-- **✅ HF-05: Teacher Lesson Tabs — Complete**
-  Added tabbed lesson page shared between teacher and student roles via `$lib/components/LessonPage.svelte`. Teacher sees 3 tabs: Lesson (full content, no assignments section), Assessments (list + Create Assessment button → modal with MCQ/theoretical question checkboxes from lesson data), Grading (submission accordion placeholders). Student sees 2 tabs: Lesson, Assessments (placeholder). Backend: added `mcq_questions` + `theoretical_questions` to `StudentAgent.get_lesson` endpoint; teacher agent `get_terms` and `get_lessons` no longer filter by `active` (inactive items now show with lock icon in UI); `LessonInfo` struct gains `active` field. Frontend: installed shadcn-svelte accordion + checkbox; fixed `McqQuestion` type to match DB fields (`question`, `option_a/b/c`, `explanation`, `correct_answer`); student breadcrumbs now start at "Subjects" (removed "LMS" prefix). Unified UI patterns: `AppButton.svelte` (shared button component with built-in loading spinner, auto-disabled on loading, refactored across 10 files); unified modals (all dialogs widened to `sm:max-w-lg` (512px), replaced `window.confirm()` in session-term activation with `AlertDialog`, replaced custom delete overlay in `UserTable` with `AlertDialog`); non-blocking modal opens (Assign dialog opens instantly with session-term loading state). Backend: added `SessionTerms` cache to AdminAgent `get_session_terms` endpoint (TTL 600s, invalidated on create/activate); added stale-fallback pattern to TeacherAgent's `get_active_st` and `fetch_class_groups` for resilience against SurrealDB timeouts. Spec: `docs/specs/hotfix-05-teacher-lesson-tabs.md`.
-
-- **✅ HF-04: Session Term Management (Admin Configuration) — Complete**
-  Added "Configuration" sidebar group above "Users" with "Session Terms" management page. Backend: 4 new AdminAgent endpoints (`GET /terms`, `GET /session-terms`, `POST /create-session-term`, `POST /activate-session-term`) with cache invalidation on create/activate. Frontend: 4 proxy routes, page server + component (table with session/term/active/created columns, create dialog with term dropdown + active checkbox, activate button with confirmation). Toast notification system: global `addToast()` store (success/info/warning/error variants), progress bar timer with pause-on-hover, fade-in/fade-out animations. Terms fetch is non-blocking with degraded text-input fallback. All CRUD toasts integrated across UserTable + session terms page.
-
-- **✅ HF-03: User CRUD — Error Handling, Saga Pattern & Config Refactor — Complete**
-  Full rewrite of user CRUD layer with structured `AppError` types (7 codes), saga-pattern compensation (create/edit/delete/activate-deactivate with rollback). Reactive cache redesign: unified `caches : Map[String, CacheItem]` per agent, no negative caching, `get_class_level()` reactive gatekeeper, parent-child invalidation via backbone keys. Schema updated: `class_level` → `record<class_levels>`, `teacher_assignment` → `record<has_subject>` + `session_term`, DEFAULT time::now() on 3 tables. Frontend: `golem.ts` rewritten (structured error parsing without string matching), `mapErrorCodeToHttpStatus`, `StatusCard` component (info/warning/error) used uniformly across all routes. Teacher dashboard + full class→subject→term→lesson browsing flow working end-to-end. Assign-modal search ordered by match quality. Proxy routes use proper HTTP status codes. Dead code removed: `invalidated` field from CacheItem, `ensure_initialized()` from both agents, edge cache. Group names unified to singular (`"student"`, `"teacher"`) across Authentik, backend, and frontend. Context files synced.
-
-- **✅ Session 2026-06-02: Post-GatewayAgent Bugfixes — Init silent failure, proxy method, SurrealDB error validation**
-  
-  **Root cause of silent init failure:** Frontend `proxyFetch()` defaulted to GET for all Golem proxy calls. The SvelteKit route correctly received POST from the browser, but forwarded it to Golem as GET. Golem's POST-only `/initialize` endpoint returned `ROUTE_NOT_FOUND`, which `proxyFetch` treated as a success (no `Ok`/`Err` envelope to flag as error). The frontend showed "Initialized" but SurrealDB never received the INSERT.
-  
-  **Fixes:**
-  1. `golem.ts` — `proxyFetch()` now accepts a `method` parameter; `proxyToSuperAdmin/Student/Teacher` forward it
-  2. `POST /api/admin/users/[pk]/initialize` — passes `'POST'` to `proxyToSuperAdmin`
-  3. `POST /api/admin/teacher/subjects` — passes `'POST'` to `proxyToSuperAdmin`
-  4. `surreal_client.mbt` — added `surreal_query_checked()` that parses the JSON response body and returns `Err(...)` if `"status":"ERR"` is found (SurrealDB returns SQL errors with HTTP 200)
-  5. `initialize_user` in both `SuperAdminAgent` and `AdminAgent` — uses `surreal_query_checked()` instead of raw `surreal_query()`
-  
-   **Build status:** `golem build` 0 errors, deployed (revision 4). `pnpm check` 0 errors 9 warnings (same baseline).
-
-- **✅ 2026-06-02: Auth UX Fix — Non-expiry JWT errors now attempt refresh, race condition dedup window, API 401 redirects to Authentik**
-
-   **Problem:** Users saw inline "Not authenticated" errors (no redirect to Authentik) when:
-   1. JWT verification failed for non-expiry reasons (transient JWKS network blip, issuer mismatch) → `hooks.server.ts` else branch instantly deleted BOTH cookies without attempting a refresh
-   2. Concurrent fetch calls (UserTable.svelte loading multiple data sources) race with refresh token rotation — the second request used the old (rotated) token, refresh failed silently
-   3. Protected API `fetch()` calls from the browser returned 401 → component showed error inline because `+layout.server.ts` redirect only runs on page loads, not API routes
-
-   **Fixes (2 files, zero cascade):**
-   1. **`frontend/src/hooks.server.ts`** — Non-expiry `else` branch now calls `attemptRefresh()` instead of instantly deleting cookies. Added `attemptRefresh()` helper with `setAuthCookies()` / `clearAuthCookies()` extractors. Changed refresh dedup from `finally()` (instant reset) to 3-second `setTimeout` grace window so concurrent stale-cookie requests reuse the same successful result. Added protected API guard: if user is null + request is a non-auth API route → return JSON 401 with Authentik `redirectUrl`, set `oauth_redirect` cookie so user returns to same page after login.
-   2. **`frontend/src/routes/+layout.svelte`** — Added `onMount` client-side `window.fetch` interceptor: if response is 401 with `redirectUrl` in body, hard-redirects browser to Authentik and stops further component code from running (returns never-resolving promise).
-
-   **Build status:** `pnpm check` 0 errors, 9 warnings (same pre-existing baseline).
-  Code written, compiled (`moon build` 0 errors), committed (`2e70e8d`, `bbd06ca`). Init persistence to SurrealDB verified end-to-end. No known regressions.
-  
-  **What was built:**
-  - Schema (`user_profile`, `teacher_assignment` tables) + `surreal_query_retry()` wrapper
-  - Admin Agent refactor: `initialized_users`/`teacher_assignments` maps removed, all entity reads/writes to SurrealDB
-  - Teacher Agent refactor: `trigger_initialize` reads `teacher_assignment` table directly; `class_groups` is push-invalidation cache
-  - Student Agent profile → `user_profile` table: `profile` field removed, `get_class_level()` queries DB
-  - Gateway Agent endpoints: teacher classes/terms/lessons, admin class-subjects, admin get/set teacher subjects
-  - Frontend: teacher dashboard "My Classes" card grid, admin assignment UI (filtered combobox + badge pattern in Manage panel), `/my-classes/` routes, 6 proxy routes
-  - **Init persistence fix:** Surreal Cloud (v2.6.5) returns non-array `result` for `INSERT ... ON DUPLICATE KEY UPDATE` — fixed with simple `INSERT` + duplicate-key error check. Removed redundant `user_profile` write from `StudentAgent.initialize()`. Fixed RPC method name typo: `trigger_initialize` → `initialize`. Verified: `get_all_initialized` returns 3 persisted users; StudentAgent created via RPC; idempotent re-initialization returns `"OK"`.
-  
-  **Known deviations from spec:**
-  - `with_atomic_operation` not used (Golem durability + retry is sufficient)
-  - `INSERT` + error check instead of `ON DUPLICATE KEY UPDATE` (SurrealDB 2.x compat)
-  - StudentAgent does NOT write `user_profile` during `initialize()` — AdminAgent is the sole authority
-  - Raw `surreal_query` used for init INSERT (not `surreal_query_retry`) since ON DUPLICATE KEY UPDATE returns non-array result
-  
-  **Note:** Much of this code will be rewritten in the next unit (GatewayAgent removal refactor). The DB-backed architecture and Agent Memory Cache patterns are the lasting contributions.
-
-- **✅ HF-02 (Unit 21): GatewayAgent Removal — Per-User Agent Architecture — Complete**
-  Eliminated the Ephemeral GatewayAgent entirely. Each durable agent now exposes HTTP endpoints directly via `#derive.endpoint` with path-based worker ID extraction (`{admin_id}`, `{student_id}`, `{teacher_id}`). New `SuperAdminAgent` (durable singleton, mount `/super-admin`) handles admin operations without init check. Auth is per-endpoint via `#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")`. All 4 agents share a `@config.Config[GolemAgentConfig]` with `auth_key` as a secret. Unified `CacheData` enum map pattern for cache-first init and data caching. Cache invalidation via typed RPC `invalidate_cache(key)` — both `StudentAgentCache` and `TeacherAgentCache` have per-key invalidation methods. RPC calls from AdminAgent/SuperAdminAgent pass `auth_key` from their own config.
+## Current Phase: Phase 8 — Prod DB alignment (Roc stack)
+
+**Status: backend + renderer aligned to prod (`db2.johnethel.school`, ns `main`, db `lessons`); one pre-existing frontend blocker open (see below).**
+
+### Completed — prod schema alignment (read-only against prod)
+- [x] `roc-backend/main.roc` — connection config comes from the environment only:
+  `SURREAL_URL` (default `https://db2.johnethel.school/sql`), `SURREAL_DB_NS` (`main`),
+  `SURREAL_DB` (`lessons`), credentials from `SURREAL_USER`/`SURREAL_PASS` (or verbatim
+  `SURREAL_AUTH`). The hardcoded credential default is gone; a missing credential warns at startup.
+- [x] `roc-backend/Base64.roc` (new) — standard base64 encoder, so the `Basic` header is built at
+  startup instead of pre-computed; tests in `roc-backend/Base64Test.roc` (`roc test Base64Test.roc`).
+- [x] Student queries aligned to the prod shape: `subjects WHERE active`, `terms` ordered by
+  `sort_order`, lessons filtered by `has_subject.out` + `term`, lesson by record id.
+  Lesson filters use `type::record('<table>', '<id>')`: a quoted string never matches a record link
+  (verified: quoted → 0 rows, record → 225 rows).
+- [x] `/api/users?role=` reads `student_profile`/`teacher_profile`/`parent_profile`/`admin_profile`.
+- [x] `/api/terms` (admin) returns every term ordered by `sort_order`; `/api/student/terms` the active subset.
+- [x] `roc-frontend/www/index.html` — user rows from `display_name`/`first_name`+`surname`, terms as
+  `id|name|sort_order`, `renderLesson` reads `lesson.content.*` (objectives as objects, introduction,
+  content sections, key points, conclusion).
+- [x] `roc-frontend/www/app.wasm` + `dist.css` rebuilt.
+
+### Frontend fixes found while verifying
+- [x] Asset URLs are root-absolute (`/app.wasm`, `/runtime.js`, `/dist.css`): deep links such as
+  `/student/subjects` previously resolved them to `/student/...` and failed to load the module.
+- [x] Port handlers are registered through `mount({ setup })`. The runtime drains `State.init`'s
+  effects before `mount` returns, and unregistered ports are dropped — the initial data fetches
+  never reached the page.
+
+### Verified
+- `roc check main.roc` → 0 errors; `roc test Base64Test.roc` → all 9 cases pass.
+- Backend against prod (DEV_MODE, read-only): 23 subjects; 3 terms; 75 lessons for
+  `subjects:agricultural_science` + `terms:noel_term` (225 without the term); full lesson record via
+  `/api/student/lesson`; `/api/users?role=Student` → empty result; `/health` → healthy.
+- `renderLesson` driven with a real prod lesson through the page's own JS (DOM stub): introduction,
+  objectives (no raw JSON), sections, sub-points, key points and conclusion all render.
+
+### Resolved — the app runs the full student flow against prod
+
+Two independent causes, both found and fixed:
+
+1. **Joy's host allocator overlapped pages grown by the Roc boxy runtime.** `bump_span` in the Joy platform's
+   `host/host.rs` assumes the host is the only code that grows linear memory, but the boxy runtime's
+   `std.heap.page_allocator` grows it too, so `END` goes stale and the host hands out spans that overlap the
+   runtime's pages — the trap surfaced in `roc_boxy_register_erased_proc` on the second host entry. Fixed with a
+   host patch (re-read `memory_size(0)`, use `memory_grow`'s return value); see `roc-frontend/JOY_HOST_PATCH.md`
+   and `roc-frontend/joy-host-bump-span.patch`. `www/app.wasm` is built against the patched host. Upstream
+   report text is in the same note.
+2. **`www/index.html` never unwrapped SurrealDB's response envelope.** `Array.isArray(data) ? data : (data[0]?.result || [])`
+   treats the one-element envelope `[{ result: [...], status: "OK" }]` as the rows, so every list rendered a
+   single fieldless row (`|Unknown|`, `Unknown||true`) and no data ever appeared. Replaced by the shared
+   `unwrapRows` helper at all five call sites.
+
+Verified in Chromium against the live prod DB (read-only, `DEV_MODE` backend): 9/9 checks — subject cards from
+prod, terms, lessons filtered by subject+term, full lesson content (introduction, objectives as text, sections,
+sub-points, key points, conclusion), scroll-spy sections, and no page errors.
+
+Caveat: rebuilding `www/app.wasm` from the unmodified `app.roc` (which names the remote platform URL) reproduces
+the host crash. Build against the patched local platform as described in `JOY_HOST_PATCH.md`.
+
+### User creation (T7) — done
+
+`POST /api/users` now writes the role's profile table instead of a legacy `student` record:
+
+- Payload: `role`, `email`, `first_name`, `middle_name`, `surname`, `date_of_birth`, `class_level`,
+  `role_title`, `passport`. Validation mirrors the MoonBit admin agent (`validate_passport_url`): email,
+  first name, surname and a passport **URL** are required; students additionally need a `YYYY-MM-DD` date of
+  birth and a class level that **exists** (record links are not existence-checked by SurrealDB, so the
+  backend queries it before creating anything).
+- Order: validate → check the class level → create the Authentik login → create the profile record. A failed
+  profile write calls `Authentik.deleteUser!` so no orphan login is left behind, and the response carries the
+  database's own message.
+- SurrealDB answers **HTTP 200 with `"status":"ERR"` in the body** for a failed statement, so the handler
+  inspects the body — otherwise a rejected write would look like success.
+- The admin form ([AdminView.roc]) collects the new fields and the app POSTs to its own origin (the page passes
+  `window.location.origin` in the flags; it used to hardcode `localhost:8000`). A successful create re-fetches
+  the four role lists so the new account appears without a reload.
+- `mock_authentik.py` (repo root) returns a constant `pk`; for per-role testing use a counter-based mock.
+
+**Verified** against a sandbox instance (`surreal start --bind 127.0.0.1:8002 --user root --pass root`, prod
+schema recreated from `INFO FOR TABLE`, class levels seeded) plus the mock Authentik:
+
+- curl: student / teacher / parent / admin created with the right fields (`display_name`, `date_of_birth`,
+  `current_class`/`class_enrolled`, `role_title`, parent `name`+`display_name`); 400s for a missing passport,
+  a non-URL passport, a missing/malformed date of birth, an unknown class level; the compensation message for a
+  colliding profile id.
+- Browser (Chromium, `roc-frontend/www/app.wasm`): 5/5 — the admin page loads, the form reports success, the
+  created student appears in the table, a validation error surfaces in the UI, no page errors.
+
+### Legacy endpoints — aligned or retired
+
+| Endpoint | Now |
+|---|---|
+| `GET /api/students` | `student_profile` (same rows as `/api/users?role=Student`) |
+| `GET /api/teachers` | `teacher_profile` |
+| `GET /api/curriculum` | `has_subject` (the class_levels → subjects edge is the curriculum) |
+| `GET /api/session_terms` | `session_term` (prod names it in the singular); `POST` creates a session term |
+| `GET/POST /api/class_arms` | 410 — class arms are not part of the schema (use `class_levels` + `class_terms`) |
+| `POST /api/students`, `POST /api/teachers` | 400 pointing at `POST /api/users` (they used to create legacy tables) |
+
+Verified read-only against prod: students/teachers `[]`, curriculum returns the 127 `has_subject` edges,
+`session_term` returns the 2026/2027 sessions, `class_arms` returns 410, and the retired POSTs return 400
+without writing.
+
+### Build and tests — done
+
+- Joy 0.33.0 is vendored at `roc-frontend/joy/` with the host allocator patch applied
+  (`joy/host-bump-span.patch`), and `app.roc` points at it, so `cd roc-frontend && roc run build.roc` builds
+  a working app on any machine. The layout mirrors a Joy checkout (`platform/…` plus `www/runtime.js`) so the
+  template's own `build.roc` copies the runtime unchanged. Swap `app.roc` back to the release URL once the fix
+  ships upstream.
+- `roc-frontend/tests/e2e/` holds the checks used during this migration: `e2e_student.cjs` (student drill-down
+  against the backend), `e2e_admin.cjs` (user creation in a sandbox), `render_lesson_check.cjs` (the lesson
+  renderer, no browser), plus `fixtures/sandbox-schema.surql` and `fixtures/mock_authentik_unique.py`.
+  `tests/e2e/README.md` has the commands. All three pass as committed.
+- The Roc stack is now in git (it had been untracked). Left untracked on purpose: the stale generators
+  (`roc-backend/gen_main.py`, `main_fallback.py`, `refactor.py`), scratch `test_json*.roc`, the downloaded
+  Golem component blob, and `roc-agents/` (a prototype pointing at an external `roc-golem` checkout).
+
+### Assessments — done (lesson assessments)
+
+All twelve assessment endpoints now use the prod tables (`lesson_assessments`, `submissions`) instead of a
+non-existent `assessments` table, following the MoonBit agents' conventions where they affect stored data:
+
+- **Drafts**: `POST /api/teacher/create-lesson-assessment` always writes `active = false`; the teacher publishes
+  with `POST /api/teacher/toggle-assessment-active`. Students only ever see `active = true` rows.
+- **Submissions**: one row per student and assessment. The first submit writes `iteration = 1`, a resubmit bumps
+  it in place, and `assessment_id` stores the **bare** record id (the agents' convention) so both stacks find
+  each other's rows. `assessment_type` is `lesson`, `status` starts as `submitted`.
+- **Grading**: `grade-submission` sets `scored_mark` (prod has no `graded_at` column — listings return
+  `scored_mark IS NOT NONE AS graded` instead) and `release-grades` sets `grade_released_at` plus
+  `status = 'graded'`.
+- The teacher's lesson page has a **lesson picker** (the viewer needs a concrete lesson id, previously a backlog
+  item), `/api/teacher/lessons?lesson_id=` returns the full record, and the tab shows Draft/Published with a
+  Publish/Unpublish button.
+- **Question picker**: the create modal lists the lesson's own bank (`content.mcq_questions` /
+  `content.theoretical_questions`) with a checkbox and a marks field per question (MCQ default 1, theory 5, matching
+  the generated lessons' own marking). The selection is stored in the strict shape the schema enforces — `type`,
+  `question`, `options`, `answer`, `explanation`, `marks` — and `total_mark` is the sum of the picks. MCQ answers
+  keep the bank's option letter and `options` preserves a/b/c order, so the letter maps back.
+- Two JS wiring bugs surfaced and are fixed: listeners on individual nodes died on every app re-render (tabs,
+  create-assessment modal), so those controls are delegated at the document level, and `showTab` re-queries its
+  elements instead of holding references.
+
+**Verified**: API lifecycle 21/21 (`tests/e2e/assessment_flow.sh`, including the stored question shape and the
+schema's rejection of an unknown question type) and the browser flow 9/9 (`tests/e2e/e2e_assessments.cjs`,
+including a picked question landing in the stored assessment); the student (7/7) and admin (5/5) checks still
+pass.
+
+**Schema change applied to prod (2026-10-05)**: `lesson_assessments` now carries the strict question shapes from
+`db/schema-v3.surql` — `questions.*.type` (asserted to `mcq|boolean|short_answer|essay`), `.question`, `.options`,
+`.answer`, `.explanation`, `.marks` — so question objects are storable. Purely additive: `DEFINE FIELD IF NOT
+EXISTS` for sub-fields that did not exist, no `REMOVE`, no `DELETE`, no rewrite. Verified on a prod-mirroring
+sandbox first (pre-existing row untouched, updates still work, an unknown `type` rejected), then on prod: both
+assessment tables held 0 rows before and after, and a probe row created with questions → published → read back →
+removed, leaving the counts at 0. That set came from `db/schema-v3.surql`, so the schema file already described it;
+the answers set is the new `db/schema-v7-submission-answers.surql` above. One divergence in the other direction
+remains: v3 also declares the same `questions.*.*` fields for `general_assessments`, which prod does not have (that
+table is empty and the feature is unimplemented), so a database rebuilt from `db/schema-v*.surql` is stricter there
+than prod — harmless, and it matches as soon as general assessments land.
+
+### Student answer-taking — done
+
+- **The form** (`www/index.html`): an assessment in the student's tab opens a question form — radio groups for
+  MCQ questions (option letters a/b/c as the value), a textarea for anything without options — with a live
+  "N of M answered" counter, a back link, and a disabled submit plus "the deadline has passed" once the
+  deadline is in the past. Answers are collected in the shape the MoonBit stack used
+  (`question_index`, `answer_type`, `answer_text`, `allocated_mark`) and POSTed to
+  `/api/student/submit-assessment`; the list then shows a green "Submitted: <title>" note.
+- **The backend no longer lies about failed writes.** SurrealDB answers HTTP 200 with `"status":"ERR"` in the
+  body when a statement fails, and every write path trusted the status: a rejected submission was acknowledged
+  in the UI while nothing was stored. `db_body!` / `db_response!` in `main.roc` now interpret the body for the
+  twelve write paths (subjects, terms, class levels, session terms, user creation, assessment create/publish,
+  submit, grade, release, and the legacy `PUT`/`DELETE /api/users`), answering 500 with the statement's own
+  message. Reads are unchanged.
+- **The schema gap that made answers unstorable**: `submissions` is SCHEMAFULL and prod declared only `answers`
+  (`array<object>`) and `answers.*` (`object`) — no sub-fields — so every answer object was rejected
+  (`Found field 'answers[0].allocated_mark', but no such field exists for table 'submissions'`), which is also
+  why the table held 0 rows. `db/schema-v7-submission-answers.surql` (new) declares the four fields the form
+  sends; prod has them, and the sandbox fixture carries the same statements, so a sandbox built from the
+  fixture matches prod field-for-field (`submissions` 15 fields, `lesson_assessments` 21).
+
+**Verified** on a sandbox built from the fixture: browser lifecycle 14/14
+(`tests/e2e/e2e_assessments.cjs` — the form renders, both answer kinds store as
+`{"question_index":0,"answer_type":"mcq","answer_text":"b","allocated_mark":4}`, the teacher's grading tab
+shows the student, the released grade appears), API lifecycle 21/21 (`tests/e2e/assessment_flow.sh`), admin
+creation 5/5. Prod: the v7 statements applied with both assessment tables at 0 rows before and after, and a
+probe row (one MCQ answer, one theory answer) created, read back identical, then deleted.
+
+### Remaining
+
+- [x] **`general_assessments` can now store question objects on prod** (applied 2026-10-05). The table declared
+  `questions` and `questions.*` but none of the sub-fields, so a create with questions answered 500 with the
+  database's own message. `db/schema-v3.surql` lines 43-48 already carried the six `DEFINE FIELD IF NOT EXISTS`
+  statements — they had been applied to `lesson_assessments` only. Verified on a prod-shaped sandbox first
+  (dropping the six there reproduced the failure, re-applying them fixed it), then on prod: 6 statements, 0
+  errors; both `general_assessments` and `compositions` held 0 rows before and after; a probe row created with
+  an MCQ question object, read back with every field intact, then deleted.
+  *Honest note*: the script that applied them also fed the whole v3 file to prod, which additionally created
+  v3's `teaches` table and `teacher_profile.qualifications`. Both are empty (`teacher_assignment` is empty, so
+  its data migration was a no-op) and nothing in the app reads them — and both are declared by the schema file,
+  so prod and the files now agree rather than diverge.
+- [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
+  neither read nor written — no code path in either stack computes the weighted sum).
+- [ ] R2 uploads are verified end to end against the **real** bucket (credentials from Infisical): a
+  backend-signed `PUT` answered 200, the public URL served the object byte-for-byte, a real browser upload
+  through the admin form produced `https://r2.johnethel.school/student/passports/<uuid>.jpg` with no CORS or
+  page errors, and the probe objects were deleted afterwards (signed `DELETE` 204, `GET` 404). The bucket's
+  preflight already allows `PUT` from any origin with `content-type`. What remains unexercised is only the
+  account-creation path storing that URL on a real profile (sandboxed, since prod profiles are the school's).
+### Authorization — done
+
+The backend now reads the token's `groups` and gates every route, answering 403 with the role the route needs
+(unauthenticated stays 401). One function holds the matrix by route family: `/api/student/*` → student,
+`/api/teacher/*` → teacher, user and configuration writes → admin, the shared reads (the pickers, the hub tabs,
+the student cards) → any authenticated role, and **an admin may go anywhere** — which is what lets one `dev-skip`
+token keep driving every suite. `dev-skip`/`test-token` act as admin; `dev-student`/`dev-teacher` were added so
+`tests/e2e/authz.sh` (27 checks) proves the gate bites, and a real-looking token's role comes from the mock's new
+instance-wide userinfo endpoint. The role list is the page's own list, mirrored with a comment to keep the two in
+step. Also admin-only now: `/api/students`, `/api/teachers` (whole-school rosters), `/api/enroll` (the retired
+Golem prototype, which writes an enrolment) and `/api/upload-url` (the passport signer behind the admin form).
+
+### General assessments — closed out
+
+- **The flow suite is self-isolating**: it creates its own subject per run, so the per-term weight budget starts
+  empty and it can run twice in a row (it used to fail on its fourth run). It also reads the stored `questions`
+  and `answers` back out of the database when `SURREAL_URL` is set, checking them against the schema the fixture
+  mirrors.
+- **A real bug fixed**: a resubmit after a released grade was accepted and replaced the answers the released mark
+  was awarded for, leaving `scored_mark` and `grade_released_at` pointing at answers that no longer existed. The
+  MoonBit stack refused that; the backend now answers 409.
+- **Compared against the legacy stack** (its general-assessment code), with verdicts: the legacy's list queries
+  and budget check compared record links as quoted strings and therefore matched **nothing** — the Roc version's
+  `type::record(...)` literals are the fix, not a deviation; the legacy's question struct is unrepresentable in
+  the schema; `compositions` and weighted term results exist in neither stack; `max_resubmissions = 0` means
+  unlimited here and one attempt there; `answer_type` for non-MCQ answers stores the question's own type rather
+  than the legacy's `theoretical`.
+- **Reported, not changed** (see the leftover list): no student grade view, no 0..total_mark range check on
+  `grade-submission`, no weight-remaining summary, and `percentage_weight` goes through the digits-only scanner
+  (`10.5` → 105, `-5` → 5; the form refuses both client-side).
+
+### Loading states, the nav bar's session term, and the user form
+
+Reported by the developer while testing the running app, and all fixed in `ef8c4c7`:
+
+- **A failed list request used to dispatch nothing**, so `State.roc`'s single global `isLoading` stayed true and
+  every tab showed `Loading... / Fetching data from server` forever — one flag for every list, which is why
+  switching tabs could not change it. A *successful* fetch with zero rows dispatched `""`, indistinguishable
+  from "never loaded". The rule is now three states per list (`ListState`: `Pending` → skeleton, `Ready` → rows or
+  a real empty state, `Failed(message)` → an error state naming what failed **with a Retry**), and the JS always
+  answers a fetch — `ok` + rows, `ok` with no rows, or `error` + the API's own `{"error","detail"}` message.
+  Applied to every list fed through `fetch_data`; user management also refetches its active tab on page entry and
+  on tab switch.
+- **A top border progress bar** on navigations and in-page tab switches (the retired app's own markup), and
+  **skeleton placeholders** (`animate-pulse`, shaped like the content) while a list is genuinely not loaded.
+- **The nav bar shows the active session term** — `GET /api/session_terms/active` with the legacy query
+  (`SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1`), shown as a
+  badge with a spinner while it loads, refetched on navigation. The retired app also toasted when it changed;
+  this app has no toast system, so the badge simply updates.
+- **The Add New User form** is a labelled grid (name row → email + role → the role-specific fields the create
+  actually reads → passport → one primary action).
+- **The bundle is served `no-cache`** (`ccb37c0`): `app.wasm` and `dist.css` were cached for an hour while
+  `index.html` was not, so a rebuild kept serving the old app against the new markup. Hashed filenames are what
+  would let the bundle be cached immutably again.
+
+**Verified** on a sandbox with the merged tree: the new `e2e_loading.cjs` **20/20** (it navigates by *clicking*
+through the sidebar rather than `goto`-ing a URL — every other suite jumps straight to the URL, which is why this
+class of bug hid — and it also intercepts a list to answer 500 and asserts an error state with a working retry),
+plus `e2e_admin` 5/5, `e2e_admin_config` 53/53, `e2e_student` 7/7, `e2e_assessments` 17/17,
+`e2e_general_assessments` 25/25, `authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+`roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors.
+
+**Dev-workflow gotcha**: changing a view's model shape (as this pass did to `State.roc`) can kill a running
+`roc run` instance mid-flight — the watcher swaps in the new wasm while the old model is live, and the process
+dies with SIGSEGV. Restart it; a fresh start runs the same sources fine.
+
+### Remaining
+
+- [ ] **No toast system.** The retired app toasted when the active session term changed and after other
+  background events; here the badge just updates. Worth building once, for many callers.
+- [ ] `e2e_passport_upload.cjs`'s upload mode needs R2 variables in the sandbox backend and an upper-case
+  access-key id (its regex), so it reports 8/9 without them — the signed URL and the form flow pass regardless.
+- [ ] **No student grade view.** The legacy stack had `/student/my-grades` (answers hidden until release) and
+  `project-overview.md` lists "view own grades and feedback after grading" as a student feature; the Roc app has
+  no such page. The data is all there (`submissions` with `scored_mark`/`grade_released_at`).
+- [ ] `POST /api/teacher/grade-submission` has **no 0..total_mark range check** (the legacy `teacher_manual_grade`
+  had one, and the page's prompt says 0-100). Shared with the lesson flow, so it needs one decision, not a patch.
+- [ ] No **weight-remaining summary** for a teacher: the legacy had `teacher_get_percentage_summary` feeding two
+  cards and capping the create modal's weight; here only the backend's 100% refusal.
+- [ ] Nothing computes a term result from `percentage_weight` (the weight is stored, and `compositions` is
+  neither read nor written — no code path in either stack computes the weighted sum).
+- [ ] **The Golem/MoonBit durable layer is built but not wired** — parked for now, at the developer's request.
+  Six agent types still exist and build (`moon check` 0 errors, `app-agents.wasm` 1.1 MB) and CI still deploys
+  them, but the Roc backend's only call is the stale `POST /api/enroll` → a `cs101` prototype (no auth key,
+  unused by the UI), and the eight `golem-*` services are in `devops/legacy/docker-compose.golem.yml`, out of the
+  deployed stack. Which operations must be durable is still open.
+- [ ] R2 uploads are verified end to end against the **real** bucket (credentials from Infisical): a
+  backend-signed `PUT` answered 200, the public URL served the object byte-for-byte, a real browser upload
+  through the admin form produced `https://r2.johnethel.school/student/passports/<uuid>.jpg` with no CORS or
+  page errors, and the probe objects were deleted afterwards (signed `DELETE` 204, `GET` 404). The bucket's
+  preflight already allows `PUT` from any origin with `content-type`. What remains unexercised is only the
+  account-creation path storing that URL on a real profile (sandboxed, since prod profiles are the school's).
+- [ ] `e2e_general_assessments.cjs` still creates on the subject its pickers select (10% + 1% per run), so it
+  needs a fixture reload after ~9 runs — `general_assessment_flow.sh` no longer has that limit.
+- [ ] `docs/architecture.md` is written for the Roc stack now, but the retired path could still use a fuller
+  account (the agent table, the RPC fan-out) if anyone needs it beyond git history.
+- [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
+  report).
+
+### Three parallel workstreams — two done
+
+The leftover list was worked through by three agents in parallel, each in its own worktree with its own sandbox
+ports (SurrealDB 8202/8203/8204, mock Authentik 9202/9203/9204, backend 8302/8303/8304 — the backend's `PORT`
+and the mock's port argument were added for exactly this).
+
+**Assessments now behave** (merged as `215b7ab`, from the agent's `0b3eb3d`):
+
+- MCQs are scored server-side at submit. `answers.*` has only its four declared sub-fields, so the awarded mark
+  goes into `allocated_mark` (the question's marks when the chosen letter matches the question's stored
+  `answer`, 0 otherwise); the question's own allocation stays readable in the assessment's
+  `questions[*].marks`, and non-MCQ answers are passed through untouched. Submission-level `scored_mark` is left
+  alone, so auto-scored MCQs do not skip the teacher's grade/release flow.
+- A passed `deadline` and an exhausted `max_resubmissions` (0 = unlimited) both answer **409** with a message;
+  the deadline is decided by the database (`deadline < time::now()`) so there is no clock handling in Roc.
+  `create-lesson-assessment` can finally set `max_resubmissions` — the column and its default existed but
+  nothing could write it.
+- The teacher's grading list shows the auto-scored marks inline (`MCQ auto-scored: 4 / 4`, `Q1 ✓ 4/4`).
+**Follow-up by me**: submit also refuses an unpublished assessment (409) and an unknown one (404) — a draft
+  was unsubmittable in the legacy agent and is now here too; two of the new API cases had been submitting to
+  drafts, which is why they now publish first. Then `scheduled_at`: it was stored and ignored, so submit now
+  refuses an answer before it opens (409, same database-side comparison as the deadline), and the create modal
+  finally collects the rules — open time, close time and attempt limit — as `datetime-local` fields converted to
+  UTC, with the answer form and list button saying when an assessment opens.
+
+**Backend correctness** (merged as `7e744e6`, from the agent's `3e8a0c6`): `PUT`/`DELETE /api/users` resolve the
+profile table from the id's own prefix instead of writing the legacy `student` table, validate like the create
+path, and soft-delete; `query_param` percent-decodes through the new pure `Url` module (`UrlTest.roc`, 16 cases).
+
+**Verified by me, not just reported**: `roc check main.roc` 0 errors / 3 warnings; `roc test UrlTest.roc` 16/16;
+`sh tests/e2e/assessment_flow.sh` 41/41; `node tests/e2e/e2e_assessments.cjs` 17/17;
+`e2e_student.cjs` 7/7; `e2e_admin.cjs` 5/5; plus my own curl run of the user-update lifecycle and the
+encoded-vs-raw query comparison (13/13).
+
+**The admin Configuration Hub** (merged as `6ac72bc`, from the agent's `e7e29be`) replaced its `|_model|` stubs
+with real sections: Academic Terms, Class Levels, Subjects, Session Terms (the Class Arms tab, since class arms
+answer 410) and Curriculum each list their endpoint's rows and create new ones, showing the backend's own
+message on failure — including the `detail` from `db_response!`. `POST /api/curriculum` now relates a
+class-level/subject pair, and the three existing creates validate their required fields. The fixture gained
+prod's unique indexes and a seeded `session_term`. Verified on the merged tree: `e2e_admin_config.cjs` **25/25**,
+`e2e_admin.cjs` 5/5, `e2e_assessments.cjs` 17/17, `assessment_flow.sh` 41/41, `e2e_student.cjs` 7/7,
+`e2e_auth_callback.cjs` 12/12.
+
+**Merge notes** (three worktrees touching the same files): `www/dist.css` conflicted and was regenerated from
+the merged sources (the removals were classes the hub's own edit deleted); the e2e README kept both sides of
+its conflict (the fixture's new indexes + `session_term` seed, and the `correct_answer` note). The admin agent
+also documented a compiler landmine in `JOY_HOST_PATCH.md`: two shapes (an `if`/`else` producing a
+`List(Effect(Msg))`, and `List.keep_if` + `match List.first(...)` in a view helper) compile with 0 errors into a
+wasm that renders nothing, so a page load after a rebuild is part of the workflow.
+
+### How user management works now (the pattern, implemented)
+
+Identity attributes are read from Authentik and school attributes from the profile tables, joined by the
+Authentik pk:
+
+- `GET /api/users?role=` makes **one** Authentik directory call per listing and merges each row's `email` and
+  `is_active` by pk, rebuilding the envelope `unwrapRows` expects. When Authentik is unreachable — or a row's pk
+  is not in the directory — the row carries *neither* identity field rather than an invented one.
+- The pk matcher reads **both** shapes, and that is load-bearing: production Authentik sends `"pk": 10` as a
+  number (verified read-only against the real API) while the sandbox mock sends a string, so a string-only
+  match would have shown no emails in production while every sandbox check passed.
+- `DELETE /api/users` soft-deletes the profile row *and* disables the login in Authentik; a failure there
+  answers 502 saying the login is still live, because a hidden profile with a working login is the failure that
+  matters.
+- `PUT /api/users` sends a new email to Authentik (validated first) and writes the profile columns as before;
+  an email on its own is a valid update.
+- Verified on a sandbox: `users_api.sh` **28/28** (new), `assessment_flow.sh` 41/41, `e2e_admin.cjs` 5/5,
+  `e2e_admin_config.cjs` 25/25, `e2e_student.cjs` 7/7, `e2e_assessments.cjs` 17/17, `roc check` 0 errors / 3
+  warnings. The mock Authentik was rewritten to serve list/PATCH/DELETE with an in-memory table (and 404s for an
+  unknown pk, which is what makes the 502 path observable).
+
+The principle behind it: the identity provider owns identity and the app database owns school data —
+Authentik holds the login, the email, whether the account is enabled and the groups that decide the role;
+`student_profile` and its siblings hold what only this app knows (class level, date of birth, passport, role
+title) and are keyed by the Authentik pk. Reads of identity attributes go to Authentik rather than being
+copied into SurrealDB, so there is one source of truth per attribute, and writes act on the owner first. SCIM
+is the heavier enterprise variant of the same idea, worth it only if users should be provisioned from the IdP
+side rather than from the admin screen.
+
+---
+### Deployment pass — built, awaiting the deploy
+
+**Decided**: the app answers on `app.johnethel.school` and ships as a service in `devops/docker-compose.yml`,
+the same Dokploy/Traefik pattern as everything else on that host.
+
+- **`Dockerfile.app`** (repo root) builds everything in two stages: the pinned Roc nightly from
+  `roc-lang/nightlies` — the channel for this compiler, since the older `roc-lang/roc` nightly tag stops at a
+  build that predates it — then `npm ci` + Tailwind + `roc run build.roc` for the bundle and
+  `roc build main.roc` for the binary. The runtime stage carries the binary, `www/`, and the CA roots, and
+  sets `BIND_HOST=0.0.0.0` / `DEV_MODE=false`.
+- **The `app` service**: Traefik labels for `app.johnethel.school` → port 8000, the in-network SurrealDB URL
+  (`http://surrealdb:8000/sql`), `AUTHENTIK_ISSUER_URL` for token validation,
+  `AUTHENTIK_SERVICE_ACCOUNT_TOKEN` for creating logins, both networks, `restart: unless-stopped`.
+- **Cleanup**: the eight `golem-*` services and their four volumes moved to
+  `devops/legacy/docker-compose.golem.yml` (the retired agent runtime, out of the deployed stack, kept for
+  rollback); the four stale `docker-compose.yml.*` variants are deleted (two were identical 775-line files with
+  the authentik block duplicated into every service, so YAML kept only the last); `.env.example` documents the
+  app's variables; the README now describes what is actually deployed instead of the earlier Caddy-based local
+  stack.
+- **Stale stylesheet**: the committed `www/dist.css` predated a lot of the UI — regenerating it added nine
+  utilities the markup already used and dropped none, so the answer form's controls had been rendering with
+  browser defaults. `www/app.css` also scans `index.html` explicitly now, since most of this app's markup lives
+  in the page's JavaScript.
+
+**Verified** without a Docker daemon (none on this machine, so the image build itself is the one step not run
+here): the same sequence against a clean copy of the sources with the compiler extracted from the pinned
+tarball — 0 errors, and the resulting binary served `/health` (`surreal db is healthy`), `index.html`,
+`dist.css`, `runtime.js` and `app.wasm` on `0.0.0.0:8000`, rejected the dev token with `DEV_MODE=false`, and
+passed the browser drill-down 7/7 against prod data.
+
+**Still to do on the server**: the Dokploy deploy of this compose — note that the `app` service and
+`Dockerfile.app` live on this branch (`feat/hotfix-16-codebase-polish`), while `main` is 146 commits behind and
+has no Roc stack at all, so the deployment has to point at this branch (or land after a merge).
+
+**Pre-deploy checks done from here** (nothing on the server was touched):
+
+- DNS: `app.johnethel.school` → `185.214.135.229`, the same host as `auth.`/`db2.`/`chat.`; Traefik answers 404 on
+  port 80 for that host, i.e. nothing is published there yet.
+- Authentik accepts `https://app.johnethel.school/auth/callback` on the authorize endpoint (302 into the login
+  flow) and rejects an unregistered URI (400), so the provider registration is correct.
+- **A blocking bug found here**: the backend derived its token-validation URL as
+  `AUTHENTIK_ISSUER_URL + "userinfo"`, but Authentik serves *one* userinfo endpoint per instance
+  (`/application/o/userinfo/`) — the derived URL 404s, so every real token would have been rejected with 401 as
+  soon as `DEV_MODE` was off. `dev-skip` never calls Authentik, so nothing local caught it. The rule now lives in
+  `roc-backend/AuthUrls.roc` (pure, covered by `AuthUrlsTest.roc`, 4/4) and the compose sets
+  `AUTHENTIK_USERINFO_URL` explicitly. `tests/e2e/auth_config_check.cjs` (new) checks all of it against the real
+  Authentik for a given origin — 5/5 for the deployed origin.
+
+After the deploy: `node tests/e2e/auth_config_check.cjs` plus `/health` and the static assets on the deployed
+origin, then a real login, and the sandbox suites re-run with `DEV_MODE` off.
+
+**The OAuth callback path**: the frontend used to send `redirect_uri = <origin>/`, so the login return landed on
+the app root and the registered URI had to be the bare origin. It now uses `<origin>/auth/callback`, a real
+callback path like the older SvelteKit app's `<origin>/api/auth/callback` — the root stays free of OAuth
+parameters and the registration is explicit. The backend's SPA fallback already serves `index.html` for that
+path, and a visit without a code starts the app from the root. `tests/e2e/e2e_auth_callback.cjs` drives the whole
+round trip with Authentik's endpoints intercepted and asserts the URI on both legs (12/12).
+
+### Three more workstreams — done
+
+Merged as `b050420` (their own commits: `f0ed0aa`, `7695938`, `3db0b68`); they overlapped in `main.roc`, the
+frontend and the fixture, so they landed together with the conflicts resolved by hand (both blocks kept where the
+user listing met the hub writes; the R2 passport call plus the assessment-hub setup in `index.html`;
+`dist.css` regenerated).
+
+- **The hub manages what it lists.** `PUT` for terms, subjects, class levels and session terms;
+  `POST …/toggle-active` for those plus the curriculum edge; `?all=true` on the three active-only listings so a
+deactivated row stays manageable in the hub while dropping off `/api/subjects` and the student's cards. Updates
+  are patches (absent = unchanged; nothing carried is a 400) and a duplicate name comes back with the unique
+  index's own message.
+- **General assessments** work end to end — create with hand-written questions and the opens/closes/attempts
+  rules, publish, student answer, MCQ auto-scoring, the same 409 guards, grading through the existing list.
+  `assessment_type=general`, bare `assessment_id`, one row per student and assessment with `iteration` bumping in
+  place. `compositions` is deliberately neither read nor written (nothing computes a weighted term result) and
+  create enforces the legacy ≤100% weight budget. It also fixed an existing bug: "Show all submissions"
+  referenced module-scoped variables and threw on click.
+- **Real presigned passport uploads.** `Sha256.roc` + `Hmac.roc` (pure; NIST and RFC 4231 vectors) and `R2.roc`
+  (SigV4 query presigning, checked against AWS's published `GET /test.txt` vector). `POST /api/upload-url` signs
+  a 600-second `PUT` for `<profileType>/passports/<userId>.jpg`, validates both parts, and answers 503 naming any
+  missing variable rather than a URL that cannot work. The form uploads the file and writes the returned public
+  URL into the passport field; the URL field still works.
+
+**Verified on the merged tree** (sandbox: SurrealDB 8002, mock Authentik 9000, backend 8010; fixture 157
+statements, 0 errors): `general_assessment_flow.sh` 49 passed / 1 skipped (the compositions check wants
+`SURREAL_URL`), `e2e_general_assessments.cjs` 25/25, `users_api.sh` 28/28, `assessment_flow.sh` 41/41,
+`e2e_admin_config.cjs` 53/53, `e2e_passport_upload.cjs` 9/9, `e2e_assessments.cjs` 17/17, `e2e_admin.cjs` 5/5,
+`e2e_student.cjs` 7/7, `e2e_auth_callback.cjs` 12/12; `roc check` 0 errors / 3 warnings; `Sha256Test` 7/7,
+`HmacTest` 7/7, `R2Test` 20/20, `UrlTest` 16/16. One test fix: `e2e_passport_upload.cjs` asserted the sandbox's
+access key instead of the signature's shape.
+
+---
+
+### The user listing is directory-driven — done
+
+The admin's blocker: users created in Authentik itself (with `Students`/`Teachers` groups) did not appear in
+User Management, and neither did the admin's own account. Cause: `GET /api/users?role=` read the profile
+tables and merged Authentik's `email`/`is_active` onto those rows — all four tables were empty, so the tabs
+were empty, and `POST /api/users` always creates a *new* login, so there was no way to attach a profile to a
+login that already existed.
+
+- **The listing is a union keyed by pk.** Every profile row of the requested role (as before), plus every
+  login the directory lists for that role that has no profile row — with `has_profile` telling the two apart.
+  A login in no role group (an outpost, a service account) maps to no role and is listed in no tab; the
+  student default stays where it belongs, on the caller's own role. One directory call per request.
+- **Group names come from `groups_obj`.** The list endpoint's `groups` field holds group **ids**, the names
+  live in `groups_obj` (verified against prod: `"groups":["79a71c0e-…"]`, `"groups_obj":[{"name":"authentik
+  Admins",…}]`). `role_from_group_names` is now the one mapping, read by the caller's role (userinfo `groups`,
+  names) and by the directory listing (`groups_obj`).
+- **`PUT /api/users` attaches a profile to an existing login.** It probes the row: present → patch (every
+  field the payload leaves out keeps its stored value), absent → the row is made from the payload, so the
+  create path's required fields are checked first (`validate_profile_fields!`, shared with `POST`) and the
+  statement is `CREATE` — this SurrealDB's `UPDATE` on a missing record is a silent no-op that still answers
+  OK. `deleted_at = NONE` is part of the write, so completing a soft-deleted profile brings it back.
+- **One form, two writes.** A profile-less row shows a `No profile yet` badge and a **Complete profile**
+  action that loads that login into the existing form (title, description, disabled email and role picker,
+  button label all switch); the same form still creates a login when no profile id is loaded. `State.roc`
+  picks `PUT` + `id` over `POST` + `role`/`email` from `completingProfileId`.
+
+**Verified** (sandbox: SurrealDB 8212, mock Authentik 9212, backend 8312; fixture 157 statements, 0 errors;
+`roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors): the seeded student/teacher/parent/admin
+logins list with `has_profile:false` and their login email; the groupless and unrelated-group logins appear in
+no tab; `PUT` with the full student set creates the row (`class_enrolled` + `current_class`), a second `PUT` is
+a patch, an incomplete payload is a 400 naming the missing field, `DELETE` then `PUT` brings a profile back,
+`POST` still creates login + profile; in Chromium, **19/19** checks — the badge and action, the form switching
+modes, the completed row becoming a normal row, the teachers tab, no page errors.
+
+The fixture's directory now starts with one login per role plus two that belong to no role (`seed_user`), and
+its created logins carry `groups_obj: []` the way Authentik's own API does — and a **numeric** pk, the shape
+the real API sends, because a mock that only ever sends string pks is what hid the two bugs below.
+
+**The suites** (`tests/e2e/`, sandbox 8212/9212/8312, fresh fixture): `users_api.sh` **54/54** (28 existing +
+26 for the directory listing and the completing write, run twice on one sandbox), `e2e_users_directory.cjs`
+**17/17** (new; the badge, the form switching modes, the write being a `PUT` about that login with no email,
+the row becoming normal; run twice), `e2e_loading.cjs` **20/20** (its four stale checks asserted the Teachers
+tab was empty — every tab has a seeded row now, so the empty state is faked for one tab through the route
+interception it already used for the 500 case), `e2e_admin.cjs` 5/5, `e2e_admin_config.cjs` 53/53,
+`e2e_student.cjs` 7/7, `authz.sh` 27/27. `roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0
+errors.
+
+**Two bugs the sandbox had been hiding, both about the shape of a pk.** Authentik sends a login's `pk` as a
+*number* (`"pk":13`) and puts it first in the object; the group objects that follow carry a string `pk` of
+their own. The mock only ever sent string pks, so two readers that matched `"pk":"…"` looked right there:
+
+- the listing's pk reader took a **group's** pk (the real listing came back as
+  `student_profile:b8908daf-…`, the `Students` group's uuid, which matches no profile row and so also silently
+  broke the email/is_active merge for every login in a group). Both readers now take the login's own `pk`,
+  number or string.
+- `Authentik.createUser!` read the pk the same way and, finding nothing on a response whose new login has no
+  groups, fell back to the literal `user_uuid_123`. That is why prod has a `student_profile:user_uuid_123` row
+  for a login that really has pk 14: the profile was written under a placeholder id, leaving the login with no
+  profile and the row orphaned. `Authentik.roc` reads the number form now.
+
+SurrealDB renders a string id part that looks like a number back to us quoted (``student_profile:`14``), so
+`bare_id` strips the backticks and the listing emits ids in one spelling (`student_profile:14`); without that,
+a row made by the create path could not be joined to its login. The fixture's created logins now carry numeric
+pks too, so this class of bug cannot hide in the sandbox again. A profile-less row also carries the login's
+`username`, which is what the page shows when a login has no name at all — two of the real directory's are
+named only by their username.
+
+One more thing the tests had to learn: a pk that looks like a number is still a *string* id part, so a raw
+SurrealQL statement has to spell it `type::record('student_profile','14')` the way `record_ref!` does —
+`student_profile:14` in a statement is a number part, a different record from the one the app writes.
+`users_api.sh` builds its ids through a `rid` helper now, and reads a created row's pk out of the listing
+(or strips the quotes SurrealDB puts on it in a write's own answer).
+
+**Prod cleanup (approved, one-off)**: the placeholder-id row the create bug left behind is gone, along with
+the dummy login it was meant for. `student_profile:user_uuid_123` (Grace Chioma Nwosu1822 — `e2e_admin.cjs`'s
+own fixture data, `https://example.com/grace.jpg` and a `Nwosu<stamp>` surname, written 2026-10-05 by that
+suite running against prod) was deleted, and so was its login `grace1791225481822@example.com` (pk 14, in no
+group, so it was in no tab anyway). Checked first: nothing referenced either side (`submissions` and
+`parent_profile` are empty). Before → after: `student_profile` 1 → 0 rows, directory logins 9 → 8. The four
+tabs now list only real accounts: `temp-student` (pk 13), `temp-staff` (pk 11) and the admin (pk 5), each
+waiting for its school data.
+
+### Merge-readiness review and fixes — done (four commits)
+
+A review of the branch ran against `27e65b5` + `7eb6ee9` (the deploy path, the Phase 8 work, the
+suites and the docs). Its findings and the fixes that followed are the four commits after that:
+`ae18d9b` (deploy), `dd72570` (backend), `4aadb2e` (build script), `6444403` (docs and hygiene).
+
+- **Deploy.** The `app` service now lists the five `R2_*` variables. Compose forwards only what a
+  service's own `environment:` names, so Infisical/Dokploy interpolated them while the container read
+  them as unset and `/api/upload-url` answered 503. The two relative bind mounts carried an extra
+  `devops/` prefix — Compose resolves relative paths against the compose file's own folder, so they
+  meant `devops/devops/…` and Docker created an empty directory there — and are now
+  `./element/config.json` / `./matrix-config/homeserver.yaml`; `docker compose -f
+  devops/docker-compose.yml config` renders both against the real files and the app's `context: ..`
+  against the repository root. `.github/workflows/deploy-backend.yml` is `workflow_dispatch` only now:
+  it deployed the retired Golem runtime on any push to `main` touching `agents/**`, which includes the
+  merge that was about to introduce it. The job is intact for the move to roc-golem. Both
+  `.env.example` files match what the code and the compose file read.
+- **Backend.** `/health` answers 503 when the database is unreachable, decided through `db_body!`; it
+  used to answer 200 with "surreal db is down" inside the body, which the container's HEALTHCHECK read
+  as healthy. `Authentik.createUser!` no longer falls back to the literal `user_uuid_123` when a create
+  response carries no pk — the caller answers 502 and writes no profile row, instead of 200 with an
+  orphan row (the shape of the production row whose cleanup landed in `27e65b5`).
+- **Frontend build.** `roc run build.roc` failed twice during the review with "roc build failed for
+  app.roc" while a direct `roc build` of the same command succeeded: the captured output ended at the
+  warnings and lost the trailing summary line the check reads. The compiler now runs under `sh` with
+  stdout and stderr redirected into `build.log`, and the same rule is applied to that file — a summary
+  reporting errors, or a missing wasm, still fails the build. Not reproduced in five attempts on the
+  pinned platform (which has no redirect API, hence `sh`), so the truncation is unproven; the decision
+  just no longer depends on a pipe.
+- **Docs and hygiene.** `docs/architecture.md` states the role matrix the backend enforces
+  (`required_role`/`may_call`, proven by `authz.sh`) instead of calling it a missing regression, and
+  records that `db/schema-v5*.surql` were never applied to prod: no `id_sequences` table, no
+  `student_profile.admission_number`, no `staff_id`, and the backend writes none of them — so applying
+  v5 to a fresh database breaks `POST /api/users` for Student/Teacher/Admin. Both v5 files say the same
+  in a header. The root `.gitignore` ignores the untracked scratch a broad `git add -A` would otherwise
+  sweep in before a push.
+
+**Verified in this pass** (sandbox 8222/9222/8322, plus the Dockerfile's steps replayed on a clean
+`git archive` copy): `roc check main.roc` 0 errors / 3 warnings and `roc check app.roc` 0 errors;
+`users_api.sh` 54/54, `authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56,
+`e2e_users_directory.cjs` 17/17, `e2e_loading.cjs` 20/20, `e2e_admin.cjs` 5/5, `e2e_admin_config.cjs`
+53/53, `e2e_general_assessments.cjs` 25/25, `e2e_signout.cjs` 9/9, `e2e_auth_callback.cjs` 12/12, and —
+after the selector fix in `7eb6ee9` — `e2e_student.cjs` 7/7 and `e2e_assessments.cjs` 17/17 (both had
+been failing on a fresh fixture: the nav bar's session-term badge carries the term's own name, so
+`text=Noel Term` clicked the badge); `deploy_check.cjs` 8/8 against the built binary running
+`DEV_MODE=false`, which refuses `dev-skip` and serves the bundle; `auth_config_check.cjs` 5/5 against
+the real Authentik; and, read-only against prod, the four user tabs, 23 subjects, 75/225 lessons and
+127 curriculum edges.
+
+**Independently re-verified** on its own fresh sandbox (8922/9922/8822) at `fa99fc5` by a separate
+reviewer pass: both `roc check`s, the 157-statement fixture, all thirteen suite counts above, and each
+fix adversarially — the compose renders the five `R2_*` and both mounts against `devops/`, the workflow's
+job body is byte-identical with only `workflow_dispatch` left as a trigger, both `.env.example` files are
+an exact set match with what the code and the compose file read, the no-pk create answers 502 with no row
+written (while a real pk still creates one), and the build script fails on a broken `app.roc` and on a
+missing compiler while succeeding normally. It also confirmed the diff touches only the seventeen files
+the six commits name. The two notes it raised are folded in: `e2e_loading.cjs`'s skeleton check was 19/20
+twice in five runs — a timing race in the check, not a regression — so the hold-back is now 2 s and the
+skeleton wait starts immediately after the click (20/20 in seven runs since); and `devops/.env.example`
+listed `ACME_EMAIL`, which nothing in the repository reads, so it is gone.
+
+**Left for the server / open**:
+
+- Confirm on the deploy host that `docker compose -f devops/docker-compose.yml config` renders the two
+  mounts against `devops/`, that the `R2_*` values reach the `app` service (Dokploy's environment, from
+  Infisical), and whether a stray `devops/devops/` directory exists from the old mount spelling.
+- Decide v5's fate: have the backend write `admission_number`/`staff_id` (the planned `JES`/`EMP`/`ADM`
+  id prefixes in `id_sequences`) or retire the two files. Until then the lineage is documentation, not a
+  rebuild recipe.
+- `/health` now makes an unreachable database an unhealthy container. The compose file's
+  `restart: unless-stopped` reacts to exits, not to health, so the state surfaces in `docker ps` health
+  and in `deploy_check.cjs` rather than as a restart loop.
+- The build-script truncation is hardened but unexplained: if a build ever fails with an empty or short
+  `build.log`, the redirect is the suspect rather than the compiler.
+
+### School numbers — done (students, teachers and admins)
+
+Every member of the school now carries a permanent number, in the shape the developer settled on: the
+database stores the integer alone and the prefix is applied by the code, so the number is the person's
+identity rather than a formatting choice.
+
+- **Stored as an integer, one counter per class of member.** `student_profile.admission_number`, and
+  `staff_id` on `teacher_profile` and `admin_profile`, all `option<int>`; `id_sequences` holds a `student`
+  row and a `staff` row. Teachers and admins share the `staff` counter, and a pk that already holds a staff
+  number on either staff table *reuses* it rather than drawing a second one — which is what keeps a teacher
+  made an admin holding their own number. A student who becomes staff draws a fresh staff number; a parent
+  has none.
+- **Rendered in one place.** `main.roc` renders `JES-000123` / `EMP-000045` into the listing's
+  `school_number` field; neither the database nor the page spells a prefix a second time, so the written
+  form can change without touching a stored number. User Management shows the number read-only.
+- **Allocated inside the profile's own statement** — `CREATE … SET admission_number = (UPDATE
+  id_sequences:student SET current_value += 1 RETURN current_value)[0].current_value` — so a rejected or
+  duplicate create cannot burn a number and a retry draws the next. Verified on this SurrealDB: the
+  increment rolls back with a failing statement, and two concurrent increments serialized (3, then 4).
+  Once set, the number is immutable: a `PUT` carrying either field is a 400 naming it, the same refusal
+  `class_enrolled` gets.
+- **`db/schema-v8-ids.surql`** is the additive migration: `UPSERT` seeds for the two counters (never v5's
+  `DELETE`), `option<int>` columns with unique indexes. It supersedes the never-applied `v5` pair, whose
+  headers now say so, and the sandbox fixture mirrors it. **Applying v8 to prod is part of the deploy** —
+  prod is SCHEMAFULL, so a create that has to hand out a number fails until the columns exist; there is no
+  backfill, because prod has no profile rows.
+
+**Verified** on a fresh sandbox: `roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors;
+the fixture loads 170 statements / 0 errors; students drew `JES-000001` then `JES-000002`, a teacher and an
+admin drew `EMP-000001` then `EMP-000002` from the one `staff` counter; a rejected create (no passport) and
+a create the database itself rejected (`2011-13-45`) left both counters unmoved; a teacher's pk given an
+admin profile reused `EMP-000001` with the counter unmoved (the reverse direction too); a `PUT` carrying
+`admission_number` (string) or `staff_id` (integer, with a space after the colon) answered 400 with the
+stored values unchanged; `current_value = 999999` rendered `JES-1000000` rather than truncating; and the
+rendered cell was read back out of the DOM (header, `JES-000001`, `—` for a profile-less row and a parent,
+no editable control). Suites: `users_api.sh` 77/77 (44 checks added), `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `e2e_users_directory.cjs` 17/17, `e2e_admin.cjs` 5/5, `e2e_loading.cjs` 20/20,
+`e2e_admin_config.cjs` 53/53.
+
+**Independently re-verified** on its own fresh sandbox at `5ecdf58`: all ten checks reproduced —
+the allocation numbers and the unmoved counters on refused creates (validation and database alike), the
+reuse rule in both staff directions plus the fresh-`JES-` and fresh-`EMP-` transitions, the immutability
+400s in both spellings, a hand-written duplicate refused by `idx_student_admission`, three parallel
+creates drawing 6, 7, 8, `JES-1000000` from a counter of 999999, the read-only table cell, the
+fixture-vs-v8 statement match, all thirteen suites (again `users_api.sh` 77/77), and every sentence of
+the docs — plus the negative: with the v8 field dropped, a create fails exactly as the docs say
+("Found field 'admission_number', but no such field exists"), the counter unmoved and the login rolled
+back.
+
+**Two boundaries, both by design**: numbers on two staff tables cannot carry one global unique index, so
+cross-table uniqueness rests on the shared counter and the reuse rule being the only allocators (hand-written
+SQL could still put one number on a teacher and an admin); and when Authentik is unreachable the listing
+falls back to the raw rows, which carry the integer and no `school_number`, so that column renders empty —
+the same way email and `is_active` do there.
+
+**Still to do on the server**: apply `db/schema-v8-ids.surql` to prod (row counts either side, as always)
+**before** the backend deploy; the number column then appears in User Management. If the school ever wants a
+different written form, only the renderer in `main.roc` changes.
+---
+
+## Completed Work
+
+- [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc, EventStore.roc)
+- [x] Roc Joy framework frontend (app.roc, State.roc, UI.roc, DashboardView, AdminView, TeacherView, StudentView)
+- [x] SurrealDB schema (schema.surrealql) with event sourcing tables
+- [x] CSS theme system with shadcn/Tailwind tokens (light + dark mode)
+- [x] **Phase 5: Security Hardening**
+  - [x] Environment variables for all secrets/URLs (SURREAL_URL, SURREAL_AUTH, AUTHENTIK_*, GOLEM_URL, DEV_MODE)
+  - [x] Fixed auth bypass: dev-skip/test-token only work when DEV_MODE=true
+  - [x] Hardened SQL sanitization (comprehensive injection prevention)
+  - [x] Added CORS headers and OPTIONS preflight handler
+  - [x] Added JWT expiration check in frontend
+  - [x] Created .env.example documentation
+- [x] **Phase 5: Frontend Navigation & UX**
+  - [x] Fixed broken navigation (added push_state port handler)
+  - [x] Clickable breadcrumbs with Dashboard back-link
+  - [x] Mobile sidebar overlay with hamburger menu toggle
+  - [x] Parent role sidebar navigation
+  - [x] URL path-based initial route (supports direct URL access)
+  - [x] Removed hardcoded dummy data from State init
+  - [x] School branding: "John Ethel Academy"
+- [x] **Phase 5: UI Polish**
+  - [x] Professional role-specific dashboards with welcome messages
+  - [x] Stat cards with dynamic content placeholders
+  - [x] Quick action buttons linking to relevant pages
+  - [x] Route-based Teacher/Student views (Lessons, Assessments, Assignments)
+  - [x] Professional empty states with icons and helpful messages
+  - [x] Admin submit feedback (green success / red error banners)
+  - [x] Config hub tabs with instructions and examples
+  - [x] Loading/empty states in user table
+- [x] **Phase 6: Unified Roc Server**
+  - [x] Backend serves both API and static frontend (single server on port 8000)
+  - [x] SPA fallback: non-API GET requests without file extensions serve index.html
+  - [x] Static file serving with correct MIME types (HTML, CSS, JS, WASM, SVG, PNG, etc.)
+  - [x] Directory traversal prevention (strips `..` and `//`)
+  - [x] API routes gated behind `/api/` prefix
+  - [x] No separate Python dev server needed
+- [x] **Phase 6: Auth Upgrade**
+  - [x] Migrated from OAuth2 implicit flow to Authorization Code + PKCE
+  - [x] Code verifier/challenge generation in frontend
+  - [x] Token exchange via Authentik token endpoint
+- [x] **Phase 6: E2E Test Stabilization**
+  - [x] **23 tests passing, 2 skipped (known Joy WASM crashes), 0 failures**
+  - [x] Fixed sidebar nav items: changed from `<a href="#">` to `<div>` to prevent browser navigation
+  - [x] PKCE flow assertions in auth tests
+  - [x] Config Hub renders with all tabs test
+  - [x] Teacher/Student dashboard quick action verification
+  - [x] `test.fixme` markers for Joy framework WASM click crashes (Teacher/Student sidebar nav)
+- [x] **Phase 7: MVP Feature Implementation**
+  - [x] School logo in sidebar (replaced "John Ethel Academy" text with actual logo image)
+  - [x] User Management with role tabs (Students | Teachers | Parents | Administrators)
+  - [x] Role-specific user tables with active/inactive badges, avatar initials
+  - [x] User creation form with role dropdown and passport photo upload field
+  - [x] Backend: Role-filtered `/api/users?role=` query param support
+  - [x] Student LMS: My Subjects page with subject cards → lesson viewer flow
+  - [x] Beautiful Lesson Viewer with:
+    - Right-side sticky dot navigation (scroll-spy highlights active section)
+    - Hover to expand section names, click to smooth-scroll
+    - Mobile FAB (floating action button) for TOC
+    - Learning Objectives card (numbered list)
+    - Content Sections with headers, body text, sub-points
+    - Key Points amber card
+    - Lesson | Assessments tabs
+  - [x] Teacher Lesson Viewer with 3 tabs (Lesson | Assessments | Grading)
+  - [x] Teacher assessment creation modal
+  - [x] Grading workflow: view submissions, grade, release grades
+  - [x] Assessment submission flow for students
+  - [x] MessagingView with Matrix/Synapse integration (rooms list, chat area, send)
+  - [x] Backend: Student lesson APIs (`/api/student/subjects`, `/api/student/lessons`, `/api/student/lesson`)
+  - [x] Backend: Teacher lesson APIs (`/api/teacher/lessons`, `/api/teacher/lesson-assessments`)
+  - [x] Backend: Assessment APIs (create, submit, grade, release)
+  - [x] Backend: Matrix token proxy (`/api/matrix/token`)
+  - [x] Backend: Passport upload URL endpoint (`/api/upload-url`)
+  - [x] New routes: StudentSubjects, StudentLesson, TeacherMyClasses, Messaging
+  - [x] Updated SurrealDB schema + seed data (students, teachers, parents, admins, subjects)
+  - [x] JS port layer completely overhauled (lesson viewer, scroll spy, Matrix sync, upload)
+
+## E2E Test Results (25 tests)
+| Category | Tests | Status |
+|----------|-------|--------|
+| Authentication | 3 | ✅ All passing |
+| Theme Switcher | 2 | ✅ All passing |
+| Admin Role | 6 | ✅ All passing |
+| Teacher Role | 2 passing + 1 fixme | ✅ Sidebar + dashboard passing |
+| Student Role | 2 passing + 1 fixme | ✅ Sidebar + dashboard passing |
+| Breadcrumbs | 3 | ✅ All passing |
+| Responsive Layout | 2 | ✅ All passing |
+| Branding | 2 | ✅ All passing |
+| Backend Health | 1 | ✅ Passing |
+
+### Known Issues (test.fixme)
+- Joy framework WASM crash on `NavigateTo` for Teacher/Student routes when triggered via sidebar click
+- Root cause: Chromium renderer process crash during WASM execution — not a code bug, framework-level issue
+- **Does NOT affect real browser usage** — only Playwright headless Chromium
+
+## Backend API Endpoints
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| GET | /health | Health check | ✅ |
+| GET | /api/users?role= | List users by role (Student/Teacher/Parent/Admin) | ✅ |
+| POST | /api/users | Create user (via Authentik + SurrealDB) | ✅ |
+| PUT | /api/users | Update user | ✅ |
+| DELETE | /api/users | Soft delete user | ✅ |
+| POST | /api/upload-url | Get R2 presigned upload URL for passport photo | ✅ |
+| GET | /api/student/subjects | List subjects | ✅ |
+| GET | /api/student/terms | List terms (filtered by subject_id) | ✅ |
+| GET | /api/student/lessons | List lessons (filtered by subject/term) | ✅ |
+| GET | /api/student/lesson | Full lesson content by lesson_id | ✅ |
+| GET | /api/student/assessments | List active assessments for student | ✅ |
+| POST | /api/student/submit-assessment | Submit assessment | ✅ |
+| GET | /api/teacher/lessons | List all lessons for teacher | ✅ |
+| GET | /api/teacher/lesson-assessments | List assessments per lesson | ✅ |
+| POST | /api/teacher/create-lesson-assessment | Create assessment | ✅ |
+| GET | /api/teacher/submissions | List student submissions | ✅ |
+| POST | /api/teacher/grade-submission | Grade a submission | ✅ |
+| POST | /api/teacher/release-grades | Release grades to student | ✅ |
+| GET | /api/matrix/token | Matrix/Synapse token proxy | ✅ |
+| GET | /api/subjects | List subjects | ✅ |
+| GET | /api/terms | List terms | ✅ |
+| GET | /* (static) | Static file serving | ✅ |
+| GET | /* (SPA) | SPA fallback to index.html | ✅ |
+
+## Remaining Work (Backlog)
+- [ ] Wire lesson viewer URL param to actual lesson ID (currently shows placeholder on navigation)
+- [ ] Subject → Term → Lesson navigation drill-down (multi-level routing)
+- [ ] Real passport photo upload (presigned PUT to R2 from browser)
+- [ ] Edit user dialog/form
+- [ ] Config tab forms CRUD (Terms, Class Levels, Curriculum, Class Arms, Subjects)
+- [ ] Parent portal (linked students view)
+- [ ] Dashboard stat cards wired to real API data
+- [ ] Toast/notification system
+- [ ] Cloud deployment configuration
+- [ ] Rate limiting on backend
+
+## Architecture Notes
+- **Unified Roc server**: Single `roc-backend/main.roc` serves both API and frontend on port 8000
+- **Golem is used only for critical operations** (enrollment via class agents), not the entire backend
+- Roc basic-webserver handles all direct CRUD — keeps it simple and fast
+- Frontend is a Joy WASM SPA compiled from `roc-frontend/app.roc`
+- Auth is delegated to Authentik via OAuth2 Authorization Code + PKCE flow
+- Static files served from `STATIC_DIR` env var (defaults to `../roc-frontend/www`)
+- SurrealDB 3.3.0 on port 8001 (surrealkv:// for persistence in dev)
+- Messaging uses Matrix/Synapse homeserver at `matrix.johnethel.school`
+- Passport photos stored in Cloudflare R2 (S3-compatible)
 
-  **What was built:**
-  - **SuperAdminAgent**: 11 HTTP endpoints (`/ping`, `/db-test`, `/class-levels`, `/class-subjects`, `/check-init`, `/initialize`, `/teacher/subjects` GET/POST, `/initializations`, `/invalidate-cache`). No init check — singleton agent, always available.
-  - **AdminAgent**: 9 HTTP endpoints (`/ping`, `/check-init`, `/class-levels`, `/class-subjects`, `/initialize`, `/teacher/subjects` GET/POST, `/initializations`, `/invalidate-cache`). HTTP mount at `/admin/{admin_id}`.
-  - **StudentAgent**: 5 HTTP endpoints (`/ping`, `/subjects`, `/terms`, `/lessons`, `/lesson`, `/invalidate-cache`). HTTP mount at `/student/{student_id}`.
-  - **TeacherAgent**: 6 HTTP endpoints (`/ping`, `/classes`, `/terms`, `/lessons`, `/invalidate-cache`). HTTP mount at `/teacher/{teacher_id}`.
-  - **`common.mbt`**: Shared `GolemAgentConfig` (6 secrets), `CacheData`/`CacheEntry` types, `check_auth_key()`, `surreal_query()`, `surreal_query_retry()`, `parse_result_array()`, `parse_result_single()`, `escape_surreal_string()`.
-  - **`agent_cache.mbt`**: Generic Agent Memory Cache (`AgentCache[C]`) with `get_or_refresh()` pattern, TTL per key.
-  - **GatewayAgent deleted** — `gateway_agent.mbt`, all gateway references in golem_agents.mbt/clients.mbt removed.
-  - **All agents use same config struct** — `GolemAgentConfig` with 6 secrets shared across all 4 agent types.
-  - **Cache invalidation via RPC**: `invalidate_cache(incoming_key, key)` on StudentAgent and TeacherAgent. Called from AdminAgent/SuperAdminAgent with locally-resolved `auth_key`.
-
-  **Build status:** `golem build` 0 errors, deployed (component revision 4). `moon info && moon fmt` run.
-
-- Unit 19: **Lesson Content Page with Side Navigation** — Enhanced lesson detail page at `/lms/[subjectId]/[termId]/[lessonId]` with sticky side navigation panel: dots column (w-14) at content's right edge uses `sticky top-50vh translateY(-50%)` to stay vertically centered. Hovering dots reveals section headings card to the left (`absolute right-full`). Scroll spy via `use:scrollSpy` action (passive scroll listener with rAF throttling, scanning `[data-section]` children). Mobile floating TOC button with FAB at bottom-right. Placeholder assignment card with dashed border. Key Points/Assignments sections swapped (assignments last). Removed Separator between title and content. Added `pb-16` after last section. `px-6` on all card headers/content. Fixed scroll spy: `position: fixed` broken by `<SidebarInset>` parent transform → replaced with `sticky` flex layout. A11y fixes: `aria-label` on nav/FAB, keyboard handler on backdrop. Open redirect fix: backslash bypass blocked via regex. Week badge guard: `!= null` catches `undefined`. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
-
-- Unit 17: **Student LMS – Term & Lesson Browsing** — Build `/lms/[subjectId]` (term selection page with compact Card grid, active/inactive distinction, lock icon) and `/lms/[subjectId]/[termId]` (lesson list page with numbered cards, back link). Dynamic breadcrumb in root layout reads from `$page.data.breadcrumbs`. Skeleton loading, empty, and error states on both pages.
-
-  **Fixes applied (retroactive):**
-  - **(A)** `db/schema-v2.surql`: replaced `CREATE has_subject CONTENT` with `RELATE` pattern.
-  - **(B)** Both page servers use `event.fetch()` to SvelteKit proxy routes instead of `proxyToGateway()`.
-  - **(C)** Golem agents rebuilt and redeployed.
-  - **(D)** Breadcrumbs include `{ label: 'Subjects', href: '/' }`.
-  - **(E)** `get_lessons(subject_id, term_id)` resolves `has_subject` edge via single SQL with nested `IN` subqueries.
-
-  **Session additions:**
-  - **(F)** **Root-caused `get_subjects` disappearing bug:** `get_subjects()` passed `self.profile.class_level` (name string, e.g. `"JSS_1"`) as `$class_level_id`, but SQL said `WHERE in = $class_level_id` against `record<class_levels>`. Result: `WHERE in = "JSS_1"` matched nothing. Fixed: nested subquery `WHERE in IN (SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1)`. Cached subjects only worked until cache expiry (TTL=600s), then vanished.
-  - **(G)** **Custom IDs migration (`db/fix-ids.surql`):** Converted `class_levels`, `subjects`, `terms` from UUID-based IDs to human-readable record IDs (`class_levels:jss_1`, `subjects:basic_science`, `terms:first`). Rebuilt `class_subjects` and `has_subject` edges (98 each) with new IDs.
-  - **(H)** **Lessons migration (1919 records):** Root cause of "0 lessons created" — `LET $hs = NONE; IF $cl_id != NONE { LET $hs = ...; }` fails because `LET` inside `IF` scopes locally and doesn't persist. Fixed by removing `LET $hs = NONE` and `IF` guard, doing the lookup unconditionally. Migrated in 3 batches of ~600 records each.
-  - **(I)** **Missing indexes confirmed to exist:** `INFORMATION_SCHEMA.INDEXES` returned `[]` initially (query format issue), but `DEFINE INDEX` commands confirmed indexes already exist. 60-second load was caused by empty table returning no results.
-  - **(J)** Agents rebuilt and deployed (`golem deploy --reset -Y`, component revision 5). Admin agent, student agent re-initialized via `golem agent invoke GatewayAgent() initialize_admin`.
-  
-  **End-to-end verification (via `golem agent invoke`):**
-  - `get_subjects` → 6 subjects with correct custom IDs: `subjects:computer_studies`, `subjects:basic_technology`, `subjects:cultural_and_creative_arts`, `subjects:basic_science`, `subjects:agriculture`, `subjects:civic_education`
-  - `student_terms` → 3 terms (`terms:first`, `terms:second`, `terms:third`)
-  - `student_lessons("subjects:computer_studies", "terms:first")` → 10 lessons with topic titles and week numbers (e.g. "Computer Career Opportunities", week 1; through "Using Search Engines for Research", week 10). All through the Gateway agent, wrapped in `Ok(...)`.
-
-- Unit 18: **Student Agent – Lesson Content (Student View)** — Added `get_lesson(lesson_id)` to Student Agent: fetches lesson from SurrealDB with TTL caching (600s), returns only student-visible fields (`topic_title`, `week`, `subject_name`, `term_name`, `objectives`, `content_sections`, `key_points`). Content arrays serialized as JSON strings via `Json::stringify()`. Added `LessonContent`, `LessonContentCache` structs, `lesson_cache` field. Gateway endpoint at `/gateway/student/lesson` with init check. SvelteKit proxy route at `/api/student/lesson`. Frontend `LessonContent` type. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors. Deployed revision 9.)
-
-  **Post-deploy fix (part 1):** Lesson list page (Unit 17) linked to `/lms/[subjectId]/[termId]/[lessonId]` but no frontend route existed — caused 404 on click. Created `[lessonId]/+page.server.ts` (fetches via `/api/student/lesson`, returns `LessonContent` + breadcrumbs) and `[lessonId]/+page.svelte` (renders objectives bullet list, content sections as cards, key points bullet list; skeleton loading, error with retry, and empty states).
-
-  **Post-deploy fix (part 2):** The lesson detail page hung (amber loader forever) due to the Gateway endpoint at `/gateway/student/lesson` returning 404. Root cause: the generated `.mbti` interface file was stale — `student_lesson` function was added to `gateway_agent.mbt` but `moon info` was never run to regenerate the `.mbti`. Fixed by running `moon info` before `golem build` to ensure generated stubs match the actual source. The build pipeline (`golem build` → `golem-sdk-tools agents` → `moon build`) regenerates `golem_agents.mbt` etc. but does NOT regenerate `.mbti` files, so `moon info` must be run manually after adding new endpoint functions. Also: Gateway HTTP API is on port **9006** (not 9881 which is the Golem management API), and `golem deploy --reset` deletes all agent state requiring re-initialization.
-
-- **✅ 2026-06-02: SurrealDB Agent HTTP Timeout — 15s first_byte_timeout added to WASI HTTP calls**
-
-   **Problem:** `surreal_query()` called `@http.handle(request, None)` then `pollable.block()` with no timeout. If Surreal Cloud was unresponsive, the singleton SuperAdminAgent hung forever on `pollable.block()` — all subsequent requests queued behind it with no way to recover.
-
-   **Fix (1 file, 2 lines added):**
-   1. `surreal_client.mbt:146-147` — Created `RequestOptions` resource and set `first_byte_timeout` to 15s (`15000UL`); passed `Some(opts)` to `@http.handle`
-
-   **Build status:** `golem build` 0 errors (same 41 pre-existing warnings). `moon info && moon fmt` run.
-
-## Most Recent Fix — Post-GatewayAgent Bugs (Session 2026-06-01)
-
-**Root cause 1 (dead code/broken build):** GatewayAgent removal left mangled code in `super_admin_agent.mbt`: dangling `"super admin online"` block after `db_test`, leftover `match surreal_query(...SELECT VALUE 1...)` block from old `db_test` implementation, and a duplicate `debug_has_subject` endpoint. Fixed by removing all three.
-
-**Root cause 2 (`check_init` missing query param):** The `#derive.endpoint(get="/check-init")` annotation didn't include `?target_user_id={target_user_id}`, so the endpoint never extracted the query parameter. Fixed.
-
-**Root cause 3 (`db_test` SQL syntax):** `SELECT VALUE 1` and `SELECT 1 AS one FROM (SELECT * FROM ONLY (SELECT VALUE 1))` both fail in SurrealDB. Fixed by using a valid SQL: `SELECT 1 AS one FROM (SELECT * FROM ONLY (SELECT 1))`.
-
-**Root cause 4 (`get_available_class_subjects` parse failure):** `@json.parse()` in MoonBit WASM fails on response strings > ~4KB (returns "parse response failed"). The single-query approach for `has_subject` edges returned 17KB when not limited. With `LIMIT 2`, response was 402B and parsed fine. The retry in `_query_class_subjects` couldn't fix this — every call to `@json.parse` on a 17KB string fails deterministically. Fixed by rewriting to use two smaller queries: first fetch `class_levels` (small response), then per-class-level fetch subjects via `WHERE in = type::thing(...)` (each small enough to parse).
-
-**Fixes applied:**
-1. Removed dead/duplicate code from `super_admin_agent.mbt`
-2. Added `?target_user_id={target_user_id}` to `check-init` endpoint annotation
-3. Fixed `db-test` SQL query syntax
-4. Rewrote `get_available_class_subjects` to use two-phase query pattern — avoids `@json.parse` large-input crash
-5. Deployed component revision 10; all SuperAdminAgent endpoints verified working: `class-subjects`, `class-levels`, `check-init`, `initializations`, `teacher/subjects`, `debug-has-subject`
-
-**Key finding:** MoonBit WASM `@json.parse` has a size-dependent first-call bug — responses > ~4KB fail on the first (and every) call. All SurrealDB responses should be kept under 1KB per query, or split into multiple small queries.
-
-## Important Notes for Next Session
-
-- HTTP `first_byte_timeout` set to 15s (`15000UL`) on WASI HTTP calls — prevents agent hang on Surreal Cloud blips
-- Gateway HTTP API port: **9006** (agents.localhost:9006), NOT 9881 (Golem management API)
-- After adding new endpoint functions to any agent: run `moon info && moon fmt` before `golem build` to keep `.mbti` files in sync
-- `golem deploy --reset` destroys all agent state — re-init is always required
-- `LessonContent` content fields are JSON strings (`String?`) — frontend `JSON.parse()`s them
-- **Surreal Cloud runs surrealdb-2.6.5** — `INSERT INTO ... VALUES ... ON DUPLICATE KEY UPDATE` works syntax-wise but returns non-array `result`; prefer simple `INSERT` + duplicate-key error handling
-- **Curl to Surreal Cloud `/sql` endpoint returns 415 for any SQL body containing keywords like `FROM`, `INSERT`, `DEFINE`** — only `SELECT N`-style queries pass through. The agent's WASM HTTP client does NOT have this issue (receives proper responses). Suspect proxy/WAF layer limitation.
-- **`ON DUPLICATE KEY UPDATE` is SurrealDB 1.x terminology** — in 2.x the same syntax exists for `INSERT INTO ... VALUES` but not for `CREATE ... CONTENT`
-- **`INSERT INTO ... VALUES ...` (no upsert clause) + check error string for "Duplicate"/"unique"/"already exists"** is the working idempotent init pattern
-
-## Next Steps (Session Bootstrap)
-
-After context reset or new session:
-1. Deploy agents: `golem deploy --yes` (from `agents/` dir, or `--reset -Y` to destroy all state)
-2. Update agent instances (auto update should apply on next invocation)
-3. Test: `curl "http://agents.localhost:9006/super-admin/class-subjects" -H "X-Golem-Auth-Key: dev-auth-key-change-in-production"`
-
-**Important caveats:**
-- GatewayAgent removed — all endpoints are now directly on per-user agents (SuperAdminAgent, AdminAgent, StudentAgent, TeacherAgent)
-- HTTP API domain: `agents.localhost:9006` (NOT `localhost:9881`)
-- After `golem deploy --reset`, all agent state is destroyed — re-initialization needed via `POST /super-admin/initialize?target_user_id=...&role=...`
-- MoonBit WASM `@json.parse` has size-dependent crash on responses > ~4KB — split large queries into per-entity sub-queries
-
-## Session 2026-05-30 — Optimizations
-
-### Initialization: merged 2 SurrealQL queries into 1 dot-traversal + edge cache pre-population
-
-- **Before:** `initialize()` ran 2 sequential queries: (1) `SELECT VALUE id FROM class_levels WHERE name = $class_level` → parse JSON → extract cl_id, (2) `SELECT out... FROM has_subject WHERE in = <cl_id>` with string interpolation
-- **After:** Single query `SELECT id AS edge_id, out.id AS id, out.name AS name, out.code AS code FROM has_subject WHERE in.name = $class_level AND active = true ORDER BY out.name ASC`
-- **Eliminates:** 1 SQL round-trip, 1 JSON parse of 19-line nested pattern match, class_level string interpolation into SQL
-- **Uses dot-traversal** `in.name = $class_level` on `class_levels(name)` via `idx_cl_name` UNIQUE index (O(1))
-- **Side effect:** Pre-populates `edge_cache[subject_id] = EdgeCacheEntry{ edge_id, fetched_at }` for every subject during init
-- **Lesson page impact:** `get_lessons()` now always hits the trivial `WHERE class_subject = $hs_id AND term = $term_id` indexed query — **no dot-traversal path ever** after init
-
-### `get_subjects`: subquery → dot-traversal
-
-- **Before:** `WHERE in IN (SELECT VALUE id FROM class_levels WHERE name = $class_level LIMIT 1)`
-- **After:** `WHERE in.name = $class_level` — consistent with init query, uses `idx_cl_name`
-
-### `get_terms`: removed unused binding
-
-- Removed `"class_level_id": cl` from bindings dict (SQL never referenced `$class_level_id`)
-
-### Subject code badge on cards
-
-- Added `<span>` badge in `+page.svelte` card headers — small mono font, muted color, rounded, shrink-0 (`bg-primary-100`, `px-1.5 py-0.5`, `font-mono`, `text-xs`)
-- Displays when `subject.code` is non-null: e.g. `Mathematics [MTH 101]`
-
-### Subject code badge — wrap below name when card is narrow
-- Changed `CardTitle` from `flex` to `flex flex-wrap` so the badge drops to a new line when the card is too narrow
-- Added `min-h-[4.5rem]` on `CardHeader` to ensure consistent card heights regardless of badge wrapping
-
-### LMS sidebar nav item + default landing
-- Added "LMS" as primary nav item in sidebar (under Navigation group, before Users section), linking to `/`
-- Auth callback already redirects to `/`, making LMS the default landing page for all users
-- Visible to all roles
-
-### Cleanup: removed obsolete migration scripts
-- Deleted `db/fix-ids.surql` — one-time UUID→custom-ID migration; `schema-v2.surql` now creates custom IDs directly
-- Deleted `db/normalize-schema.surql` — pre-v2 schema; all functionality superseded by `schema-v2.surql`
-
-### Context files synced with latest architecture
-- **`architecture.md`**: Added `idx_cl_name` index to indexes table; updated content field types to `FLEXIBLE TYPE array<object>`; fixed Student Agent struct fields to match real code (`subject_cache`, `terms_cache`, `lessons_cache`, `edge_cache`); flattened monorepo structure (removed `(auth)/` route group); corrected Agent Memory Cache (no background refresh — simple TTL); added dot-traversal and edge-caching patterns to Key Design Patterns table
-- **`code-standards.md`**: Removed duplicate content block (L44-100 was an exact copy); flattened directory structure (removed `(auth)/` route group)
-- **`project-overview.md`**: Updated Core User Flow to reflect LMS as default landing page with sidebar tab; renamed "Dashboard Access" → "LMS Access"
-
-### Fixes (same session — documentation consistency)
-- **`db/schema-v2.surql` term slug generation:** `string::lowercase($t)` → `string::lowercase(string::replace($t, ' ', '_'))` — now consistent with subject slug pattern (lines 68-69)
-- **`docs/specs/17-student-lms-term-lesson-browsing.md`:** All 4 `class_subject_id` references → `subject_id` (routes, proxy calls). Clarified `[subjectId]` param is subject record ID (e.g., `subjects:basic_science`), resolved to edge ID via `edge_cache`.
-- **`docs/architecture.md`:** Removed 3 stale-while-revalidate references — cache section (line 374: "schedules a background refresh… stale-while-revalidate" → simple TTL with pre-populated edge cache), design patterns table (line 451: "Stale-While-Revalidate Caching" → "Simple TTL Caching"), and content caching subsection (line 372-374). All consistent with Agent Memory Cache description on line 295.
-- **`docs/code-standards.md`:** "stale-while-revalidate" → "Cache TTL with synchronous refresh. No background refresh — edge cache pre-populated during init."
-
-### Build
-- Golem agents built + deployed (revision 8, `golem deploy --reset -Y`)
-- `moon check --target wasm` — 0 errors
-- `moon build` — 0 errors
-- `pnpm build` — 0 errors
-
-- Unit 15: Student Dashboard — Subject Cards — Replaced generic dashboard for students with a responsive subject card grid. Added 12-skeleton loading state during navigation, "No Subjects Assigned" empty state with info icon, and destructive Alert error state with Retry button. Cards are clickable (linking to `/lms/{id}`, 404 until Unit 17) with hover effects. Admin and teacher users continue to see the existing generic dashboard. Fixed role group check: changed `user.roles.includes('student')` → `'students'` to match Authentik's plural group naming. (`pnpm build` zero errors, `pnpm check` 0 errors 3 warnings — same baseline.)
-- Unit 14: Auth Refresh Fixes — Race Condition, Client-Side 401, Cookie Cleanup — Fixed five issues in the token refresh strategy. (1) Module-level `inflightRefresh` promise in `hooks.server.ts` deduplicates concurrent refresh calls across parallel requests, preventing OIDC token rotation races from logging users out. (2) New `apiFetch` wrapper at `frontend/src/lib/client/api.ts` catches client-side 401s, calls `POST /api/auth/refresh` silently, retries on success, redirects to `/?error=session_expired` on failure. (3) Cookie `maxAge` aligned to real JWT `exp` in hooks.server.ts, callback, and refresh route — removed the `Math.max(..., 60)` floor; if `maxAge` is 0, no cookie is written. (4) Removed unused `accessToken` from `TokenResponse` interface and destructured out in both `handleCallback` and `refreshTokens`. (5) Standardised `SECURE` constant from `process.env.NODE_ENV === 'production'` to `!dev` (SvelteKit compile-time constant) in callback and refresh routes. Exported `TokenResponse` and `JwtClaims` types from `authentik.ts` for use in hooks. (`pnpm build` zero errors, `pnpm check` 0 errors 3 benign warnings — same baseline as Unit 13.)
-
-- Unit 13: Routing Refactor — Direct Authentik Redirect — Deleted `/login` route, `/api/auth/login` endpoint, and static landing page. Created root `+layout.server.ts` with direct Authentik OIDC redirect (server-side 302 with PKCE). Elevated sidebar layout from `(auth)/+layout.svelte` to root `+layout.svelte`. Moved dashboard from `/dashboard` to `/` (root `+page.server.ts` + `+page.svelte`). Moved admin routes from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback redirects from `/dashboard` to `/` and from `/login?...` to `/?error=...`. Updated `getEndSessionUrl` post_logout_redirect_uri from `/login` to `/`. (`pnpm build` zero errors.)
-
-- Unit 12: User CRUD — Create and Delete Users — Added `createUser` and `deleteUser` functions to `authentik.ts`. Created `POST /api/admin/users/+server.ts` (create user in Authentik with auto-assign to role group) and `DELETE /api/admin/users/[pk]/+server.ts` (delete user from Authentik). Updated `UserTable.svelte`: "Create {Role}" button above table with `Dialog` form (username, name, email, password, activate toggle), `handleCreateUser` pushes result to users array; "Delete User" button in expanded Manage panel with `AlertDialog` confirmation, `handleDeleteUser` removes from users and initMap. Added `groupPk` bindable prop, passed from all three role pages (`students`, `teachers`, `admin-role`). Installed shadcn-svelte dialog, alert-dialog, label components. Fixed password not set on create (added `resetPassword` call after `createUser`). Replaced all `error()` calls in API routes with consistent JSON `{ error: { code, message } }` responses so SvelteKit HttpError format doesn't mask real error messages. Fixed `!targetPk` validation to use `isNaN(targetPk) || targetPk < 1` throughout. Split shared `actionStates` into `initStates`, `authStates`, `pwResetStates` so loading indicators are per-action-type (Initialize/Activate/ResetPassword no longer show each other's spinner). Fixed class-level `<select>` placeholder: initialized `selectedClassLevels[pk] = ''` on expand, added `disabled` to placeholder `<option>` so it can't be re-selected. (`pnpm build` zero errors, `pnpm check` zero errors.)
-
-- Unit 11: Architecture Refactor — Activation → Initialization Split — Refactored the conflated "activation" concept: Admin Agent renamed `activate_user`→`initialize_user`, `is_user_active`→`is_user_initialized` (returns bool), `get_all_activations`→`get_all_initialized`, `deactivate_user` removed. `ActivationStatus` enum and `UserActivation` struct replaced by `UserInitialization` (no status field). Gateway Agent: `NOT_ACTIVATED`→`NOT_INITIALIZED`, renamed `check_activation`→`check_initialization`, `activate_admin`→`initialize_admin`, removed `deactivate_admin`, `list_activations`→`list_initializations` (returns JSON array). SvelteKit: `golem.ts` updated with `NOT_INITIALIZED`, `parseActivations` removed. `authentik.ts` extended with `is_active` field, 5 new functions (`activateUser`, `deactivateUser`, `resetPassword`, `addUserToGroup`, `removeUserFromGroup`). Created 5 new API routes (activate-authentik, deactivate-authentik, reset-password, add-group, remove-group). Renamed `activate`→`initialize`, deleted `deactivate`, renamed `activations`→`initializations`. Updated `auth/status` and dashboard. Restructured sidebar: "Users" section with Students, Teachers, Admin sub-pages. Created `UserTable.svelte` with two status columns, Initialize/Activate/Deactivate/ResetPassword/GroupManagement actions, class-level dropdown for students. Three role-based sub-pages (`/admin/users/students`, `/admin/users/teachers`, `/admin/users/admin-role`). Context files updated: `project-overview.md`, `architecture.md`, `code-standards.md`, `00-build-plan.md` (Unit 11 inserted, renumbered 12-24). Agent stubs regenerated. (`moon check --target wasm` zero errors, `pnpm check` zero errors.)
-- Unit 10: Student Agent — Initialization and Subject List — Per-student durable `StudentAgent` with `student_id` constructor param, `initialize(class_level)` and `get_subjects()` methods querying SurrealDB. `SubjectInfo` and `StudentProfile` types with `#derive.golem_schema`. Admin Agent updated: gains `@config.Config[SurrealConfig]`, `get_class_levels()`, and fire-and-forgets `StudentAgentClient::scoped(user_id, fn(c) { c.trigger_initialize(cl) })` in `activate_user`. Gateway Agent: `/gateway/student/subjects`, `/gateway/admin/class-levels`, updated `/gateway/db-test?user_id=`, updated `/gateway/admin/activate` with `class_level` param. SvelteKit: `/api/student/subjects`, `/api/admin/class-levels` proxy routes; updated `POST /api/admin/users/[uuid]/activate` accepts `class_level` body; admin users page adds class-level dropdown fetched from `/api/admin/class-levels`. Uses `moonbitlang/core/json` with `@json.parse` + pattern matching for SurrealDB response parsing. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
-- Unit 9: SurrealDB Connection & Schema Normalization — `db/normalize-schema.surql` migration (7 steps). Shared `SurrealConfig` (5 `@config.Secret[String]` fields: `host`, `ns`, `database`, `username`, `password`) used by StudentAgent/TeacherAgent via `@config.Config[SurrealConfig]`. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth (`@base64.encode`), `surreal-ns`/`surreal-db` headers, `/sql` path, `Accept: application/json` header, `match`-based error handling. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via typed RPC. SvelteKit `/api/db-test` proxy route. Env var templates in `golem.yaml` secretDefaults. Verified live: `"OK: [{\"result\":[1],\"status\":\"OK\",\"time\":\"92.053µs\"}]"` via `curl /gateway/db-test`. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
-- Unit 1: Frontend Foundation — SvelteKit configured with Tailwind v4, shadcn-svelte Button, design tokens from ui-context.md applied in `src/app.css`, Inter font loaded. Static landing page at `/` with branded heading and primary-blue button.
-- Unit 6: Admin User List Page — `/admin/users` route with role-based guard (`locals.user.roles.includes('admin')`). `authentik.ts` extended with `fetchAllUsers()` (Bearer token auth, paginated, filters to internal users in admin/students/teachers groups). shadcn-svelte Table with Name, Email, "Pending" Status, empty Actions columns. Four states: loading skeletons, error Alert + Retry, empty guidance, data table. Sidebar conditional "Admin > Users" nav item using `child` snippet pattern. (`pnpm build` and `svelte-check` pass with zero errors.)
-- Unit 8: Admin Portal — Activation Actions — Admin Agent adds `deactivate_user(user_id)` and `get_all_activations()`. Gateway Agent adds 4 new endpoints: `check-activation`, `admin/activate`, `admin/deactivate`, `admin/activations`. SvelteKit gains 4 new API routes: `/api/auth/status`, `/api/admin/activations`, `/api/admin/users/[pk]/activate`, `/api/admin/users/[pk]/deactivate`. Dashboard shows "Account Not Activated" error for inactive users (server load check via `/api/auth/status`). Admin users page fetches real activation statuses, shows dynamic Badge (Active/Deactivated/Pending), and Activate/Deactivate buttons with optimistic updates and rollback on error. `proxyToGateway` extended with optional `extraParams`. `parseActivations` helper added. (`golem build`, `pnpm build`, `pnpm check` all pass with zero errors.)
-- Unit 7: Admin Agent Activation Methods — Admin Agent gains `activate_user(user_id, role, class_level?) -> Result[String, String]` and `is_user_active(user_id) -> ActivationStatus` using `#derive.golem_schema` types and Golem durable memory (agent struct fields). `ActivationStatus` enum: `NotFound`, `Active`, `Suspended`, `Deactivated`. Gateway Agent `/gateway/ping` gains `user_id` query param; checks activation before proxying, returns `"NOT_ACTIVATED"` for inactive users. `proxyToGateway` in `golem.ts` handles `NOT_ACTIVATED` string, returns structured `403` error. Context files updated: storage model changed from SQLite to agent struct fields. (`moon build --target wasm`, `pnpm build`, `pnpm check` all pass with zero errors.)
-- Unit 2: Authentik Authentication — Stateless OIDC with Authentik as sole signing authority. Removed Better Auth, Drizzle ORM, SQLite, and all demo routes. Built OIDC helper module (`src/lib/server/authentik.ts`) with PKCE, JWKS verification, silent token refresh, and RP-Initiated Logout. Created `/login`, `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/refresh`, and `/dashboard` routes. CSRF protection on logout. (`pnpm build` and `svelte-check` pass with zero errors.)
-- Unit 3: Dashboard Layout Shell — Protected `(auth)` route group with collapsible shadcn-svelte Sidebar, top navbar with SidebarTrigger + breadcrumb placeholder + avatar dropdown with logout, and content area. Dashboard page migrated into the group. Sidebar state persisted in localStorage. (`pnpm build` and `svelte-check` pass with zero errors.)
-- Unit 4: Golem Agent Scaffolding — Consolidated from 4 separate WASM components into a single `app:agents` component (`app-agents/`). All four agent types defined: AdminAgent (durable singleton, RPC-only, `ping` → `"admin online"`), GatewayAgent (ephemeral, mount `/gateway`, `ping` → calls `AdminAgent.ping` via typed `AdminAgentClient::scoped(...)`), StudentAgent (durable, placeholder), TeacherAgent (durable, placeholder). Demo agents deleted. `curl /gateway/ping` returns `"admin online"`; `/admin/ping` returns 404.
-- Unit 5: SvelteKit → Golem Proxy — Created `/api/ping` proxy route in SvelteKit (`src/routes/api/ping/+server.ts`). Shared proxy helper `src/lib/server/golem.ts` with `proxyToGateway(path, userId)` and `X-Golem-Auth-Key` auth. Gateway Agent updated with `#derive.config` + `@config.Secret[String]` for auth key verification (rejects unauthorized requests before AdminAgent RPC). `secretDefaults` in `golem.yaml` for local dev. Dashboard "Connection Status" card with "Test Connection" button. Extension method `AgentError::to_string` added for generated code compatibility.
-
-
-
-- **✅ 2026-06-02: Authentik Agent Write Operations — WASI HTTP Body Transport Fix**
-  Moved all Authentik write operations into Golem AdminAgent for durable atomicity. Created `authentik_client.mbt` with WASI HTTP helpers (`authentik_post`, `authentik_patch`, `authentik_delete`), `SharedConfig` with `authentik_host`/`authentik_api_token`/`authentik_api_user` secrets, and 4 Agent endpoints (create, edit, delete, set-user-active). All SvelteKit admin routes rewritten to proxy through agent. `authentik.ts` cleaned — only reads/OIDC remain.
-
-  **Root cause of body transport bug:** `auth.johnethel.school`'s reverse proxy was dropping body bytes from WASI HTTP/2 requests that lacked an explicit `Content-Length` header. The body WAS being written, flushed, and finished (confirmed by `@logging.info` — `blocking_write_and_flush OK`, `finish OK`, `http.handle OK`), but the upstream server received empty body.
-
-  **Fix (1 file, 5 lines):**
-  - `authentik_client.mbt:16-25` — Added explicit `Content-Length` header computed from `body_json.length().to_string()` (or `"0"` when no body). Changed `Accept` from `application/json` to `*/*`.
-
-  **Verification:** `debug_create_hardcoded` to `auth.johnethel.school/api/v3/core/users/` now returns `HTTP 400 {"username":["This field must be unique."]}` — Authentik receives, parses, and validates the JSON body. Previously returned generic "required" errors for empty body. httpbin.org confirmed correct Content-Length and body content.
-
-  **Build status:** `golem build` 0 errors.
-
-## Recent Specs
-
-- `docs/specs/hotfix-05-teacher-lesson-tabs.md` — Tabbed teacher lesson page with 3 tabs (Lesson, Assessments, Grading), shared `LessonPage.svelte` component, unfiltered teacher agent terms/lessons, MCQ type fix.
-- `docs/specs/15-student-dashboard-subject-cards.md` — Student dashboard subject cards with clickable Card grid, Skeleton loading, empty and error states.
-- `docs/specs/14-auth-refresh-fixes.md` — Fix race condition, client-side 401, cookie maxAge, accessToken removal, SECURE standardisation.
-- `docs/specs/13-routing-refactor-direct-authentik-redirect.md` — Eliminate `/login` page, redirect unauthenticated users directly to Authentik, move dashboard to `/`, remove `(auth)` route group.
-- `docs/specs/12-user-crud-create-delete.md` — Admin create/delete user UI and API routes via Authentik Admin API. Create dialog with form fields, delete AlertDialog in Manage panel, auto-group-assignment by page role.
-- `docs/specs/11-architecture-refactor-activation-split.md` — Architecture refactor: split activation into Golem-side initialization and Authentik-side activation. Admin Agent renamed methods, gateway returns NOT_INITIALIZED, sidebar Users section with role-based sub-pages.
-- `docs/specs/10-student-agent-initialization.md` — Per-student durable Student Agent with `initialize` and `get_subjects`, SurrealDB subject querying, class-level dropdown in admin activation UI.
-- `docs/specs/03-dashboard-layout-shell.md` — Protected auth layout with collapsible shadcn-svelte Sidebar, navbar with breadcrumb + avatar dropdown, migrated dashboard page.
-- `docs/specs/05-sveltekit-golem-proxy.md` — SvelteKit → Golem proxy with shared auth secret via Golem secrets.
-- `docs/specs/06-admin-user-list-page.md` — Admin user list page with Authentik API via Bearer token, shadcn-svelte Table, role-based sidebar nav, group-based filtering.
-- `docs/specs/07-admin-agent-activation-methods.md` — Admin Agent `activateUser` and `isUserActive` methods, Gateway Agent activation gate, proxy NOT_ACTIVATED handling.
-- `docs/specs/08-admin-activation-actions.md` — Admin portal activate/deactivate buttons, dynamic status badges, optimistic updates, dashboard not-activated error page.
-
-## Open Questions
-
-- None.
-
-## Architecture Decisions
-
-- Dashboard layout uses shadcn-svelte Sidebar compound component (collapsible sidebar using Sheet on mobile). Sidebar open/close state persisted via localStorage.
-- The `(auth)` route group pattern used for all protected routes — shared layout with auth guard ensures consistent authentication check and user data availability.
-- `DropdownMenuTrigger` uses bits-ui's snippet-based child composition (`{#snippet child({ props })}`) rather than the deprecated `asChild` prop.
-- All agents live in a single WASM component (`app:agents`, dir `app-agents/`). This enables typed intra-component RPC using `<AgentName>Client::scoped(...)` instead of raw `@rpc.AgentClient`. The `golem-sdk-tools agents` build step generates typed client stubs for all `#derive.agent` structs within the component.
-- GatewayAgent uses `AdminAgentClient::scoped(fn(admin) { admin.ping() })` — the `scoped` pattern automatically handles client resource cleanup via `defer`, eliminating manual `drop()` calls.
-- Empty structs in MoonBit use `StructName::{}` syntax — e.g., `fn AdminAgent::new() -> AdminAgent { AdminAgent::{} }`.
-- Gateway Agent auth: `#derive.config` struct with `@config.Secret[String]` for the auth key, set via `secretDefaults` in `golem.yaml` (local) or `golem secret create` (production). The `#derive.endpoint_header("X-Golem-Auth-Key", "incoming_key")` annotation binds the HTTP header to a method parameter. The agent verifies the header against the resolved secret before any RPC.
-- `golem-sdk-tools` 0.5.2 generates `e.to_string()` on `AgentError` types that lack `to_string()` — fixed by adding an extension method in `gateway_agent.mbt`.
-- `proxyToGateway()` helper in `src/lib/server/golem.ts` is the single entry point for all SvelteKit-to-Golem proxy calls. Every future proxy route should use it.
-- Custom types used in agent method signatures use `#derive.golem_schema` (dot syntax, not parentheses). The `golem-sdk-tools agents` command generates `HasElementSchema`, `FromExtractor`, `FromElementValue`, and `ToElementValue` trait implementations for these types automatically.
-- `Result[Unit, String]` cannot be used as an RPC return type because `Unit` does not implement Golem schema traits and the orphan rule prevents adding them from a foreign package. Use `Result[String, String]` instead, with `Ok("ok")` as success value.
-- **Authentik admin API uses Bearer token (not OAuth2 Client Credentials):** The service account token is generated in Authentik and sent as `Authorization: Bearer <token>`. No username needed, no token caching/refresh logic — the token is self-contained.
-- **Admin user list filters by group membership:** Users must belong to at least one of `admin`, `students`, or `teachers` groups (by name) to appear in the admin table. Group PKs are fetched from `GET /api/v3/core/groups/` and cross-referenced against each user's `groups` array.
-- **`SidebarMenuButton` uses `child` snippet pattern instead of `asChild`:** The shadcn-svelte component accepts `{#snippet child({ props })}` for wrapping custom elements like `<a>`, mirroring the `DropdownMenuTrigger` pattern.
-- **SurrealDB uses HTTP Basic Auth with shared `SurrealConfig` (5 secrets):** Auth uses `username:password` base64-encoded via `@base64.encode()` from `moonbitlang/core/encoding/base64`. Namespace and database are sent as `surreal-ns` / `surreal-db` headers (SurrealDB SDK convention), not `NS` / `DB`. A single `SurrealConfig` struct (all 5 fields as `@config.Secret[String]`) is shared by all agents via `@config.Config[SurrealConfig]`, eliminating per-agent config duplication (`StudentConfig`, `TeacherConfig` removed). The `surreal_query(config, sql)` function takes the injected config directly — caller never resolves secrets manually. All WASI HTTP operations use `match`-based error handling, never `.unwrap()` on network calls. Gateway Agent never holds SurrealDB credentials — it routes via typed RPC to `StudentAgent.test_db()`. Env vars are substituted via `{{ VAR }}` template syntax in `secretDefaults`.
-- **Use `golem deploy --reset` for development updates:** When the Golem server reports "UP-TO-DATE" despite code changes, `golem deploy --reset` forces the new WASM binary through. This is needed because the deploy's hash comparison may consider staging vs. deployed as identical during rapid iteration cycles.
-- **Golem HTTP gateway wraps String returns in JSON quotes:** All `String` return values from agent methods are serialized as JSON strings (e.g., `"OK"` not `OK`). The `proxyToGateway` helper must `JSON.parse` the raw response before comparing against known strings like `"unauthorized"`, `"NOT_INITIALIZED"`, etc.
-- **Authentik JWT `sub` must match API `uuid`:** User initialization and activation are keyed by UUID. The JWT `sub` claim (used as `event.locals.user.id`) must match the Authentik API `user.uuid`. Fix: set Authentik OIDC provider `sub` expression to `user.uuid`.
-- **Admin Agent tracks initialization only (no Golem-level activation):** `AdminAgent.initialized_users` stores user metadata (role, class_level, initialized_at). No status enum. `is_user_initialized` returns bool. `deactivate_user` removed — deactivation is handled by Authentik API calls from SvelteKit.
-- **Gateway returns `NOT_INITIALIZED` for uninitialized users:** Replaces the old `NOT_ACTIVATED` error. User-facing endpoints check `AdminAgent.is_user_initialized` before proxying. Admin endpoints (`/gateway/admin/*`) skip init check and use SvelteKit role guard.
-- **Admin user pages split by role with sidebar section:** Three sub-pages under `/admin/users/students`, `/admin/users/teachers`, `/admin/users/admin-role` grouped under a "Users" sidebar header. Each filters Authentik users by group membership.
-- **Init status and Authentik status are separate columns:** Admin table shows "Authentik Status" (Active/Inactive from `is_active`) and "Init Status" (Initialized/Pending from Admin Agent). Activate/Deactivate buttons call Authentik API directly; Initialize button calls Admin Agent.
-- **User creation is Authentik-only with auto-group assignment:** `POST /api/admin/users` creates the user in Authentik via `POST /api/v3/core/users/` and auto-assigns them to the page's role group via `group_pk` param. No Golem initialization happens during create — that's a separate action.
-- **User deletion is Authentik-only:** `DELETE /api/admin/users/[uuid]` removes the user from Authentik. If the user was initialized in Golem, the initMap entry is removed from the UI, but no Golem-side deinitialization occurs. The durable agent remains orphaned but inaccessible.
-- **Create dialog and delete dialog are shadcn-svelte patterns:** Create uses a `Dialog` with controlled `open` state and a `<form>` with `onsubmit`. Delete uses `AlertDialog` with the `child` snippet pattern for the trigger button (bits-ui v2, no `asChild` prop). The create dialog is rendered at the component level; the delete dialog is inside the `{#each}` loop per row.
-
-- `src/app.css` is the canonical CSS entry point. shadcn-svelte's generated `layout.css` was deleted and its contents merged into `app.css`.
-- Better Auth was removed in favor of stateless OIDC with Authentik as the sole signing authority. JWT validation uses `jose` with Authentik's JWKS endpoint. No server-side sessions, no database in the frontend layer.
-- Drizzle ORM and SQLite were removed entirely from the frontend; SvelteKit no longer has any database access.
-
-## Session Notes
-
-- Unit 17 completed (final fixes). Branch: N/A (no branch — direct fixes to main after earlier merge). Key work: (F) Root-caused `get_subjects` bug — name string vs record ID. (G) Created `db/fix-ids.surql` — converted lookup tables to custom human-readable record IDs (`class_levels:jss_1`, `subjects:basic_science`, `terms:first`). Rebuilt edges (98 class_subjects + 98 has_subject). (H) Fixed lessons migration (`LET` inside `IF` doesn't persist in SurrealDB). Migrated all 1919 lesson_content records to `lessons` table in 3 batches. (I) Confirmed indexes already exist. (J) Agents rebuilt (revision 5), deployed, test user re-initialized. Verified end-to-end: subjects return correct custom IDs, terms return 3 terms, lessons return 10 per subject-term combo. All queries < 2ms. Key discovery: `INFORMATION_SCHEMA.INDEXES` returning `[]` was a query format issue, not missing indexes. `pnpm build` and `pnpm check` both pass (0 errors, 3 pre-existing warnings). `golem deploy --reset -Y` destroys agent state — re-initialization required after every deploy with `--reset`. Branch: `feat/unit-16-hotfix-01-schema-v2`. PR #17 → main. Merged Unit 16 student term/lesson lists with Hotfix 01 SurrealDB schema v2 refactor. Key schema changes: `class_subjects` → `has_subject TYPE RELATION`, `lesson_content` → `lessons` SCHEMAFULL, `week_number` → `week`, global terms. Migration script `db/schema-v2.surql` (idempotent with existence checks). Student agent SQL rewritten for graph traversal. `golem build`, `pnpm build`, `svelte-check` all pass with zero errors. (`pp.diff` reviewed: LessonInfo struct field `week` → `week_number` to match generated Golem schema; `schema-v2.surql` migration steps wrapped in `IF $existing == NONE` guards for true idempotency.)
-- Unit 13 completed. Branch: `feat/13-routing-refactor-direct-authentik-redirect`. Deleted static landing page, `/login` route, and `/api/auth/login` endpoint. Created root `+layout.server.ts` with direct Authentik OIDC redirect using `import { dev }` pattern. Elevated sidebar layout to root `+layout.svelte`. Dashboard moved to root `+page.svelte`. Admin routes moved from `(auth)/admin/` to `admin/`. Deleted `(auth)` route group. Updated callback/logout redirect targets. Logout fallback URL changed to `/`. Cleaned up: removed unused `deleteTarget`, added rollback to `handleAddGroup`, fixed a11y on remove-group button, added `res.ok` check to `loadClassLevels`, optimized group lookups (local `find` instead of API call), fixed `state_referenced_locally` warnings in role pages via prop destructuring. (`pnpm build` zero errors, `svelte-check` 0 errors 3 benign warnings.)
-- Unit 12 completed. Branch: `feat/12-user-crud-create-delete`. Added `createUser` and `deleteUser` to `authentik.ts`. Created `POST /api/admin/users` and `DELETE /api/admin/users/[pk]` API routes. Updated `UserTable.svelte` with Create dialog (username, name, email, password, activate) and Delete AlertDialog in Manage panel. Passed `groupPk` from all three role pages. Installed shadcn-svelte dialog, alert-dialog, label. Fixed password not set on create (added `resetPassword` after `createUser`). Fixed password auto-generation and show/hide toggle. Renamed route dir `[uuid]` → `[pk]`. Replaced all `error()` calls in API routes with consistent JSON error responses. Fixed `!targetPk` validation to use `isNaN(targetPk) || targetPk < 1`. Split shared `actionStates` into per-action-type maps (`initStates`, `authStates`, `pwResetStates`) so loading indicators don't leak between buttons. Fixed class-level `<select>` placeholder (initialize on expand, `disabled` option). (`pnpm build` zero errors, `pnpm check` zero errors.)
-
-- Unit 11 implemented. Branch: `feat/11-architecture-refactor-activation-split`. Refactored Admin/Gateway agents, removed ActivationStatus enum/deactivate_user, renamed activate→initialize. Regenerated golem stubs via `golem-sdk-tools`. Updated `golem.ts` (NOT_INITIALIZED, removed parseActivations). Extended `authentik.ts` (is_active, 5 functions). Created 5 new Authentik API routes. Renamed activate→initialize, deleted deactivate, renamed activations→initializations. Updated `/api/auth/status` and dashboard. Restructured sidebar with Users section (Students/Teachers/Admin sub-items). Created `UserTable.svelte` component with two status columns and full action set. Three role-based sub-pages. Updated all context files. (`moon check --target wasm` zero errors, `pnpm check` zero errors.) Fixed MoonBit syntax: tuple destructuring in closures uses `for` loop, `String::replace` uses labeled args `old=`, `new=`. Golem build has pre-existing `moon.mod` vs `moon.mod.json` issue with local deps — not a regression.
-- Unit 10 implemented. Branch: `feat/10-student-agent-initialization`. Per-student `StudentAgent` with `student_id` identity. `SubjectInfo`/`StudentProfile` types with `#derive.golem_schema`. `initialize(class_level)` resolves class_level to SurrealDB record ID, queries `class_subjects`, parses JSON with `@json.parse` and pattern matching. `get_subjects()` returns JSON array string. Admin Agent gains `@config.Config[SurrealConfig]`, `get_class_levels()`, and fires `StudentAgentClient::scoped(user_id, ...)` in `activate_user`. Gateway Agent: 2 new endpoints + 2 updated (`db_test` and `activate_admin`). SvelteKit: 2 new proxy routes, activate endpoint extended, admin users page gets class-level `<select>` fetched from `/api/admin/class-levels`. MoonBit `String.replace` uses labeled args (`old=`, `new=`). Mutable struct fields use `mut` keyword. Generated clients correctly updated with `StudentAgentClient::scoped(student_id, ...)`. (`golem build`, `pnpm build`, `pnpm check` all pass.)
-- Unit 9 refactored: Switched from Bearer token to HTTP Basic Auth via `@base64.encode()`. Shared `SurrealConfig` (5 secrets: `host`, `ns`, `database`, `username`, `password`) replaces duplicate `StudentConfig`/`TeacherConfig`. `surreal_query(config, sql)` takes injected config directly — caller never resolves secrets. `surreal-ns`/`surreal-db` headers, `/sql` path. All WASI HTTP operations use `match` error handling, no `.unwrap()` on network calls. Gateway Agent `/gateway/db-test` calls `StudentAgentClient::scoped(fn(student) { student.test_db() })` via RPC. `GatewayConfig` has only `auth_key`. (`golem build`, `pnpm build`, `pnpm check` all pass.)
-- Unit 9 implemented. Branch: `feat/09-surreal-connection-normalization`. `db/normalize-schema.surql` creates subjects, class_levels, terms, class_subjects tables; adds FK fields to lesson_content; populates from existing data. `surreal_client.mbt` with `surreal_query(config, sql)` using WASI HTTP + Basic Auth. Shared `SurrealConfig` (5 secrets) eliminates per-agent configs. Gateway `/gateway/db-test` via StudentAgent RPC. SvelteKit `/api/db-test` proxy route. `.env` with env var templates. (`golem build`, `pnpm build`, `pnpm check` all pass.)
-- Unit 3 implemented. Branch: `feat/03-dashboard-layout-shell`. All shadcn-svelte components (sidebar, avatar, dropdown-menu, breadcrumb, separator, sheet, tooltip, input, skeleton, card) installed. Old `src/routes/dashboard/` deleted.
-- Unit 6 implemented. Branch: `feat/06-admin-user-list-page`. shadcn-svelte table, badge, alert installed. Authentik auth refactored from OAuth2 Client Credentials → Bearer token, then Basic auth → Bearer token. Group membership filter added (admin/students/teachers). Spec updated to reflect all changes.
-- Unit 8 implemented. Branch: `feat/08-admin-activation-actions`. Admin Agent gains `deactivate_user` and `get_all_activations`. Gateway Agent gains 4 endpoints (admin activation check removed to avoid bootstrapping). 4 new SvelteKit API routes built. Dashboard not-activated state added. Admin page shows dynamic status badges and Activate/Deactivate buttons with optimistic updates. `proxyToGateway` extended with `extraParams` and `JSON.parse` for Golem's quoted-string responses. `parseActivations` helper added. Activation keyed by Authentik UUID (requires JWT `sub` = `user.uuid` in OIDC provider). (`golem build`, `pnpm build`, `pnpm check` all pass.)

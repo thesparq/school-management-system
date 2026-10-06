@@ -9,6 +9,8 @@ pub(all) struct SharedConfig {
   authentik_host : @config.Secret[String]
   authentik_api_token : @config.Secret[String]
   auth_key : @config.Secret[String]
+  matrixHost : @config.Secret[String]
+  matrixAdminToken : @config.Secret[String]
 }
 
 ///|
@@ -94,4 +96,33 @@ pub fn resolve_authentik_cfg(
       })
   }
   Ok(AuthentikCfg::{ host, api_token })
+}
+
+///|
+pub(all) struct MatrixCfg {
+  host : String
+  admin_token : String
+}
+
+///|
+pub fn resolve_matrix_cfg(
+  config : SharedConfig,
+) -> Result[MatrixCfg, AppError] {
+  let host = config.matrixHost.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Matrix host missing",
+        debug: None,
+      })
+  }
+  let admin_token = config.matrixAdminToken.get() catch {
+    _ =>
+      return Err(AppError::{
+        code: InternalError,
+        message: "Matrix token missing",
+        debug: None,
+      })
+  }
+  Ok(MatrixCfg::{ host, admin_token })
 }

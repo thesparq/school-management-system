@@ -1,0 +1,234 @@
+networks:
+  dokploy-network:
+    external: true
+services:
+  app:
+    build:
+      # The Dockerfile builds the frontend bundle and the backend binary, so the context is the
+      # repository root, one level above this file.
+      context: ..
+      dockerfile: Dockerfile.app
+    depends_on:
+    - surrealdb
+    environment:
+    - BIND_HOST=0.0.0.0
+    - STATIC_DIR=/app/www
+    # Real tokens only: the dev-skip bypass is compiled out of production behaviour by this flag.
+    - DEV_MODE=false
+    # In-cluster SurrealDB; the public db2.… endpoint is for clients outside this network.
+    - SURREAL_URL=${APP_SURREAL_URL:-http://surrealdb:8000/sql}
+    - SURREAL_DB_NS=${SURREAL_DB_NS:-main}
+    - SURREAL_DB=${SURREAL_DB:-lessons}
+    - SURREAL_USER=${SURREAL_USER}
+    - SURREAL_PASS=${SURREAL_PASS}
+    # Token validation reads the issuer (or AUTHENTIK_USERINFO_URL); user creation needs the
+    # service-account token, and falls back to https://${AUTHENTIK_HOST}/api/v3/core/users/.
+    - AUTHENTIK_ISSUER_URL=${AUTHENTIK_ISSUER_URL:-https://auth.johnethel.school/application/o/school-management-system/}
+    # Authentik serves one userinfo endpoint for the whole instance, not one per application, so the
+    # issuer cannot simply have "userinfo" appended to it. The backend derives this correctly now
+    # (`roc-backend/AuthUrls.roc`); setting it here keeps the deployed value explicit.
+    - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL:-https://auth.johnethel.school/application/o/userinfo/}
+    - AUTHENTIK_API_TOKEN=${AUTHENTIK_SERVICE_ACCOUNT_TOKEN:-}
+    - AUTHENTIK_HOST=${AUTHENTIK_HOST:-auth.johnethel.school}
+    # Cloudflare R2 holds the passport photos. Compose passes into a container only the variables its
+    # own `environment:` names — Infisical/Dokploy interpolation alone does not — so all five are
+    # listed here. They default to empty so a missing value stays a 503 from `/api/upload-url` that
+    # names it, rather than a compose error.
+    - R2_ENDPOINT_URL=${R2_ENDPOINT_URL:-}
+    - R2_BUCKET_NAME=${R2_BUCKET_NAME:-}
+    - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+    - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+    - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.app.rule=Host(`app.johnethel.school`)
+    - traefik.http.routers.app.entrypoints=websecure
+    - traefik.http.routers.app.tls=true
+    - traefik.http.routers.app.tls.certresolver=letsencrypt
+    - traefik.http.services.app.loadbalancer.server.port=8000
+    networks:
+    - default
+    - dokploy-network
+    restart: unless-stopped
+  coturn:
+    command:
+    - -n
+    - --log-file=stdout
+    - --min-port=49152
+    - --max-port=49252
+    - --use-auth-secret
+    - --static-auth-secret=${COTURN_SHARED_SECRET}
+    - --realm=${SYNAPSE_SERVER_NAME}
+    - --no-tcp-relay
+    environment:
+    - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
+    - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+    image: coturn/coturn:latest
+    network_mode: host
+    restart: unless-stopped
+  element-web:
+    image: vectorim/element-web:latest
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.element.rule=Host(`chat.johnethel.school`)
+    - traefik.http.routers.element.entrypoints=websecure
+    - traefik.http.routers.element.tls=true
+    - traefik.http.routers.element.tls.certresolver=letsencrypt
+    - traefik.http.services.element.loadbalancer.server.port=80
+    networks:
+    - default
+    - dokploy-network
+    restart: unless-stopped
+    volumes:
+    # Relative paths in this file resolve against its own folder, `devops/`, not the folder `docker compose` runs from — the same rule the app's `context: ..` relies on; check with `docker compose -f devops/docker-compose.yml config`.
+    - ./element/config.json:/app/config.json:ro
+  opencloud:
+    command: server
+    environment:
+    - OC_URL=https://${OC_DOMAIN}
+    - OC_DOMAIN=${OC_DOMAIN}
+    - INITIAL_ADMIN_PASSWORD=${OC_ADMIN_PASSWORD}
+    - OC_INSECURE=false
+    - PROXY_TLS=false
+    - PROXY_HTTP_ADDR=0.0.0.0:9200
+    - IDM_CREATE_DEMO_USERS=false
+    - OC_JWT_SECRET=${OC_JWT_SECRET}
+    - OC_MACHINE_AUTH_API_KEY=${OC_MACHINE_AUTH_API_KEY}
+    - OC_TRANSFER_SECRET=${OC_TRANSFER_SECRET}
+    - OC_SYSTEM_USER_API_KEY=${OC_SYSTEM_USER_API_KEY}
+    - OC_SYSTEM_USER_ID=${OC_SYSTEM_USER_ID}
+    - OCIS_JWT_SECRET=${OC_JWT_SECRET}
+    - OCIS_MACHINE_AUTH_API_KEY=${OC_MACHINE_AUTH_API_KEY}
+    - OCIS_TRANSFER_SECRET=${OC_TRANSFER_SECRET}
+    - OCIS_SYSTEM_USER_API_KEY=${OC_SYSTEM_USER_API_KEY}
+    - OCIS_SYSTEM_USER_ID=${OC_SYSTEM_USER_ID}
+    - OCIS_OIDC_ISSUER=https://auth.johnethel.school/application/o/opencloud/
+    - PROXY_OIDC_ISSUER=https://auth.johnethel.school/application/o/opencloud/
+    - PROXY_OIDC_CLIENT_ID=${OC_OIDC_CLIENT_ID}
+    - PROXY_OIDC_CLIENT_SECRET=${OC_OIDC_CLIENT_SECRET}
+    - PROXY_OIDC_REWRITE_WELLKNOWN=true
+    - WEB_OIDC_CLIENT_ID=${OC_OIDC_CLIENT_ID}
+    - STORAGE_USERS_DRIVER=decomposeds3
+    - STORAGE_USERS_DECOMPOSEDS3_ENDPOINT=${R2_ENDPOINT_URL}
+    - STORAGE_USERS_DECOMPOSEDS3_REGION=auto
+    - STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY=${R2_ACCESS_KEY_ID}
+    - STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY=${R2_SECRET_ACCESS_KEY}
+    - STORAGE_USERS_DECOMPOSEDS3_BUCKET=${R2_BUCKET_NAME}
+    image: opencloudeu/opencloud-rolling:latest
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.opencloud.rule=Host(`${OC_DOMAIN}`)
+    - traefik.http.routers.opencloud.entrypoints=websecure
+    - traefik.http.routers.opencloud.tls=true
+    - traefik.http.routers.opencloud.tls.certresolver=letsencrypt
+    - traefik.http.services.opencloud.loadbalancer.server.port=9200
+    networks:
+    - default
+    - dokploy-network
+    restart: unless-stopped
+    volumes:
+    - opencloud_data:/var/lib/ocis
+  surrealdb:
+    command:
+    - start
+    - --log
+    - info
+    - --user
+    - ${SURREAL_USER}
+    - --pass
+    - ${SURREAL_PASS}
+    - --bind
+    - 0.0.0.0:8000
+    - rocksdb:/data/db/surreal.db
+    environment:
+    - SURREAL_USER=${SURREAL_USER}
+    - SURREAL_PASS=${SURREAL_PASS}
+    - SURREAL_MCP_ALLOWED_HOSTS=${SURREAL_MCP_ALLOWED_HOSTS}
+    - SURREAL_MCP_MAX_RESULT_BYTES=${SURREAL_MCP_MAX_RESULT_BYTES}
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 15s
+      test:
+      - CMD
+      - /surreal
+      - isready
+      - --endpoint
+      - http://localhost:8000
+      timeout: 10s
+    image: surrealdb/surrealdb:latest
+    restart: unless-stopped
+    user: root
+    volumes:
+    - surrealdb_data:/data/db
+    networks:
+    - default
+    - dokploy-network
+  synapse:
+    depends_on:
+      synapse-postgresql:
+        condition: service_healthy
+    entrypoint:
+    - /bin/sh
+    - -c
+    - "# Inject secrets safely using Python\npython -c '\nimport os\nc = open(\"/config/homeserver.yaml\"\
+      ).read()\nsecrets = [\"POSTGRES_PASSWORD\", \"SYNAPSE_CLIENT_ID\", \"SYNAPSE_CLIENT_SECRET\"\
+      , \"SYNAPSE_MACAROON_SECRET\", \"SYNAPSE_FORM_SECRET\", \"SYNAPSE_REGISTRATION_SECRET\"\
+      , \"COTURN_SHARED_SECRET\"]\nfor k in secrets:\n    c = c.replace(f\"$${{{k}}}\"\
+      , os.environ.get(k, \"\"))\nopen(\"/data/homeserver.yaml\", \"w\").write(c)\n\
+      '\npython -m synapse.app.homeserver --config-path /data/homeserver.yaml --keys-directory\
+      \ /data --generate-keys\nchown -R 991:991 /data\nexec /start.py\n"
+    environment:
+    - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
+    - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - SYNAPSE_CLIENT_ID=${SYNAPSE_CLIENT_ID}
+    - SYNAPSE_CLIENT_SECRET=${SYNAPSE_CLIENT_SECRET}
+    - SYNAPSE_MACAROON_SECRET=${SYNAPSE_MACAROON_SECRET}
+    - SYNAPSE_FORM_SECRET=${SYNAPSE_FORM_SECRET}
+    - SYNAPSE_REGISTRATION_SECRET=${SYNAPSE_REGISTRATION_SECRET}
+    - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
+    image: matrixdotorg/synapse:latest
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=dokploy-network
+    - traefik.http.routers.synapse.rule=Host(`${SYNAPSE_SERVER_NAME}`)
+    - traefik.http.routers.synapse.entrypoints=websecure
+    - traefik.http.routers.synapse.tls=true
+    - traefik.http.routers.synapse.tls.certresolver=letsencrypt
+    - traefik.http.routers.synapse.middlewares=secure-headers
+    - traefik.http.services.synapse.loadbalancer.server.port=8008
+    networks:
+    - default
+    - dokploy-network
+    restart: unless-stopped
+    volumes:
+    - synapse_data:/data
+    - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+  synapse-postgresql:
+    environment:
+      POSTGRES_DB: synapse
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --lc-collate=C --lc-ctype=C
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: synapse
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+      - CMD-SHELL
+      - pg_isready -U synapse -d synapse
+      timeout: 5s
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+    - synapse_pg_data:/var/lib/postgresql/data
+version: '3.8'
+volumes:
+  opencloud_data: null
+  surrealdb_data:
+    driver: local
+  synapse_data: null
+  synapse_pg_data: null

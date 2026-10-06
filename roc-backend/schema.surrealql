@@ -1,0 +1,114 @@
+-- Event Store
+DEFINE TABLE events SCHEMAFULL;
+DEFINE FIELD aggregate_id ON events TYPE record;
+DEFINE FIELD aggregate_type ON events TYPE string;
+DEFINE FIELD event_type ON events TYPE string;
+DEFINE FIELD payload ON events TYPE object;
+DEFINE FIELD timestamp ON events TYPE datetime VALUE time::now();
+DEFINE FIELD version ON events TYPE int;
+
+-- Projections (Read Models)
+DEFINE TABLE students SCHEMAFULL;
+DEFINE FIELD name ON students TYPE string;
+DEFINE FIELD email ON students TYPE string;
+DEFINE FIELD enrolled_at ON students TYPE datetime;
+DEFINE FIELD class_id ON students TYPE record<classes> | null;
+
+DEFINE TABLE teachers SCHEMAFULL;
+DEFINE FIELD name ON teachers TYPE string;
+DEFINE FIELD email ON teachers TYPE string;
+DEFINE FIELD joined_at ON teachers TYPE datetime;
+
+DEFINE TABLE classes SCHEMAFULL;
+DEFINE FIELD name ON classes TYPE string;
+DEFINE FIELD teacher_id ON classes TYPE record<teachers> | null;
+
+-- Event Projections (Triggers)
+DEFINE EVENT student_enrolled ON TABLE events WHEN $after.event_type = 'StudentEnrolled' THEN {
+    LET $student_id = $after.aggregate_id;
+    LET $class_id = type::record($after.payload.class_id);
+    
+    -- Upsert the student read model
+    UPDATE $student_id SET 
+        name = $after.payload.name,
+        email = $after.payload.email,
+        enrolled_at = $after.timestamp,
+        class_id = $class_id;
+};
+
+DEFINE EVENT teacher_registered ON TABLE events WHEN $after.event_type = 'TeacherRegistered' THEN {
+    LET $teacher_id = $after.aggregate_id;
+    
+    UPDATE $teacher_id SET 
+        name = $after.payload.name,
+        email = $after.payload.email,
+        joined_at = $after.timestamp;
+};
+
+DEFINE EVENT class_created ON TABLE events WHEN $after.event_type = 'ClassCreated' THEN {
+    LET $class_id = $after.aggregate_id;
+    LET $teacher_id = type::record($after.payload.teacher_id);
+    
+    UPDATE $class_id SET 
+        name = $after.payload.name,
+        teacher_id = $teacher_id;
+};
+
+-- User tables with role support
+DEFINE TABLE teachers SCHEMAFULL;
+DEFINE FIELD name ON teachers TYPE string;
+DEFINE FIELD email ON teachers TYPE string;
+DEFINE FIELD role ON teachers VALUE "Teacher";
+DEFINE FIELD is_active ON teachers TYPE bool VALUE true;
+DEFINE FIELD passport_url ON teachers TYPE option<string>;
+DEFINE FIELD created_at ON teachers TYPE datetime VALUE time::now();
+DEFINE FIELD deleted_at ON teachers TYPE option<datetime>;
+
+DEFINE TABLE parents SCHEMAFULL;
+DEFINE FIELD name ON parents TYPE string;
+DEFINE FIELD email ON parents TYPE string;
+DEFINE FIELD role ON parents VALUE "Parent";
+DEFINE FIELD is_active ON parents TYPE bool VALUE true;
+DEFINE FIELD passport_url ON parents TYPE option<string>;
+DEFINE FIELD created_at ON parents TYPE datetime VALUE time::now();
+DEFINE FIELD deleted_at ON parents TYPE option<datetime>;
+
+DEFINE TABLE admins SCHEMAFULL;
+DEFINE FIELD name ON admins TYPE string;
+DEFINE FIELD email ON admins TYPE string;
+DEFINE FIELD role ON admins VALUE "Admin";
+DEFINE FIELD is_active ON admins TYPE bool VALUE true;
+DEFINE FIELD passport_url ON admins TYPE option<string>;
+DEFINE FIELD created_at ON admins TYPE datetime VALUE time::now();
+DEFINE FIELD deleted_at ON admins TYPE option<datetime>;
+
+-- Lessons
+DEFINE TABLE lessons SCHEMAFULL;
+DEFINE FIELD topic_title ON lessons TYPE string;
+DEFINE FIELD week ON lessons TYPE int;
+DEFINE FIELD subject_id ON lessons TYPE record<subjects> | null;
+DEFINE FIELD subject_name ON lessons TYPE string;
+DEFINE FIELD term_id ON lessons TYPE record<terms> | null;
+DEFINE FIELD term_name ON lessons TYPE string;
+DEFINE FIELD objectives ON lessons TYPE option<string>;
+DEFINE FIELD content_sections ON lessons TYPE option<string>;
+DEFINE FIELD key_points ON lessons TYPE option<string>;
+DEFINE FIELD is_published ON lessons TYPE bool VALUE false;
+DEFINE FIELD created_at ON lessons TYPE datetime VALUE time::now();
+
+-- Assessments
+DEFINE TABLE assessments SCHEMAFULL;
+DEFINE FIELD title ON assessments TYPE string;
+DEFINE FIELD lesson_id ON assessments TYPE option<string>;
+DEFINE FIELD active ON assessments TYPE bool VALUE true;
+DEFINE FIELD created_at ON assessments TYPE datetime VALUE time::now();
+
+-- Submissions
+DEFINE TABLE submissions SCHEMAFULL;
+DEFINE FIELD assessment_id ON submissions TYPE option<string>;
+DEFINE FIELD student_id ON submissions TYPE option<string>;
+DEFINE FIELD status ON submissions TYPE string;
+DEFINE FIELD submitted_at ON submissions TYPE datetime VALUE time::now();
+DEFINE FIELD scored_mark ON submissions TYPE option<int>;
+DEFINE FIELD graded_at ON submissions TYPE option<datetime>;
+DEFINE FIELD grade_released_at ON submissions TYPE option<datetime>;

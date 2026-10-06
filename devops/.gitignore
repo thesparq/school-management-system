@@ -1,0 +1,5 @@
+matrix/*
+!matrix/homeserver.yaml
+!matrix/log.config
+caddy_data/
+client_config/

@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>John Ethel Academy - School Management System</title>
+  <link rel="stylesheet" href="/dist.css" />
+  <script>
+    // Blocking script to prevent flash of unstyled content (FOUC)
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+</head>
+<body class="bg-background text-foreground antialiased font-sans">
+  <div id="app"></div>
+  <!-- The navigation bar the retired SvelteKit app drew while `$navigating` was set: a thin amber
+       line across the top. Shown when a navigation or an in-page tab switch starts and hidden once
+       the new view has rendered (see beginNavProgress / noteNavProgressRender below). -->
+  <div id="nav-progress" class="hidden fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-sm"></div>
+  <script type="module">
+    import { mount } from '/runtime.js';
+
+    // ─── OAuth2 PKCE helpers ─────────────────────────────────────────────
+    const CLIENT_ID = 'ZMZS84aG53o8USUYqH2lX1muDbH3GSZ4Q03KFhSu';
+    const AUTH_HOST = 'https://auth.johnethel.school';
+    const AUTHORIZE_URL = AUTH_HOST + '/application/o/authorize/';
+    const TOKEN_URL = AUTH_HOST + '/application/o/token/';
+    // The OAuth2 redirect URI is this exact path on whatever origin serves the app — `origin +
+    // '/auth/callback'` — so each deployed origin has to have it registered on the Authentik
+    // provider. The code is exchanged here; the app itself starts from the root.
+    const CALLBACK_PATH = '/auth/callback';
+    const REDIRECT_URI = window.location.origin + CALLBACK_PATH;
+    const SCOPES = 'openid profile email';
+
+    // ─── Passport upload state ───────────────────────────────────────────
+    // Declared up here because the upload's change listener is bound at mount, while the module
+    // body is still running: anything below that point would not exist yet.
+    // The chosen photo's preview and the upload's outcome; both are JavaScript's, so they are
+    // re-applied after the app re-renders the form.
+    let _passportPreviewSrc = null;
+    let _passportUploadMessage = null;
+    let _passportUploadBound = false;
+
+    // ─── Navigation feedback and the session-term badge ──────────────────
+    // Also declared up here: the push_state and fetch_data port handlers are registered while this
+    // module body is awaiting `mount`, and `init` sends them messages immediately, so anything they
+    // touch has to be initialized before that point.
+    const NAV_PROGRESS_MIN_MS = 220;
+    const NAV_PROGRESS_SETTLE_MS = 150;
+    const NAV_PROGRESS_MAX_MS = 1500;
+    let _navProgressShownAt = 0;
+    let _navProgressEnd = null;
+    let _navProgressActive = false;
+    const SESSION_TERM_CACHE_MS = 60000;
+    let _sessionTermPayload = null;
+    let _sessionTermAt = 0;
+    let _sessionTermInFlight = false;
+
+    function generateCodeVerifier() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array);
+    }
+
+    function base64UrlEncode(buffer) {
+        let str = '';
+        const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+        return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    async function generateCodeChallenge(verifier) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(verifier);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return base64UrlEncode(digest);
+    }
+
+    async function startAuthFlow() {
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+        sessionStorage.setItem('pkce_code_verifier', codeVerifier);
+
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            response_type: 'code',
+            redirect_uri: REDIRECT_URI,
+            scope: SCOPES,
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256',
+        });
+
+        window.location.href = AUTHORIZE_URL + '?' + params.toString();
+    }
+
+    async function exchangeCodeForToken(code) {
+        const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
+        if (!codeVerifier) {
+            console.error('No PKCE code verifier found');
+            await startAuthFlow();
+            return null;
+        }
+        sessionStorage.removeItem('pkce_code_verifier');
+
+        const params = new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: CLIENT_ID,
+            code: code,
+            redirect_uri: REDIRECT_URI,
+            code_verifier: codeVerifier,
+        });
+
+        try {
+            const response = await fetch(TOKEN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString(),
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                console.error('Token exchange failed:', response.status, errText);
+                await startAuthFlow();
+                return null;
+            }
+
+            const data = await response.json();
+            return data.access_token || data.id_token || null;
+        } catch (e) {
+            console.error('Token exchange error:', e);
+            await startAuthFlow();
+            return null;
+        }
+    }
+
+    // ─── Token validation ────────────────────────────────────────────────
+    function validateToken(token) {
+        if (!token) return false;
+        try {
+            const parts = token.split('.');
+            if (parts.length < 2) return false;
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            // Check issuer
+            if (!payload.iss || !payload.iss.includes('auth.johnethel.school')) return false;
+            // Check expiration
+            if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function decodeTokenPayload(token) {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            return {};
+        }
+    }
+
+    // ─── Main auth flow ──────────────────────────────────────────────────
+    const savedTheme2 = localStorage.getItem('theme') || 'light';
+    let finalToken = localStorage.getItem('auth_token') || '';
+
+    // Check for authorization code in URL (OAuth2 callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authCode = urlParams.get('code');
+    const authError = urlParams.get('error');
+
+    if (authError) {
+        console.error('Auth error:', authError, urlParams.get('error_description'));
+        localStorage.removeItem('auth_token');
+        // Clear error params and restart auth flow
+        window.history.replaceState(null, null, '/');
+        await startAuthFlow();
+    } else if (authCode) {
+        // We got an authorization code — exchange it for a token
+        window.history.replaceState(null, null, '/');
+        finalToken = await exchangeCodeForToken(authCode);
+        if (finalToken) {
+            localStorage.setItem('auth_token', finalToken);
+        }
+    } else if (window.location.hash.includes('access_token=')) {
+        // Legacy implicit flow fallback
+        finalToken = window.location.hash.split('access_token=')[1].split('&')[0];
+        localStorage.setItem('auth_token', finalToken);
+        window.history.replaceState(null, null, window.location.pathname);
+    } else if (window.location.pathname === CALLBACK_PATH) {
+        // Reached the callback without a code: a reload after the exchange, or a stray visit. Start
+        // from the root rather than letting the router see a path that is not a page.
+        window.history.replaceState(null, null, '/');
+    }
+
+    // Validate the token
+    if (!validateToken(finalToken)) {
+        finalToken = '';
+        localStorage.removeItem('auth_token');
+    }
+
+    if (!finalToken) {
+        await startAuthFlow();
+    } else {
+        // ─── Decode token and bootstrap app ──────────────────────────────
+        const payload = decodeTokenPayload(finalToken);
+        const email = payload.email || "";
+        const name = payload.name || payload.preferred_username || "";
+
+        let role = "Student";
+        const groups = payload.groups || [];
+        if (groups.some(g => ['super admins', 'administrators', 'admin'].includes(g.toLowerCase()))) {
+            role = "Admin";
+        } else if (groups.some(g => ['teachers', 'teacher', 'staff'].includes(g.toLowerCase()))) {
+            role = "Teacher";
+        } else if (groups.some(g => ['parents', 'parent'].includes(g.toLowerCase()))) {
+            role = "Parent";
+        }
+
+        const currentPath = window.location.pathname || '/';
+        const flags = `${savedTheme2}|${finalToken}|${role}|${email}|${name}|${currentPath}|${window.location.origin}`;
+        
+        window.app = await mount({
+          wasm: '/app.wasm',
+          root: document.getElementById('app'),
+          flags: flags,
+          // Ports must exist before the app starts: State.init sends its first fetch_data
+          // messages right away, and the runtime drops messages for unregistered ports.
+          setup: registerPorts,
+        });
+
+        // The nav bar's active session term: the app has rendered its hidden inputs by the time
+        // mount resolves, so the first payload can be handed over now (each navigation refreshes
+        // it again).
+        refreshActiveSessionTerm();
+
+        // Browser back/forward support
+        window.addEventListener('popstate', () => {
+            const path = window.location.pathname || '/';
+            if (window.app && window.app.sendUrl) {
+                window.app.sendUrl(path);
+            }
+        });
+
+        // Initialize page-specific JS after WASM mount
+        setTimeout(setupPageJS, 300);
+    }
+
+    // Port handlers, registered through mount's `setup` hook (see the mount call above).
+    function registerPorts(app) {
+        // Bound here, before the app renders anything: the passport form's change listener is
+        // document-level (the app rebuilds the form on state changes), and it has to exist
+        // before the form does.
+        bindPassportUpload();
+        setupNavFeedback();
+
+        // Port: push_state — update browser URL on navigation
+        app.onPort("push_state", (url) => {
+            setTimeout(() => {
+                // The navigation is underway: the bar is up until the app's DOM settles (or the
+                // new page's JavaScript has drawn what it will draw).
+                beginNavProgress();
+                window.history.pushState(null, '', url);
+                refreshActiveSessionTerm();
+                setupPageJS();
+            }, 0);
+        });
+
+        // Port: fetch_data — fetch from backend API with smart routing. Every outcome is
+        // dispatched, a failure included, so a list never waits on a request that is over: the
+        // view shows its skeleton until the answer lands and an error with a retry if it failed.
+        app.onPort("fetch_data", (url) => {
+            fetch(url, {
+                headers: { "Authorization": "Bearer " + finalToken }
+            })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                return res.json();
+            })
+            .then((data) => dispatchFetched(url, data))
+            .catch((err) => dispatchFetchFailed(url, err));
+        });
+
+        // Port: save_theme — persist theme choice
+        app.onPort("save_theme", (value) => {
+            setTimeout(() => {
+                localStorage.setItem("theme", value);
+                if (value === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+            }, 0);
+        });
+
+        // Port: redirect — navigate to external URL
+        app.onPort("redirect", (url) => {
+            setTimeout(() => { window.location.href = url; }, 0);
+        });
+
+        // Port: save_token — persist auth token
+        app.onPort("save_token", (value) => {
+            if (value) {
+                localStorage.setItem("auth_token", value);
+            } else {
+                localStorage.removeItem("auth_token");
+            }
+        });
+
+        // Port: end_session — sign out for real. The token is already cleared by save_token; this ends
+        // the Authentik session and comes back to this origin. The redirect URI is the app's own
+        // `/auth/callback`, which every environment already has registered for login, so signing out
+        // needs no extra registration: the page returns there with no code, clears the URL and starts
+        // the login flow again — and Authentik asks for credentials because the session just ended.
+        app.onPort("end_session", () => {
+            // Clear the token here as well as through save_token: the app's effects are not guaranteed
+            // to have run before this navigation starts, and a sign-out that leaves a usable token in
+            // storage is not a sign-out.
+            localStorage.removeItem("auth_token");
+            const back = window.location.origin + "/auth/callback";
+            window.location.href = AUTH_HOST + "/application/o/school-management-system/end-session/?post_logout_redirect_uri=" + encodeURIComponent(back);
+        });
+
+        // The avatar menu closes on a click anywhere outside it. The app owns whether it is open
+        // (`userMenuOpen`), so the page only reports the outside click through the hidden input.
+        document.addEventListener("click", (e) => {
+            const menu = document.getElementById("user-menu");
+            if (!menu || menu.classList.contains("hidden")) return;
+            if (menu.contains(e.target) || (e.target.closest && e.target.closest("#user-menu-button"))) return;
+            const input = document.getElementById("user_menu_close_input");
+            if (input) input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+    }
+
+    // ========================================================
+    // Helpers
+    // ========================================================
+
+    function dispatchToInput(id, value) {
+        const el = document.getElementById(id);
+        if (el) { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
+
+    // SurrealDB answers with a one-element envelope: [{ result: [...], status: "OK", ... }].
+    // A single record comes back as `result` too, so wrap that; a bare array passes through.
+    function unwrapRows(data) {
+        const envelope = Array.isArray(data) ? data[0] : data;
+        if (envelope && typeof envelope === "object" && "result" in envelope) {
+            const result = envelope.result;
+            return result == null ? [] : (Array.isArray(result) ? result : [result]);
+        }
+        return Array.isArray(data) ? data : [];
+    }
+
+    // ========================================================
+    // List payloads: not loaded yet, loaded, failed
+    // ========================================================
+
+    // Every list the app reads through a hidden input carries one of these payloads, so a list has
+    // three states rather than two: "" (nothing has answered yet — the view shows its skeleton),
+    // "ok" with the formatted rows (a real empty state when there are none), and "error" with the
+    // backend's own message. State.roc's `list_state` decodes exactly this.
+    function okPayload(rows) {
+        return rows.length ? "ok\n" + rows.join("\n") : "ok";
+    }
+
+    function errorPayload(message) {
+        return "error\n" + String(message || "Request failed").replace(/\s*\n\s*/g, " ");
+    }
+
+    // The backend's own message for a failed request: {"error": …, "detail": …} with a non-2xx
+    // status (and the same object inside SurrealDB's one-element envelope), else the status line.
+    async function failureMessage(res) {
+        let body = null;
+        try { body = await res.json(); } catch (e) { body = null; }
+        const row = Array.isArray(body) ? body[0] : body;
+        const error = row && row.error ? String(row.error) : "";
+        const detail = row && row.detail ? String(row.detail) : "";
+        if (error && detail) return `${error}: ${detail}`;
+        return error || detail || `HTTP ${res.status}`;
+    }
+
+    // Which hidden input a fetched URL feeds, and how one of its rows is written out. The tests are
+    // checked in order, so a more specific URL comes first (/api/subjects?all=true before
+    // /api/subjects, /api/student/lessons before /api/student/lesson). This is a function rather
+    // than a table so it is hoisted: the fetch_data handler can run before this part of the module
+    // body has executed.
+    function fetchRouteFor(url) {
+        const routes = [
+            { match: (u) => u.includes("/api/users?role=Student"), input: "users_students_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Teacher"), input: "users_teachers_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Parent"), input: "users_parents_data_input", format: formatUsers },
+            { match: (u) => u.includes("/api/users?role=Admin"), input: "users_admins_data_input", format: formatUsers },
+            { match: (u) => u === "/api/terms", input: "terms_data_input", format: formatTerms },
+            { match: (u) => u === "/api/subjects?all=true", input: "config_subjects_data_input", format: formatSubjectsAll },
+            { match: (u) => u === "/api/class_levels?all=true", input: "class_levels_data_input", format: formatClassLevels },
+            { match: (u) => u === "/api/curriculum?all=true", input: "curriculum_data_input", format: formatCurriculum },
+            { match: (u) => u === "/api/session_terms", input: "session_terms_data_input", format: formatSessionTerms },
+            { match: (u) => u === "/api/subjects" || u === "/api/student/subjects", input: "subjects_data_input", format: formatSubjectsActive },
+            { match: (u) => u.includes("/api/student/terms"), input: "student_terms_data_input", format: formatTerms },
+            { match: (u) => u.includes("/api/student/lessons"), input: "student_lessons_data_input", format: formatLessons },
+            { match: (u) => u.includes("/api/teacher/lessons"), input: "teacher_lessons_data_input", format: formatLessons },
+            { match: (u) => u.includes("/api/student/lesson"), input: "lesson_content_data_input", format: formatLessonContent },
+        ];
+        return routes.find((r) => r.match(url));
+    }
+
+    function dispatchFetched(url, data) {
+        const route = fetchRouteFor(url);
+        if (!route) return;
+        dispatchToInput(route.input, okPayload(route.format(data)));
+        // The lesson viewer paints the lesson itself, once the app has re-rendered the panel around it.
+        if (route.input === "lesson_content_data_input") {
+            const lesson = unwrapRows(data)[0];
+            if (lesson) setTimeout(() => renderLesson(lesson), 50);
+        }
+    }
+
+    function dispatchFetchFailed(url, err) {
+        const route = fetchRouteFor(url);
+        if (!route) return;
+        dispatchToInput(route.input, errorPayload(err && err.message ? err.message : String(err)));
+    }
+
+    // --- One row per list, in the "|"-separated line format the views split back apart ---
+
+    // id|name|email|is_active|has_profile|school_number. The id is what "Complete profile" sends back (PUT
+    // /api/users resolves the profile table from it), and has_profile false marks a login the
+    // directory lists that the profile tables have nothing for — a user the admin made in Authentik.
+    // The login's username is the last fallback for its name: a login created with nothing but a
+    // username has no name at all, and without the fallback two such rows read "Unknown".
+    // school_number is the backend's rendered form (`JES-000123`, `EMP-000045`), or "" for a row
+    // without one (a parent, a login with no profile yet): the page shows it and never builds it, so
+    // the prefix lives in one place.
+    function formatUsers(data) {
+        return unwrapRows(data).map(u => {
+            const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
+            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "");
+        });
+    }
+
+    function formatTerms(data) {
+        return unwrapRows(data).map(t => (t.id || "") + "|" + (t.name || "Term") + "|" + (t.sort_order || "") + "|" + (t.active !== false));
+    }
+
+    // The hub's own subject list: every subject, active or not.
+    function formatSubjectsAll(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.name || "Unknown") + "|" + (s.code || "") + "|" + (s.active !== false));
+    }
+
+    // The active-only list the student's cards and the pickers read.
+    function formatSubjectsActive(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.name || "Unknown") + "|" + (s.code || ""));
+    }
+
+    function formatClassLevels(data) {
+        return unwrapRows(data).map(c => (c.id || "") + "|" + (c.name || "Unknown") + "|" + (c.code || "") + "|" + (c.age_range || "") + "|" + (c.active !== false));
+    }
+
+    function formatCurriculum(data) {
+        return unwrapRows(data).map(e => (e.id || "") + "|" + (e.in || "") + "|" + (e.out || "") + "|" + (e.active !== false));
+    }
+
+    function formatSessionTerms(data) {
+        return unwrapRows(data).map(s => (s.id || "") + "|" + (s.session_name || "Session") + "|" + (s.term || "") + "|" + (s.active === true));
+    }
+
+    function formatLessons(data) {
+        return unwrapRows(data).map(l => (l.id || "") + "|" + (l.topic_title || "Lesson") + "|" + (l.week || ""));
+    }
+
+    // One row: the lesson's own JSON, which the renderer parses back out of the payload.
+    function formatLessonContent(data) {
+        return [JSON.stringify(unwrapRows(data)[0] || {})];
+    }
+
+    // The lesson object inside a lesson-content payload, or null while the payload is not a loaded
+    // lesson (empty, still on its way, or an error the view is showing instead).
+    function lessonFromPayload(value) {
+        if (!value || value.indexOf("ok\n") !== 0) return null;
+        try { return JSON.parse(value.slice(3)); } catch (e) { return null; }
+    }
+
+    // ========================================================
+    // Skeletons and error states for the lists this file renders
+    // ========================================================
+
+    // Grey placeholder cards shaped like the rows a list will draw, so a fetch still in flight shows
+    // what is coming instead of a sentence.
+    function skeletonCards(rowWidths) {
+        const widths = rowWidths || ["w-40", "w-24"];
+        return '<div class="space-y-3">' + [0, 1, 2].map(() =>
+            '<div class="rounded-lg border p-4 flex items-center gap-4">' +
+            widths.map(w => `<div class="h-4 ${w} rounded bg-muted animate-pulse" data-skeleton></div>`).join("") +
+            "</div>").join("") + "</div>";
+    }
+
+    // A loaded-and-empty list, presented the way the views present theirs.
+    function listEmptyState(icon, title, description) {
+        return `<div class="rounded-lg border p-10 flex flex-col items-center gap-2 text-center" data-empty-state>
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">${icon}</div>
+            <p class="text-sm font-medium text-foreground">${escHtml(title)}</p>
+            <p class="text-xs text-muted-foreground">${escHtml(description)}</p>
+        </div>`;
+    }
+
+    // A failed list: what could not be loaded, the server's own message, and a control that asks for
+    // it again — never a skeleton or a spinner left behind.
+    function listErrorState(title, message, retry) {
+        return `<div class="rounded-lg border p-6 text-center space-y-2" data-error-state>
+            <p class="text-sm font-medium text-destructive">${escHtml(title)}</p>
+            <p class="text-xs text-muted-foreground">${escHtml(String(message || "Request failed"))}</p>
+            <button type="button" onclick="${retry}" class="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent cursor-pointer">Retry</button>
+        </div>`;
+    }
+
+    // ========================================================
+    // Navigation feedback: the top border bar and the session-term badge
+    // ========================================================
+
+    // The retired SvelteKit app drew this bar while `$navigating` was set; this SPA has no such
+    // store, so the bar is started explicitly — a click on a control the views mark `data-nav`, a
+    // `push_state` from the app, or a tab switch this file drives — and ended once the app's DOM
+    // has settled: a floor so a fast transition is still visible, and a ceiling so a bar that
+    // nothing mutates after it can never stick. Its state is declared at the top of this module.
+    function beginNavProgress() {
+        const bar = document.getElementById("nav-progress");
+        if (!bar) return;
+        if (!_navProgressActive) {
+            _navProgressActive = true;
+            _navProgressShownAt = Date.now();
+            bar.classList.remove("hidden");
+        }
+        scheduleNavProgressEnd(NAV_PROGRESS_MAX_MS);
+    }
+
+    function scheduleNavProgressEnd(delay) {
+        if (!_navProgressActive) return;
+        const floor = Math.max(0, NAV_PROGRESS_MIN_MS - (Date.now() - _navProgressShownAt));
+        if (_navProgressEnd) clearTimeout(_navProgressEnd);
+        _navProgressEnd = setTimeout(endNavProgress, Math.max(delay, floor));
+    }
+
+    // The app re-rendered: the transition is over unless it mutates again.
+    function noteNavProgressRender() {
+        if (_navProgressActive) scheduleNavProgressEnd(NAV_PROGRESS_SETTLE_MS);
+    }
+
+    function endNavProgress() {
+        if (_navProgressEnd) { clearTimeout(_navProgressEnd); _navProgressEnd = null; }
+        _navProgressActive = false;
+        const bar = document.getElementById("nav-progress");
+        if (bar) bar.classList.add("hidden");
+    }
+
+    // The app root's own updates are what "the new view has rendered" means here.
+    function setupNavFeedback() {
+        const root = document.getElementById("app");
+        if (root && window.MutationObserver) {
+            new MutationObserver(noteNavProgressRender).observe(root, { childList: true, subtree: true });
+        }
+        // A click on a control the views marked navigates (or switches a tab) inside the app: start
+        // the bar before the click's own work, so the transition is covered from its beginning.
+        document.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!target || !target.closest) return;
+            if (!target.closest("#app")) return;
+            if (target.closest("[data-nav]") || target.closest("a")) beginNavProgress();
+        }, true);
+    }
+
+    // ─── Active session term (the top bar's badge) ───
+    // Fetched on boot and on every navigation with the 60-second cache the retired app used, and fed
+    // to the app's `active_session_term_input` through the same three-state payload the lists use.
+    // Nothing is shown when there is no active term or the fetch failed: the badge is a marker, not
+    // a page-level state, and a failed fetch must not leave a spinner in the bar.
+    function refreshActiveSessionTerm() {
+        const cached = _sessionTermPayload !== null && (Date.now() - _sessionTermAt) < SESSION_TERM_CACHE_MS;
+        if (cached) {
+            dispatchToInput("active_session_term_input", _sessionTermPayload);
+            return;
+        }
+        if (_sessionTermInFlight) return;
+        _sessionTermInFlight = true;
+        // Pending means the bar's small spinner, and only when nothing is known yet: a stale badge
+        // stays put until the answer lands rather than flashing.
+        if (_sessionTermPayload === null) dispatchToInput("active_session_term_input", "");
+        fetch("/api/session_terms/active", { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                const row = unwrapRows(await res.json())[0] || null;
+                const label = row ? [row.session_name, row.term_name].filter(Boolean).join(" — ") : "";
+                return okPayload(label ? [label] : []);
+            })
+            .catch((err) => errorPayload(err && err.message ? err.message : "Could not load the active session term"))
+            .then((payload) => {
+                _sessionTermPayload = payload;
+                _sessionTermAt = Date.now();
+                _sessionTermInFlight = false;
+                dispatchToInput("active_session_term_input", payload);
+            });
+    }
+
+    // ========================================================
+    // Page-specific JS (re-runs on every navigation)
+    // ========================================================
+
+    let _lessonScrollCleanup = null;
+    let _matrixSyncInterval = null;
+    let _currentMatrixRoom = null;
+
+    function setupPageJS() {
+        // Clean up any previous scroll listeners
+        if (_lessonScrollCleanup) { _lessonScrollCleanup(); _lessonScrollCleanup = null; }
+        // The assessment hub's document-level listeners are page-scoped: tear the previous page's
+        // down so its controls cannot act on a page whose elements are gone.
+        teardownAssessmentHub();
+
+        const path = window.location.pathname;
+
+        // --- Passport upload handler (admin user management) ---
+        // Only re-apply the preview and the upload's outcome; the listener was bound at mount.
+        applyPassportUploadState();
+
+        // --- General assessments: the teacher hub and the student's assignments page ---
+        if (path === "/teacher/assessments") {
+            setupAssessmentHub(true);
+        }
+        if (path === "/student/assignments") {
+            setupAssessmentHub(false);
+        }
+
+        // --- Lesson viewer (student) ---
+        if (path === "/student/lesson") {
+            setupLessonTabs(false);
+            // If lesson content is already in the hidden input (re-render after nav), render it
+            const contentInput = document.getElementById("lesson_content_data_input");
+            const readyLesson = contentInput ? lessonFromPayload(contentInput.value) : null;
+            if (readyLesson) renderLesson(readyLesson);
+            // Also watch for content arriving via hidden input mutation
+            setupLessonContentObserver();
+        }
+
+        // --- Lesson viewer (teacher) ---
+        if (path === "/teacher/lessons" || path === "/teacher/classes") {
+            if (document.getElementById("lesson-panel")) {
+                // Reads ?id= and loads that lesson; also wires the tabs.
+                setupLessonViewer(true);
+            }
+        }
+
+        // --- Messaging ---
+        if (path === "/messaging") {
+            setupMessaging();
+        }
+    }
+
+    // Watch for lesson content arriving via hidden input (set by JS after fetch, triggers re-render)
+    let _lessonContentObserver = null;
+    function setupLessonContentObserver() {
+        if (_lessonContentObserver) { _lessonContentObserver.disconnect(); _lessonContentObserver = null; }
+        const input = document.getElementById("lesson_content_data_input");
+        if (!input) return;
+        // Only a loaded payload is a lesson: while it is empty (not answered yet) or an error, the
+        // view's own skeleton or error state is what belongs on the page.
+        const render = () => {
+            const lesson = lessonFromPayload(input.value);
+            if (lesson) renderLesson(lesson);
+        };
+        _lessonContentObserver = new MutationObserver(render);
+        _lessonContentObserver.observe(input, { attributes: true, attributeFilter: ["value"] });
+        // Also listen for input event (triggered by dispatchToInput)
+        input.addEventListener("input", render);
+    }
+
+    // ========================================================
+    // PASSPORT PHOTO UPLOAD
+    // ========================================================
+
+    function bindPassportUpload() {
+        if (_passportUploadBound) return;
+        _passportUploadBound = true;
+        document.addEventListener("change", (event) => {
+            if (event.target && event.target.id === "passport-file-input") {
+                handlePassportFile(event.target);
+            }
+        });
+    }
+
+    async function handlePassportFile(fileInput) {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        if (file.type && !file.type.startsWith("image/")) {
+            setPassportUploadMessage("Choose a JPEG or PNG image.", true);
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setPassportUploadMessage("File too large. Maximum size is 5 MB.", true);
+            return;
+        }
+
+        // The local preview shows the photo the admin picked, before any upload happens.
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            _passportPreviewSrc = ev.target.result;
+            applyPassportUploadState();
+        };
+        reader.readAsDataURL(file);
+
+        setPassportUploadMessage("Requesting an upload URL...", false);
+        try {
+            const publicUrl = await uploadPassport(file);
+            // The URL field is what the form submits (and what an edit would send), so the photo's
+            // public URL goes into it through the same input event a typed URL produces.
+            setPassportUrl(publicUrl);
+            setPassportUploadMessage("Photo uploaded. The passport URL below is what the profile stores.", false);
+            // The URL reaching the model re-renders the form; re-apply in case that lands after
+            // the line above.
+            setTimeout(applyPassportUploadState, 100);
+        } catch (err) {
+            setPassportUploadMessage(err && err.message ? err.message : String(err), true);
+        }
+    }
+
+    // Ask the backend to sign a PUT for this photo, upload it, and hand back the public URL.
+    // The account does not exist yet while the form is being filled in, so the object key uses an
+    // id generated here; the backend only signs keys under `<profileType>/passports/`.
+    async function uploadPassport(file) {
+        const roleSelect = document.getElementById("new-user-role-select");
+        const profileType = (roleSelect && roleSelect.value ? roleSelect.value : "Student").toLowerCase();
+
+        const res = await fetch("/api/upload-url", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "")
+            },
+            body: JSON.stringify({ userId: newUploadId(), profileType: profileType })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Upload URL request failed (HTTP ${res.status})`);
+        if (!data.uploadUrl || !data.publicUrl) throw new Error("The backend did not return an upload URL");
+
+        const put = await fetch(data.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "image/jpeg" },
+            body: file
+        });
+        if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`);
+
+        return data.publicUrl;
+    }
+
+    function setPassportUrl(url) {
+        const field = document.getElementById("passport-url-field");
+        const input = field && field.querySelector("input");
+        if (!input) return;
+        input.value = url;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function setPassportUploadMessage(message, isError) {
+        _passportUploadMessage = { message: message, isError: isError };
+        applyPassportUploadState();
+    }
+
+    function applyPassportUploadState() {
+        const preview = document.getElementById("passport-preview");
+        if (preview && _passportPreviewSrc) {
+            preview.innerHTML = `<img src="${_passportPreviewSrc}" class="w-full h-full object-cover rounded-full" alt="Preview">`;
+        }
+        const status = document.getElementById("passport-upload-status");
+        if (!status) return;
+        status.textContent = _passportUploadMessage ? _passportUploadMessage.message : "";
+        status.className = "text-xs " + (_passportUploadMessage && _passportUploadMessage.isError ? "text-red-600" : "text-muted-foreground");
+    }
+
+    function newUploadId() {
+        if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+        return "upload-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+    }
+
+    // ========================================================
+    // BEAUTIFUL LESSON VIEWER
+    // ========================================================
+
+    let _currentLessonId = null;
+
+    function setupLessonViewer(isTeacher) {
+        // For demo/dev, load a placeholder lesson
+        // In production, the lesson ID comes from route state or URL param
+        const params = new URLSearchParams(window.location.search);
+        const lessonId = params.get("id");
+        if (lessonId && lessonId !== _currentLessonId) {
+            _currentLessonId = lessonId;
+            loadLesson(lessonId, isTeacher);
+        } else if (!lessonId) {
+            // Show placeholder message. The title is the view's skeleton until a lesson is picked, so
+            // the placeholder has to replace it too.
+            const titleEl = document.getElementById("lesson-title");
+            if (titleEl) titleEl.textContent = "Select a Lesson";
+            const panel = document.getElementById("lesson-panel");
+            if (panel) {
+                panel.innerHTML = `
+                    <div class="flex items-center justify-center py-16 text-muted-foreground">
+                        <div class="text-center space-y-3">
+                            <div class="text-5xl">📖</div>
+                            <h3 class="font-semibold text-lg text-foreground">Select a Lesson</h3>
+                            <p class="text-sm max-w-xs">Go back to your subjects, choose a subject and term, then click a lesson to open it here.</p>
+                        </div>
+                    </div>`;
+            }
+        }
+        setupLessonTabs(isTeacher);
+    }
+
+    let _lessonTabsBound = false;
+    function setupLessonTabs(isTeacher) {
+        const activeTabCls = "px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer";
+        const inactiveTabCls = "px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer";
+
+        // Look the elements up on every call: the app re-renders its DOM on state changes, so any
+        // reference captured earlier points at a node that is no longer on the page.
+        function showTab(which) {
+            const tabs = {
+                lesson: document.getElementById("tab-lesson"),
+                assessments: document.getElementById("tab-assessments"),
+                grading: document.getElementById("tab-grading"),
+            };
+            const panels = {
+                lesson: document.getElementById("lesson-panel"),
+                assessments: document.getElementById("assessments-panel"),
+                grading: document.getElementById("grading-panel"),
+            };
+
+            Object.entries(tabs).forEach(([name, el]) => {
+                if (!el) return;
+                el.className = name === which ? activeTabCls : inactiveTabCls;
+            });
+            Object.entries(panels).forEach(([name, el]) => {
+                if (!el) return;
+                el.classList.toggle("hidden", name !== which);
+            });
+            const sectionNav = document.getElementById("section-nav");
+            if (sectionNav) sectionNav.classList.toggle("hidden", which !== "lesson");
+        }
+
+        // The app re-renders its DOM on every state change, which drops listeners attached to the
+        // individual nodes, so these controls are handled by one document-level listener instead.
+        if (!_lessonTabsBound) {
+            _lessonTabsBound = true;
+            document.addEventListener("click", (event) => {
+                const hit = (selector) => event.target.closest && event.target.closest(selector);
+                const modal = document.getElementById("create-assessment-modal");
+                if (hit("#tab-lesson")) { showTab("lesson"); return; }
+                if (hit("#tab-assessments")) { showTab("assessments"); loadAssessments(isTeacher); return; }
+                if (hit("#tab-grading")) { showTab("grading"); loadSubmissions(); return; }
+                if (hit("#submit-assessment-answers")) { if (_openAssessmentId) submitAssessmentAnswers(_openAssessmentId); return; }
+                if (hit("#back-to-assessments")) { _openAssessmentId = null; loadAssessments(false); return; }
+                if (hit("#create-assessment-btn")) { renderQuestionPicker(); modal && modal.classList.remove("hidden"); return; }
+                if (hit("#close-create-modal") || hit("#cancel-create-modal")) { modal && modal.classList.add("hidden"); return; }
+                if (hit("#submit-create-assessment")) { createAssessment(); return; }
+            });
+        }
+        showTab("lesson");
+    }
+
+    async function loadLesson(lessonId, isTeacher) {
+        const endpoint = isTeacher ? "/api/teacher/lessons" : "/api/student/lesson";
+        const panel = document.getElementById("lesson-panel");
+        // The panel's own three states, the same ones the view draws before this runs.
+        if (panel) panel.innerHTML = skeletonCards(["w-56", "w-32"]);
+        try {
+            const res = await fetch(`${endpoint}?lesson_id=${lessonId}`, {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
+            const lesson = rows[0];
+            if (!lesson) {
+                if (panel) panel.innerHTML = listEmptyState("📖", "No lesson found", "This lesson has no content stored yet.");
+                return;
+            }
+            renderLesson(lesson);
+        } catch(e) {
+            const message = e && e.message ? e.message : String(e);
+            if (panel) panel.innerHTML = listErrorState("Could not load the lesson", message, "retryLesson()");
+            const titleEl = document.getElementById("lesson-title");
+            if (titleEl) titleEl.textContent = "Lesson unavailable";
+        }
+    }
+
+    // The retry control the lesson panel draws when its fetch failed.
+    window.retryLesson = () => {
+        const id = new URLSearchParams(window.location.search).get("id");
+        if (id) loadLesson(id, true);
+    };
+
+    // The lesson currently open in the viewer: the assessment modal builds its question picker from it.
+    let _currentLesson = null;
+
+    function renderLesson(lesson) {
+        _currentLesson = lesson;
+        // Update header
+        const titleEl = document.getElementById("lesson-title");
+        const metaEl = document.getElementById("lesson-meta");
+        const weekEl = document.getElementById("lesson-week-badge");
+        if (titleEl) titleEl.textContent = lesson.topic_title || "Lesson";
+        if (metaEl) metaEl.textContent = `${lesson.subject_name || "Subject"} · ${lesson.term_name || "Term"}`;
+        if (weekEl && lesson.week) {
+            weekEl.classList.remove("hidden");
+            weekEl.innerHTML = `<span class="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-semibold">Week ${lesson.week}</span>`;
+        }
+
+        const panel = document.getElementById("lesson-panel");
+        if (!panel) return;
+
+        let html = "";
+        let sections = [];
+
+        // Prod stores everything under the nested `content` object; the flat lesson.* reads are
+        // kept as a fallback for the older seed rows.
+        const content = lesson.content || {};
+
+        // Introduction
+        const introduction = content.introduction || "";
+        if (introduction) {
+            sections.push({ id: "section-introduction", heading: "Introduction" });
+            html += `
+            <section id="section-introduction" class="scroll-mt-24 space-y-3">
+                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">Introduction</h2>
+                <p class="text-base leading-relaxed text-foreground/90">${escHtml(introduction)}</p>
+            </section>`;
+        }
+
+        // Learning Objectives
+        let objectives = [];
+        try {
+            objectives = content.objectives || (typeof lesson.objectives === "string" ? JSON.parse(lesson.objectives) : (lesson.objectives || []));
+        } catch(e) {}
+        if (objectives.length) {
+            sections.push({ id: "section-objectives", heading: "Learning Objectives" });
+            html += `
+            <section id="section-objectives" class="scroll-mt-24">
+                <div class="rounded-xl border-l-4 border-primary bg-primary/5 p-6 space-y-4">
+                    <h2 class="flex items-center gap-2 text-lg font-bold text-primary">
+                        <span class="text-xl">🎯</span> Learning Objectives
+                    </h2>
+                    <ol class="space-y-2">
+                        ${objectives.map((obj, i) => `
+                            <li class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">${i+1}</span>
+                                <p class="text-sm leading-relaxed">${escHtml(objectiveText(obj))}</p>
+                            </li>`).join("")}
+                    </ol>
+                </div>
+            </section>`;
+        }
+
+        // Content Sections
+        let contentSections = [];
+        try {
+            contentSections = content.content_sections || (typeof lesson.content_sections === "string" ? JSON.parse(lesson.content_sections) : (lesson.content_sections || []));
+        } catch(e) {}
+        contentSections.forEach((sec, idx) => {
+            const secId = `section-content-${idx}`;
+            const heading = sec.header || sec.title || `Section ${idx+1}`;
+            sections.push({ id: secId, heading });
+            const subPoints = sec.sub_points || sec.subpoints || [];
+            html += `
+            <section id="${secId}" class="scroll-mt-24 space-y-4">
+                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${escHtml(heading)}</h2>
+                ${sec.body ? `<p class="text-base leading-relaxed text-foreground/90">${escHtml(sec.body)}</p>` : ""}
+                ${subPoints.length ? `
+                <ul class="space-y-2 pl-4">
+                    ${subPoints.map(pt => `
+                    <li class="flex items-start gap-2">
+                        <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
+                        <p class="text-sm leading-relaxed">${escHtml(typeof pt === "string" ? pt : pt.text || JSON.stringify(pt))}</p>
+                    </li>`).join("")}
+                </ul>` : ""}
+            </section>`;
+        });
+
+        // Key Points (amber card)
+        let keyPoints = [];
+        try {
+            keyPoints = content.key_points || (typeof lesson.key_points === "string" ? JSON.parse(lesson.key_points) : (lesson.key_points || []));
+        } catch(e) {}
+        if (keyPoints.length) {
+            sections.push({ id: "section-keypoints", heading: "Key Points" });
+            html += `
+            <section id="section-keypoints" class="scroll-mt-24">
+                <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6 space-y-4">
+                    <h2 class="flex items-center gap-2 text-lg font-bold text-amber-700 dark:text-amber-400">
+                        <span class="text-xl">⭐</span> Key Points to Remember
+                    </h2>
+                    <ul class="space-y-2">
+                        ${keyPoints.map(pt => `
+                        <li class="flex items-start gap-2">
+                            <span class="mt-1 text-amber-500">•</span>
+                            <p class="text-sm leading-relaxed text-amber-900 dark:text-amber-200">${escHtml(typeof pt === "string" ? pt : pt.text || JSON.stringify(pt))}</p>
+                        </li>`).join("")}
+                    </ul>
+                </div>
+            </section>`;
+        }
+
+        // Conclusion
+        const conclusion = content.conclusion || "";
+        if (conclusion) {
+            sections.push({ id: "section-conclusion", heading: "Conclusion" });
+            html += `
+            <section id="section-conclusion" class="scroll-mt-24 space-y-3">
+                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">Conclusion</h2>
+                <p class="text-base leading-relaxed text-foreground/90">${escHtml(conclusion)}</p>
+            </section>`;
+        }
+
+        if (!html) {
+            html = `<div class="text-center py-12 text-muted-foreground space-y-2">
+                <div class="text-4xl">📝</div>
+                <p class="font-medium">No lesson content available yet</p>
+                <p class="text-sm">Content will appear once the teacher publishes this lesson.</p>
+            </div>`;
+        }
+
+        panel.innerHTML = html;
+
+        // Build scroll-spy sidebar
+        buildSectionNav(sections);
+        setupScrollSpy(sections);
+        setupMobileTOC(sections);
+    }
+
+    // --- Scroll-spy sidebar ---
+    function buildSectionNav(sections) {
+        const dotsContainer = document.getElementById("section-nav-dots");
+        const labelsContainer = document.getElementById("section-nav-labels");
+        const nav = document.getElementById("section-nav");
+        if (!dotsContainer || !labelsContainer || !sections.length) {
+            if (nav) nav.classList.add("hidden");
+            return;
+        }
+        nav && nav.classList.remove("hidden");
+
+        dotsContainer.innerHTML = sections.map((sec, i) => `
+            <button data-sec="${sec.id}" title="${escHtml(sec.heading)}"
+                class="nav-dot w-2.5 h-2.5 rounded-full border-2 border-primary/40 bg-transparent hover:bg-primary/60 transition-all cursor-pointer"
+                style="border-radius: 50%;"
+            ></button>`).join("");
+
+        labelsContainer.innerHTML = sections.map((sec, i) => `
+            <button data-sec="${sec.id}"
+                class="nav-label w-full text-left px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer block"
+            >${escHtml(sec.heading)}</button>`).join("");
+
+        // Click handlers
+        [...dotsContainer.querySelectorAll("[data-sec]"), ...labelsContainer.querySelectorAll("[data-sec]")].forEach(btn => {
+            btn.addEventListener("click", () => {
+                const el = document.getElementById(btn.dataset.sec);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+        });
+    }
+
+    function setupScrollSpy(sections) {
+        if (!sections.length) return;
+        const contentArea = document.querySelector(".flex-1.overflow-auto");
+        if (!contentArea) return;
+
+        const handler = () => {
+            let active = sections[0]?.id;
+            sections.forEach(sec => {
+                const el = document.getElementById(sec.id);
+                if (!el) return;
+                const rect = el.getBoundingClientRect();
+                if (rect.top <= 120) active = sec.id;
+            });
+            document.querySelectorAll(".nav-dot").forEach(dot => {
+                const isActive = dot.dataset.sec === active;
+                dot.classList.toggle("bg-primary", isActive);
+                dot.classList.toggle("w-3.5", isActive);
+                dot.classList.toggle("h-3.5", isActive);
+                dot.classList.toggle("border-primary", isActive);
+            });
+            document.querySelectorAll(".nav-label").forEach(lbl => {
+                lbl.classList.toggle("text-primary", lbl.dataset.sec === active);
+                lbl.classList.toggle("font-medium", lbl.dataset.sec === active);
+            });
+        };
+
+        contentArea.addEventListener("scroll", handler);
+        _lessonScrollCleanup = () => contentArea.removeEventListener("scroll", handler);
+    }
+
+    function setupMobileTOC(sections) {
+        const fab = document.getElementById("mobile-toc-fab");
+        const btn = document.getElementById("mobile-toc-btn");
+        const menu = document.getElementById("mobile-toc-menu");
+        if (!fab || !btn || !menu || !sections.length) return;
+
+        fab.classList.remove("hidden");
+        menu.innerHTML = sections.map(sec => `
+            <button data-sec="${sec.id}"
+                class="w-full text-left px-3 py-2 rounded text-sm hover:bg-muted transition-colors cursor-pointer block"
+            >${escHtml(sec.heading)}</button>`).join("");
+
+        btn.addEventListener("click", () => menu.classList.toggle("hidden"));
+        menu.querySelectorAll("[data-sec]").forEach(item => {
+            item.addEventListener("click", () => {
+                const el = document.getElementById(item.dataset.sec);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                menu.classList.add("hidden");
+            });
+        });
+        // Close on outside click
+        document.addEventListener("click", (e) => {
+            if (!fab.contains(e.target)) menu.classList.add("hidden");
+        });
+    }
+
+    // ---- Question picker for the create-assessment modal ----
+
+    // The lesson content carries the generated bank: mcq_questions with option_a..c and a letter in
+    // correct_answer, theoretical_questions with model_answer and marking_scheme.
+    function bankQuestions() {
+        const content = (_currentLesson && _currentLesson.content) || {};
+        const mcq = Array.isArray(content.mcq_questions) ? content.mcq_questions : [];
+        const theory = Array.isArray(content.theoretical_questions) ? content.theoretical_questions : [];
+        return [
+            ...mcq.map(q => ({ kind: "mcq", data: q || {} })),
+            ...theory.map(q => ({ kind: "theory", data: q || {} })),
+        ];
+    }
+
+    // Map one bank entry onto the strict shape lesson_assessments.questions enforces.
+    function bankQuestionToStored(entry, marks) {
+        const q = entry.data || {};
+        if (entry.kind === "mcq") {
+            const options = [q.option_a, q.option_b, q.option_c, q.option_d]
+                .filter(o => typeof o === "string" && o.trim() !== "");
+            return {
+                type: "mcq",
+                question: String(q.question || ""),
+                ...(options.length ? { options } : {}),
+                // The bank keeps the answer as an option letter; options preserve a/b/c order.
+                answer: String(q.correct_answer || ""),
+                ...(q.explanation ? { explanation: String(q.explanation) } : {}),
+                marks,
+            };
+        }
+        return {
+            type: "essay",
+            question: String(q.question || ""),
+            answer: String(q.model_answer || ""),
+            ...(q.marking_scheme ? { explanation: String(q.marking_scheme) } : {}),
+            marks,
+        };
+    }
+
+    function renderQuestionPicker() {
+        const area = document.getElementById("assessment-questions-area");
+        if (!area) return;
+        const entries = bankQuestions();
+        const draftHint = '<p class="text-xs text-muted-foreground">It is saved as a draft; publish it from the list when you are ready for students to see it.</p>';
+        if (!entries.length) {
+            area.innerHTML = '<p class="text-sm text-muted-foreground italic">This lesson has no question bank, so the assessment is created without questions.</p>' + draftHint;
+            return;
+        }
+        area.innerHTML = `
+            <p class="text-sm font-medium">Questions from this lesson (${entries.length})</p>
+            <p class="text-xs text-muted-foreground">Tick the ones to include and set their marks (MCQ default 1, theory 5).</p>
+            <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                ${entries.map((entry, i) => `
+                <label class="flex items-start gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <input type="checkbox" class="mt-1" data-q-check="${i}">
+                    <span class="flex-1 space-y-0.5">
+                        <span class="block text-sm">${escHtml(String(entry.data.question || "Question"))}</span>
+                        <span class="block text-xs text-muted-foreground">${entry.kind === "mcq" ? "Multiple choice" : "Theory"}</span>
+                    </span>
+                    <input type="number" min="0" step="1" value="${entry.kind === "mcq" ? 1 : 5}" data-q-marks="${i}"
+                        class="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm">
+                </label>`).join("")}
+            </div>
+            <p class="text-xs text-muted-foreground">Selected: <span id="assessment-selected-count">0</span> · total marks: <span id="assessment-total-marks">0</span></p>
+            ${draftHint}`;
+
+        const updateTotals = () => {
+            const chosen = selectedBankQuestions();
+            const count = document.getElementById("assessment-selected-count");
+            const total = document.getElementById("assessment-total-marks");
+            if (count) count.textContent = String(chosen.length);
+            if (total) total.textContent = String(chosen.reduce((sum, q) => sum + (q.marks || 0), 0));
+        };
+        area.querySelectorAll("[data-q-check], [data-q-marks]").forEach(el => el.addEventListener("input", updateTotals));
+        updateTotals();
+    }
+
+    // The ticked questions, already in the stored shape, with their marks.
+    function selectedBankQuestions() {
+        const area = document.getElementById("assessment-questions-area");
+        const entries = bankQuestions();
+        if (!area || !entries.length) return [];
+        return entries.map((entry, i) => {
+            const check = area.querySelector(`[data-q-check="${i}"]`);
+            if (!check || !check.checked) return null;
+            const marksEl = area.querySelector(`[data-q-marks="${i}"]`);
+            const marks = Math.max(0, parseInt(marksEl && marksEl.value, 10) || 0);
+            return bankQuestionToStored(entry, marks);
+        }).filter(Boolean);
+    }
+
+    // The student's assessment list, kept so the answer form and the submit path can read the
+    // questions without another fetch.
+    let _lastAssessments = null;
+    let _justSubmitted = "";
+    let _openAssessmentId = null;
+    // Which list the open answer form belongs to: "lesson" (the lesson viewer) or "general" (the
+    // assignments page). It also decides which table the backend reads on submit.
+    let _openAssessmentType = "lesson";
+
+    async function loadAssessments(isTeacher) {
+        const list = document.getElementById("assessments-list");
+        if (!list) return;
+        // Not loaded yet: the same grey placeholders the view draws, until the rows arrive.
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
+        const lessonQuery = _currentLessonId ? `?lesson_id=${_currentLessonId}` : "";
+        const endpoint = (isTeacher ? "/api/teacher/lesson-assessments" : "/api/student/assessments") + lessonQuery;
+        try {
+            const res = await fetch(endpoint, { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } });
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
+            _lastAssessments = rows;
+            const submittedNote = (!isTeacher && _justSubmitted)
+                ? `<div class="rounded-md border border-green-200 bg-green-50 text-green-800 text-sm p-3">Submitted: ${escHtml(_justSubmitted)}. Your teacher will grade it.</div>`
+                : "";
+            _justSubmitted = "";
+            if (!rows.length) {
+                list.innerHTML = submittedNote + listEmptyState("📋", "No assessments yet", isTeacher ? "Create one above; it stays a draft until you publish it." : "Assessments your teachers publish appear here.");
+                return;
+            }
+            list.innerHTML = submittedNote + rows.map(a => `
+                <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-medium">${escHtml(a.title || "Assessment")}</h4>
+                        <div class="flex items-center gap-2">
+                            ${isTeacher ? `<span class="text-xs rounded-full px-2 py-0.5 ${a.active ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">${a.active ? "Published" : "Draft"}</span>` : ""}
+                            <span class="text-xs text-muted-foreground">${a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                        ${a.total_mark ? `${a.total_mark} marks` : "No marks set"}
+                        ${a.deadline ? ` · due ${new Date(a.deadline).toLocaleDateString()}` : ""}
+                        ${Array.isArray(a.questions) && a.questions.length ? ` · ${a.questions.length} question${a.questions.length === 1 ? "" : "s"}` : ""}
+                    </p>
+                    <div class="flex items-center gap-3">
+                        ${isTeacher ? `
+                            <button onclick="toggleAssessment('${a.id}', ${a.active ? "false" : "true"})" class="text-xs text-primary hover:underline cursor-pointer">${a.active ? "Unpublish" : "Publish"}</button>
+                            <button onclick="viewSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
+                        ` : `
+                            <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitAssessment('${a.id}')">${a.deadline && new Date(a.deadline).getTime() < Date.now() ? "Review (closed)" : (a.scheduled_at && new Date(a.scheduled_at).getTime() > Date.now() ? `Opens ${new Date(a.scheduled_at).toLocaleDateString()}` : "Take Assessment")}</button>
+                        `}
+                    </div>
+                </div>`).join("");
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), `retryAssessments(${isTeacher ? "true" : "false"})`);
+        }
+    }
+
+    // The retry control a failed assessment list draws.
+    window.retryAssessments = (isTeacher) => { loadAssessments(isTeacher === true); };
+
+    // Teachers publish a draft when it is ready; students only ever see published ones. The type
+    // picks the table and which list to refresh; absent means a lesson assessment.
+    window.toggleAssessment = (assessmentId, active, assessmentType) => {
+        return fetch("/api/teacher/toggle-assessment-active", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+            body: JSON.stringify({ assessment_id: assessmentId, active, assessment_type: assessmentType || "lesson" })
+        }).then(() => {
+            if (assessmentType === "general") { loadTeacherGeneralAssessments(); } else { loadAssessments(true); }
+        });
+    };
+
+    // Jump to the grading tab filtered to one assessment.
+    let _gradingAssessmentId = null;
+    window.viewSubmissions = (assessmentId) => {
+        _gradingAssessmentId = assessmentId;
+        const tab = document.getElementById("tab-grading");
+        if (tab) { tab.click(); } else { loadSubmissions(); }
+    };
+
+    async function loadSubmissions() {
+        const list = document.getElementById("grading-list");
+        if (!list) return;
+        list.innerHTML = skeletonCards(["w-40", "w-32"]);
+        const query = _gradingAssessmentId ? `?assessment_id=${_gradingAssessmentId}` : "";
+        try {
+            const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+            // The questions each submission was scored against, from both assessment tables; a
+            // failure here only costs the auto-score line, so the grading list still renders.
+            // The list itself is unfiltered unless one assessment was picked, and it is keyed by
+            // assessment_id, so a general submission shows up here exactly like a lesson one.
+            const [lessonAssessments, generalAssessments] = await Promise.all([
+                fetch("/api/teacher/lesson-assessments", { headers: auth }).then(r => r.json()).then(unwrapRows).catch(() => []),
+                fetch("/api/teacher/general-assessments", { headers: auth }).then(r => r.json()).then(unwrapRows).catch(() => []),
+            ]);
+            const questionsByAssessment = {};
+            [...lessonAssessments, ...generalAssessments].forEach(a => { if (a && a.id) questionsByAssessment[String(a.id).split(":").pop()] = a.questions; });
+            const res = await fetch("/api/teacher/submissions" + query, { headers: auth });
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
+            const filterNote = _gradingAssessmentId ? '<button onclick="clearGradingFilter()" class="text-xs text-primary hover:underline cursor-pointer">Show all submissions</button>' : "";
+            if (!rows.length) {
+                list.innerHTML = listEmptyState("📊", "No submissions to grade yet", "Submissions appear here once students hand their work in.") + filterNote;
+                return;
+            }
+            list.innerHTML = filterNote + `<div class="space-y-3">` + rows.map(s => {
+                const auto = autoScoredMcqs(s, questionsByAssessment[String(s.assessment_id || "")]);
+                return `
+                <div class="border rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-sm">${escHtml(s.student_name || s.student || "Student")}${s.assessment_type === "general" ? ' <span class="text-xs font-normal text-muted-foreground">(general assessment)</span>' : ""}</p>
+                        <p class="text-xs text-muted-foreground">${s.submitted_at ? new Date(s.submitted_at).toLocaleString() : "Unknown time"}${s.iteration > 1 ? ` · attempt ${s.iteration}` : ""}</p>
+                        ${s.scored_mark !== undefined && s.scored_mark !== null ? `<p class="text-xs text-muted-foreground">Score: ${s.scored_mark}${s.total_mark ? ` / ${s.total_mark}` : ""}</p>` : ""}
+                        ${auto ? `<div class="mt-2 space-y-1" data-auto-score>
+                            <p class="text-xs text-muted-foreground">MCQ auto-scored: <span class="font-medium text-foreground">${auto.awarded} / ${auto.total}</span></p>
+                            <div class="flex flex-wrap gap-1">
+                                ${auto.parts.map(p => `<span class="rounded px-1.5 py-0.5 text-xs ${p.correct ? "bg-success-100 text-success-700" : "bg-error-100 text-error-700"}">Q${p.index + 1} ${p.correct ? "✓" : "✗"} ${p.got}/${p.marks}</span>`).join("")}
+                            </div>
+                        </div>` : ""}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${s.grade_released_at ? `<span class="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5">Grades Released</span>` :
+                          s.graded ? `<button onclick="releaseGrade('${s.id}')" class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded cursor-pointer">Release Grade</button>` :
+                          `<button onclick="gradeSubmission('${s.id}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded cursor-pointer">Grade</button>`}
+                    </div>
+                </div>`;
+            }).join("") + `</div>`;
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the submissions", e && e.message ? e.message : String(e), "retrySubmissions()");
+        }
+    }
+
+    // The retry control a failed grading list draws.
+    window.retrySubmissions = () => { loadSubmissions(); };
+
+    // What a submission's MCQs scored. The backend awards MCQ marks at submit time and the schema
+    // has no per-answer scored field, so the awarded mark sits in answers[*].allocated_mark (the
+    // question's own allocation stays in the assessment's questions[*].marks). Answers the backend
+    // could not score — a question with no stored correct answer — are left out, as it skips them.
+    function autoScoredMcqs(submission, questions) {
+        const answers = Array.isArray(submission && submission.answers) ? submission.answers : [];
+        const asked = Array.isArray(questions) ? questions : [];
+        const parts = [];
+        let awarded = 0;
+        let total = 0;
+        answers.forEach(a => {
+            if (!a || a.answer_type !== "mcq" || !Number.isInteger(a.question_index)) return;
+            const q = asked[a.question_index];
+            const correct = q && typeof q.answer === "string" ? q.answer.trim() : "";
+            if (!correct) return;
+            const marks = q && typeof q.marks === "number" ? q.marks : Number(a.allocated_mark) || 0;
+            const got = Number(a.allocated_mark) || 0;
+            awarded += got;
+            total += marks;
+            parts.push({ index: a.question_index, correct: String(a.answer_text || "").trim() === correct, got, marks });
+        });
+        return parts.length ? { awarded, total, parts } : null;
+    }
+
+    async function createAssessment() {
+        const titleInput = document.getElementById("assessment-title-input");
+        const modal = document.getElementById("create-assessment-modal");
+        const title = titleInput ? titleInput.value.trim() : "";
+        if (!title) { alert("Please enter a title."); return; }
+        try {
+            const questions = selectedBankQuestions();
+            const totalMark = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+            // The optional rules the backend enforces: when it opens, when it closes, and how many
+            // attempts a student gets. Empty means "no rule" on every one of them.
+            const value = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+            // datetime-local gives local wall-clock time with no zone; send UTC so the stored instant
+            // is unambiguous. A blank field means "no rule".
+            const asUtc = (v) => { if (!v) return ""; const d = new Date(v); return isNaN(d.getTime()) ? "" : d.toISOString(); };
+            const deadline = asUtc(value("assessment-deadline-input"));
+            const scheduledAt = asUtc(value("assessment-scheduled-input"));
+            const maxResubmissions = value("assessment-resubmissions-input");
+            const res = await fetch("/api/teacher/create-lesson-assessment", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title, lesson_id: _currentLessonId || "none", questions, total_mark: totalMark,
+                    ...(deadline ? { deadline } : {}),
+                    ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+                    ...(maxResubmissions ? { max_resubmissions: Number(maxResubmissions) } : {}),
+                })
+            });
+            const data = await res.json().catch(() => null);
+            const failure = data && (Array.isArray(data) ? data[0]?.error : data.error);
+            if (!res.ok || failure) { alert(failure || "Failed to create assessment."); return; }
+            modal && modal.classList.add("hidden");
+            if (titleInput) titleInput.value = "";
+            ["assessment-deadline-input", "assessment-scheduled-input", "assessment-resubmissions-input"]
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+            loadAssessments(true);
+        } catch(e) { alert("Failed to create assessment."); }
+    }
+
+    window.submitAssessment = async (assessmentId) => {
+        const rows = _lastAssessments || [];
+        const assessment = rows.find(a => a.id === assessmentId);
+        _openAssessmentId = assessmentId;
+        // A lesson assessment: the form and the submit both follow this, and the student's
+        // assignments page uses the same flow for its Lesson Assessments tab.
+        _openAssessmentType = "lesson";
+        renderAssessmentForm(assessmentId, assessment);
+    };
+
+    // The answers the student gave, in the shape the MoonBit stack stores: one entry per question.
+    function collectAnswers(questions) {
+        return questions.map((q, i) => {
+            const chosen = document.querySelector(`input[name="answer-${i}"]:checked`);
+            const typed = document.querySelector(`[data-answer-text="${i}"]`);
+            const answerText = chosen ? chosen.value : (typed ? typed.value.trim() : "");
+            return {
+                question_index: i,
+                answer_type: q.type || "short_answer",
+                answer_text: answerText,
+                allocated_mark: typeof q.marks === "number" ? q.marks : 0,
+            };
+        });
+    }
+
+    function renderAssessmentForm(assessmentId, assessment) {
+        // General assessments have their own list (the assignments page); a lesson assessment's form
+        // goes back into the lesson viewer's list. The ids differ, the markup below does not.
+        const listId = _openAssessmentType === "general" ? "general-assessments-list" : "assessments-list";
+        const list = document.getElementById(listId);
+        if (!list) return;
+        const questions = (assessment && Array.isArray(assessment.questions)) ? assessment.questions : [];
+        const title = (assessment && assessment.title) || "Assessment";
+        const deadline = assessment && assessment.deadline ? new Date(assessment.deadline) : null;
+        const closed = deadline && deadline.getTime() < Date.now();
+        const opensAt = assessment && assessment.scheduled_at ? new Date(assessment.scheduled_at) : null;
+        const notOpen = opensAt && opensAt.getTime() > Date.now();
+        // Cosmetic: the backend refuses either case with a 409 whatever the page shows.
+        const blocked = closed || notOpen;
+        const submitCls = blocked
+            ? "text-sm bg-muted text-muted-foreground px-4 py-2 rounded cursor-not-allowed"
+            : "text-sm bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 cursor-pointer";
+        const back = `<button class="text-xs text-primary hover:underline cursor-pointer" id="back-to-assessments">← Back to assessments</button>`;
+
+        if (!questions.length) {
+            list.innerHTML = `${back}<div class="border rounded-lg p-6 space-y-2">
+                <h4 class="font-medium">${escHtml(title)}</h4>
+                <p class="text-sm text-muted-foreground">This assessment has no questions yet. Ask your teacher to add them.</p>
+            </div>`;
+            return;
+        }
+
+        list.innerHTML = `${back}
+            <div class="border rounded-lg p-6 space-y-5">
+                <div class="space-y-1">
+                    <h4 class="font-medium">${escHtml(title)}</h4>
+                    <p class="text-xs text-muted-foreground">${questions.length} question${questions.length === 1 ? "" : "s"}${assessment && assessment.total_mark ? ` · ${assessment.total_mark} marks` : ""}${opensAt ? ` · opens ${opensAt.toLocaleString()}` : ""}${deadline ? ` · due ${deadline.toLocaleString()}` : ""}</p>
+                </div>
+                ${questions.map((q, i) => `
+                <div class="space-y-2 border-t pt-4">
+                    <p class="text-sm font-medium">${i + 1}. ${escHtml(String(q.question || ""))}${q.marks ? ` <span class="text-xs font-normal text-muted-foreground">(${q.marks} mark${q.marks === 1 ? "" : "s"})</span>` : ""}</p>
+                    ${Array.isArray(q.options) && q.options.length ? `
+                        <div class="space-y-1">
+                            ${q.options.map((opt, oi) => `
+                            <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                <input type="radio" class="mt-0.5" name="answer-${i}" value="${String.fromCharCode(97 + oi)}">
+                                <span>${escHtml(String(opt))}</span>
+                            </label>`).join("")}
+                        </div>` : `
+                        <textarea data-answer-text="${i}" rows="3" placeholder="Your answer..."
+                            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"></textarea>`}
+                </div>`).join("")}
+                <div class="flex items-center gap-3 border-t pt-4">
+                    <button id="submit-assessment-answers" class="${submitCls}" ${blocked ? "disabled" : ""}>Submit</button>
+                    <span id="assessment-answered-count" class="text-xs text-muted-foreground">0 of ${questions.length} answered</span>
+                    ${closed ? '<span class="text-xs text-destructive">The deadline has passed.</span>' : ""}
+                    ${notOpen ? `<span class="text-xs text-destructive">This assessment opens ${opensAt.toLocaleString()}.</span>` : ""}
+                </div>
+            </div>`;
+
+        const updateCount = () => {
+            const answered = collectAnswers(questions).filter(a => a.answer_text !== "").length;
+            const el = document.getElementById("assessment-answered-count");
+            if (el) el.textContent = `${answered} of ${questions.length} answered`;
+        };
+        list.querySelectorAll("input[name^='answer-'], [data-answer-text]").forEach(el => el.addEventListener("input", updateCount));
+    }
+
+    window.submitAssessmentAnswers = async (assessmentId) => {
+        // The open form's assessment comes from whichever list the form was opened from.
+        const rows = (_openAssessmentType === "general" ? _generalAssessments : _lastAssessments) || [];
+        const assessment = rows.find(a => a.id === assessmentId) || {};
+        const questions = Array.isArray(assessment.questions) ? assessment.questions : [];
+        const answers = collectAnswers(questions);
+        if (!answers.length) { alert("There is nothing to submit."); return; }
+        const blank = answers.filter(a => a.answer_text === "").length;
+        if (blank && !confirm(`${blank} question(s) are unanswered. Submit anyway?`)) return;
+        try {
+            const res = await fetch("/api/student/submit-assessment", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+                // The type tells the backend which assessment table to read and which row to bump;
+                // a lesson assessment is the default and what the lesson viewer sends.
+                body: JSON.stringify({ assessment_id: assessmentId, assessment_type: _openAssessmentType || "lesson", answers })
+            });
+            const data = await res.json().catch(() => null);
+            // A failed write answers 500 with the database's own message in `detail` (see db_response!).
+            const failure = data && (Array.isArray(data)
+                ? (data[0] && (data[0].error || data[0].detail))
+                : (data.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null));
+            if (!res.ok || failure) { alert(failure || "Could not submit the assessment."); return; }
+            _justSubmitted = assessment.title || "";
+            _openAssessmentId = null;
+            if (_openAssessmentType === "general") { loadStudentGeneralAssessments(); } else { loadAssessments(false); }
+        } catch(e) { alert("Could not submit the assessment."); }
+    };
+
+    window.gradeSubmission = async (subId) => {
+        const score = prompt("Enter score (0-100):");
+        if (score === null) return;
+        await fetch("/api/teacher/grade-submission", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+            body: JSON.stringify({ submission_id: subId, scored_mark: parseInt(score) })
+        });
+        loadSubmissions();
+    };
+
+    window.releaseGrade = async (subId) => {
+        if (!confirm("Release this grade to the student?")) return;
+        await fetch("/api/teacher/release-grades", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+            body: JSON.stringify({ submission_id: subId })
+        });
+        loadSubmissions();
+    };
+
+    // ========================================================
+    // GENERAL ASSESSMENTS (teacher hub + student assignments page)
+    // ========================================================
+
+    // The student's general list, the counterpart of _lastAssessments for lesson assessments.
+    let _generalAssessments = null;
+    // Which page the hub listeners serve, so showGeneralTab knows whose list to load.
+    let _assessmentHubRole = "student";
+
+    function generalAssessmentMeta(a) {
+        const bits = [];
+        if (a.subject_name) bits.push(a.subject_name);
+        if (a.session_term_name) bits.push(a.session_term_name);
+        if (a.percentage_weight) bits.push(`${a.percentage_weight}% of the term`);
+        bits.push(a.total_mark ? `${a.total_mark} marks` : "No marks set");
+        if (Array.isArray(a.questions) && a.questions.length) bits.push(`${a.questions.length} question${a.questions.length === 1 ? "" : "s"}`);
+        if (a.deadline) bits.push(`due ${new Date(a.deadline).toLocaleDateString()}`);
+        return bits.map(escHtml).join(" · ");
+    }
+
+    async function loadTeacherGeneralAssessments() {
+        const list = document.getElementById("general-assessments-list");
+        if (!list) return;
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const subjectId = subjectEl ? subjectEl.value : "";
+        const sessionId = sessionEl ? sessionEl.value : "";
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
+        try {
+            const params = new URLSearchParams();
+            if (subjectId) params.set("subject_id", subjectId);
+            if (sessionId) params.set("session_term_id", sessionId);
+            const qs = params.toString();
+            const res = await fetch("/api/teacher/general-assessments" + (qs ? `?${qs}` : ""), {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
+            if (!rows.length) {
+                list.innerHTML = listEmptyState("📋", "No general assessments for this subject and term yet", "Create one above; it stays a draft until you publish it.");
+                return;
+            }
+            list.innerHTML = rows.map(a => `
+                <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-medium">${escHtml(a.title || "General assessment")}</h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs rounded-full px-2 py-0.5 ${a.active ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">${a.active ? "Published" : "Draft"}</span>
+                            <span class="text-xs text-muted-foreground">${a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                        </div>
+                    </div>
+                    ${a.description ? `<p class="text-sm text-muted-foreground">${escHtml(a.description)}</p>` : ""}
+                    <p class="text-xs text-muted-foreground">${generalAssessmentMeta(a)}</p>
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleAssessment('${a.id}', ${a.active ? "false" : "true"}, 'general')" class="text-xs text-primary hover:underline cursor-pointer">${a.active ? "Unpublish" : "Publish"}</button>
+                        <button onclick="viewGeneralSubmissions('${a.id}')" class="text-xs text-primary hover:underline cursor-pointer">View submissions →</button>
+                    </div>
+                </div>`).join("");
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), "retryGeneralAssessments()");
+        }
+    }
+
+    async function loadStudentGeneralAssessments() {
+        const list = document.getElementById("general-assessments-list");
+        if (!list) return;
+        list.innerHTML = skeletonCards(["w-40", "w-24"]);
+        try {
+            const res = await fetch("/api/student/general-assessments", {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            if (!res.ok) throw new Error(await failureMessage(res));
+            const rows = unwrapRows(await res.json());
+            _generalAssessments = rows;
+            const submittedNote = _justSubmitted
+                ? `<div class="rounded-md border border-green-200 bg-green-50 text-green-800 text-sm p-3">Submitted: ${escHtml(_justSubmitted)}. Your teacher will grade it.</div>`
+                : "";
+            _justSubmitted = "";
+            if (!rows.length) {
+                list.innerHTML = submittedNote + listEmptyState("📋", "No general assessments yet", "Term assessments published by your teachers appear here.");
+                return;
+            }
+            list.innerHTML = submittedNote + rows.map(a => {
+                const closed = a.deadline && new Date(a.deadline).getTime() < Date.now();
+                const notOpen = a.scheduled_at && new Date(a.scheduled_at).getTime() > Date.now();
+                const label = closed ? "Review (closed)" : (notOpen ? `Opens ${new Date(a.scheduled_at).toLocaleDateString()}` : "Take Assessment");
+                return `
+                <div class="border rounded-lg p-4 space-y-2 hover:shadow-sm transition">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="font-medium">${escHtml(a.title || "General assessment")}</h4>
+                        <span class="text-xs text-muted-foreground">${a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                    </div>
+                    ${a.description ? `<p class="text-sm text-muted-foreground">${escHtml(a.description)}</p>` : ""}
+                    <p class="text-xs text-muted-foreground">${generalAssessmentMeta(a)}</p>
+                    <button class="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 cursor-pointer" onclick="submitGeneralAssessment('${a.id}')">${label}</button>
+                </div>`;
+            }).join("");
+        } catch(e) {
+            list.innerHTML = listErrorState("Could not load the assessments", e && e.message ? e.message : String(e), "retryGeneralAssessments()");
+        }
+    }
+
+    // The student opens a general assessment: same answer form as a lesson's, into the assignments
+    // page's own list.
+    window.submitGeneralAssessment = (assessmentId) => {
+        const rows = _generalAssessments || [];
+        const assessment = rows.find(a => a.id === assessmentId);
+        _openAssessmentId = assessmentId;
+        _openAssessmentType = "general";
+        renderAssessmentForm(assessmentId, assessment);
+    };
+
+    // --- Teacher: questions are authored here (a general assessment has no lesson bank to pick from) ---
+
+    function addGeneralQuestionRow() {
+        const area = document.getElementById("ga-questions-area");
+        if (!area) return;
+        const row = document.createElement("div");
+        row.className = "rounded-md border p-3 space-y-2";
+        row.setAttribute("data-ga-question-row", "");
+        row.innerHTML = `
+            <div class="flex items-center gap-2">
+                <select data-ga-type class="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="mcq">Multiple choice</option>
+                    <option value="essay">Theory</option>
+                </select>
+                <input type="number" data-ga-marks value="1" class="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm">
+                <span class="text-xs text-muted-foreground">marks</span>
+                <button type="button" data-ga-remove class="ml-auto text-muted-foreground hover:text-destructive text-sm cursor-pointer">✕ remove</button>
+            </div>
+            <input type="text" data-ga-question placeholder="Question" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <div data-ga-mcq class="space-y-1">
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="text" data-ga-option="0" placeholder="Option a" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                    <input type="text" data-ga-option="1" placeholder="Option b" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                    <input type="text" data-ga-option="2" placeholder="Option c" class="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                </div>
+                <label class="flex items-center gap-2 text-xs text-muted-foreground">Correct option
+                    <select data-ga-answer class="h-8 rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="a">a</option>
+                        <option value="b">b</option>
+                        <option value="c">c</option>
+                    </select>
+                </label>
+            </div>
+            <div data-ga-essay class="hidden">
+                <input type="text" data-ga-model placeholder="Model answer / marking notes (optional)" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            </div>`;
+        area.appendChild(row);
+        updateGeneralQuestionTotals();
+    }
+
+    function toggleGeneralQuestionKind(row) {
+        const typeEl = row.querySelector("[data-ga-type]");
+        if (!typeEl) return;
+        const isMcq = typeEl.value === "mcq";
+        const mcq = row.querySelector("[data-ga-mcq]");
+        const essay = row.querySelector("[data-ga-essay]");
+        if (mcq) mcq.classList.toggle("hidden", !isMcq);
+        if (essay) essay.classList.toggle("hidden", isMcq);
+        const marks = row.querySelector("[data-ga-marks]");
+        // New rows start at the defaults the lesson bank uses: 1 for an MCQ, 5 for theory.
+        if (marks && (marks.value === "" || marks.value === "1" || marks.value === "5")) marks.value = isMcq ? "1" : "5";
+    }
+
+    // What the teacher built, in the strict stored shape (type/question/options/answer/marks).
+    function collectGeneralQuestions() {
+        const area = document.getElementById("ga-questions-area");
+        if (!area) return [];
+        return Array.from(area.querySelectorAll("[data-ga-question-row]")).map(row => {
+            const type = ((row.querySelector("[data-ga-type]") || {}).value) || "mcq";
+            const question = ((row.querySelector("[data-ga-question]") || {}).value || "").trim();
+            const marksEl = row.querySelector("[data-ga-marks]");
+            const marks = Math.max(0, parseInt(marksEl && marksEl.value, 10) || 0);
+            if (type === "mcq") {
+                const options = [0, 1, 2].map(i => {
+                    const el = row.querySelector(`[data-ga-option="${i}"]`);
+                    return el ? el.value.trim() : "";
+                }).filter(o => o !== "");
+                const answer = ((row.querySelector("[data-ga-answer]") || {}).value) || "a";
+                return { type: "mcq", question, ...(options.length ? { options } : {}), answer, marks };
+            }
+            const modelEl = row.querySelector("[data-ga-model]");
+            return { type: "essay", question, answer: modelEl ? modelEl.value.trim() : "", marks };
+        }).filter(q => q.question !== "");
+    }
+
+    function updateGeneralQuestionTotals() {
+        const questions = collectGeneralQuestions();
+        const count = document.getElementById("ga-question-count");
+        const total = document.getElementById("ga-total-marks");
+        if (count) count.textContent = String(questions.length);
+        if (total) total.textContent = String(questions.reduce((sum, q) => sum + (q.marks || 0), 0));
+    }
+
+    // datetime-local gives local wall-clock time with no zone; send UTC so the stored instant is
+    // unambiguous. A blank field means "no rule".
+    function localDateTimeToUtc(v) {
+        if (!v) return "";
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? "" : d.toISOString();
+    }
+
+    function openCreateGeneralModal() {
+        const modal = document.getElementById("create-general-assessment-modal");
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const context = document.getElementById("ga-modal-context");
+        if (context) {
+            const subjectName = subjectEl && subjectEl.selectedOptions && subjectEl.selectedOptions[0] ? subjectEl.selectedOptions[0].textContent : "";
+            const sessionName = sessionEl && sessionEl.selectedOptions && sessionEl.selectedOptions[0] ? sessionEl.selectedOptions[0].textContent : "";
+            context.textContent = (subjectName && sessionName) ? `For ${subjectName} · ${sessionName}` : "Pick a subject and session term above.";
+        }
+        const area = document.getElementById("ga-questions-area");
+        if (area && !area.querySelector("[data-ga-question-row]")) addGeneralQuestionRow();
+        modal && modal.classList.remove("hidden");
+    }
+
+    async function createGeneralAssessment() {
+        const subjectEl = document.getElementById("ga-subject-select");
+        const sessionEl = document.getElementById("ga-session-term-select");
+        const subjectId = subjectEl ? subjectEl.value : "";
+        const sessionTermId = sessionEl ? sessionEl.value : "";
+        if (!subjectId || !sessionTermId) { alert("Choose a subject and a session term first."); return; }
+        const titleInput = document.getElementById("ga-title-input");
+        const title = titleInput ? titleInput.value.trim() : "";
+        if (!title) { alert("Please enter a title."); return; }
+        const weightEl = document.getElementById("ga-weight-input");
+        const weightRaw = weightEl ? weightEl.value : "";
+        if (weightRaw === "") { alert("Please enter the percentage weight for the term result."); return; }
+        // The column is an int and the backend reads whole numbers, so refuse a fraction here rather
+        // than storing a rounded number the teacher did not type.
+        const weight = Number(weightRaw);
+        if (!Number.isFinite(weight) || weight < 0 || Math.round(weight) !== weight) {
+            alert("The percentage weight must be a whole number.");
+            return;
+        }
+        const questions = collectGeneralQuestions();
+        const totalMark = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+        const value = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+        const deadline = localDateTimeToUtc(value("ga-deadline-input"));
+        const scheduledAt = localDateTimeToUtc(value("ga-scheduled-input"));
+        const maxResubmissions = value("ga-resubmissions-input");
+        try {
+            const res = await fetch("/api/teacher/create-general-assessment", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || ""), "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    subject_id: subjectId, session_term_id: sessionTermId, title,
+                    description: value("ga-description-input"),
+                    percentage_weight: weight, questions, total_mark: totalMark,
+                    ...(deadline ? { deadline } : {}),
+                    ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+                    ...(maxResubmissions ? { max_resubmissions: Number(maxResubmissions) } : {}),
+                })
+            });
+            const data = await res.json().catch(() => null);
+            // A failed write carries the database's own message in `detail` (see db_response!).
+            const failure = data && (Array.isArray(data)
+                ? (data[0] && (data[0].error || data[0].detail))
+                : (data.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null));
+            if (!res.ok || failure) { alert(failure || "Failed to create the assessment."); return; }
+            const modal = document.getElementById("create-general-assessment-modal");
+            modal && modal.classList.add("hidden");
+            if (titleInput) titleInput.value = "";
+            ["ga-description-input", "ga-weight-input", "ga-deadline-input", "ga-scheduled-input", "ga-resubmissions-input"]
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+            const area = document.getElementById("ga-questions-area");
+            if (area) area.innerHTML = "";
+            updateGeneralQuestionTotals();
+            loadTeacherGeneralAssessments();
+        } catch(e) { alert("Failed to create the assessment."); }
+    }
+
+    // Jump to the grading tab filtered to one general assessment.
+    window.viewGeneralSubmissions = (assessmentId) => {
+        _gradingAssessmentId = assessmentId;
+        const tab = document.getElementById("tab-general-grading");
+        if (tab) { tab.click(); } else { loadSubmissions(); }
+    };
+
+    window.clearGradingFilter = () => { _gradingAssessmentId = null; loadSubmissions(); };
+
+    function showGeneralTab(which) {
+        const activeTabCls = "px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer";
+        const inactiveTabCls = "px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer";
+        const tabs = {
+            general: document.getElementById("tab-general-assessments"),
+            grading: document.getElementById("tab-general-grading"),
+            lesson: document.getElementById("tab-lesson-assessments"),
+        };
+        const panels = {
+            general: document.getElementById("general-assessments-panel"),
+            grading: document.getElementById("general-grading-panel"),
+            lesson: document.getElementById("assessments-panel"),
+        };
+        Object.entries(tabs).forEach(([name, el]) => {
+            if (!el) return;
+            el.className = name === which ? activeTabCls : inactiveTabCls;
+        });
+        Object.entries(panels).forEach(([name, el]) => {
+            if (!el) return;
+            el.classList.toggle("hidden", name !== which);
+        });
+        if (which === "general") { loadGeneralAssessmentsForRole(); }
+        if (which === "grading") { loadSubmissions(); }
+        if (which === "lesson") { loadAssessments(false); }
+    }
+
+    function loadGeneralAssessmentsForRole() {
+        if (_assessmentHubRole === "teacher") { loadTeacherGeneralAssessments(); } else { loadStudentGeneralAssessments(); }
+    }
+
+    // The teacher's hub fetches its pickers first: the lists are scoped to one subject and one
+    // session term.
+    async function loadGeneralAssessmentPickers() {
+        const auth = { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+        const fill = (selectId, rows, label) => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = rows.map(r => `<option value="${escHtml(r.id || "")}">${escHtml(label(r))}</option>`).join("");
+        };
+        // A select cannot show a skeleton, so a failed fetch leaves it naming what it could not load;
+        // the list below carries the same error with its retry.
+        const fillBroken = (selectId, label) => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = `<option value="">${escHtml(label)}</option>`;
+        };
+        try {
+            const subjectRes = await fetch("/api/subjects", { headers: auth });
+            if (!subjectRes.ok) throw new Error(await failureMessage(subjectRes));
+            fill("ga-subject-select", unwrapRows(await subjectRes.json()), s => s.name || s.code || "Subject");
+            const sessionRes = await fetch("/api/session_terms", { headers: auth });
+            if (!sessionRes.ok) throw new Error(await failureMessage(sessionRes));
+            const sessions = unwrapRows(await sessionRes.json());
+            // Prefer an active term, otherwise the first one.
+            const active = sessions.filter(s => s.active === true);
+            const ordered = active.length ? [...active, ...sessions.filter(s => s.active !== true)] : sessions;
+            fill("ga-session-term-select", ordered, s => s.session_name || "Session term");
+        } catch(e) {
+            console.error("Failed to load the assessment pickers:", e);
+            fillBroken("ga-subject-select", "Could not load subjects");
+            fillBroken("ga-session-term-select", "Could not load session terms");
+        }
+        loadTeacherGeneralAssessments();
+    }
+
+    // The retry control a failed general-assessment list draws: the pickers are refetched too, so a
+    // retry after a picker failure fills them in as well.
+    window.retryGeneralAssessments = () => {
+        if (_assessmentHubRole === "teacher") { loadGeneralAssessmentPickers(); } else { loadStudentGeneralAssessments(); }
+    };
+
+    // --- Hub wiring: one document-level listener per page visit, torn down on navigation ---
+
+    let _assessmentHubClick = null;
+    let _assessmentHubInput = null;
+
+    function teardownAssessmentHub() {
+        if (_assessmentHubClick) { document.removeEventListener("click", _assessmentHubClick); _assessmentHubClick = null; }
+        if (_assessmentHubInput) {
+            document.removeEventListener("input", _assessmentHubInput);
+            document.removeEventListener("change", _assessmentHubInput);
+            _assessmentHubInput = null;
+        }
+    }
+
+    function setupAssessmentHub(isTeacher) {
+        teardownAssessmentHub();
+        _assessmentHubRole = isTeacher ? "teacher" : "student";
+
+        // The app re-renders its DOM on state changes, so every control is handled by one
+        // document-level listener rather than by listeners attached to the nodes.
+        _assessmentHubClick = (event) => {
+            const hit = (selector) => event.target.closest && event.target.closest(selector);
+            const modal = document.getElementById("create-general-assessment-modal");
+            if (hit("#tab-general-assessments")) { showGeneralTab("general"); return; }
+            if (hit("#tab-general-grading")) { showGeneralTab("grading"); return; }
+            if (hit("#tab-lesson-assessments")) { showGeneralTab("lesson"); return; }
+            if (hit("#create-general-assessment-btn")) { openCreateGeneralModal(); return; }
+            if (hit("#close-create-general-modal") || hit("#cancel-create-general-modal")) { modal && modal.classList.add("hidden"); return; }
+            if (hit("#ga-add-question")) { addGeneralQuestionRow(); return; }
+            if (hit("[data-ga-remove]")) {
+                const row = hit("[data-ga-remove]").closest("[data-ga-question-row]");
+                if (row) { row.remove(); updateGeneralQuestionTotals(); }
+                return;
+            }
+            if (hit("#ga-submit-create")) { createGeneralAssessment(); return; }
+            // The shared answer form: the lesson viewer binds the same ids on its own page.
+            if (hit("#submit-assessment-answers")) { if (_openAssessmentId) submitAssessmentAnswers(_openAssessmentId); return; }
+            if (hit("#back-to-assessments")) {
+                _openAssessmentId = null;
+                if (_openAssessmentType === "general") { loadStudentGeneralAssessments(); } else { loadAssessments(false); }
+                return;
+            }
+        };
+        document.addEventListener("click", _assessmentHubClick);
+
+        _assessmentHubInput = (event) => {
+            if (!event.target.closest || !event.target.closest("[data-ga-question-row]")) return;
+            if (event.target.matches("[data-ga-type]")) {
+                toggleGeneralQuestionKind(event.target.closest("[data-ga-question-row]"));
+            }
+            if (event.target.matches("[data-ga-marks], [data-ga-option], [data-ga-question]")) {
+                updateGeneralQuestionTotals();
+            }
+        };
+        document.addEventListener("input", _assessmentHubInput);
+        document.addEventListener("change", _assessmentHubInput);
+
+        if (isTeacher) {
+            loadGeneralAssessmentPickers();
+        } else {
+            loadStudentGeneralAssessments();
+        }
+    }
+
+    // ========================================================
+    // MATRIX / SYNAPSE MESSAGING
+    // ========================================================
+
+    let _matrixClient = { token: null, homeserver: null, userId: null, nextBatch: null };
+
+    async function setupMessaging() {
+        if (_matrixSyncInterval) { clearInterval(_matrixSyncInterval); _matrixSyncInterval = null; }
+
+        // Fetch Matrix token from backend proxy
+        try {
+            const res = await fetch("/api/matrix/token", {
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
+            });
+            const { token, homeserver } = await res.json();
+            _matrixClient.token = token;
+            _matrixClient.homeserver = homeserver || "https://matrix.johnethel.school";
+
+            if (!token) {
+                showMatrixError("Matrix authentication not configured. Contact your administrator.");
+                return;
+            }
+
+            // Start sync
+            await matrixSync();
+            _matrixSyncInterval = setInterval(matrixSync, 5000);
+
+            // Setup send button
+            const sendBtn = document.getElementById("matrix-send-btn");
+            const inputEl = document.getElementById("matrix-input");
+            sendBtn && sendBtn.addEventListener("click", () => sendMatrixMessage());
+            inputEl && inputEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMatrixMessage(); }
+            });
+        } catch(e) {
+            showMatrixError("Failed to connect to messaging server.");
+            console.error("Matrix setup error:", e);
+        }
+    }
+
+    function showMatrixError(msg) {
+        const roomsList = document.getElementById("matrix-rooms-list");
+        if (roomsList) roomsList.innerHTML = `<p class="text-xs text-red-500">${escHtml(msg)}</p>`;
+    }
+
+    async function matrixSync() {
+        if (!_matrixClient.token) return;
+        try {
+            const params = _matrixClient.nextBatch ? `?since=${_matrixClient.nextBatch}&timeout=0` : "?timeout=0";
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/sync${params}`, {
+                headers: { "Authorization": "Bearer " + _matrixClient.token }
+            });
+            if (!res.ok) return;
+            const sync = await res.json();
+            _matrixClient.nextBatch = sync.next_batch;
+
+            // Update rooms list
+            const rooms = sync.rooms?.join || {};
+            const roomsList = document.getElementById("matrix-rooms-list");
+            if (roomsList && Object.keys(rooms).length) {
+                roomsList.innerHTML = Object.entries(rooms).map(([roomId, room]) => {
+                    const nameEvent = room.state?.events?.find(e => e.type === "m.room.name");
+                    const name = nameEvent?.content?.name || roomId.split(":")[0].replace("!", "").slice(0, 20);
+                    const unread = room.unread_notifications?.notification_count || 0;
+                    return `<button onclick="selectRoom('${escHtml(roomId)}', '${escHtml(name)}')"
+                        class="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted transition-colors flex items-center justify-between group cursor-pointer">
+                        <span class="truncate font-medium"># ${escHtml(name)}</span>
+                        ${unread ? `<span class="text-xs bg-primary text-primary-foreground rounded-full px-1.5 min-w-5 text-center">${unread}</span>` : ""}
+                    </button>`;
+                }).join("");
+            } else if (roomsList && !roomsList.children.length) {
+                roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">No channels available.</p>`;
+            }
+
+            // If a room is selected, update its messages
+            if (_currentMatrixRoom && rooms[_currentMatrixRoom]) {
+                const timeline = rooms[_currentMatrixRoom].timeline?.events || [];
+                if (timeline.length) appendMatrixMessages(timeline);
+            }
+        } catch(e) { /* silent — will retry */ }
+    }
+
+    window.selectRoom = async (roomId, name) => {
+        _currentMatrixRoom = roomId;
+        const nameEl = document.getElementById("matrix-room-name");
+        const messagesEl = document.getElementById("matrix-messages");
+        if (nameEl) nameEl.textContent = "# " + name;
+        if (messagesEl) messagesEl.innerHTML = '<div class="text-center text-muted-foreground text-sm py-4">Loading messages...</div>';
+
+        // Load recent messages
+        try {
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=50`, {
+                headers: { "Authorization": "Bearer " + _matrixClient.token }
+            });
+            const data = await res.json();
+            const events = (data.chunk || []).filter(e => e.type === "m.room.message").reverse();
+            if (messagesEl) {
+                messagesEl.innerHTML = events.length ? "" : '<div class="text-center text-muted-foreground text-sm py-4 italic">No messages yet.</div>';
+                appendMatrixMessages(events, true);
+            }
+        } catch(e) { console.error("Failed to load messages:", e); }
+    };
+
+    function appendMatrixMessages(events, replace = false) {
+        const messagesEl = document.getElementById("matrix-messages");
+        if (!messagesEl) return;
+        const filtered = events.filter(e => e.type === "m.room.message");
+        if (!filtered.length) return;
+        if (replace) messagesEl.innerHTML = "";
+        filtered.forEach(event => {
+            const div = document.createElement("div");
+            div.className = "flex flex-col gap-0.5";
+            const sender = event.sender?.split(":")[0]?.replace("@", "") || "Unknown";
+            const body = event.content?.body || "";
+            const time = event.origin_server_ts ? new Date(event.origin_server_ts).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "";
+            div.innerHTML = `
+                <div class="flex items-baseline gap-2">
+                    <span class="text-xs font-semibold text-primary">${escHtml(sender)}</span>
+                    <span class="text-xs text-muted-foreground">${time}</span>
+                </div>
+                <p class="text-sm leading-relaxed">${escHtml(body)}</p>`;
+            messagesEl.appendChild(div);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function sendMatrixMessage() {
+        const input = document.getElementById("matrix-input");
+        if (!input || !_currentMatrixRoom || !_matrixClient.token) return;
+        const body = input.value.trim();
+        if (!body) return;
+        input.value = "";
+        try {
+            const txnId = Date.now();
+            await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(_currentMatrixRoom)}/send/m.room.message/${txnId}`, {
+                method: "PUT",
+                headers: { "Authorization": "Bearer " + _matrixClient.token, "Content-Type": "application/json" },
+                body: JSON.stringify({ msgtype: "m.text", body })
+            });
+        } catch(e) { console.error("Send failed:", e); input.value = body; }
+    }
+
+    // Prod objectives are objects ({ objective, taxonomy_level }); older rows are plain strings.
+    function objectiveText(obj) {
+        if (typeof obj === "string") return obj;
+        return obj.objective || obj.text || JSON.stringify(obj);
+    }
+
+    function escHtml(str) {
+        return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+</script>
+</body>
+</html>
+

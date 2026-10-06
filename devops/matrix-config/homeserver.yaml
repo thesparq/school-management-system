@@ -1,0 +1,82 @@
+server_name: "matrix.johnethel.school"
+public_baseurl: "https://matrix.johnethel.school"
+report_stats: false
+pid_file: /data/homeserver.pid
+media_store_path: /data/media_store
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  allow_unsafe_locale: true
+  args:
+    user: synapse
+    password: "${POSTGRES_PASSWORD}"
+    database: synapse
+    host: synapse-postgresql
+    cp_min: 5
+    cp_max: 10
+
+enable_registration: false
+enable_cors: true
+
+oidc_providers:
+  - idp_id: authentik
+    idp_name: "Johnethel School SSO"
+    issuer: "https://auth.johnethel.school/application/o/matrix/"
+    client_id: "${SYNAPSE_CLIENT_ID}"
+    client_secret: "${SYNAPSE_CLIENT_SECRET}"
+    scopes: ["openid", "profile", "email"]
+    user_mapping_provider:
+      config:
+        localpart_template: "{{ user.preferred_username }}"
+        display_name_template: "{{ user.name }}"
+
+macaroon_secret_key: "${SYNAPSE_MACAROON_SECRET}"
+form_secret: "${SYNAPSE_FORM_SECRET}"
+registration_shared_secret: "${SYNAPSE_REGISTRATION_SECRET}"
+password_config:
+  enabled: false
+
+turn_uris:
+  - "turn:matrix.johnethel.school?transport=udp"
+  - "turn:matrix.johnethel.school?transport=tcp"
+turn_shared_secret: "${COTURN_SHARED_SECRET}"
+turn_user_lifetime: 86400000
+turn_allow_guests: true
+
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+# Disable federation to create a closed intranet school environment
+federation_domain_whitelist: []
+
+# --- Production Polish: Performance & Security ---
+
+# Disable presence tracking to save massive CPU and database IO
+presence:
+  enabled: false
+
+# Enforce strict media quotas to prevent VPS disk exhaustion
+max_upload_size: "50M"
+max_image_pixels: "32M"
+
+# Apply rate limiting to prevent spam and brute-forcing
+rc_message:
+  per_second: 0.5
+  burst_count: 3
+rc_login:
+  account:
+    per_second: 0.1
+    burst_count: 3
+  address:
+    per_second: 0.1
+    burst_count: 3

@@ -1,14 +1,21 @@
-import { adminProxy, mapErrorCodeToHttpStatus } from '$lib/server/golem';
+import { proxyToCoreApi, mapErrorCodeToHttpStatus } from '$lib/server/golem';
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
+
+let activeSessionCache: { data: any, expires: number } | null = null;
 
 export const GET: RequestHandler = async (event) => {
 	const user = event.locals.user;
 	if (!user) error(401, 'Not authenticated');
-	if (!user.roles.includes('admin')) error(403, 'Forbidden');
 
-	const proxy = adminProxy(user);
-	const result = await proxy('/active-session-term');
+	if (activeSessionCache && Date.now() < activeSessionCache.expires) {
+		return new Response(JSON.stringify({ data: activeSessionCache.data }), {
+			status: 200, headers: { 'content-type': 'application/json' }
+		});
+	}
+
+	// Use proxyToCoreApi to bypass AdminAgent worker lock concurrency issues
+	const result = await proxyToCoreApi(user.id, '/student/active-session-term');
 
 	if (result.error) {
 		return new Response(JSON.stringify(result), {
@@ -20,6 +27,8 @@ export const GET: RequestHandler = async (event) => {
 	let data: unknown;
 	try {
 		data = JSON.parse(result.data);
+		// Cache for 60 seconds
+		activeSessionCache = { data, expires: Date.now() + 60000 };
 	} catch {
 		return new Response(
 			JSON.stringify({ error: { code: 'INVALID_RESPONSE', message: 'Failed to parse gateway response' } }),
