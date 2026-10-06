@@ -518,6 +518,26 @@ modes, the completed row becoming a normal row, the teachers tab, no page errors
 The fixture's directory now starts with one login per role plus two that belong to no role (`seed_user`), and
 its created logins carry `groups_obj: []` the way Authentik's own API does.
 
+**Two bugs the sandbox had been hiding, both about the shape of a pk.** Authentik sends a login's `pk` as a
+*number* (`"pk":13`) and puts it first in the object; the group objects that follow carry a string `pk` of
+their own. The mock only ever sent string pks, so two readers that matched `"pk":"…"` looked right there:
+
+- the listing's pk reader took a **group's** pk (the real listing came back as
+  `student_profile:b8908daf-…`, the `Students` group's uuid, which matches no profile row and so also silently
+  broke the email/is_active merge for every login in a group). Both readers now take the login's own `pk`,
+  number or string.
+- `Authentik.createUser!` read the pk the same way and, finding nothing on a response whose new login has no
+  groups, fell back to the literal `user_uuid_123`. That is why prod has a `student_profile:user_uuid_123` row
+  for a login that really has pk 14: the profile was written under a placeholder id, leaving the login with no
+  profile and the row orphaned. `Authentik.roc` reads the number form now.
+
+SurrealDB renders a string id part that looks like a number back to us quoted (``student_profile:`14``), so
+`bare_id` strips the backticks and the listing emits ids in one spelling (`student_profile:14`); without that,
+a row made by the create path could not be joined to its login. The fixture's created logins now carry numeric
+pks too, so this class of bug cannot hide in the sandbox again. A profile-less row also carries the login's
+`username`, which is what the page shows when a login has no name at all — two of the real directory's are
+named only by their username.
+
 ---
 
 ## Completed Work

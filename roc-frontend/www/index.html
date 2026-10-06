@@ -434,9 +434,11 @@
     // id|name|email|is_active|has_profile. The id is what "Complete profile" sends back (PUT
     // /api/users resolves the profile table from it), and has_profile false marks a login the
     // directory lists that the profile tables have nothing for — a user the admin made in Authentik.
+    // The login's username is the last fallback for its name: a login created with nothing but a
+    // username has no name at all, and without the fallback two such rows read "Unknown".
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
-            const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || "Unknown";
+            const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
             return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true);
         });
     }

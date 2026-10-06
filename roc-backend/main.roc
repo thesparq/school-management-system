@@ -182,14 +182,17 @@ record_literal! = |table, raw| {
     "${table}:${id}"
 }
 
-# Bare record id: "lessons:abc" and "abc" both become "abc". Stored string fields such as
-# submissions.assessment_id hold the bare form (the MoonBit stack's convention), so rows written
-# by either stack are found by both.
+# Bare record id: "lessons:abc" and "abc" both become "abc". SurrealDB renders an id part that
+# looks like a number back to us quoted — `student_profile:`14`` — so the backticks come off here:
+# that way an id read out of a response can be compared with (and written back as) the value it was
+# built from, which is what joining a profile row to its login by pk depends on. Stored string fields
+# such as submissions.assessment_id hold the bare form (the MoonBit stack's convention), so rows
+# written by either stack are found by both.
 bare_id : Str => Str
 bare_id = |raw| {
     match List.last(Str.split_on(raw, ":")) {
-        Ok(id) => id |> sanitize
-        Err(_) => raw |> sanitize
+        Ok(id) => id |> Str.replace_each("`", "") |> sanitize
+        Err(_) => raw |> Str.replace_each("`", "") |> sanitize
     }
 }
 
@@ -921,17 +924,35 @@ update_user_response! = |table, id_val, payload_raw, creating, clauses, config| 
 
 # --- User listing: the profile rows joined with the identity attributes Authentik owns ---
 
-# One login's pk as text. Authentik's own API sends it as a number (`"pk": 3`), the sandbox mock as
-# a string (`"pk":"mock_uuid_3"`); the directory listing needs it as text either way, because that is
-# what a profile row's bare id is compared with.
+# One login's pk as text, read from the login's **own** `pk` field. It is the first `pk` in the
+# object, which is the login's: Authentik sends `pk` first and the group objects (each carrying a `pk`
+# of their own) after it. The value is a number there (`"pk":13`) and a string in the sandbox mock
+# (`"pk":"mock_uuid_3"`), so both forms are read — reading only the quoted form is how the group's
+# pk gets taken for the login's, which then never matches a profile row and lists an id nobody owns.
 directory_pk! : Str => Str
 directory_pk! = |element| {
-    quoted = extract_field(element, "pk")
+    match List.get(Str.split_on(element, "\"pk\":"), 1) {
+        Ok(rest) => pk_text(Str.trim(rest))
+        Err(_) => ""
+    }
+}
 
-    if !Str.is_empty(quoted) {
-        quoted
+# A `pk` value as text: `"mock_uuid_3"` -> `mock_uuid_3`, `13,"username"` -> `13`.
+pk_text : Str -> Str
+pk_text = |value| {
+    if Str.starts_with(value, "\"") {
+        match List.get(Str.split_on(value, "\""), 1) {
+            Ok(text) => text
+            Err(_) => ""
+        }
     } else {
-        extract_number_field(element, "pk")
+        chunk = match List.first(Str.split_on(value, ",")) { Ok(v) => v, Err(_) => value }
+        digits = List.keep_if(Str.to_utf8(chunk), |byte| byte >= 48 and byte <= 57)
+
+        match Str.from_utf8(digits) {
+            Ok(text) => text
+            Err(_) => ""
+        }
     }
 }
 
@@ -959,6 +980,20 @@ matching_user! = |elements, pk| {
     }
 }
 
+# A record id as this file writes them: the table's name, then the bare id — without the backticks
+# SurrealDB puts around an id part that looks like a number. The page hands these ids straight back
+# (PUT and DELETE resolve the table from the prefix), so a row built from a profile table and a row
+# built from the directory alone have to spell their ids the same way.
+record_id_text! : Str => Str
+record_id_text! = |raw| {
+    table = match List.first(Str.split_on(raw, ":")) {
+        Ok(head) => head
+        Err(_) => ""
+    }
+
+    "${table}:${bare_id(raw)}"
+}
+
 # One row of the rebuilt listing: the profile's own fields (the ones the listing selects) plus the
 # two identity attributes no profile table has. `id` keeps its full record form
 # (`student_profile:<pk>`), which is what PUT and DELETE resolve their table from.
@@ -980,7 +1015,7 @@ user_row_with_identity! = |row, users| {
             ]
         }
     fields = [
-        "\"id\":\"${sanitize_json_text(extract_field(row, "id"))}\"",
+        "\"id\":\"${sanitize_json_text(record_id_text!(extract_field(row, "id")))}\"",
         "\"display_name\":\"${sanitize_json_text(extract_field(row, "display_name"))}\"",
         "\"first_name\":\"${sanitize_json_text(extract_field(row, "first_name"))}\"",
         "\"surname\":\"${sanitize_json_text(extract_field(row, "surname"))}\"",
@@ -1031,6 +1066,9 @@ row_for_pk! = |rows, pk| {
 # One row for a login the profile table has no visible row for: the identity attributes Authentik
 # owns, the id the listing's ids are shaped as (`<table>:<pk>`, which is what PUT attaches the
 # profile to), and nothing for the school fields — no profile means they are unknown, not empty.
+# `username` is what the page falls back to when the login has no name of its own (an account made
+# with nothing but a username, as two of the real directory's are): it is the login's identifier, and
+# without it two nameless logins are the same row to an admin.
 profile_less_row! = |user, table| {
     fields = [
         "\"id\":\"${table}:${sanitize_json_text(directory_pk!(user))}\"",
@@ -1041,6 +1079,7 @@ profile_less_row! = |user, table| {
         "\"created_at\":\"\"",
         "\"current_class\":\"\"",
         "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
+        "\"username\":\"${sanitize_json_text(extract_field(user, "username"))}\"",
         "\"is_active\":${json_bool(user, "is_active")}",
         "\"has_profile\":false",
     ]

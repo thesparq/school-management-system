@@ -42,9 +42,16 @@ USERINFO_PATH = '/application/o/userinfo/'
 counter = itertools.count(1)
 # Every pk this process hands out carries the process id, so a restarted mock cannot re-issue a pk an
 # earlier run already wrote a profile under (the sandbox database outlives the mock, and a colliding
-# create fails on the record id).
+# create fails on the record id). Created logins get a **number**, the way Authentik's own API sends a
+# pk (`"pk":15`): a mock that only ever sends string pks cannot catch a reader that misses the number
+# form, and missing it is how a created login's profile row gets written under a placeholder id.
 pk_prefix = f"mock_uuid_{os.getpid()}"
-users = {}  # pk -> the login, exactly as the list endpoint returns it
+users = {}  # pk (as text) -> the login, exactly as the list endpoint returns it
+
+
+def next_pk():
+    """A numeric pk, unique to this process: the pid's digits then a counter."""
+    return int(f"{os.getpid()}{next(counter)}")
 
 
 def seed_user(suffix, username, name, email, groups, is_active=True):
@@ -80,6 +87,21 @@ seed_user('seed_outpost', 'seed-outpost', 'Seed Outpost', '', ['sms-service-acco
 # An account that was switched off in Authentik: the listing reports it as inactive rather than
 # dropping it, so the state is visible to the admin.
 seed_user('seed_inactive', 'seed-inactive', 'Seed Inactive Student', 'seed-inactive@example.com', ['Students'], is_active=False)
+# Authentik sends a login's pk as a **number** (`"pk":13`), and the group objects that follow it carry
+# a string `pk` of their own. This login keeps that shape in the sandbox: a mock that only ever sends
+# string pks cannot catch a reader that takes a group's pk for the login's, which is exactly the bug
+# the real directory exposed (the login's pk is the first `pk` in the object, group pks come later).
+users['9001'] = {
+    'pk': 9001,
+    'username': 'seed-numeric',
+    'name': 'Seed Numeric Student',
+    'email': 'seed-numeric@example.com',
+    'is_active': True,
+    'groups': [f'{pk_prefix}_group_numeric'],
+    'groups_obj': [
+        {'pk': f'{pk_prefix}_group_numeric', 'name': 'Students', 'is_superuser': False, 'attributes': {}}
+    ],
+}
 
 # token -> the userinfo body the backend reads the caller's id and role from
 userinfo = {
@@ -100,7 +122,7 @@ def bearer_token(handler):
 
 
 def pk_of(path):
-    # `/api/v3/core/users/<pk>/` -> `<pk>`; None for the collection path itself.
+    # `/api/v3/core/users/<pk>/` -> `<pk>` as text; None for the collection path itself.
     if not path.startswith(USERS_PATH):
         return None
     return path[len(USERS_PATH):].strip('/') or None
@@ -161,7 +183,9 @@ class MockHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             page_size = max(1, int(query.get('page_size', ['20'])[0]))
             page = max(1, int(query.get('page', ['1'])[0]))
-            listing = sorted(users.values(), key=lambda user: user['pk'])
+            # Mixed pk types (a number for a real login, a string in this mock) are compared as text:
+            # the listing is a stable order, not a numeric one.
+            listing = sorted(users.values(), key=lambda user: str(user['pk']))
             start = (page - 1) * page_size
             window = listing[start:start + page_size]
             send(self, 200, {
@@ -182,9 +206,9 @@ class MockHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if urlparse(self.path).path == USERS_PATH:
             body = read_json(self)
-            pk = f"{pk_prefix}_{next(counter)}"
+            pk = next_pk()
             email = body.get('email', '')
-            users[pk] = {
+            users[str(pk)] = {
                 'pk': pk,
                 'username': body.get('username', email),
                 'name': body.get('name', ''),
@@ -195,7 +219,7 @@ class MockHandler(BaseHTTPRequestHandler):
                 # in no role's tab until an admin puts it in a group.
                 'groups_obj': [],
             }
-            send(self, 201, users[pk])
+            send(self, 201, users[str(pk)])
         else:
             send(self, 404, {'detail': 'Not found.'})
 

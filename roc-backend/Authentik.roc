@@ -57,6 +57,38 @@ extract_field = |json_str, field| {
     }
 }
 
+# The pk of the login a response is about, as text. Authentik sends it as a **number** (`"pk":15`),
+# and as the first `pk` in the object — the group objects that follow carry a string `pk` of their
+# own, so a reader that only matches `"pk":"…"` either finds a group's pk or, on a response with no
+# groups, finds nothing at all. Finding nothing is how a created login's profile row used to be
+# written under a placeholder id instead of the login's own, leaving the login with no profile.
+user_pk! : Str => Str
+user_pk! = |body| {
+    match List.get(Str.split_on(body, "\"pk\":"), 1) {
+        Ok(rest) => pk_text(Str.trim(rest))
+        Err(_) => ""
+    }
+}
+
+# A `pk` value as text: `"mock_uuid_3"` -> `mock_uuid_3`, `15,"username"` -> `15`.
+pk_text : Str -> Str
+pk_text = |value| {
+    if Str.starts_with(value, "\"") {
+        match List.get(Str.split_on(value, "\""), 1) {
+            Ok(text) => text
+            Err(_) => ""
+        }
+    } else {
+        chunk = match List.first(Str.split_on(value, ",")) { Ok(v) => v, Err(_) => value }
+        digits = List.keep_if(Str.to_utf8(chunk), |byte| byte >= 48 and byte <= 57)
+
+        match Str.from_utf8(digits) {
+            Ok(text) => text
+            Err(_) => ""
+        }
+    }
+}
+
 api_token! : Str => Str
 api_token! = |_| {
     match Env.var!("AUTHENTIK_API_TOKEN") {
@@ -103,7 +135,8 @@ createUser! = |email, name| {
                     Err(_) => "{}"
                 }
             if Response.status(response) == 201 or Response.status(response) == 200 {
-                uuid = extract_field(body_str, "pk")
+                uuid = user_pk!(body_str)
+
                 if Str.is_empty(uuid) {
                     Ok("user_uuid_123")
                 } else {
