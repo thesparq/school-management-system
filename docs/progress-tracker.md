@@ -554,6 +554,15 @@ SurrealQL statement has to spell it `type::record('student_profile','14')` the w
 `users_api.sh` builds its ids through a `rid` helper now, and reads a created row's pk out of the listing
 (or strips the quotes SurrealDB puts on it in a write's own answer).
 
+**Prod cleanup (approved, one-off)**: the placeholder-id row the create bug left behind is gone, along with
+the dummy login it was meant for. `student_profile:user_uuid_123` (Grace Chioma Nwosu1822 — `e2e_admin.cjs`'s
+own fixture data, `https://example.com/grace.jpg` and a `Nwosu<stamp>` surname, written 2026-10-05 by that
+suite running against prod) was deleted, and so was its login `grace1791225481822@example.com` (pk 14, in no
+group, so it was in no tab anyway). Checked first: nothing referenced either side (`submissions` and
+`parent_profile` are empty). Before → after: `student_profile` 1 → 0 rows, directory logins 9 → 8. The four
+tabs now list only real accounts: `temp-student` (pk 13), `temp-staff` (pk 11) and the admin (pk 5), each
+waiting for its school data.
+
 ---
 
 ## Completed Work
