@@ -643,6 +643,16 @@ pointing at the repository root, so `build.context: ..` resolved *above* the rep
 (`docker compose --project-directory <repo> -f devops/docker-compose.yml config`): the context and both
 mounts now resolve to the real paths under the repo.
 
+A second deploy got past the compose stage and failed one step later: `cd roc-backend && roc build
+main.roc` exited 2 — `roc build` exits 2 when it emits warnings, so the three module-header
+deprecation warnings (Authentik.roc, Golem.roc, SurrealDB.roc) made every `RUN` look like a failure
+even though the summary said "0 errors … successfully building: main". Fixed at the source instead of
+gating the exit code: the three files now use the type-module shape the rest of the backend already
+uses (`R2 := [].{…}`), so `roc check main.roc` and `roc build main.roc` are both 0 errors / 0 warnings
+(exit 0) and the Dockerfile needed no change. Behaviour is unchanged — on a fresh sandbox
+`users_api.sh` 77/77, `authz.sh` 27/27, `assessment_flow.sh` 41/41. The older "0 errors / 3 warnings"
+lines in this file record the state before that migration.
+
 - `/health` now makes an unreachable database an unhealthy container. The compose file's
   `restart: unless-stopped` reacts to exits, not to health, so the state surfaces in `docker ps` health
   and in `deploy_check.cjs` rather than as a restart loop.
