@@ -635,7 +635,7 @@ existing_staff_id! = |pk, config| {
 # absent row and a row with no number are the same "" here.
 staff_id_in! : Str, Str, SurrealDB.Config => Str
 staff_id_in! = |table, pk, config| {
-    match SurrealDB.query!("SELECT staff_id FROM ${record_ref!(pk, table)} WHERE staff_id IS NOT NONE;", config) {
+    match SurrealDB.query_read!("SELECT staff_id FROM ${record_ref!(pk, table)} WHERE staff_id IS NOT NONE;", config) {
         Ok(body) => extract_number_field(body, "staff_id")
         Err(_) => ""
     }
@@ -724,7 +724,7 @@ validate_new_user! = |role, email, first_name, surname, date_of_birth, class_lev
 # Record links are not existence-checked by the schema, so a typo would leave a
 # student pointing at a class level that does not exist.
 class_level_exists! = |class_level, config| {
-    res = SurrealDB.query!("SELECT id FROM ${record_ref!(class_level, "class_levels")};", config)
+    res = SurrealDB.query_read!("SELECT id FROM ${record_ref!(class_level, "class_levels")};", config)
     match res {
         Ok(body) => Str.contains(body, "\"result\":[{\"id\"")
         Err(_) => Bool.False
@@ -737,7 +737,7 @@ class_level_exists! = |class_level, config| {
 # has to satisfy the table's required columns — so its existence is what picks between them.
 profile_row_exists! : Str, Str, SurrealDB.Config => Bool
 profile_row_exists! = |table, pk, config| {
-    match SurrealDB.query!("SELECT id FROM type::record('${table}', '${pk}');", config) {
+    match SurrealDB.query_read!("SELECT id FROM type::record('${table}', '${pk}');", config) {
         Ok(body) => Str.contains(body, "\"result\":[{\"id\"")
         Err(_) => Bool.False
     }
@@ -1427,6 +1427,24 @@ db_body! = |sql, config| {
     }
 }
 
+# The same body-vs-status rule as db_body!, for a read: the query is retried once at the
+# connection level (`query_read!`), so a stale keep-alive does not answer the user listing with
+# a spurious "Database error". Writes keep db_body! (a retried write could run twice).
+db_body_read! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+db_body_read! = |sql, config| {
+    match SurrealDB.query_read!(sql, config) {
+        Ok(body) =>
+            if Str.contains(body, "\"status\":\"ERR\"") {
+                Err(extract_field(body, "result"))
+            } else {
+                Ok(body)
+            }
+        Err(HttpErr) => Err("could not reach the database")
+        Err(JsonErr) => Err("invalid response from the database")
+        Err(SurrealErr(body)) => Err(extract_field(body, "result"))
+    }
+}
+
 # The response for a write whose body is passed through: the stored rows, or a 500 carrying the
 # statement's own message instead of a bare "Database error".
 db_response! : Str, SurrealDB.Config => Server.Outcome
@@ -1669,7 +1687,7 @@ respond! = |request, context| {
             Ok(caller) => {
                 user_json = caller.body
                 if Method.is_eq(request.method, GET) and request.target == "/api/students" {
-                    res = SurrealDB.query!("SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM student_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM student_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1691,7 +1709,7 @@ respond! = |request, context| {
                         Err(_) => Ok(json_response(500, "{\"error\":\"Golem error\"}"))
                     }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/teachers" {
-                    res = SurrealDB.query!("SELECT id, display_name, first_name, surname, passport, created_at FROM teacher_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at FROM teacher_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1704,7 +1722,7 @@ respond! = |request, context| {
                     # default list (the student's subject cards, the curriculum picker) is the
                     # active rows only, which is what deactivating a subject takes it out of.
                     scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
-                    res = SurrealDB.query!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1737,7 +1755,7 @@ respond! = |request, context| {
                     Ok(config_toggle_response!("subjects", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
-                    res = SurrealDB.query!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1773,7 +1791,7 @@ respond! = |request, context| {
                     # ?all=true is the hub's view: a deactivated level stays listed so it can be
                     # edited or switched back on. Everyone else gets the active levels only.
                     scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
-                    res = SurrealDB.query!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1810,7 +1828,7 @@ respond! = |request, context| {
                     # asks with ?all=true so a link that has been switched off stays listed (and can
                     # be switched back on); the default is the active curriculum only.
                     scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
-                    res = SurrealDB.query!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1909,7 +1927,7 @@ respond! = |request, context| {
                     # `school_number`.
                     number_select = number_select_for(role_param)
                     query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class${number_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
-                    match db_body!(query, context.surreal) {
+                    match db_body_read!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
                             match Authentik.listUsers!("200") {
@@ -1926,14 +1944,14 @@ respond! = |request, context| {
 
                 # --- Student Lesson APIs ---
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/student/subjects" {
-                    res = SurrealDB.query!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
                     }
                  } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/terms") {
                      # Prod: terms are school-wide (Noel/Calvary/Summer)
-                     res = SurrealDB.query!("SELECT id, name, sort_order FROM terms WHERE active = true ORDER BY sort_order;", context.surreal)
+                     res = SurrealDB.query_read!("SELECT id, name, sort_order FROM terms WHERE active = true ORDER BY sort_order;", context.surreal)
                      match res {
                          Ok(body) => Ok(json_response(200, body))
                          Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))  
@@ -1953,7 +1971,7 @@ respond! = |request, context| {
                          |clause| !Str.is_empty(clause),
                      )
                      lessons_query = "SELECT id, topic_title, week FROM lessons WHERE ${Str.join_with(clauses, " AND ")} ORDER BY week;"
-                     res = SurrealDB.query!(lessons_query, context.surreal)
+                     res = SurrealDB.query_read!(lessons_query, context.surreal)
                      match res {
                          Ok(body) => Ok(json_response(200, body))
                          Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1964,7 +1982,7 @@ respond! = |request, context| {
                          Ok(json_response(400, "{\"error\":\"Missing lesson_id\"}"))
                      } else {
                          # The whole record: lesson content lives in the nested `content` object.
-                         res = SurrealDB.query!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
+                         res = SurrealDB.query_read!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
                          match res {
                              Ok(body) => Ok(json_response(200, body))
                              Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1981,7 +1999,7 @@ respond! = |request, context| {
                         } else {
                             "SELECT * FROM ${record_ref!(lesson_id, "lessons")};"
                         }
-                    res = SurrealDB.query!(lessons_query, context.surreal)
+                    res = SurrealDB.query_read!(lessons_query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1990,7 +2008,7 @@ respond! = |request, context| {
                     # Students only see published (active) assessments.
                     lesson_id = query_param(request.target, "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
-                    res = SurrealDB.query!("SELECT * FROM lesson_assessments WHERE ${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -1999,7 +2017,7 @@ respond! = |request, context| {
                     # Teachers see their drafts too.
                     lesson_id = query_param(request.target, "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
-                    res = SurrealDB.query!("SELECT * FROM lesson_assessments WHERE ${scope}deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -2047,7 +2065,7 @@ respond! = |request, context| {
                         ],
                         |clause| !Str.is_empty(clause),
                     )
-                    res = SurrealDB.query!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -2064,7 +2082,7 @@ respond! = |request, context| {
                         ],
                         |clause| !Str.is_empty(clause),
                     )
-                    res = SurrealDB.query!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -2097,7 +2115,7 @@ respond! = |request, context| {
                         # MoonBit stack enforced (db_sum_percentage_weights). `GROUP ALL` collapses the
                         # matches into the one sum row (this SurrealDB needs it for aggregates); no
                         # matches answer 0.
-                        existing_body = match SurrealDB.query!("SELECT math::sum(percentage_weight) AS total FROM general_assessments WHERE session_term = ${record_ref!(session_term_id, "session_term")} AND subject = ${record_ref!(subject_id, "subjects")} AND deleted_at IS NONE GROUP ALL;", context.surreal) {
+                        existing_body = match SurrealDB.query_read!("SELECT math::sum(percentage_weight) AS total FROM general_assessments WHERE session_term = ${record_ref!(session_term_id, "session_term")} AND subject = ${record_ref!(subject_id, "subjects")} AND deleted_at IS NONE GROUP ALL;", context.surreal) {
                             Ok(body) => body
                             Err(_) => ""
                         }
@@ -2135,7 +2153,7 @@ respond! = |request, context| {
                     assessment_id = query_param(request.target, "assessment_id")
                     scope = if Str.is_empty(assessment_id) { "" } else { "WHERE assessment_id = '${bare_id(assessment_id)}' " }
                     subs_query = "SELECT *, student.display_name AS student_name, student.id AS student_ref, (scored_mark IS NOT NONE) AS graded FROM submissions ${scope}ORDER BY submitted_at DESC;"
-                    res = SurrealDB.query!(subs_query, context.surreal)
+                    res = SurrealDB.query_read!(subs_query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
@@ -2162,7 +2180,7 @@ respond! = |request, context| {
                         # One read of the assessment feeds the checks, the total mark and the
                         # questions. `expired` is decided by the database, so no clock or date
                         # parsing here and no gap between the check and the stored deadline.
-                        assessment_body = match SurrealDB.query!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired, (scheduled_at IS NOT NONE AND scheduled_at > time::now()) AS not_yet_open FROM ${record_ref!(assessment_id, assessment_table)};", context.surreal) {
+                        assessment_body = match SurrealDB.query_read!("SELECT id, active, total_mark, max_resubmissions, questions, (deadline IS NOT NONE AND deadline < time::now()) AS expired, (scheduled_at IS NOT NONE AND scheduled_at > time::now()) AS not_yet_open FROM ${record_ref!(assessment_id, assessment_table)};", context.surreal) {
                             Ok(body) => body
                             Err(_) => ""
                         }
@@ -2179,7 +2197,7 @@ respond! = |request, context| {
                             Ok(json_response(409, "{\"error\":\"The deadline for this assessment has passed\"}"))
                         } else {
                             bare_assessment = bare_id(assessment_id)
-                            existing_body = match SurrealDB.query!("SELECT meta::id(id) AS submission_id, iteration, (grade_released_at IS NOT NONE) AS released FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
+                            existing_body = match SurrealDB.query_read!("SELECT meta::id(id) AS submission_id, iteration, (grade_released_at IS NOT NONE) AS released FROM submissions WHERE student = ${record_ref!(student_id, "student_profile")} AND assessment_type = '${stored_type}' AND assessment_id = '${bare_assessment}' ORDER BY iteration DESC LIMIT 1;", context.surreal) {
                                 Ok(body) => body
                                 Err(_) => ""
                             }
@@ -2354,14 +2372,14 @@ respond! = |request, context| {
                     # The nav bar's badge: the one active session term, with its term's own name joined
                     # in (`term.name` follows the record link). The page refetches it on every
                     # navigation. Under /api/session_terms, so every authenticated role may read it.
-                    res = SurrealDB.query!("SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, session_name, term.name AS term_name FROM session_term WHERE active = true LIMIT 1;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
                     }
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
                     # Prod names this table in the singular.
-                    res = SurrealDB.query!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Database error\"}"))
