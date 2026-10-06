@@ -93,7 +93,7 @@ render = |model| {
 	sidebar_header_content =
 		UI.sidebar_header({ classes: "p-0 border-b shrink-0 flex items-center h-16" }, [
 			Html.div([Attribute.class("flex items-center justify-center px-4 py-2 w-full")], [
-				Html.img([Attribute.src("/logo.jpg"), Attribute.alt("John Ethel Academy"), Attribute.class("h-10 object-contain")])
+				                            Html.img([Attribute.src("/logo.jpg"), Attribute.alt("Johnethel School"), Attribute.class("h-10 object-contain")])
 			])
 		])
 

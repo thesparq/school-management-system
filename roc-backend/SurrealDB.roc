@@ -58,7 +58,12 @@ SurrealDB := [].{
         match query!(sql, config) {
             Err(HttpErr) => {
                 log!("read to SurrealDB failed at the connection; retrying once: ${sql}")
-                query!(sql, config)
+                retried = query!(sql, config)
+                match retried {
+                    Err(_) => log!("read retry also failed: ${sql}")
+                    Ok(_) => {}
+                }
+                retried
             }
             other => other
         }
