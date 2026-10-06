@@ -307,23 +307,53 @@ caller_id! = |user| {
     }
 }
 
-# The role a caller's `groups` claim maps to. This is the same list the page uses in
-# `www/index.html` (super admins/administrators/admin → admin, teachers/teacher/staff → teacher,
-# parents/parent → parent, anything else → student); keep the two lists in step, because the page
-# routes by this role and the backend decides with it. A token without a `groups` claim is a
-# student, which is what the page assumes too.
-role_from_groups! : Str => Str
-role_from_groups! = |user_json| {
-    groups = List.map(split_json_elements(extract_json_array(user_json, "groups")), |element| ascii_lowercase(json_string_text(element)))
-
+# The role a set of group names maps to, or "" when the names carry no role group at all. One list
+# for both sides that read group names: the caller's own role (the userinfo `groups` claim) and the
+# directory listing (the user list endpoint's `groups_obj`). Names are compared ASCII-lowercased, so
+# `Administrators` and `administrators` are one group.
+role_from_group_names : List(Str) -> Str
+role_from_group_names = |groups| {
     if List.any(groups, |group| group == "super admins" or group == "administrators" or group == "admin") {
         "admin"
     } else if List.any(groups, |group| group == "teachers" or group == "teacher" or group == "staff") {
         "teacher"
     } else if List.any(groups, |group| group == "parents" or group == "parent") {
         "parent"
-    } else {
+    } else if List.any(groups, |group| group == "students" or group == "student") {
         "student"
+    } else {
+        ""
+    }
+}
+
+# The role a caller's `groups` claim maps to. This is the same list the page uses in
+# `www/index.html` (super admins/administrators/admin → admin, teachers/teacher/staff → teacher,
+# parents/parent → parent, students/student → student); keep the two lists in step, because the page
+# routes by this role and the backend decides with it. A claim that names no role is a student, which
+# is what the page assumes too — and the fallback belongs here, at the caller's own role: the
+# directory listing reads `role_from_group_names` directly, so a login in no role group (an outpost,
+# a service account) is listed in no tab rather than taken for a student.
+role_from_groups! : Str => Str
+role_from_groups! = |user_json| {
+    role = role_from_group_names(group_names_from_claim(extract_json_array(user_json, "groups")))
+
+    if Str.is_empty(role) { "student" } else { role }
+}
+
+# The group names in a JSON array of strings — the userinfo claim, `["Students"]`.
+group_names_from_claim : Str -> List(Str)
+group_names_from_claim = |array_text| {
+    List.map(split_json_elements(array_text), |element| ascii_lowercase(json_string_text(element)))
+}
+
+# The group names in a JSON array of objects — the user list endpoint's `groups_obj`, whose elements
+# carry the name in their own `name` field. Recursive rather than a `List.map`, because the scanners
+# carry an effect and `List.map` takes only pure functions.
+group_names_from_objects! : List(Str), List(Str) -> List(Str)
+group_names_from_objects! = |elements, out| {
+    match elements {
+        [] => out
+        [element, .. as rest] => group_names_from_objects!(rest, List.append(out, ascii_lowercase(extract_field(element, "name"))))
     }
 }
 
@@ -548,13 +578,12 @@ looks_like_email = |text| {
         and !Str.ends_with(domain, ".")
 }
 
-# The profile tables are SCHEMAFULL and require these fields; the passport rule
-# mirrors validate_passport_url in the MoonBit admin agent, so both stacks accept
-# the same input.
-validate_new_user! = |role, email, first_name, surname, date_of_birth, class_level, passport| {
-    if Str.is_empty(email) {
-        Err("email is required")
-    } else if Str.is_empty(first_name) {
+# The profile fields a row has to carry: the profile tables are SCHEMAFULL and require these, and
+# the passport rule mirrors validate_passport_url in the MoonBit admin agent, so both stacks accept
+# the same input. POST (a new login) and the PUT that attaches a profile to an existing login both
+# make a row from scratch, so both check exactly this.
+validate_profile_fields! = |role, first_name, surname, date_of_birth, class_level, passport| {
+    if Str.is_empty(first_name) {
         Err("first_name is required")
     } else if Str.is_empty(surname) {
         Err("surname is required")
@@ -573,6 +602,15 @@ validate_new_user! = |role, email, first_name, surname, date_of_birth, class_lev
     }
 }
 
+# The create path's own check: a login needs an email, and the profile row needs the fields above.
+validate_new_user! = |role, email, first_name, surname, date_of_birth, class_level, passport| {
+    if Str.is_empty(email) {
+        Err("email is required")
+    } else {
+        validate_profile_fields!(role, first_name, surname, date_of_birth, class_level, passport)
+    }
+}
+
 # Record links are not existence-checked by the schema, so a typo would leave a
 # student pointing at a class level that does not exist.
 class_level_exists! = |class_level, config| {
@@ -583,11 +621,45 @@ class_level_exists! = |class_level, config| {
     }
 }
 
+# Whether the profile row is already there, `deleted_at` or not: a hidden row is still a row, and
+# PUT patches it (clearing `deleted_at`) instead of building it from scratch. PUT attaches a missing
+# row and patches an existing one, and the two write different field sets — a row that is being made
+# has to satisfy the table's required columns — so its existence is what picks between them.
+profile_row_exists! : Str, Str, SurrealDB.Config => Bool
+profile_row_exists! = |table, pk, config| {
+    match SurrealDB.query!("SELECT id FROM type::record('${table}', '${pk}');", config) {
+        Ok(body) => Str.contains(body, "\"result\":[{\"id\"")
+        Err(_) => Bool.False
+    }
+}
+
 profile_table_for = |role| {
     if role == "Teacher" { "teacher_profile" }
     else if role == "Parent" { "parent_profile" }
     else if role == "Admin" { "admin_profile" }
     else { "student_profile" }
+}
+
+# The role a profile table belongs to, the inverse of profile_table_for. PUT resolves its table from
+# the id it is given, and a row that has to be made from scratch is checked against that role's own
+# required fields, so the table has to name its role back.
+role_of_table = |table| {
+    if table == "teacher_profile" { "Teacher" }
+    else if table == "parent_profile" { "Parent" }
+    else if table == "admin_profile" { "Admin" }
+    else { "Student" }
+}
+
+# The display name a row is given when the payload does not carry one: the name parts, the rule the
+# create path has always used. A PUT that attaches a profile derives it the same way, so the same
+# input writes the same row whichever path made it.
+display_name_from! : Str => Str
+display_name_from! = |payload_raw| {
+    first_name = extract_field(payload_raw, "first_name") |> sanitize
+    middle_name = extract_field(payload_raw, "middle_name") |> sanitize
+    surname = extract_field(payload_raw, "surname") |> sanitize
+
+    if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
 }
 
 # Build the profile INSERT for the chosen role. Field sets mirror the prod tables:
@@ -680,11 +752,10 @@ misplaced_update_fields = |table, payload_raw| {
     })
 }
 
-# One `SET` entry for a text column, or "" when the payload does not carry that field.
-update_text_clause! : Str, Str => Str
-update_text_clause! = |field, payload_raw| {
-    value = extract_field(payload_raw, field) |> sanitize
-
+# `field = 'value'` for a value already read out of the payload, or "" when the value is empty — an
+# empty clause is dropped from a list of them, which is how an update writes only what it was given.
+text_clause! : Str, Str => Str
+text_clause! = |field, value| {
     if Str.is_empty(value) {
         ""
     } else {
@@ -692,19 +763,30 @@ update_text_clause! = |field, payload_raw| {
     }
 }
 
+# One `SET` entry for a text column, or "" when the payload does not carry that field.
+update_text_clause! : Str, Str => Str
+update_text_clause! = |field, payload_raw| {
+    text_clause!(field, extract_field(payload_raw, field) |> sanitize)
+}
+
 # The `SET` clauses for a PUT /api/users, or the message for the 400 that stops it. Only columns the
 # resolved table really has are written, and the checks mirror the create path: a student's new
 # class level must exist and a date of birth must look like YYYY-MM-DD. Email is validated here but
 # not written — no profile table declares an `email` column (its home is the Authentik login, per the
 # identity/profile split), so the handler patches Authentik with it after these clauses pass.
-update_clauses! : Str, Str, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
-update_clauses! = |table, payload_raw, config| {
+# `creating` says the row is not there yet, so this payload is all there is to build it from and a
+# display name it does not carry is derived from the name parts. An existing row keeps the display
+# name it has when the payload leaves it out: that is a patch, not a rewrite.
+update_clauses! : Str, Str, Bool, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
+update_clauses! = |table, payload_raw, creating, config| {
     display_name = extract_field(payload_raw, "display_name") |> sanitize
     name_val = extract_field(payload_raw, "name") |> sanitize
     email = extract_field(payload_raw, "email") |> sanitize
     date_of_birth = extract_field(payload_raw, "date_of_birth") |> sanitize
     class_level = extract_field(payload_raw, "class_level") |> sanitize
     misplaced = misplaced_update_fields(table, payload_raw)
+    display_name_value =
+        if Str.is_empty(display_name) and creating { display_name_from!(payload_raw) } else { display_name }
 
     # `display_name` exists on every table. A parent's one name is stored in two columns, `name`
     # and `display_name`, which the create path sets to the same value — so the parent branch
@@ -712,15 +794,15 @@ update_clauses! = |table, payload_raw, config| {
     # is written as sent: the caller has the row's current value from the listing.
     name_clauses =
         if table == "parent_profile" {
-            parent_name = if Str.is_empty(name_val) { display_name } else { name_val }
+            parent_name = if Str.is_empty(name_val) { display_name_value } else { name_val }
 
             if Str.is_empty(parent_name) {
                 []
             } else {
-                ["name = '${surreal_literal(parent_name)}'", "display_name = '${surreal_literal(parent_name)}'"]
+                [text_clause!("name", parent_name), text_clause!("display_name", parent_name)]
             }
         } else {
-            [update_text_clause!("display_name", payload_raw)]
+            [text_clause!("display_name", display_name_value)]
         }
 
     role_clauses =
@@ -769,19 +851,101 @@ update_clauses! = |table, payload_raw, config| {
     }
 }
 
+# The fields a row a PUT has to make from scratch must carry: POST's own check, read out of the
+# payload here. No email — the login the profile is being attached to already has one.
+validate_attach_fields! : Str, Str => [Ok({}), Err(Str)]
+validate_attach_fields! = |table, payload_raw| {
+    validate_profile_fields!(
+        role_of_table(table),
+        extract_field(payload_raw, "first_name") |> sanitize,
+        extract_field(payload_raw, "surname") |> sanitize,
+        extract_field(payload_raw, "date_of_birth") |> sanitize,
+        extract_field(payload_raw, "class_level") |> sanitize,
+        extract_field(payload_raw, "passport") |> sanitize,
+    )
+}
+
+# The columns only a row that is being made needs, beyond the patch fields `update_clauses!` writes:
+# the student's second class link — `class_enrolled` is set on create and immutable after, and the
+# update path refuses it as a payload field, so this is the one place it is written for a row that
+# does not exist yet — and `created_at`, which the create path also sets explicitly. Empty for a
+# patch, which must not rewrite either of them.
+create_only_clauses! : Str, Str, Bool => List(Str)
+create_only_clauses! = |table, payload_raw, creating| {
+    if !creating {
+        []
+    } else {
+        class_level = extract_field(payload_raw, "class_level") |> sanitize
+        enrolled =
+            if table != "student_profile" or Str.is_empty(class_level) {
+                []
+            } else {
+                ["class_enrolled = ${record_ref!(class_level, "class_levels")}"]
+            }
+
+        List.concat(enrolled, ["created_at = time::now()"])
+    }
+}
+
+# The write half of PUT /api/users, shared by the patch and the attach: the email goes to Authentik
+# first (the address is how the login is found, so a failure has to stop the update instead of
+# leaving the two sides disagreeing), then the profile row is written. An identity-only update has no
+# column to change, so there is no statement to run for the row.
+# The verb follows `creating`: this SurrealDB's `UPDATE` on a record that is not there is a no-op that
+# still answers OK, so a row that has to be made is `CREATE`d. An existing row is `UPDATE`d, and
+# `deleted_at = NONE` is part of that write: PUT is the admin saying this profile is real, so a row
+# that was soft-deleted comes back instead of staying hidden behind a success.
+update_user_response! : Str, Str, Str, Bool, List(Str), SurrealDB.Config => Server.Outcome
+update_user_response! = |table, id_val, payload_raw, creating, clauses, config| {
+    email = extract_field(payload_raw, "email") |> sanitize
+    auth_res =
+        if Str.is_empty(email) {
+            Ok("")
+        } else {
+            Authentik.updateUser!(bare_id(id_val), "{\"email\": \"${sanitize_json_text(email)}\"}")
+        }
+
+    match auth_res {
+        Err(message) => json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(message)}\"}"),
+        Ok(_) =>
+            if List.is_empty(clauses) {
+                json_response(200, "{\"id\":\"${sanitize_json_text(id_val)}\"}")
+            } else {
+                verb = if creating { "CREATE" } else { "UPDATE" }
+                set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()", "deleted_at = NONE"]), ", ")
+
+                db_response!("${verb} ${record_ref!(id_val, table)} SET ${set_clause};", config)
+            }
+    }
+}
+
 # --- User listing: the profile rows joined with the identity attributes Authentik owns ---
 
-# Whether this element of Authentik's user list is the user a profile row's bare id names.
-# Authentik's own API sends the pk as a number (`"pk": 3`), the sandbox mock as a string
-# (`"pk":"mock_uuid_3"`); both are compared as text.
-user_pk_matches! = |element, pk| {
+# One login's pk as text. Authentik's own API sends it as a number (`"pk": 3`), the sandbox mock as
+# a string (`"pk":"mock_uuid_3"`); the directory listing needs it as text either way, because that is
+# what a profile row's bare id is compared with.
+directory_pk! : Str => Str
+directory_pk! = |element| {
     quoted = extract_field(element, "pk")
 
     if !Str.is_empty(quoted) {
-        quoted == pk
+        quoted
     } else {
-        extract_number_field(element, "pk") == pk
+        extract_number_field(element, "pk")
     }
+}
+
+# The role one login in the directory belongs to, or "" when its groups name no role. The list
+# endpoint's own `groups` field holds group ids, so the names are read from `groups_obj`; a login in
+# no role group (an outpost, a service account) maps to no role and is listed in no tab.
+directory_role! : Str => Str
+directory_role! = |element| {
+    role_from_group_names(group_names_from_objects!(split_json_elements(extract_json_array(element, "groups_obj")), []))
+}
+
+# Whether this element of Authentik's user list is the user a profile row's bare id names.
+user_pk_matches! = |element, pk| {
+    directory_pk!(element) == pk
 }
 
 # The element of Authentik's user list whose pk is this row's, or "" when the login is not in it.
@@ -801,6 +965,8 @@ matching_user! = |elements, pk| {
 # A row whose pk is not in Authentik's list carries neither identity field: nothing is known about
 # that login, and answering `"is_active":false` would report an account that was never switched
 # off. The frontend renders an empty email there and a missing `is_active` as active.
+# `has_profile` is what tells the page this row has school data behind it: a row built from the
+# directory alone is rendered as a login with no profile yet.
 user_row_with_identity! = |row, users| {
     pk = bare_id(extract_field(row, "id"))
     user = matching_user!(users, pk)
@@ -821,6 +987,7 @@ user_row_with_identity! = |row, users| {
         "\"passport\":\"${sanitize_json_text(extract_field(row, "passport"))}\"",
         "\"created_at\":\"${sanitize_json_text(extract_field(row, "created_at"))}\"",
         "\"current_class\":\"${sanitize_json_text(extract_field(row, "current_class"))}\"",
+        "\"has_profile\":true",
     ]
 
     "{${Str.join_with(List.concat(fields, identity), ",")}}"
@@ -835,17 +1002,85 @@ rows_with_identity! = |rows, users, out| {
     }
 }
 
-# GET /api/users: the profile rows (school data) with the login attributes Authentik owns (email,
-# whether the account is enabled) merged in by pk. Both sides are text: the database body and
-# Authentik's `{"pagination":…,"results":[…]}` are read with the scanners above rather than a
+# The logins the directory lists for one role: the role comes from the login's own groups, which is
+# what makes a login created in Authentik itself appear in the tab before any profile exists.
+logins_for_role! : List(Str), Str, List(Str) => List(Str)
+logins_for_role! = |users, role, out| {
+    match users {
+        [] => out
+        [user, .. as rest] =>
+            if directory_role!(user) == role {
+                logins_for_role!(rest, role, List.append(out, user))
+            } else {
+                logins_for_role!(rest, role, out)
+            }
+    }
+}
+
+# Whether the profile rows already account for this login. A login the directory lists for a role
+# whose profile row is there is rendered from that row (with its identity merged in), so it must not
+# be appended a second time as a login without a profile.
+row_for_pk! : List(Str), Str => Bool
+row_for_pk! = |rows, pk| {
+    match rows {
+        [] => Bool.False
+        [row, .. as rest] => if bare_id(extract_field(row, "id")) == pk { Bool.True } else { row_for_pk!(rest, pk) }
+    }
+}
+
+# One row for a login the profile table has no visible row for: the identity attributes Authentik
+# owns, the id the listing's ids are shaped as (`<table>:<pk>`, which is what PUT attaches the
+# profile to), and nothing for the school fields — no profile means they are unknown, not empty.
+profile_less_row! = |user, table| {
+    fields = [
+        "\"id\":\"${table}:${sanitize_json_text(directory_pk!(user))}\"",
+        "\"display_name\":\"${sanitize_json_text(extract_field(user, "name"))}\"",
+        "\"first_name\":\"\"",
+        "\"surname\":\"\"",
+        "\"passport\":\"\"",
+        "\"created_at\":\"\"",
+        "\"current_class\":\"\"",
+        "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
+        "\"is_active\":${json_bool(user, "is_active")}",
+        "\"has_profile\":false",
+    ]
+
+    "{${Str.join_with(fields, ",")}}"
+}
+
+# The listed logins that have no profile row of their own, in directory order. A row whose
+# `deleted_at` is set is hidden from the listing's query, so its login shows up here — which is how a
+# profile that was deleted can be completed again.
+logins_without_profile! : List(Str), List(Str), Str, List(Str) => List(Str)
+logins_without_profile! = |listed, rows, table, out| {
+    match listed {
+        [] => out
+        [user, .. as rest] =>
+            if row_for_pk!(rows, directory_pk!(user)) {
+                logins_without_profile!(rest, rows, table, out)
+            } else {
+                logins_without_profile!(rest, rows, table, List.append(out, profile_less_row!(user, table)))
+            }
+    }
+}
+
+# GET /api/users: every profile row of the requested role with the login attributes Authentik owns
+# (email, whether the account is enabled) merged in by pk, plus the logins the directory lists for
+# that role that have no profile row — the state an admin is in after creating users in Authentik
+# itself, where the login exists and the school data does not. A login in no role group (an outpost,
+# a service account) belongs to no tab and is listed nowhere. Both sides are text: the database body
+# and Authentik's `{"pagination":…,"results":[…]}` are read with the scanners above rather than a
 # parser, and the result is rebuilt as the one-element envelope the frontend's `unwrapRows` reads
 # (`data[0].result`). Rebuilding from the known fields is more predictable than editing JSON text
 # in place, at the cost of dropping anything else the row carried.
-merge_identity! = |body, users_body| {
+merge_identity! = |body, users_body, role| {
     users = split_json_elements(extract_json_array(users_body, "results"))
-    rows = rows_with_identity!(split_json_elements(extract_json_array(body, "result")), users, [])
+    rows = split_json_elements(extract_json_array(body, "result"))
+    listed = logins_for_role!(users, ascii_lowercase(role), [])
+    rendered = rows_with_identity!(rows, users, [])
+    extra = logins_without_profile!(listed, rows, profile_table_for(role), [])
 
-    "[{\"result\":[${Str.join_with(rows, ",")}],\"status\":\"OK\"}]"
+    "[{\"result\":[${Str.join_with(List.concat(rendered, extra), ",")}],\"status\":\"OK\"}]"
 }
 
 # --- Configuration hub writes (lookup tables: terms, subjects, class_levels, session_term, has_subject) ---
@@ -1404,8 +1639,9 @@ respond! = |request, context| {
                     class_level = extract_field(payload_raw, "class_level") |> sanitize
                     role_title = extract_field(payload_raw, "role_title") |> sanitize
                     passport = extract_field(payload_raw, "passport") |> sanitize
-                    display_name =
-                        if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
+                    # One derivation rule for the display name, shared with the PUT that attaches a
+                    # profile to a login that has none.
+                    display_name = display_name_from!(payload_raw)
 
                     match validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport) {
                         Err(message) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
@@ -1441,21 +1677,22 @@ respond! = |request, context| {
                         }
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/users") {
-                    # Support ?role=Student|Teacher|Parent|Admin for tab filtering
+                    # Support ?role=Student|Teacher|Parent|Admin for tab filtering. The role picks the
+                    # profile table and is what the directory's own logins are filtered by, so both
+                    # sides of the listing are read from the one parameter.
                     role_param =
-                        if Str.contains(request.target, "role=Student") { "student_profile" }
-                        else if Str.contains(request.target, "role=Teacher") { "teacher_profile" }
-                        else if Str.contains(request.target, "role=Parent") { "parent_profile" }
-                        else if Str.contains(request.target, "role=Admin") { "admin_profile" }
-                        else { "student_profile" }
+                        if Str.contains(request.target, "role=Teacher") { "Teacher" }
+                        else if Str.contains(request.target, "role=Parent") { "Parent" }
+                        else if Str.contains(request.target, "role=Admin") { "Admin" }
+                        else { "Student" }
                     # The profile tables hold the app's own fields only, so no email or is_active here:
                     # both are identity attributes Authentik owns (see the merge below).
-                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM ${role_param} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
                             match Authentik.listUsers!("200") {
-                                Ok(users_body) => Ok(json_response(200, merge_identity!(body, users_body))),
+                                Ok(users_body) => Ok(json_response(200, merge_identity!(body, users_body, role_param))),
                                 Err(_) =>
                                     # Authentik is unreachable (or no token is configured): answer the
                                     # rows as the database has them rather than failing the listing.
@@ -1827,7 +2064,13 @@ respond! = |request, context| {
 
                 } else if Method.is_eq(request.method, PUT) and request.target == "/api/users" {
                     # Update the profile row the id names. The table comes from the id's own prefix
-                    # (`student_profile:<uuid>`, as the listings return it).
+                    # (`student_profile:<uuid>`, as the listings return it). A row that is not there
+                    # yet is attached to the login that id names instead — the state an admin is in
+                    # after creating the login in Authentik itself, where the directory lists a user
+                    # the profile tables have nothing for. The row is then made from this payload
+                    # alone (the tables are SCHEMAFULL), so the create path's required fields are
+                    # checked first; a row that is there is patched, keeping every field the payload
+                    # leaves out.
                     payload_raw = read_body!(request)
                     id_val = extract_field(payload_raw, "id") |> sanitize
 
@@ -1836,37 +2079,24 @@ respond! = |request, context| {
                     } else {
                         match profile_table_of(id_val) {
                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
-                            Ok(table) =>
-                                match update_clauses!(table, payload_raw, context.surreal) {
-                                    Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
-                                    Ok(clauses) => {
-                                        email = extract_field(payload_raw, "email") |> sanitize
-                                        # Identity first, then the profile: the email is the address
-                                        # the login is found by, so an Authentik failure has to stop
-                                        # the update instead of leaving the two sides disagreeing.
-                                        auth_res =
-                                            if Str.is_empty(email) {
-                                                Ok("")
-                                            } else {
-                                                Authentik.updateUser!(bare_id(id_val), "{\"email\": \"${sanitize_json_text(email)}\"}")
+                            Ok(table) => {
+                                creating = !profile_row_exists!(table, bare_id(id_val), context.surreal)
+                                fields_res =
+                                    if creating { validate_attach_fields!(table, payload_raw) } else { Ok({}) }
+
+                                match fields_res {
+                                    Err(message) => Ok(json_response(400, "{\"error\":\"${message}\"}")),
+                                    Ok(_) =>
+                                        match update_clauses!(table, payload_raw, creating, context.surreal) {
+                                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                            Ok(clauses) => {
+                                                all_clauses = List.concat(clauses, create_only_clauses!(table, payload_raw, creating))
+
+                                                Ok(update_user_response!(table, id_val, payload_raw, creating, all_clauses, context.surreal))
                                             }
-                                        match auth_res {
-                                            Err(message) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(message)}\"}")),
-                                            Ok(_) =>
-                                                if List.is_empty(clauses) {
-                                                    # An identity-only update (email and nothing else):
-                                                    # the profile row has no column to change, so
-                                                    # there is no statement to run for it.
-                                                    Ok(json_response(200, "{\"id\":\"${sanitize_json_text(id_val)}\"}"))
-                                                } else {
-                                                    set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()"]), ", ")
-                                                    # db_response! answers 500 with the statement's own message
-                                                    # when the write is rejected, instead of a false 200.
-                                                    Ok(db_response!("UPDATE ${record_ref!(id_val, table)} SET ${set_clause};", context.surreal))
-                                                }
                                         }
-                                    }
                                 }
+                            }
                         }
                     }
                 } else if Method.is_eq(request.method, DELETE) and request.target == "/api/users" {

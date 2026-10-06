@@ -19,6 +19,10 @@ view = |model| {
 # -------------------------------------------------------
 
 admin_users_view = |model| {
+    # The one form serves both writes: with a profile id it completes that login's school data, without
+    # one it adds a user. Everything the two modes share is written once, below.
+    completing = !Str.is_empty(model.completingProfileId)
+
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
         # Page header
         Html.div([], [
@@ -39,13 +43,30 @@ admin_users_view = |model| {
             ])
         },
 
-        # Add New User card: the name parts together, then the contact address and the role, then the
-        # profile fields the chosen role's create uses, then the passport — with one primary action
-        # for the whole form.
+        # Add New User / Complete Profile card: the name parts together, then the contact address and
+        # the role, then the profile fields the chosen role's create uses, then the passport — with one
+        # primary action for the whole form.
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [
-                UI.card_title({ classes: "" }, [Html.text("Add New User")]),
-                Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Create a new account and optionally upload a passport photograph.")])
+                Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+                    Html.div([], [
+                        UI.card_title({ classes: "" }, [Html.text(if completing { "Complete Profile" } else { "Add New User" })]),
+                        Html.p([Attribute.class("text-sm text-muted-foreground")], [
+                            Html.text(
+                                if completing {
+                                    "This login is already in the directory; the school data below is what makes it a full account. Its own name and address stay as Authentik has them."
+                                } else {
+                                    "Create a new account and optionally upload a passport photograph."
+                                }
+                            )
+                        ])
+                    ]),
+                    if completing {
+                        UI.button({ variant: Ghost, size: Sm, on_click: Click(CancelCompleteProfile), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Cancel")])
+                    } else {
+                        Html.div([], [])
+                    }
+                ])
             ]),
             UI.card_content({ classes: "space-y-6" }, [
                 # Name
@@ -62,7 +83,9 @@ admin_users_view = |model| {
                         value: model.newUserEmail,
                         placeholder: "e.g. adamu@johnethel.school",
                         on_input: Input(|s| UpdateNewUserEmail(s)),
-                        is_disabled: model.isSubmitting,
+                        # The address is the login's, and Authentik owns it: completing a profile shows
+                        # it but does not send it.
+                        is_disabled: model.isSubmitting or completing,
                         classes: ""
                     })),
                     user_form_field("Role", user_role_select(model))
@@ -104,11 +127,19 @@ admin_users_view = |model| {
                     ])
                 ]),
 
-                # The form's single primary action.
+                # The form's single primary action. A profile-less row carries the same label (that
+                # button loads this form), so a test or a script has to scope to the card; the form
+                # itself is the first of the two in the DOM.
                 Html.div([Attribute.class("flex justify-end border-t pt-6")], [
                     UI.button(
                         { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
-                        [Html.text(if model.isSubmitting { "Adding..." } else { "Add User" })]
+                        [
+                            Html.text(
+                                if model.isSubmitting {
+                                    if completing { "Completing..." } else { "Adding..." }
+                                } else if completing { "Complete profile" } else { "Add User" }
+                            )
+                        ]
                     )
                 ])
             ])
@@ -215,14 +246,18 @@ user_form_text_input = |placeholder, value, is_disabled, to_msg| {
 }
 
 # The role picker: its value is the model's, so the selection survives the re-render a role
-# change causes.
+# change causes. Completing a profile fixes the role — the row was on a role's tab and the backend
+# takes the table from the id — so the picker is shown but not editable there.
 user_role_select = |model| {
+    completing = !Str.is_empty(model.completingProfileId)
+
     Html.div([Attribute.class("relative")], [
         Html.select([
             Attribute.class(config_select_classes),
             Attribute.id("new-user-role-select"),
             Attribute.value(model.newUserRole),
-            Attribute.on_change(|s| UpdateNewUserRole(s))
+            Attribute.on_change(|s| UpdateNewUserRole(s)),
+            Attribute.disabled(completing)
         ], [
             Html.option([Attribute.value("Student")], [Html.text("Student")]),
             Html.option([Attribute.value("Teacher")], [Html.text("Teacher")]),
@@ -276,17 +311,21 @@ users_for_tab = |model| {
                 [UI.table_empty_state(5, "👥", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
+                    # One row per line, as the page's `formatUsers` writes it:
+                    # id|name|email|is_active|has_profile.
                     parts = Str.split_on(line, "|")
-                    name = match List.get(parts, 0) { Ok(n) => n, Err(_) => "Unknown" }
-                    email = match List.get(parts, 1) { Ok(e) => e, Err(_) => "" }
-                    is_active = match List.get(parts, 2) { Ok(s) => s == "true", Err(_) => Bool.True }
-                    user_row(name, email, is_active)
+                    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
+                    email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                    is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
+                    has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
+                    user_row(id, name, email, is_active, has_profile)
                 })
             }
     }
 }
 
-user_row = |name, email, is_active| {
+user_row = |id, name, email, is_active, has_profile| {
     initial =
         if Str.is_empty(name) { "?" }
         else {
@@ -301,7 +340,18 @@ user_row = |name, email, is_active| {
                 Html.text(initial)
             ])
         ]),
-        UI.table_cell({ classes: "font-medium" }, [Html.text(name)]),
+        UI.table_cell({ classes: "font-medium" }, [
+            Html.div([Attribute.class("flex items-center gap-2")], [
+                Html.text(name),
+                # A login the directory has and the profile tables do not: the row is real, its school
+                # data is what is missing.
+                if has_profile {
+                    Html.div([], [])
+                } else {
+                    Html.span([Attribute.class("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400")], [Html.text("No profile yet")])
+                }
+            ])
+        ]),
         UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(email)]),
         UI.table_cell({ classes: "" }, [
             Html.span([
@@ -316,14 +366,26 @@ user_row = |name, email, is_active| {
         ]),
         UI.table_cell({ classes: "text-right" }, [
             Html.div([Attribute.class("flex items-center justify-end gap-1")], [
-                UI.button(
-                    { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs" },
-                    [Html.text("Edit")]
-                ),
-                UI.button(
-                    { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs text-destructive hover:text-destructive" },
-                    [Html.text("Deactivate")]
-                )
+                # A profile-less login gets the one action it needs: the form above, loaded with this
+                # login, so its school data can be filled in. A row with a profile keeps the actions
+                # every row has.
+                if has_profile {
+                    Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+                        UI.button(
+                            { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs" },
+                            [Html.text("Edit")]
+                        ),
+                        UI.button(
+                            { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs text-destructive hover:text-destructive" },
+                            [Html.text("Deactivate")]
+                        )
+                    ])
+                } else {
+                    UI.button(
+                        { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: Bool.False, classes: "text-xs" },
+                        [Html.text("Complete profile")]
+                    )
+                }
             ])
         ])
     ])

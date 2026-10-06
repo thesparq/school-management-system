@@ -481,6 +481,45 @@ access key instead of the signature's shape.
 
 ---
 
+### The user listing is directory-driven — done
+
+The admin's blocker: users created in Authentik itself (with `Students`/`Teachers` groups) did not appear in
+User Management, and neither did the admin's own account. Cause: `GET /api/users?role=` read the profile
+tables and merged Authentik's `email`/`is_active` onto those rows — all four tables were empty, so the tabs
+were empty, and `POST /api/users` always creates a *new* login, so there was no way to attach a profile to a
+login that already existed.
+
+- **The listing is a union keyed by pk.** Every profile row of the requested role (as before), plus every
+  login the directory lists for that role that has no profile row — with `has_profile` telling the two apart.
+  A login in no role group (an outpost, a service account) maps to no role and is listed in no tab; the
+  student default stays where it belongs, on the caller's own role. One directory call per request.
+- **Group names come from `groups_obj`.** The list endpoint's `groups` field holds group **ids**, the names
+  live in `groups_obj` (verified against prod: `"groups":["79a71c0e-…"]`, `"groups_obj":[{"name":"authentik
+  Admins",…}]`). `role_from_group_names` is now the one mapping, read by the caller's role (userinfo `groups`,
+  names) and by the directory listing (`groups_obj`).
+- **`PUT /api/users` attaches a profile to an existing login.** It probes the row: present → patch (every
+  field the payload leaves out keeps its stored value), absent → the row is made from the payload, so the
+  create path's required fields are checked first (`validate_profile_fields!`, shared with `POST`) and the
+  statement is `CREATE` — this SurrealDB's `UPDATE` on a missing record is a silent no-op that still answers
+  OK. `deleted_at = NONE` is part of the write, so completing a soft-deleted profile brings it back.
+- **One form, two writes.** A profile-less row shows a `No profile yet` badge and a **Complete profile**
+  action that loads that login into the existing form (title, description, disabled email and role picker,
+  button label all switch); the same form still creates a login when no profile id is loaded. `State.roc`
+  picks `PUT` + `id` over `POST` + `role`/`email` from `completingProfileId`.
+
+**Verified** (sandbox: SurrealDB 8212, mock Authentik 9212, backend 8312; fixture 157 statements, 0 errors;
+`roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0 errors): the seeded student/teacher/parent/admin
+logins list with `has_profile:false` and their login email; the groupless and unrelated-group logins appear in
+no tab; `PUT` with the full student set creates the row (`class_enrolled` + `current_class`), a second `PUT` is
+a patch, an incomplete payload is a 400 naming the missing field, `DELETE` then `PUT` brings a profile back,
+`POST` still creates login + profile; in Chromium, **19/19** checks — the badge and action, the form switching
+modes, the completed row becoming a normal row, the teachers tab, no page errors.
+
+The fixture's directory now starts with one login per role plus two that belong to no role (`seed_user`), and
+its created logins carry `groups_obj: []` the way Authentik's own API does.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc, EventStore.roc)

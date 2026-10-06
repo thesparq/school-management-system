@@ -7,6 +7,13 @@
 # and DELETE removes one. An unknown pk answers 404, the way Authentik does, so the backend's
 # cannot-disable-this-login path is observable instead of silently succeeding.
 #
+# The directory starts with the logins an admin creates in Authentik itself — one per role plus two
+# that belong to no role (see `seed_user`). The backend's user listing is driven by these groups, so
+# these logins appear in their tab with no profile row behind them; the sandbox database seeds no
+# profiles for them, which is exactly the state that has to be listable and completable. The pk of a
+# seeded login carries the process id like a created one does, so a restart cannot re-issue a pk that
+# already has a profile.
+#
 # The instance-wide userinfo endpoint the backend validates tokens against (`/application/o/
 # userinfo/`, the path AuthUrls derives from an issuer) is here too: each `mock-*-token` answers with
 # the `groups` claim a real login would carry, which is where the backend reads the caller's role
@@ -38,6 +45,41 @@ counter = itertools.count(1)
 # create fails on the record id).
 pk_prefix = f"mock_uuid_{os.getpid()}"
 users = {}  # pk -> the login, exactly as the list endpoint returns it
+
+
+def seed_user(suffix, username, name, email, groups, is_active=True):
+    """One login the directory starts with, shaped as Authentik's list endpoint sends it: the group
+    ids in `groups` and the group objects (which carry the names) in `groups_obj`. The backend reads
+    the names from `groups_obj`, because that is where this API version puts them."""
+    pk = f"{pk_prefix}_{suffix}"
+    group_ids = [f"{pk_prefix}_group_{index}" for index, _ in enumerate(groups)]
+    users[pk] = {
+        'pk': pk,
+        'username': username,
+        'name': name,
+        'email': email,
+        'is_active': is_active,
+        'groups': group_ids,
+        'groups_obj': [
+            {'pk': group_id, 'name': group, 'is_superuser': False, 'attributes': {}}
+            for group_id, group in zip(group_ids, groups)
+        ],
+    }
+
+
+# One login per role: these are the users an admin made in Authentik, and the listing has to show
+# them before any profile row exists.
+seed_user('seed_student', 'seed-student', 'Seed Student', 'seed-student@example.com', ['Students'])
+seed_user('seed_teacher', 'seed-teacher', 'Seed Teacher', 'seed-teacher@example.com', ['Teachers'])
+seed_user('seed_parent', 'seed-parent', 'Seed Parent', 'seed-parent@example.com', ['Parents'])
+seed_user('seed_admin', 'seed-admin', 'Seed Admin', 'seed-admin@example.com', ['Super Admins'])
+# Not members of the school: a login in no role group belongs to no tab. One carries no group at all
+# and one an unrelated group, so both ways of mapping to no role are covered.
+seed_user('seed_service', 'seed-service-account', 'Seed Service Account', 'seed-service@example.com', [])
+seed_user('seed_outpost', 'seed-outpost', 'Seed Outpost', '', ['sms-service-account'])
+# An account that was switched off in Authentik: the listing reports it as inactive rather than
+# dropping it, so the state is visible to the admin.
+seed_user('seed_inactive', 'seed-inactive', 'Seed Inactive Student', 'seed-inactive@example.com', ['Students'], is_active=False)
 
 # token -> the userinfo body the backend reads the caller's id and role from
 userinfo = {
@@ -149,6 +191,9 @@ class MockHandler(BaseHTTPRequestHandler):
                 'email': email,
                 'is_active': True,
                 'groups': [],
+                # Created without a group, as Authentik creates one: the login is in the directory but
+                # in no role's tab until an admin puts it in a group.
+                'groups_obj': [],
             }
             send(self, 201, users[pk])
         else:

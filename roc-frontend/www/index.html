@@ -431,10 +431,13 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
+    // id|name|email|is_active|has_profile. The id is what "Complete profile" sends back (PUT
+    // /api/users resolves the profile table from it), and has_profile false marks a login the
+    // directory lists that the profile tables have nothing for — a user the admin made in Authentik.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || "Unknown";
-            return name + "|" + (u.email || "") + "|" + String(u.is_active !== false);
+            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true);
         });
     }
 

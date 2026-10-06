@@ -78,6 +78,10 @@ Model : {
 	newUserDateOfBirth : Str,
 	newUserClassLevel : Str,
 	newUserRoleTitle : Str,
+	# The id of the login whose profile is being completed, empty while the form is creating a new
+	# login. One form serves both: with an id it is a PUT that attaches the profile to that login,
+	# without one a POST that creates the login and its profile together.
+	completingProfileId : Str,
 	appOrigin : Str,
 	usersStudentsData : Str,
 	usersTeachersData : Str,
@@ -142,6 +146,11 @@ Msg : [
 	UpdateNewUserRoleTitle(Str),
 	UpdateNewUserEmail(Str),
 	SubmitNewUser,
+	# A user row the directory lists without a profile: load that login into the form so the admin can
+	# fill in the school data and attach it (PUT /api/users). The id is what the write names the row
+	# by; the email is shown so the form says which login it is completing.
+	CompleteProfile(Str, Str),
+	CancelCompleteProfile,
 	GotUsersData(Str),
 	GotTermsData(Str),
 	GotSubjectsData(Str),
@@ -266,6 +275,7 @@ init = |flags| {
 		newUserDateOfBirth: "",
 		newUserClassLevel: "",
 		newUserRoleTitle: "",
+		completingProfileId: "",
 		appOrigin: originStr,
 		usersStudentsData: "",
 		usersTeachersData: "",
@@ -364,6 +374,17 @@ config_endpoint = |tab| {
 		ClassLevels => "class_levels"
 		Curriculum => "curriculum"
 		SessionTerms => "session_terms"
+	}
+}
+
+# The role a user tab holds, the same names the role picker and the backend's `role=` parameter use.
+# Completing a profile starts from the tab the row was on, so the form shows that role's fields.
+user_tab_role = |tab| {
+	match tab {
+		Students => "Student"
+		Teachers => "Teacher"
+		Parents => "Parent"
+		Admins => "Admin"
 	}
 }
 
@@ -747,9 +768,21 @@ update = |model, msg|
 			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
 		}
 		SubmitNewUser => {
-			payload = "{\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\",\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"role_title\":\"${model.newUserRoleTitle}\",\"passport\":\"${model.newUserPassportKey}\"}"
+			# One form, two writes. With no id the login does not exist yet, so POST creates the login and
+			# its profile together; with one, the login is already in the directory (the admin made it in
+			# Authentik) and PUT attaches the profile to that pk. A completing write carries no email: the
+			# login's own address is Authentik's and already right, and the role comes from the id's table
+			# on the backend, so neither is the form's to send.
+			completing = !Str.is_empty(model.completingProfileId)
+			identity_fields =
+				if completing {
+					"\"id\":\"${model.completingProfileId}\","
+				} else {
+					"\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\","
+				}
+			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"role_title\":\"${model.newUserRoleTitle}\",\"passport\":\"${model.newUserPassportKey}\"}"
 			req = {
-				method: POST,
+				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
 				headers: [
 					{ name: "Authorization", value: "Bearer ${model.authToken}" },
@@ -763,12 +796,33 @@ update = |model, msg|
 				[Http.request(req, |res| SubmitCompleted(res))]
 			)
 		}
+		# A row the directory lists without a profile: the form loads that login (its name and address are
+		# shown, and are not the form's to edit), and the role comes from the tab the row was on.
+		CompleteProfile(id, email) => (
+			{ ..model,
+				completingProfileId: id,
+				newUserRole: user_tab_role(model.activeUserTab),
+				newUserFirstName: "",
+				newUserMiddleName: "",
+				newUserSurname: "",
+				newUserEmail: email,
+				newUserDateOfBirth: "",
+				newUserClassLevel: "",
+				newUserRoleTitle: "",
+				newUserPassportKey: "",
+				submitResult: None,
+			},
+			[]
+		)
+		CancelCompleteProfile => ({ ..model, completingProfileId: "", submitResult: None }, [])
 		SubmitCompleted(res) => {
+			# The same form, two outcomes: the message says which write it was.
+			was_completing = !Str.is_empty(model.completingProfileId)
 			newResult : [None, Success(Str), Error(Str)]
 			newResult = match res {
 				Ok(response) => {
 					if response.status == 200 {
-						Success("User created")
+						Success(if was_completing { "Profile completed" } else { "User created" })
 					} else {
 						# Failures answer {"error":"..."} with the validation text, or a write's own
 						# {"error":"Database error","detail":"..."}; show what the backend said.
@@ -778,7 +832,8 @@ update = |model, msg|
 				Err(HttpErr(Timeout)) => Error("The request timed out")
 				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
 			}
-			# Refresh the role lists so the new account shows up without a manual reload.
+			# Refresh the role lists so the new account shows up without a manual reload — and, after a
+			# completed profile, as a normal row rather than one waiting for its school data.
 			refresh = match newResult {
 				Success(_) => [
 					Port.send("fetch_data", "/api/users?role=Student"),
@@ -788,7 +843,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
 		}
 		# Switching tabs fetches that tab's own list: the four lists are separate payloads, so a tab
 		# never stays on its skeleton waiting for a fetch the previous tab started.
