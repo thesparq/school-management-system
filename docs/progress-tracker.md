@@ -609,7 +609,20 @@ after the selector fix in `7eb6ee9` — `e2e_student.cjs` 7/7 and `e2e_assessmen
 been failing on a fresh fixture: the nav bar's session-term badge carries the term's own name, so
 `text=Noel Term` clicked the badge); `deploy_check.cjs` 8/8 against the built binary running
 `DEV_MODE=false`, which refuses `dev-skip` and serves the bundle; `auth_config_check.cjs` 5/5 against
-the real Authentik.
+the real Authentik; and, read-only against prod, the four user tabs, 23 subjects, 75/225 lessons and
+127 curriculum edges.
+
+**Independently re-verified** on its own fresh sandbox (8922/9922/8822) at `fa99fc5` by a separate
+reviewer pass: both `roc check`s, the 157-statement fixture, all thirteen suite counts above, and each
+fix adversarially — the compose renders the five `R2_*` and both mounts against `devops/`, the workflow's
+job body is byte-identical with only `workflow_dispatch` left as a trigger, both `.env.example` files are
+an exact set match with what the code and the compose file read, the no-pk create answers 502 with no row
+written (while a real pk still creates one), and the build script fails on a broken `app.roc` and on a
+missing compiler while succeeding normally. It also confirmed the diff touches only the seventeen files
+the six commits name. The two notes it raised are folded in: `e2e_loading.cjs`'s skeleton check was 19/20
+twice in five runs — a timing race in the check, not a regression — so the hold-back is now 2 s and the
+skeleton wait starts immediately after the click (20/20 in seven runs since); and `devops/.env.example`
+listed `ACME_EMAIL`, which nothing in the repository reads, so it is gone.
 
 **Left for the server / open**:
 
