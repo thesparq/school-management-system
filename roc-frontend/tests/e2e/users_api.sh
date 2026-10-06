@@ -2,6 +2,11 @@
 # User management over the API: the profile row is the app's own data, the login (its email and
 # whether it is enabled) belongs to Authentik, and a delete has to take the login away with the row.
 #
+# The listing is the directory as well as the tables: a login Authentik lists for a role with no
+# profile row behind it is listed too (`has_profile:false`), and PUT attaches a profile to it — the
+# state an admin is in after creating users in Authentik itself. The fixture seeds one such login per
+# role (plus two in no role group, which belong to no tab), so this suite drives that login as well.
+#
 # Writes student_profile/teacher_profile rows and calls the mock Authentik, so point it at a sandbox
 # backend (see README.md) — never at prod. It also reads the sandbox database directly, because
 # "soft-deleted" can only be seen there (the listings filter the row out).
@@ -53,6 +58,29 @@ present() { # $1 bare pk (stdin: rows) -> 1 when the listing has that row, 0 whe
 import json,os,sys
 pk = os.environ['ROW_PK']
 print(1 if any(str(r.get('id', '')).endswith(':' + pk) for r in json.load(sys.stdin)) else 0)"
+}
+row_where() { # $1 field name, $2 value (stdin: rows) -> that row as one line, "" when the listing has none
+  ROW_FIELD="$1" ROW_VALUE="$2" python3 -c "
+import json,os,sys
+rows = json.load(sys.stdin)
+row = next((r for r in rows if str(r.get(os.environ['ROW_FIELD'], '')) == os.environ['ROW_VALUE']), None)
+print(json.dumps(row, separators=(',', ':')) if row else '')"
+}
+field_of() { # $1 field name (stdin: one row of JSON) -> that field's value, "" when the row or field is missing
+  ROW_FIELD="$1" python3 -c "
+import json,os,sys
+raw = sys.stdin.read().strip()
+print(json.loads(raw).get(os.environ['ROW_FIELD'], '') if raw else '')"
+}
+tabs_with() { # $1 display name -> the tabs whose listing carries a row with that name, comma separated
+  found=""
+  for role in Student Teacher Parent Admin; do
+    if [ -n "$(listing "$role" | row_where display_name "$1")" ]; then found="${found:+$found,}$role"; fi
+  done
+  echo "$found"
+}
+check_no_tab() { # $1 label, $2 the tabs a row was found in ("" is the pass)
+  if [ -z "$2" ]; then echo "PASS  $1"; pass=$((pass+1)); else echo "FAIL  $1 — found in: $2"; fail=$((fail+1)); fi
 }
 
 # --- 1. a new student: the listing reads the login's address and its enabled state from Authentik ---
@@ -119,6 +147,73 @@ UNMATCHED=$(listing Student | row_of dev_user)
 check "a row without a login is still listed" "$UNMATCHED" '"id":"student_profile:dev_user"'
 check "and carries no invented is_active" "$(echo "$UNMATCHED" | grep -c is_active)" "0"
 check "and no invented email" "$(echo "$UNMATCHED" | grep -c email)" "0"
+
+# --- 8. the login the directory lists and the profile tables do not ---
+# The fixture's Authentik starts with an admin-made login per role and the sandbox database seeds no
+# profile row for them, so the tab lists the login alone. Its pk carries the mock's pid, so the id is
+# read out of the listing instead of being hard-coded.
+SEED_EMAIL="seed-student@example.com"
+SEED_ID=$(listing Student | row_where email "$SEED_EMAIL" | field_of id)
+SEED_PK=${SEED_ID#student_profile:}
+
+# A profile attached by an earlier run of this suite (or of e2e_users_directory.cjs) would hide the
+# state these checks need — a login, and no row — so any row left behind is dropped first. A hard
+# delete, so nothing stays hidden behind `deleted_at`; the login is Authentik's and is left alone.
+# (Guarded: an empty id would be a statement with nothing in its place, and the checks below are the
+# ones that should report a sandbox without the fixture's logins.)
+if [ -n "$SEED_ID" ]; then db_query "DELETE student_profile:${SEED_PK};" > /dev/null; fi
+
+SEEDLESS=$(listing Student | row_where email "$SEED_EMAIL")
+check "a login only the directory lists is listed" "$SEEDLESS" "\"id\":\"$SEED_ID\""
+check "as a login with no profile" "$SEEDLESS" '"has_profile":false'
+check "carrying the login's own address" "$SEEDLESS" "\"email\":\"$SEED_EMAIL\""
+check "and no school data invented for it" "$(echo "$SEEDLESS" | python3 -c "
+import json,sys
+row = json.load(sys.stdin)
+print(sum(1 for field in ['first_name', 'surname', 'passport', 'created_at', 'current_class'] if row.get(field)))")" "0"
+
+# A login in no role group belongs to no tab: neither the fixture's groupless login nor the one in an
+# unrelated group is listed anywhere. (The control: the seeded student is on its own tab and no other.)
+check "the seeded login is on its own tab only" "$(tabs_with 'Seed Student')" "Student"
+check_no_tab "a login in no group is on no tab" "$(tabs_with 'Seed Service Account')"
+check_no_tab "a login in an unrelated group is on no tab" "$(tabs_with 'Seed Outpost')"
+
+# --- 9. PUT attaches a profile to a login that has none ---
+# The row has to be made from this payload alone (the tables are SCHEMAFULL), so the create path's
+# required fields are checked first and the 400 names the one that is missing.
+INCOMPLETE="{\"id\":\"$SEED_ID\",\"first_name\":\"Seed\"}"
+check "completing without the required fields is a 400" "$(status -X PUT "$B/api/users" -H "$T" -H "$C" -d "$INCOMPLETE")" "400"
+check "and names the field that is missing" "$(curl -s -X PUT "$B/api/users" -H "$T" -H "$C" -d "$INCOMPLETE")" "surname is required"
+check "and wrote no row" "$(db_query "SELECT id FROM student_profile:${SEED_PK};")" '"result":[]'
+
+# No email (the login's address is Authentik's and is not patched) and no role (the table comes from
+# the id's prefix, `student_profile:<pk>`). The reply is the row the statement made.
+ATTACH="{\"id\":\"$SEED_ID\",\"first_name\":\"Seeded\",\"surname\":\"Profile\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/seeded.jpg\"}"
+ATTACHED=$(curl -s -w ' HTTP %{http_code}' -X PUT "$B/api/users" -H "$T" -H "$C" -d "$ATTACH")
+check "the full student set attaches a profile" "$ATTACHED" "HTTP 200"
+check "answering the row it made" "$ATTACHED" "\"id\":\"student_profile:${SEED_PK}\""
+PROFILED=$(listing Student | row_of "$SEED_PK")
+check "the row now reports a profile" "$PROFILED" '"has_profile":true'
+check "rendered from the profile, not the directory" "$PROFILED" '"display_name":"Seeded Profile"'
+check "with the student's own class link" "$PROFILED" '"current_class":"class_levels:jss_1"'
+check "and the login's address still attached to it" "$PROFILED" "\"email\":\"$SEED_EMAIL\""
+
+# --- 10. a second PUT is a patch: what its payload leaves out keeps its stored value ---
+CREATED_AT=$(listing Student | row_of "$SEED_PK" | field_of created_at)
+curl -s -X PUT "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"$SEED_ID\",\"surname\":\"Patched\",\"passport\":\"https://example.com/patched.jpg\"}" > /dev/null
+PATCHED=$(listing Student | row_of "$SEED_PK")
+check "a second PUT writes what it carries" "$PATCHED" '"surname":"Patched"'
+check "and leaves a field it does not carry alone" "$PATCHED" '"first_name":"Seeded"'
+check "as well as a display name it does not carry" "$PATCHED" '"display_name":"Seeded Profile"'
+check "without rewriting created_at" "$(echo "$PATCHED" | field_of created_at)" "$CREATED_AT"
+
+# --- 11. a delete hides the profile, and a PUT brings it back ---
+check "deleting the completed profile answers the soft-deleted row" "$(curl -s -X DELETE "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"$SEED_ID\"}")" '"deleted_at":"'
+check "so the tab lists the bare login again" "$(listing Student | row_of "$SEED_PK")" '"has_profile":false'
+check "and it is the same login, with its address" "$(listing Student | row_of "$SEED_PK")" "\"email\":\"$SEED_EMAIL\""
+check "a PUT brings the profile back" "$(curl -s -X PUT "$B/api/users" -H "$T" -H "$C" -d "$ATTACH")" "\"id\":\"student_profile:${SEED_PK}\""
+check "so the row lists with a profile again" "$(listing Student | row_of "$SEED_PK")" '"has_profile":true'
+check "with deleted_at cleared" "$(db_query "SELECT id, deleted_at FROM student_profile:${SEED_PK};")" '"deleted_at":null'
 
 echo ""
 echo "$pass passed, $fail failed"

@@ -34,13 +34,14 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | `auth_config_check.cjs` | An origin's auth wiring against the *real* Authentik, no browser: the advertised userinfo endpoint is the instance-wide one and matches what the backend derives, it answers 401 for a bad token, and the app's redirect URI is registered (with an unregistered one rejected as a control). | Network access to Authentik |
 | `e2e_student.cjs` | Student drill-down in Chromium: subject cards from prod, terms, lessons filtered by subject+term, full lesson content, scroll-spy sections, no page errors. | Backend |
 | `e2e_admin.cjs` | Admin user management in Chromium: the form creates a user, the new account appears in the table, and a validation error surfaces in the UI. | Sandbox backend |
+| `e2e_users_directory.cjs` | The directory half of user management in Chromium: a login the fixture's Authentik lists for a role with no profile row behind it is a row with the `No profile yet` badge and a Complete profile action, that action loads it into the form above (which switches to `Complete Profile`, a disabled email field holding the login's address, a disabled role picker and a `Complete profile` submit), the submit writes `PUT /api/users` about that login and nothing else, reports `Profile completed`, and the row then renders like any other (no badge, the profile's own name, the login's address, Edit and Deactivate back). Deletes the profile it finds on that login before it starts, so it can be run again and again against one sandbox. | Sandbox backend |
 | `e2e_admin_config.cjs` | Admin configuration hub in Chromium: every section (terms, class levels, subjects, session terms, the curriculum edge) lists the fixture's rows, a create through the form appears in the list afterwards, and a refused create shows the backend's own text (400 validation, or the database's statement message). Then managing what exists: a row edited in place and the same rename refused by a unique index, a subject deactivated (off `/api/subjects`, still in the hub with an Inactive badge) and reactivated, a session term created inactive switched on, and a curriculum edge switched off and back on. Re-entering the hub from the dashboard refetches the lists. | Sandbox backend |
 | `e2e_assessments.cjs` | Assessment lifecycle in Chromium: the teacher picks a lesson, creates a draft, publishes it; the student sees it and submits; the teacher's grading list shows the auto-scored MCQ marks; the teacher grades and releases. | Sandbox backend |
 | `assessment_flow.sh` | The same lifecycle over the API with curl, including the draft/published rules, MCQ auto-scoring, the deadline and the resubmission limit, and the validation errors. | Sandbox backend |
-| `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. | Sandbox backend, mock Authentik and its database |
+| `users_api.sh` | User management over the API with curl: the listing's email and enabled state come from Authentik (not from the profile tables), a new email is patched into Authentik and shows up in the listing, an unknown id or a malformed address is still a 400, and a delete soft-deletes the profile row *and* disables the login — a login Authentik cannot disable answers 502 rather than success. Also the directory-driven listing: a login the fixture's Authentik lists alone appears with `has_profile:false` and its own address, the two logins in no role group appear in no tab, `PUT` on that login is a 400 naming the missing field until it carries the student set (then the row lists with the profile's own fields), a second `PUT` is a patch that keeps what it leaves out and does not rewrite `created_at`, and a `DELETE` then `PUT` leaves the login listed as a bare login and then restores the profile with `deleted_at` cleared. | Sandbox backend, mock Authentik and its database |
 | `authz.sh` | Role-based authorization over the API with curl: `dev-skip` (admin) still reaches a student route, a teacher route and the user/configuration writes; `dev-student` and `dev-teacher` are refused the routes outside their role with a 403 naming the role the route needs; the role of a real-looking token comes from the mock userinfo `groups` claim; and a missing or bogus token is still a 401. | Sandbox backend, mock Authentik with `AUTHENTIK_ISSUER_URL` |
 | `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
-| `e2e_loading.cjs` | Loading states in Chromium, driven by *clicking* — landing on the dashboard and going through the sidebar — because that is the path the suites above never took. The users list shows a skeleton that hands over to its table, no list is left on a loading message, the top border bar shows for a navigation and for a tab switch and goes away once the view has rendered, the nav bar carries the active session term, and with `/api/users?role=*` answering 500 the list shows the backend's own message with a retry (and the retry loads the list) instead of a spinner. | Sandbox backend |
+| `e2e_loading.cjs` | Loading states in Chromium, driven by *clicking* — landing on the dashboard and going through the sidebar — because that is the path the suites above never took. The users list shows a skeleton that hands over to its table, no list is left on a loading message, the top border bar shows for a navigation and for a tab switch and goes away once the view has rendered, the nav bar carries the active session term, a tab switch shows that tab's own rows, a list whose payload is empty shows the empty state (faked for one tab through the route interception, because the fixture's directory gives every tab a row), and with `/api/users?role=*` answering 500 the list shows the backend's own message with a retry (and the retry loads the list) instead of a spinner. | Sandbox backend |
 | `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. Creates its own subject per run, so it never spends the fixture's weight budget. | Sandbox backend |
 
 ```sh
@@ -52,6 +53,7 @@ node tests/e2e/e2e_signout.cjs
 node tests/e2e/auth_config_check.cjs                    # defaults to the deployed origin
 node tests/e2e/auth_config_check.cjs http://127.0.0.1:8000
 node tests/e2e/e2e_admin.cjs
+node tests/e2e/e2e_users_directory.cjs
 node tests/e2e/e2e_admin_config.cjs
 node tests/e2e/e2e_assessments.cjs
 node tests/e2e/e2e_general_assessments.cjs
@@ -64,9 +66,9 @@ sh tests/e2e/authz.sh
 
 ## Sandbox for the admin and assessment checks
 
-`e2e_admin.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs`, `e2e_general_assessments.cjs`, `assessment_flow.sh`,
-`general_assessment_flow.sh`, `users_api.sh` and `authz.sh` write rows, so they must not run against prod. Start a
-throwaway SurrealDB, load the schema fixture, and point a backend at it plus the mock Authentik:
+`e2e_admin.cjs`, `e2e_users_directory.cjs`, `e2e_admin_config.cjs`, `e2e_assessments.cjs`, `e2e_general_assessments.cjs`,
+`assessment_flow.sh`, `general_assessment_flow.sh`, `users_api.sh` and `authz.sh` write rows, so they must not run against
+prod. Start a throwaway SurrealDB, load the schema fixture, and point a backend at it plus the mock Authentik:
 
 ```sh
 surreal start --bind 127.0.0.1:8002 --user root --pass root surrealkv:///tmp/school-sandbox/db &
@@ -102,6 +104,22 @@ backend validates tokens against: `mock-student-token` (`Students`), `mock-teach
 with the `groups` claim a real session would carry, which is where `authz.sh` gets a role without DEV_MODE
 (this is why the backend needs `AUTHENTIK_ISSUER_URL` pointing at the mock).
 
+That user table also **starts seeded**, with the logins an admin creates in Authentik itself, because the
+listing has to show them: `seed-student` (Students), `seed-teacher` (Teachers), `seed-parent` (Parents),
+`seed-admin` (Super Admins) and `seed-inactive` (Students, switched off in Authentik), plus two that belong
+to no role — `seed-service-account` (no group at all) and `seed-outpost` (group `sms-service-account`) — which
+must appear in no tab. The sandbox database seeds **no** profile row for any of them, which is the state the
+directory-driven listing is about. A seeded pk carries the mock's pid like a created one does, so a suite
+reads its id out of the listing rather than hard-coding it. `users_api.sh` completes such a login, and both
+`e2e_loading.cjs` (the teachers tab's row) and `e2e_users_directory.cjs` (the row it completes) read them.
+
+`users_api.sh` and `e2e_users_directory.cjs` both attach a profile to the seeded student login, so each
+restores the state it starts from: `users_api.sh` drops any profile row left on it before its directory checks
+(a hard delete, so nothing stays hidden behind `deleted_at`), and `e2e_users_directory.cjs` deletes the profile
+it finds through the API, which lists the login as a bare login again — that delete switches the mock login
+off, as a delete does, so neither suite reads its enabled state. Both can therefore be run again and again
+against one sandbox, in either order.
+
 `users_api.sh` needs the mock and the database it points at, not just the backend, because it checks both
 sides of a delete. Run it with the sandbox's own addresses:
 
@@ -123,7 +141,10 @@ of the database when `SURREAL_URL` is set (the same address the backend uses, e.
 those field definitions.
 
 `e2e_loading.cjs` writes nothing, but it reads the fixture: it asserts the nav bar's badge against the
-seeded `session_term` ("2026/2027 — Noel Term"), so it wants that sandbox too.
+seeded `session_term` ("2026/2027 — Noel Term"), so it wants that sandbox too. It also reads the seeded
+directory, because every tab of it has a row now: the tab it switches to has to list its own seeded login, so
+it wants the mock's seeded logins as well. Its empty state is faked for one tab through the route
+interception, which is what keeps that state observable whatever the fixture seeds.
 
 The general-assessment checks consume the term/subject weight budget (100%). `general_assessment_flow.sh`
 creates its own subject through the API on every run, so it starts from an empty budget and can be run
