@@ -1469,13 +1469,14 @@ respond! = |request, context| {
             )
         )
     } else if request.target == "/health" {
-        res = SurrealDB.query!("INFO FOR DB;", context.surreal)
-        status_text =
-            match res {
-                Ok(_) => "surreal db is healthy"
-                Err(_) => "surreal db is down"
-            }
-        Ok(json_response(200, "{\"status\":\"healthy\", \"db\":\"${status_text}\"}"))
+        # The container's HEALTHCHECK curls this path, so the status code — not only the body — has
+        # to carry the outcome: a 200 with "surreal db is down" inside it reported a database outage
+        # as a healthy container. `db_body!` is the file's own rule for "did the query really
+        # succeed", so a database that answers 200 with an error statement counts as down too.
+        match db_body!("INFO FOR DB;", context.surreal) {
+            Ok(_) => Ok(json_response(200, "{\"status\":\"healthy\", \"db\":\"surreal db is healthy\"}")),
+            Err(_) => Ok(json_response(503, "{\"status\":\"unhealthy\", \"db\":\"surreal db is down\"}")),
+        }
 
     # --- API routes (require auth) ---
     } else if Str.starts_with(request.target, "/api/") {

@@ -138,7 +138,13 @@ createUser! = |email, name| {
                 uuid = user_pk!(body_str)
 
                 if Str.is_empty(uuid) {
-                    Ok("user_uuid_123")
+                    # A login was created but nothing in this response names it, so there is no id to
+                    # write its profile under. Answering with a placeholder id is what left an orphan
+                    # `student_profile` row in production: the login existed with no profile, and the
+                    # row showed up in the role's tab under an id no login has. Report it instead —
+                    # the caller answers 502 and writes no profile row. The login still exists, so
+                    # say so here: the operator has to find it in the directory.
+                    Err("Authentik created the login but its pk was not in the response; check the directory for a login with no profile")
                 } else {
                     Ok(uuid)
                 }
