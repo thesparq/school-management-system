@@ -192,6 +192,10 @@ admin_users_view = |model| {
                                 UI.table_head({ classes: "w-10" }, [Html.text("")]),
                                 UI.table_head({ classes: "" }, [Html.text("Name")]),
                                 UI.table_head({ classes: "" }, [Html.text("Email")]),
+                                # The school number is the backend's rendered form and read-only here: it
+                                # is handed out by the write that makes the row (JES-… for a student,
+                                # EMP-… for staff), and no form of this page changes it.
+                                UI.table_head({ classes: "" }, [Html.text("School number")]),
                                 UI.table_head({ classes: "" }, [Html.text("Status")]),
                                 UI.table_head({ classes: "text-right" }, [Html.text("Actions")])
                             ])
@@ -300,32 +304,33 @@ users_for_tab = |model| {
         Admins => (model.usersAdminsData, "/api/users?role=Admin", "No administrators yet", "Add an administrator above to get started.")
     }
 
-    # The table's five columns: avatar, name, email, status, actions.
-    column_widths = ["w-8", "w-40", "w-56", "w-20", "w-24"]
+    # The table's six columns: avatar, name, email, school number, status, actions.
+    column_widths = ["w-8", "w-40", "w-56", "w-28", "w-20", "w-24"]
 
     match list_state(payload) {
         Pending => UI.table_skeleton_rows(column_widths)
-        Failed(message) => [UI.table_error_state(5, "Could not load this list", message, Click(RetryList(retry_url)))]
+        Failed(message) => [UI.table_error_state(6, "Could not load this list", message, Click(RetryList(retry_url)))]
         Ready(rows) =>
             if List.is_empty(rows) {
-                [UI.table_empty_state(5, "👥", empty_title, empty_description)]
+                [UI.table_empty_state(6, "👥", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
                     # One row per line, as the page's `formatUsers` writes it:
-                    # id|name|email|is_active|has_profile.
+                    # id|name|email|is_active|has_profile|school_number.
                     parts = Str.split_on(line, "|")
                     id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
                     name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
                     email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
                     is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
                     has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
-                    user_row(id, name, email, is_active, has_profile)
+                    school_number = match List.get(parts, 5) { Ok(v) => v, Err(_) => "" }
+                    user_row(id, name, email, is_active, has_profile, school_number)
                 })
             }
     }
 }
 
-user_row = |id, name, email, is_active, has_profile| {
+user_row = |id, name, email, is_active, has_profile, school_number| {
     initial =
         if Str.is_empty(name) { "?" }
         else {
@@ -353,6 +358,12 @@ user_row = |id, name, email, is_active, has_profile| {
             ])
         ]),
         UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(email)]),
+        # Read-only, and a dash when the row has no number (a parent, or a login with no profile yet):
+        # the form above cannot set it and no action here changes it. Monospaced and unbroken, because a
+        # number is read character by character.
+        UI.table_cell({ classes: "text-muted-foreground text-sm font-mono whitespace-nowrap" }, [
+            Html.text(if Str.is_empty(school_number) { "—" } else { school_number })
+        ]),
         UI.table_cell({ classes: "" }, [
             Html.span([
                 Attribute.class(

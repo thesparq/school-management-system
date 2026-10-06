@@ -431,15 +431,18 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile. The id is what "Complete profile" sends back (PUT
+    // id|name|email|is_active|has_profile|school_number. The id is what "Complete profile" sends back (PUT
     // /api/users resolves the profile table from it), and has_profile false marks a login the
     // directory lists that the profile tables have nothing for — a user the admin made in Authentik.
     // The login's username is the last fallback for its name: a login created with nothing but a
     // username has no name at all, and without the fallback two such rows read "Unknown".
+    // school_number is the backend's rendered form (`JES-000123`, `EMP-000045`), or "" for a row
+    // without one (a parent, a login with no profile yet): the page shows it and never builds it, so
+    // the prefix lives in one place.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
-            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true);
+            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "");
         });
     }
 

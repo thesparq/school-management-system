@@ -6,6 +6,8 @@
 -- a fresh database breaks `POST /api/users` for Student/Teacher/Admin.
 --
 -- Reconcile before replaying the lineage: the code writes the columns, or both v5 files are retired.
+-- `db/schema-v8-ids.surql` supersedes this pair: the numbers are written now, as integers (`option<int>`,
+-- seeded with `UPSERT`, and no `DELETE`), by that shape — the backend and the sandbox fixture follow v8.
 -- `docs/architecture.md` ("Storage model") carries the same note.
 
 DELETE id_sequences;

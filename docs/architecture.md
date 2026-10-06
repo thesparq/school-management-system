@@ -24,8 +24,9 @@ roc-backend/            the API: main.roc (routes), Authentik.roc, SurrealDB.roc
 roc-frontend/           app.roc (the SPA), State.roc (model/messages), *View.roc (views), UI.roc,
                         www/index.html (the page's own JS: routing, forms, chat, assessments),
                         www/app.css → dist.css (Tailwind), joy/ (vendored platform), build.roc
-db/schema-v2..v7.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
-                        prod and is not replayable as it stands (see Storage model), and v7 is the latest applied
+db/schema-v2..v8.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
+                        prod and is superseded by v8 (not replayable as it stands, see Storage model),
+                        and v7 is the latest applied
 devops/                 the compose file (Dokploy), legacy/docker-compose.golem.yml, .env.example
 docs/                   these context files
 agents/, frontend/      the retired MoonBit/Golem stack — reference for stored-data conventions, not deployed
@@ -84,14 +85,27 @@ file stale. What belongs here is the shape and the rules:
 - **The third divergence is the one that is not harmless, and it is why the lineage is not a rebuild recipe.**
   v5 was never applied to prod: prod's `student_profile` has eleven fields and no `admission_number`, its
   `teacher_profile` and `admin_profile` have no `staff_id`, and there is no `id_sequences` table. The file
-  declares all three as required non-empty strings with unique indexes, and the backend writes none of them —
-  so a fresh database with v5 applied breaks user creation: `POST /api/users` for a Student answers
-  `Couldn't coerce value for field 'admission_number' of 'student_profile:…': Expected 'string' but found
-  'NONE'`, and the login is rolled back so it can be retried. `db/schema-v5-init.surql` also opens with
-  `DELETE id_sequences`, against the additive-only rule below. Neither file is part of what prod runs — each
-  says so in its own header — and one side has to give (the code writes the columns, or v5 is retired) before
-  the lineage is replayed anywhere. Nothing else differs: the sandbox fixture and prod match field-for-field
-  on the tables the app uses.
+  declares all three as required non-empty strings, and the backend used to write none of them — so a fresh
+  database with v5 applied broke user creation: `POST /api/users` for a Student answered `Couldn't coerce value
+  for field 'admission_number' of 'student_profile:…': Expected 'string' but found 'NONE'`, and the login was
+  rolled back so it could be retried. `db/schema-v5-init.surql` also opens with `DELETE id_sequences`, against
+  the additive-only rule below. **v8 settles it by superseding both v5 files** (`db/schema-v8-ids.surql`
+  declares the numbers as `option<int>`, seeds the two counters with `UPSERT`, and both files say so in their
+  own headers): that is the shape the backend writes and the sandbox fixture mirrors, so the numbers work once
+  v8 is applied to prod — and until it is, a create that has to hand one out fails with the statement's own
+  error (the login is rolled back, so the admin can retry after the schema lands). Nothing else differs: apart
+  from the v8 fields, the sandbox fixture and prod match field-for-field on the tables the app uses.
+- **School numbers are the person's school identity, and what is stored is the integer alone.**
+  `student_profile.admission_number` and `staff_id` on `teacher_profile` and `admin_profile` hold an
+  `option<int>` — no prefix, no padding — drawn from one counter per class of member in `id_sequences`
+  (`student`, `staff`). Teachers and admins share the `staff` counter, and a pk that already holds a staff
+  number on either staff table *reuses* it rather than allocating a second one, which is what keeps a teacher
+  made an admin holding their own number (a student who becomes staff is given a fresh staff number). The row
+  gets its number in the write that makes it — the counter is bumped and read inside the profile statement
+  itself, so a rejected or duplicate create cannot burn one and a retry allocates the next — and the written
+  form (`JES-000123`, `EMP-000045`) is rendered by the backend in one place, into the listing's
+  `school_number` field: the prefix is in no stored row and in no page. Once set it is immutable — a `PUT`
+  payload carrying either field is a 400 naming it, the same refusal `class_enrolled` gets.
 - **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username.
 - **Relations are edges**, created with `RELATE`; `has_subject` is the curriculum.
 - **Record links, not strings**: a filter on a link column must compare against a record literal

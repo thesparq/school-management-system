@@ -558,6 +558,113 @@ score_mcq_answers! = |answers_json, questions_json| {
     "[${Str.join_with(scored, ",")}]"
 }
 
+# --- School numbers (a student's admission number, a staff member's staff id) ---
+
+# What is stored is the number alone: an integer, with no prefix and no padding. Which column holds it,
+# which counter hands it out, and the prefix its written form carries are decided here and nowhere else
+# — the written form (`JES-000123`, `EMP-000045`) is rendered by this file, so neither the database nor
+# the page spells a prefix a second time. A parent is not a school member and has no number at all.
+number_column = |role| {
+    if role == "Student" { "admission_number" } else if role == "Parent" { "" } else { "staff_id" }
+}
+
+# The counter a role draws from. Teachers and admins share `staff`, so a new staff member keeps drawing
+# from the same series whatever their role is today — and `school_number_clause!` hands one who already
+# has a number that number rather than a second one.
+number_sequence = |role| { if role == "Student" { "student" } else { "staff" } }
+
+# The prefix the written form carries, per the class of member the number belongs to.
+number_prefix = |role| {
+    if role == "Student" { "JES-" } else if role == "Parent" { "" } else { "EMP-" }
+}
+
+# The written form's width: six digits. A number past 999,999 simply renders with more of them — the
+# integer is what is stored, so nothing truncates it.
+number_width = 6
+
+# Zero-pad a number's digits to the written form's width: pad_left("45", 6) == "000045". Roc has no pad
+# function; `Str.repeat` is the string op this is built from, and digits already at the width come back
+# whole.
+pad_left : Str, U64 -> Str
+pad_left = |text, width| {
+    length = Str.count_utf8_bytes(text)
+
+    if length >= width {
+        text
+    } else {
+        "${Str.repeat("0", width - length)}${text}"
+    }
+}
+
+# One number in the form it is written in: `JES-000123`.
+number_text : Str, Str -> Str
+number_text = |role, digits| { "${number_prefix(role)}${pad_left(digits, number_width)}" }
+
+# The written number of one profile row, or "" when it has none. The listing hands the page this
+# rendered form, so the page shows a number it never has to build. (Effectful because the row is
+# scanned for its field rather than parsed, like every other reader of a response body.)
+row_number! : Str, Str => Str
+row_number! = |row, role| {
+    column = number_column(role)
+    digits = if Str.is_empty(column) { "" } else { extract_number_field(row, column) }
+
+    if Str.is_empty(digits) { "" } else { number_text(role, digits) }
+}
+
+# The listing's own half of the `number_column` mapping: `, admission_number` (or `, staff_id`) to add
+# to a SELECT, "" for a role whose table carries no number column.
+number_select_for = |role| {
+    column = number_column(role)
+
+    if Str.is_empty(column) { "" } else { ", ${column}" }
+}
+
+# The staff number a pk already holds, as text, or "" when it holds none. Both staff tables are read,
+# because one person may be a teacher today and an admin tomorrow: reusing the number they were given
+# is what keeps a role change from handing them a second one. A read that fails answers "" — the write
+# that follows talks to the same database, so a database that cannot answer this cannot store the row
+# either.
+existing_staff_id! : Str, SurrealDB.Config => Str
+existing_staff_id! = |pk, config| {
+    own = staff_id_in!("teacher_profile", pk, config)
+
+    if Str.is_empty(own) { staff_id_in!("admin_profile", pk, config) } else { own }
+}
+
+# One staff table's answer for the question above: a row only when the pk has a number there, so an
+# absent row and a row with no number are the same "" here.
+staff_id_in! : Str, Str, SurrealDB.Config => Str
+staff_id_in! = |table, pk, config| {
+    match SurrealDB.query!("SELECT staff_id FROM ${record_ref!(pk, table)} WHERE staff_id IS NOT NONE;", config) {
+        Ok(body) => extract_number_field(body, "staff_id")
+        Err(_) => ""
+    }
+}
+
+# The `SET` entry that hands a new profile row its number, or "" for a role that has none (a parent).
+# The allocation is part of the profile write's own statement — the counter is bumped and read by the
+# same `CREATE` — so a rejected or duplicate create cannot burn a number and a retry allocates the next
+# one. A teacher or an admin whose pk already has a staff number reuses it as a literal instead, and
+# only a pk with none draws from the counter.
+school_number_clause! : Str, Str, SurrealDB.Config => Str
+school_number_clause! = |pk, role, config| {
+    column = number_column(role)
+
+    if Str.is_empty(column) {
+        ""
+    } else {
+        # Only staff numbers are shared between the two staff tables; a student's number is always a
+        # fresh one (a student who becomes staff is given a staff number, not their admission number).
+        reused = if role == "Student" { "" } else { existing_staff_id!(pk, config) }
+
+        if Str.is_empty(reused) {
+            "${column} = (UPDATE id_sequences:${number_sequence(role)} SET current_value += 1 RETURN current_value)[0].current_value"
+        } else {
+            "${column} = ${reused}"
+        }
+    }
+}
+
 # --- User creation (T7) ---
 
 # Loose shape check; the database casts to datetime and rejects anything else.
@@ -667,8 +774,10 @@ display_name_from! = |payload_raw| {
 
 # Build the profile INSERT for the chosen role. Field sets mirror the prod tables:
 # parents carry a single `name`, students carry date_of_birth plus their class links,
-# admins may carry a role_title, teachers nothing extra.
-profile_create_sql! = |role, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport| {
+# admins may carry a role_title, teachers nothing extra. The row's school number comes first: it is
+# `school_number_clause!`'s own `SET` entry, and every role that reaches this branch has one (only a
+# parent has no number, and a parent is built below).
+profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport| {
     if role == "Parent" {
         # parent_profile carries both `name` and `display_name` in the prod schema.
         "CREATE type::record('parent_profile', '${user_id}') SET name = '${display_name}', display_name = '${display_name}', passport = '${passport}', created_at = time::now();"
@@ -685,6 +794,7 @@ profile_create_sql! = |role, user_id, first_name, middle_name, surname, display_
         )
         fields = List.concat(
             [
+                number_clause,
                 "first_name = '${first_name}'",
                 "surname = '${surname}'",
                 "display_name = '${display_name}'",
@@ -737,9 +847,16 @@ profile_update_columns = |table|
         ["display_name", "first_name", "middle_name", "surname", "passport", "date_of_birth", "class_level"]
     }
 
+# The fields that are set once, by the write that made the row, and are refused as a payload field
+# afterwards: a student's second class link, and the two school numbers. They are named here so the
+# refusal is one rule rather than a check inside each write path.
+immutable_update_fields = ["class_enrolled", "admission_number", "staff_id"]
+
 # Every payload field the update path knows about, so one sent for the wrong table can be named
-# back to the caller. `class_enrolled` is here to be refused: it is set on create and immutable.
-known_update_fields = ["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level", "class_enrolled"]
+# back to the caller. The immutable ones are in here to be refused; `admission_number` and `staff_id`
+# are in no table's `profile_update_columns`, which is what makes a payload that carries one a 400
+# instead of an ignored field.
+known_update_fields = List.concat(["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level"], immutable_update_fields)
 
 # The fields the payload carries that this table has no column for. `name` is the legacy table's
 # shape: parent_profile still has that column (it is that table's single name field), no other
@@ -750,9 +867,41 @@ misplaced_update_fields = |table, payload_raw| {
     columns = profile_update_columns(table)
 
     List.keep_if(known_update_fields, |field| {
-        carried = !Str.is_empty(extract_field(payload_raw, field) |> sanitize)
+        carried = carries_field(payload_raw, field)
         carried and !List.contains(columns, field)
     })
+}
+
+# The 400's message for the first field the payload sent that this table cannot write. An immutable
+# field is a column of the table — the school numbers are — so it says which rule refused it, rather
+# than sending the caller looking for a typo that is not there.
+misplaced_message : Str, Str -> Str
+misplaced_message = |field, table| {
+    if List.contains(immutable_update_fields, field) {
+        "'${field}' is set when the row is created and cannot be updated"
+    } else {
+        "'${field}' is not a column of ${table}"
+    }
+}
+
+# Whether the payload carries a field. A quoted value is what `extract_field` reads, and that is how
+# every column the update path can write is sent. The immutable fields are the exception: a school
+# number is an integer (`"admission_number": 12`) and a record link may be sent as a bare key, so for
+# those the key itself counts as carrying the field — the refusal is about naming it, not about the
+# shape of the value behind it.
+carries_field : Str, Str -> Bool
+carries_field = |payload_raw, field| {
+    quoted = !Str.is_empty(extract_field(payload_raw, field) |> sanitize)
+
+    if quoted {
+        Bool.True
+    } else if List.contains(immutable_update_fields, field) {
+        # Whitespace after the colon is stripped first: a hand-written payload may carry it, and the
+        # app's own never does.
+        Str.contains(Str.replace_each(payload_raw, " ", ""), "\"${field}\":")
+    } else {
+        Bool.False
+    }
 }
 
 # `field = 'value'` for a value already read out of the payload, or "" when the value is empty — an
@@ -854,7 +1003,7 @@ update_clauses! = |table, payload_raw, config| {
     } else if !List.is_empty(misplaced) {
         first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
 
-        Err("'${first}' is not a column of ${table}")
+        Err(misplaced_message(first, table))
     } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
         Err("date_of_birth must look like YYYY-MM-DD")
     } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
@@ -881,12 +1030,14 @@ validate_attach_fields! = |table, payload_raw| {
 }
 
 # The columns only a row that is being made needs, beyond the patch fields `update_clauses!` writes:
-# the student's second class link — `class_enrolled` is set on create and immutable after, and the
+# the school number `school_number_clause!` hands out — a row that is being made is exactly when a
+# number is handed out, and the patch path never touches it, so a number stays what creation gave it —
+# the student's second class link (`class_enrolled` is set on create and immutable after, and the
 # update path refuses it as a payload field, so this is the one place it is written for a row that
-# does not exist yet — and `created_at`, which the create path also sets explicitly. Empty for a
-# patch, which must not rewrite either of them.
-create_only_clauses! : Str, Str, Bool => List(Str)
-create_only_clauses! = |table, payload_raw, creating| {
+# does not exist yet), and `created_at`, which the create path also sets explicitly. Empty for a patch,
+# which must not rewrite any of them.
+create_only_clauses! : Str, Str, Str, Bool, SurrealDB.Config => List(Str)
+create_only_clauses! = |table, pk, payload_raw, creating, config| {
     if !creating {
         []
     } else {
@@ -897,8 +1048,12 @@ create_only_clauses! = |table, payload_raw, creating| {
             } else {
                 ["class_enrolled = ${record_ref!(class_level, "class_levels")}"]
             }
+        # "" for a table whose role has no number (a parent profile), and dropped rather than written
+        # as an empty `SET` entry.
+        number = school_number_clause!(pk, role_of_table(table), config)
+        number_clauses = List.keep_if([number], |clause| !Str.is_empty(clause))
 
-        List.concat(enrolled, ["created_at = time::now()"])
+        List.concat(number_clauses, List.concat(enrolled, ["created_at = time::now()"]))
     }
 }
 
@@ -1009,12 +1164,14 @@ record_id_text! = |raw| {
 # One row of the rebuilt listing: the profile's own fields (the ones the listing selects) plus the
 # two identity attributes no profile table has. `id` keeps its full record form
 # (`student_profile:<pk>`), which is what PUT and DELETE resolve their table from.
+# `school_number` is the profile's number in the one form the page shows (`JES-000123`, `EMP-000045`),
+# or "" when the row has none: the integer is what the database holds, and the rendering happens here.
 # A row whose pk is not in Authentik's list carries neither identity field: nothing is known about
 # that login, and answering `"is_active":false` would report an account that was never switched
 # off. The frontend renders an empty email there and a missing `is_active` as active.
 # `has_profile` is what tells the page this row has school data behind it: a row built from the
 # directory alone is rendered as a login with no profile yet.
-user_row_with_identity! = |row, users| {
+user_row_with_identity! = |row, users, role| {
     pk = bare_id(extract_field(row, "id"))
     user = matching_user!(users, pk)
     identity =
@@ -1034,6 +1191,7 @@ user_row_with_identity! = |row, users| {
         "\"passport\":\"${sanitize_json_text(extract_field(row, "passport"))}\"",
         "\"created_at\":\"${sanitize_json_text(extract_field(row, "created_at"))}\"",
         "\"current_class\":\"${sanitize_json_text(extract_field(row, "current_class"))}\"",
+        "\"school_number\":\"${sanitize_json_text(row_number!(row, role))}\"",
         "\"has_profile\":true",
     ]
 
@@ -1041,11 +1199,11 @@ user_row_with_identity! = |row, users| {
 }
 
 # The element-wise pass over the rows, effectful for the same reason as matching_user!.
-rows_with_identity! : List(Str), List(Str), List(Str) => List(Str)
-rows_with_identity! = |rows, users, out| {
+rows_with_identity! : List(Str), List(Str), Str, List(Str) => List(Str)
+rows_with_identity! = |rows, users, role, out| {
     match rows {
         [] => out
-        [row, .. as rest] => rows_with_identity!(rest, users, List.append(out, user_row_with_identity!(row, users)))
+        [row, .. as rest] => rows_with_identity!(rest, users, role, List.append(out, user_row_with_identity!(row, users, role)))
     }
 }
 
@@ -1078,6 +1236,8 @@ row_for_pk! = |rows, pk| {
 # One row for a login the profile table has no visible row for: the identity attributes Authentik
 # owns, the id the listing's ids are shaped as (`<table>:<pk>`, which is what PUT attaches the
 # profile to), and nothing for the school fields — no profile means they are unknown, not empty.
+# `school_number` is the one the page needs a value for: the empty string is this row's own spelling
+# of "no number", the same as a profile row that has none.
 # `username` is what the page falls back to when the login has no name of its own (an account made
 # with nothing but a username, as two of the real directory's are): it is the login's identifier, and
 # without it two nameless logins are the same row to an admin.
@@ -1090,6 +1250,7 @@ profile_less_row! = |user, table| {
         "\"passport\":\"\"",
         "\"created_at\":\"\"",
         "\"current_class\":\"\"",
+        "\"school_number\":\"\"",
         "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
         "\"username\":\"${sanitize_json_text(extract_field(user, "username"))}\"",
         "\"is_active\":${json_bool(user, "is_active")}",
@@ -1128,7 +1289,7 @@ merge_identity! = |body, users_body, role| {
     users = split_json_elements(extract_json_array(users_body, "results"))
     rows = split_json_elements(extract_json_array(body, "result"))
     listed = logins_for_role!(users, ascii_lowercase(role), [])
-    rendered = rows_with_identity!(rows, users, [])
+    rendered = rows_with_identity!(rows, users, role, [])
     extra = logins_without_profile!(listed, rows, profile_table_for(role), [])
 
     "[{\"result\":[${Str.join_with(List.concat(rendered, extra), ",")}],\"status\":\"OK\"}]"
@@ -1708,7 +1869,12 @@ respond! = |request, context| {
                             auth_res = Authentik.createUser!(email_val, display_name)
                             match auth_res {
                                 Ok(user_id) => {
-                                    create_sql = profile_create_sql!(role, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
+                                    # The number the new row is given: a fresh one from the role's own
+                                    # counter, or the staff number this pk already holds. It travels in
+                                    # the profile statement below, so the write that fails takes the
+                                    # allocation down with it.
+                                    number_clause = school_number_clause!(user_id, role, context.surreal)
+                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
                                     # SurrealDB answers 200 even when a statement fails, so the body decides.
                                     created = db_body!(create_sql, context.surreal)
                                     match created {
@@ -1738,8 +1904,11 @@ respond! = |request, context| {
                         else if Str.contains(request.target, "role=Admin") { "Admin" }
                         else { "Student" }
                     # The profile tables hold the app's own fields only, so no email or is_active here:
-                    # both are identity attributes Authentik owns (see the merge below).
-                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    # both are identity attributes Authentik owns (see the merge below). The role's own
+                    # number column is selected too — the row handed back carries it as the rendered
+                    # `school_number`.
+                    number_select = number_select_for(role_param)
+                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class${number_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
@@ -2132,7 +2301,8 @@ respond! = |request, context| {
                         match profile_table_of(id_val) {
                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                             Ok(table) => {
-                                creating = !profile_row_exists!(table, bare_id(id_val), context.surreal)
+                                pk = bare_id(id_val)
+                                creating = !profile_row_exists!(table, pk, context.surreal)
                                 fields_res =
                                     if creating { validate_attach_fields!(table, payload_raw) } else { Ok({}) }
 
@@ -2142,7 +2312,11 @@ respond! = |request, context| {
                                         match update_clauses!(table, payload_raw, context.surreal) {
                                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                                             Ok(clauses) => {
-                                                all_clauses = List.concat(clauses, create_only_clauses!(table, payload_raw, creating))
+                                                all_clauses =
+                                                    List.concat(
+                                                        clauses,
+                                                        create_only_clauses!(table, pk, payload_raw, creating, context.surreal),
+                                                    )
 
                                                 Ok(update_user_response!(table, id_val, payload_raw, creating, all_clauses, context.surreal))
                                             }

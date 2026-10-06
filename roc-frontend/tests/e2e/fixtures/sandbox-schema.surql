@@ -42,7 +42,24 @@ DEFINE TABLE credentials SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON credentials TYPE string ASSERT $value != NONE;
 DEFINE FIELD active ON credentials TYPE bool DEFAULT true;
 
+# The school-number counters (same statements as `db/schema-v8-ids.surql`): one row per series, and
+# the two rows are seeded with `UPSERT … SET type = …` rather than a bare `current_value = 0`, so
+# re-applying this fixture cannot reset a counter the suites have already drawn from. Teachers and
+# admins share `staff`, so one person's number survives a role change.
+DEFINE TABLE id_sequences SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD type ON id_sequences TYPE string ASSERT $value IN ['student', 'staff'];
+DEFINE FIELD current_value ON id_sequences TYPE int DEFAULT 0;
+DEFINE FIELD created_at ON id_sequences TYPE datetime DEFAULT time::now();
+DEFINE INDEX idx_id_seq_type ON id_sequences COLUMNS type UNIQUE;
+UPSERT id_sequences:student SET type = 'student';
+UPSERT id_sequences:staff SET type = 'staff';
+
 DEFINE TABLE student_profile SCHEMAFULL PERMISSIONS FULL;
+# The student's school number (`db/schema-v8-ids.surql`): the integer the backend allocates from
+# `id_sequences:student` inside the write that makes the row, rendered `JES-000001` by the backend.
+# Optional, and unique across the table; a row without one — the seeded `dev_user`, say — is fine.
+DEFINE FIELD admission_number ON student_profile TYPE option<int>;
+DEFINE INDEX idx_student_admission ON student_profile COLUMNS admission_number UNIQUE;
 DEFINE FIELD class_enrolled ON student_profile TYPE record<class_levels> ASSERT $value != NONE;
 DEFINE FIELD created_at ON student_profile TYPE datetime DEFAULT time::now();
 DEFINE FIELD current_class ON student_profile TYPE record<class_levels> ASSERT $value != NONE;
@@ -64,6 +81,11 @@ DEFINE FIELD first_name ON teacher_profile TYPE string ASSERT $value != NONE;
 DEFINE FIELD middle_name ON teacher_profile TYPE none | string;
 DEFINE FIELD passport ON teacher_profile TYPE string ASSERT $value != NONE AND $value != '';
 DEFINE FIELD qualifications ON teacher_profile TYPE none | array<record<credentials>>;
+# The teacher's staff number (`db/schema-v8-ids.surql`), from `id_sequences:staff`, rendered
+# `EMP-000001` by the backend. A pk that is already an admin reuses their number instead of drawing
+# a second one, which is what the backend's read of both staff tables is for.
+DEFINE FIELD staff_id ON teacher_profile TYPE option<int>;
+DEFINE INDEX idx_teacher_staff_id ON teacher_profile COLUMNS staff_id UNIQUE;
 DEFINE FIELD surname ON teacher_profile TYPE string ASSERT $value != NONE;
 DEFINE FIELD updated_at ON teacher_profile TYPE none | datetime;
 
@@ -75,6 +97,10 @@ DEFINE FIELD first_name ON admin_profile TYPE string ASSERT $value != NONE;
 DEFINE FIELD middle_name ON admin_profile TYPE none | string;
 DEFINE FIELD passport ON admin_profile TYPE string ASSERT $value != NONE AND $value != '';
 DEFINE FIELD role_title ON admin_profile TYPE none | string;
+# The admin's staff number, out of the same `id_sequences:staff` series as a teacher's
+# (`db/schema-v8-ids.surql`).
+DEFINE FIELD staff_id ON admin_profile TYPE option<int>;
+DEFINE INDEX idx_admin_staff_id ON admin_profile COLUMNS staff_id UNIQUE;
 DEFINE FIELD surname ON admin_profile TYPE string ASSERT $value != NONE;
 DEFINE FIELD updated_at ON admin_profile TYPE none | datetime;
 

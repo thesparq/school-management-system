@@ -89,6 +89,24 @@ tabs_with() { # $1 display name -> the tabs whose listing carries a row with tha
 check_no_tab() { # $1 label, $2 the tabs a row was found in ("" is the pass)
   if [ -z "$2" ]; then echo "PASS  $1"; pass=$((pass+1)); else echo "FAIL  $1 — found in: $2"; fail=$((fail+1)); fi
 }
+counter() { # $1 series name -> that counter's current_value, "" when there is no such row
+  db_query "SELECT current_value FROM id_sequences:$1;" | python3 -c "
+import json,sys
+rows = json.load(sys.stdin)[0]['result']
+print(rows[0]['current_value'] if rows else '')"
+}
+padded() { # $1 a number -> the six-digit spelling of it, the width the backend renders
+  printf '%06d' "$1"
+}
+post_user() { # $1 the JSON payload -> the write's answer with its HTTP status, like the create checks
+  curl -s -w ' HTTP %{http_code}' -X POST "$B/api/users" -H "$T" -H "$C" -d "$1"
+}
+pk_of() { # $1 a create answer (stdin is irrelevant) -> the new record's bare pk
+  echo "$1" | python3 -c "
+import json,sys
+row = json.load(sys.stdin)[0]['result'][0]['id']
+print(row.split(':', 1)[1].strip('\`'))" 2>/dev/null
+}
 
 # --- 1. a new student: the listing reads the login's address and its enabled state from Authentik ---
 EMAIL="users_api_${STAMP}@example.com"
@@ -232,6 +250,86 @@ check "and it is the same login, with its address" "$(listing Student | row_of "
 check "a PUT brings the profile back" "$(curl -s -X PUT "$B/api/users" -H "$T" -H "$C" -d "$ATTACH")" "\"id\":\"student_profile:${SEED_PK}\""
 check "so the row lists with a profile again" "$(listing Student | row_of "$SEED_PK")" '"has_profile":true'
 check "with deleted_at cleared" "$(db_query "SELECT id, deleted_at FROM ${SEED_REF};")" '"deleted_at":null'
+
+# --- 12. the school number: handed out by the write that makes the row, once per create ---
+# The counter is read out of the database either side of the writes, because a number is only handed out
+# when a row is really stored: what the suite checks is the counter's movement, not the rendered string
+# alone. Numbers are relative to whatever the sandbox has already spent.
+STUDENT_BEFORE=$(counter student)
+NUM_EMAIL="users_api_number_${STAMP}@example.com"
+NUM_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"email\":\"$NUM_EMAIL\",\"first_name\":\"Numb\",\"surname\":\"Er${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/number-one.jpg\"}")
+NUM_PK=$(pk_of "$NUM_CREATE")
+NUM_ONE=$(counter student)
+check "creating a student moves the student counter by one" "$NUM_ONE" "$((STUDENT_BEFORE + 1))"
+check "and the row carries the rendered number" "$(listing Student | row_of "$NUM_PK")" "\"school_number\":\"JES-$(padded "$NUM_ONE")\""
+
+NUM2_EMAIL="users_api_number2_${STAMP}@example.com"
+NUM2_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"email\":\"$NUM2_EMAIL\",\"first_name\":\"Numb\",\"surname\":\"Two${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/number-two.jpg\"}")
+NUM2_PK=$(pk_of "$NUM2_CREATE")
+NUM_TWO=$(counter student)
+check "a second student draws the next number" "$NUM_TWO" "$((NUM_ONE + 1))"
+check "and is rendered the same way" "$(listing Student | row_of "$NUM2_PK")" "\"school_number\":\"JES-$(padded "$NUM_TWO")\""
+
+# --- 13. a rejected create does not burn a number ---
+# The allocation is part of the profile statement, so it comes back with the statement's failure: a
+# validation refusal never runs a statement, and a statement that fails (a date this database cannot cast)
+# rolls the increment back with it. The login is removed so the admin can retry.
+REFUSED=$(post_user "{\"role\":\"Student\",\"email\":\"users_api_nopass_${STAMP}@example.com\",\"first_name\":\"No\",\"surname\":\"Passport${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"\"}")
+check "a student without a passport is refused" "$REFUSED" "HTTP 400"
+check "and the student counter did not move" "$(counter student)" "$NUM_TWO"
+FAILED=$(post_user "{\"role\":\"Student\",\"email\":\"users_api_baddate_${STAMP}@example.com\",\"first_name\":\"Bad\",\"surname\":\"Date${STAMP}\",\"date_of_birth\":\"2011-13-45\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/bad-date.jpg\"}")
+check "a create the database rejects is a 500, not a success" "$FAILED" "HTTP 500"
+check "and that failure left the counter where it was" "$(counter student)" "$NUM_TWO"
+
+# A duplicate number is refused by the column's unique index, whatever write made it: the number is a
+# person's school identity, so two rows cannot share one.
+DUP_PK="users_api_dup_${STAMP}"
+DUP=$(db_query "CREATE type::record('student_profile', '${DUP_PK}') SET admission_number = ${NUM_TWO}, first_name = 'Dup', surname = 'Number', display_name = 'Dup Number', date_of_birth = <datetime> '2011-02-03', current_class = type::record('class_levels', 'jss_1'), class_enrolled = type::record('class_levels', 'jss_1'), passport = 'https://example.com/dup.jpg', created_at = time::now();")
+check "a number already in use is refused" "$DUP" "idx_student_admission"
+check "and no row was written with it" "$(db_query "SELECT id FROM type::record('student_profile', '${DUP_PK}');")" '"result":[]'
+
+# --- 14. teachers and admins draw from one shared staff counter ---
+STAFF_BEFORE=$(counter staff)
+T2_EMAIL="users_api_staff_${STAMP}@example.com"
+T2_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Teacher\",\"email\":\"$T2_EMAIL\",\"first_name\":\"Staff\",\"surname\":\"Teacher${STAMP}\",\"passport\":\"https://example.com/staff-teacher.jpg\"}")
+T2_PK=$(pk_of "$T2_CREATE")
+STAFF_ONE=$(counter staff)
+check "creating a teacher draws from the staff counter" "$STAFF_ONE" "$((STAFF_BEFORE + 1))"
+check "and the row carries the rendered EMP number" "$(listing Teacher | row_of "$T2_PK")" "\"school_number\":\"EMP-$(padded "$STAFF_ONE")\""
+
+A2_EMAIL="users_api_staff_admin_${STAMP}@example.com"
+A2_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Admin\",\"email\":\"$A2_EMAIL\",\"first_name\":\"Staff\",\"surname\":\"Admin${STAMP}\",\"role_title\":\"Bursar\",\"passport\":\"https://example.com/staff-admin.jpg\"}")
+A2_PK=$(pk_of "$A2_CREATE")
+STAFF_TWO=$(counter staff)
+check "an admin draws the same counter's next number" "$STAFF_TWO" "$((STAFF_ONE + 1))"
+check "and is rendered with the EMP prefix" "$(listing Admin | row_of "$A2_PK")" "\"school_number\":\"EMP-$(padded "$STAFF_TWO")\""
+
+# A teacher made an admin keeps the number they were given: the pk already holds one, so the admin row
+# reuses it instead of drawing a second. (A *second role row* is what a role change looks like here —
+# the app has one row per role, and the pk is the person either way.)
+REUSE=$(curl -s -w ' HTTP %{http_code}' -X PUT "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"admin_profile:${T2_PK}\",\"first_name\":\"Staff\",\"surname\":\"Reused${STAMP}\",\"passport\":\"https://example.com/staff-reused.jpg\"}")
+check "a pk that is a teacher can be given an admin profile" "$REUSE" "HTTP 200"
+check "the admin row reuses the teacher's number" "$(listing Admin | row_of "$T2_PK")" "\"school_number\":\"EMP-$(padded "$STAFF_ONE")\""
+check "and the staff counter did not move" "$(counter staff)" "$STAFF_TWO"
+
+# --- 15. the numbers are immutable: a payload carrying one is refused, named back ---
+# The field is refused whether it is spelled as a string or as the integer it really is, so a client
+# echoing a row back cannot quietly "update" the number the request carries.
+STR_UPDATE=$(curl -s -w ' HTTP %{http_code}' -X PUT "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"student_profile:${NUM_PK}\",\"admission_number\":\"JES-$(padded "$NUM_ONE")\"}")
+check "an update carrying the admission number is refused" "$STR_UPDATE" "HTTP 400"
+check "naming the field" "$STR_UPDATE" "admission_number"
+NUM_UPDATE=$(curl -s -w ' HTTP %{http_code}' -X PUT "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"teacher_profile:${T2_PK}\",\"staff_id\": 7}")
+check "a staff id sent as a number is refused too" "$NUM_UPDATE" "HTTP 400"
+check "and the stored student number is what creation gave it" "$(listing Student | row_of "$NUM_PK")" "\"school_number\":\"JES-$(padded "$NUM_ONE")\""
+
+# --- 16. a parent has no school number at all ---
+# The row is real and its login lists on its own tab; it is not a school member, so there is nothing to
+# hand out and the listing renders the empty form of the field.
+P_EMAIL="users_api_parent_${STAMP}@example.com"
+P_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Parent\",\"email\":\"$P_EMAIL\",\"first_name\":\"Api\",\"surname\":\"Parent${STAMP}\",\"passport\":\"https://example.com/api-parent.jpg\"}")
+P_PK=$(pk_of "$P_CREATE")
+check "a parent is created without a number" "$(listing Parent | row_of "$P_PK")" '"school_number":""'
+check "and neither counter moved for them" "$(counter student),$(counter staff)" "$NUM_TWO,$STAFF_TWO"
 
 echo ""
 echo "$pass passed, $fail failed"

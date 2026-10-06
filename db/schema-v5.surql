@@ -9,6 +9,8 @@
 -- this file is unread and unwritten by the app too, but it has a default, so it does not break a write.
 --
 -- Reconcile before replaying the lineage: the code writes the columns, or this file is retired.
+-- `db/schema-v8-ids.surql` supersedes this file: the numbers are written now, as integers (`option<int>`,
+-- seeded with `UPSERT`, and no `DELETE`), by that shape — the backend and the sandbox fixture follow v8.
 -- `docs/architecture.md` ("Storage model") carries the same note.
 
 DEFINE TABLE IF NOT EXISTS id_sequences SCHEMAFULL;
