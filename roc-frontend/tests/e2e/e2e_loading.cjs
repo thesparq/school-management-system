@@ -16,8 +16,10 @@ const { chromium } = require('playwright');
 
 const appUrl = process.env.APP_URL || 'http://127.0.0.1:8000';
 // The users endpoints are held back so the skeleton is observable, later made to answer 500 with the
-// API's own error shape, and one role's list is made to answer as loaded-and-empty.
-const USERS_DELAY_MS = 800;
+// API's own error shape, and one role's list is made to answer as loaded-and-empty. The hold-back is
+// generous on purpose: 800 ms was enough on an idle loopback, but a loaded machine can paint past the
+// Pending state before the skeleton is ever seen, which made the skeleton check fail intermittently.
+const USERS_DELAY_MS = 2000;
 const FAILURE_BODY = { error: 'Database error', detail: 'the users query failed' };
 const EMPTY_BODY = [{ result: [], status: 'OK' }];
 
@@ -97,8 +99,12 @@ const waitFor = (fn, timeout = 5000) => fn().then(() => true).catch(() => false)
 
   // --- A sidebar click into User Management: bar, skeleton, then the table ---
   await page.click('aside >> text="User Management"');
+  // Start the skeleton wait immediately after the click, before the progress-bar check: the skeleton
+  // is only up while the held-back users fetch is in flight, and waiting for the bar first could let a
+  // fast machine unmount it before this wait began.
+  const sawSkeleton = skeletonVisible().then(() => true).catch(() => false);
   check('the border bar shows for the navigation', await waitFor(barVisible));
-  check('the users table shows its skeleton while the list loads', await waitFor(skeletonVisible));
+  check('the users table shows its skeleton while the list loads', await sawSkeleton);
   check('nothing says "Loading" while the skeleton is up', !(await hasText('Loading')));
 
   check('the skeleton hands over to the table', await waitFor(() => page.waitForFunction(() =>
