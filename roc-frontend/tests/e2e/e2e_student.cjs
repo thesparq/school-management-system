@@ -42,7 +42,9 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.waitForSelector(`text=${term}`, { timeout: 30000 });
   check('terms load', true);
 
-  await page.click(`text=${term}`);
+  // The nav bar's session-term badge shows the active term's own name ("2026/2027 — Noel Term"),
+  // and it sits before the cards in the DOM, so `text=` would click the badge. Scope to the card.
+  await page.locator(`div.group:has(h3:text-is("${term}"))`).first().click();
   await page.waitForSelector(`text=${lesson}`, { timeout: 30000 });
   check('lessons load for the subject and term', true);
 

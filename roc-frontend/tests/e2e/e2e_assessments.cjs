@@ -79,7 +79,9 @@ async function newPage(browser, token) {
   await student.waitForSelector('text=Agricultural Science', { timeout: 45000 });
   await student.click('text=Agricultural Science');
   await student.waitForSelector('text=Noel Term', { timeout: 30000 });
-  await student.click('text=Noel Term');
+  // The nav bar's session-term badge carries the term's own name too and comes first in the DOM,
+  // so `text=Noel Term` would click the badge. Scope the click to the term card.
+  await student.locator(`div.group:has(h3:text-is("Noel Term"))`).first().click();
   await student.waitForSelector(`text=${lessonTitle}`, { timeout: 30000 });
   await student.click(`text=${lessonTitle}`);
   await student.waitForTimeout(2500); // the view re-renders after the lesson loads
