@@ -1,12 +1,10 @@
-name: Deploy Golem Backend
+# Automatic runs are off until the roc-golem migration lands: the Golem runtime this deploys is parked
+# in `devops/legacy/`, and its agents are retired. The job is kept intact for the move to the Roc
+# platform; deploy by dispatching this workflow by hand when needed.
+name: Deploy Golem Backend (legacy, manual)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'agents/**'
-      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:

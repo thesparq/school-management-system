@@ -27,9 +27,14 @@ docker build -f Dockerfile.app -t school-app .
 docker run --rm -p 8000:8000 --env-file devops/.env school-app
 ```
 
-Environment (see `.env.example`): `SURREAL_USER`/`SURREAL_PASS` (shared with the `surrealdb`
-service), `AUTHENTIK_ISSUER_URL` for token validation, `AUTHENTIK_SERVICE_ACCOUNT_TOKEN` for creating
-logins, `AUTHENTIK_HOST` for the fallback API URL. `DEV_MODE=false` is set in the compose file and
+Environment: `devops/.env.example` lists every name this file interpolates, grouped by service; the
+`app` service takes `SURREAL_USER`/`SURREAL_PASS` (shared with the `surrealdb` service),
+`AUTHENTIK_ISSUER_URL` and `AUTHENTIK_USERINFO_URL` for token validation,
+`AUTHENTIK_SERVICE_ACCOUNT_TOKEN` for the login writes, `AUTHENTIK_HOST` for the fallback API URL,
+and the five `R2_*` values for passport-photo uploads. Without all five `R2_*` values
+`/api/upload-url` answers 503 naming the ones that are missing — that is how a misconfigured deploy
+reports itself, so it is worth checking after a first deploy. `roc-backend/.env.example` is the same
+names for running the backend on its own. `DEV_MODE=false` is set in the compose file and
 is what turns the local auth bypass off — never run the deployed app with it on.
 
 **Authentik**: the frontend is a public PKCE client and sends `redirect_uri = <origin>/auth/callback`, so

@@ -30,6 +30,15 @@ services:
     - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL:-https://auth.johnethel.school/application/o/userinfo/}
     - AUTHENTIK_API_TOKEN=${AUTHENTIK_SERVICE_ACCOUNT_TOKEN:-}
     - AUTHENTIK_HOST=${AUTHENTIK_HOST:-auth.johnethel.school}
+    # Cloudflare R2 holds the passport photos. Compose passes into a container only the variables its
+    # own `environment:` names — Infisical/Dokploy interpolation alone does not — so all five are
+    # listed here. They default to empty so a missing value stays a 503 from `/api/upload-url` that
+    # names it, rather than a compose error.
+    - R2_ENDPOINT_URL=${R2_ENDPOINT_URL:-}
+    - R2_BUCKET_NAME=${R2_BUCKET_NAME:-}
+    - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+    - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+    - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
     labels:
     - traefik.enable=true
     - traefik.docker.network=dokploy-network
@@ -73,7 +82,8 @@ services:
     - dokploy-network
     restart: unless-stopped
     volumes:
-    - ./devops/element/config.json:/app/config.json:ro
+    # Relative paths in this file resolve against its own folder, `devops/`, not the folder `docker compose` runs from — the same rule the app's `context: ..` relies on; check with `docker compose -f devops/docker-compose.yml config`.
+    - ./element/config.json:/app/config.json:ro
   opencloud:
     command: server
     environment:
@@ -197,7 +207,7 @@ services:
     restart: unless-stopped
     volumes:
     - synapse_data:/data
-    - ./devops/matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
+    - ./matrix-config/homeserver.yaml:/config/homeserver.yaml:ro
   synapse-postgresql:
     environment:
       POSTGRES_DB: synapse
