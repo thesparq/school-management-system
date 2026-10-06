@@ -677,6 +677,16 @@ no editable control). Suites: `users_api.sh` 77/77 (44 checks added), `authz.sh`
 `assessment_flow.sh` 41/41, `e2e_users_directory.cjs` 17/17, `e2e_admin.cjs` 5/5, `e2e_loading.cjs` 20/20,
 `e2e_admin_config.cjs` 53/53.
 
+**Independently re-verified** on its own fresh sandbox at `5ecdf58`: all ten checks reproduced —
+the allocation numbers and the unmoved counters on refused creates (validation and database alike), the
+reuse rule in both staff directions plus the fresh-`JES-` and fresh-`EMP-` transitions, the immutability
+400s in both spellings, a hand-written duplicate refused by `idx_student_admission`, three parallel
+creates drawing 6, 7, 8, `JES-1000000` from a counter of 999999, the read-only table cell, the
+fixture-vs-v8 statement match, all thirteen suites (again `users_api.sh` 77/77), and every sentence of
+the docs — plus the negative: with the v8 field dropped, a create fails exactly as the docs say
+("Found field 'admission_number', but no such field exists"), the counter unmoved and the login rolled
+back.
+
 **Two boundaries, both by design**: numbers on two staff tables cannot carry one global unique index, so
 cross-table uniqueness rests on the shared counter and the reuse rule being the only allocators (hand-written
 SQL could still put one number on a teacher and an admin); and when Authentik is unreachable the listing
