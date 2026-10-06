@@ -83,6 +83,9 @@
     }
 
     async function startAuthFlow() {
+        // Remember where the user was so the login round-trip returns them there, instead of always
+        // landing on `/` after the callback.
+        sessionStorage.setItem('pre_auth_path', window.location.pathname);
         const codeVerifier = generateCodeVerifier();
         const codeChallenge = await generateCodeChallenge(codeVerifier);
         sessionStorage.setItem('pkce_code_verifier', codeVerifier);
@@ -190,6 +193,13 @@
         finalToken = await exchangeCodeForToken(authCode);
         if (finalToken) {
             localStorage.setItem('auth_token', finalToken);
+            // The login round-trip should land back where the user was (see startAuthFlow), so the
+            // app boots on the page they were reading rather than the dashboard.
+            const backTo = sessionStorage.getItem('pre_auth_path');
+            if (backTo && backTo !== CALLBACK_PATH) {
+                window.history.replaceState(null, null, backTo);
+            }
+            sessionStorage.removeItem('pre_auth_path');
         }
     } else if (window.location.hash.includes('access_token=')) {
         // Legacy implicit flow fallback

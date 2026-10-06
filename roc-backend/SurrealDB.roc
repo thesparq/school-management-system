@@ -47,25 +47,38 @@ SurrealDB := [].{
         }
     }
 
-    # A read that answers a connection-level failure by retrying once. The deployed stack drops the
-    # idle keep-alive between the app and `surrealdb:8000` (docker bridge NAT), so the first request
-    # after a pause fails at the socket and the retry opens a fresh connection — without this, the
-    # read-handler answers the user's first load with a "Database error" 500 and their Retry click
-    # (a new connection) works. Reads only, never writes: a write whose response was lost must not
-    # be re-sent and applied twice. The first failure is logged so `docker logs` shows it happening.
+    # A read that answers a failure with one retry. The deployed stack can drop the idle keep-alive
+    # between the app and `surrealdb:8000` (docker bridge NAT), so the first request after a pause can
+    # fail at the socket — and SurrealDB itself can answer non-200 briefly (its own 5xx under a burst).
+    # A read retried after either is harmless: the same statement answers the same rows. A write whose
+    # response was lost must never be re-sent and applied twice, so writes keep `query!`. Every failed
+    # attempt is logged with its kind, so `docker logs` shows which half it was.
     query_read! : Str, Config => [Ok(Str), Err([HttpErr, JsonErr, SurrealErr(Str)])]
     query_read! = |sql, config| {
         match query!(sql, config) {
-            Err(HttpErr) => {
-                log!("read to SurrealDB failed at the connection; retrying once: ${sql}")
+            Ok(_) => query!(sql, config)
+            Err(JsonErr) => Err(JsonErr)
+            Err(err) => {
+                log!("read to SurrealDB failed (${describe_error!(err)}); retrying once: ${sql}")
                 retried = query!(sql, config)
                 match retried {
-                    Err(_) => log!("read retry also failed: ${sql}")
+                    Err(JsonErr) => {}
+                    Err(retried_err) => log!("read retry also failed (${describe_error!(retried_err)}): ${sql}")
                     Ok(_) => {}
                 }
                 retried
             }
-            other => other
+        }
+    }
+
+    # What one error actually was, for the logs: a connection failure, an unparseable body, or
+    # SurrealDB's own message.
+    describe_error! : [HttpErr, JsonErr, SurrealErr(Str)] => Str
+    describe_error! = |err| {
+        match err {
+            HttpErr => "connection"
+            JsonErr => "unparseable body"
+            SurrealErr(body) => "SurrealDB: ${body}"
         }
     }
 
