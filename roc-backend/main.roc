@@ -777,19 +777,31 @@ update_text_clause! = |field, payload_raw| {
 # class level must exist and a date of birth must look like YYYY-MM-DD. Email is validated here but
 # not written — no profile table declares an `email` column (its home is the Authentik login, per the
 # identity/profile split), so the handler patches Authentik with it after these clauses pass.
-# `creating` says the row is not there yet, so this payload is all there is to build it from and a
-# display name it does not carry is derived from the name parts. An existing row keeps the display
-# name it has when the payload leaves it out: that is a patch, not a rewrite.
-update_clauses! : Str, Str, Bool, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
-update_clauses! = |table, payload_raw, creating, config| {
+update_clauses! : Str, Str, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
+update_clauses! = |table, payload_raw, config| {
     display_name = extract_field(payload_raw, "display_name") |> sanitize
+    first_name = extract_field(payload_raw, "first_name") |> sanitize
+    surname = extract_field(payload_raw, "surname") |> sanitize
     name_val = extract_field(payload_raw, "name") |> sanitize
     email = extract_field(payload_raw, "email") |> sanitize
     date_of_birth = extract_field(payload_raw, "date_of_birth") |> sanitize
     class_level = extract_field(payload_raw, "class_level") |> sanitize
     misplaced = misplaced_update_fields(table, payload_raw)
+
+    # `display_name` is derived from the name parts, so it follows them: written as sent when the
+    # payload carries it, and otherwise derived the create path's way whenever the payload carries
+    # both parts. That is what makes the completing form's typed name show up even when the row it is
+    # completing already exists (a profile that was soft-deleted and is being filled in again). A patch
+    # that carries half a name — a surname alone, a passport — leaves the stored display name alone
+    # rather than building one out of half a payload.
     display_name_value =
-        if Str.is_empty(display_name) and creating { display_name_from!(payload_raw) } else { display_name }
+        if !Str.is_empty(display_name) {
+            display_name
+        } else if Str.is_empty(first_name) or Str.is_empty(surname) {
+            ""
+        } else {
+            display_name_from!(payload_raw)
+        }
 
     # `display_name` exists on every table. A parent's one name is stored in two columns, `name`
     # and `display_name`, which the create path sets to the same value — so the parent branch
@@ -2126,7 +2138,7 @@ respond! = |request, context| {
                                 match fields_res {
                                     Err(message) => Ok(json_response(400, "{\"error\":\"${message}\"}")),
                                     Ok(_) =>
-                                        match update_clauses!(table, payload_raw, creating, context.surreal) {
+                                        match update_clauses!(table, payload_raw, context.surreal) {
                                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                                             Ok(clauses) => {
                                                 all_clauses = List.concat(clauses, create_only_clauses!(table, payload_raw, creating))

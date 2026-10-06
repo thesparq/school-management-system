@@ -6,14 +6,20 @@
 // session term.
 //
 //   node tests/e2e/e2e_loading.cjs
+//
+// The fixture's Authentik seeds a login per role, so every tab has at least one row and none is empty
+// on its own: the empty state is observed on a tab whose payload is faked empty for one click (the
+// same route interception the 500 case uses), which is what makes it a state of the list rather than
+// an accident of the fixture.
 
 const { chromium } = require('playwright');
 
 const appUrl = process.env.APP_URL || 'http://127.0.0.1:8000';
-// The users endpoints are held back so the skeleton is observable, and later made to answer 500 with
-// the API's own error shape.
+// The users endpoints are held back so the skeleton is observable, later made to answer 500 with the
+// API's own error shape, and one role's list is made to answer as loaded-and-empty.
 const USERS_DELAY_MS = 800;
 const FAILURE_BODY = { error: 'Database error', detail: 'the users query failed' };
+const EMPTY_BODY = [{ result: [], status: 'OK' }];
 
 const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const token = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
@@ -36,11 +42,16 @@ const waitFor = (fn, timeout = 5000) => fn().then(() => true).catch(() => false)
   page.on('pageerror', e => errors.push(e.message.slice(0, 80)));
 
   let usersFail = false;
+  // The role whose tab answers an empty list, so the loaded-and-empty state is observable on demand.
+  let emptyRole = null;
   await page.route('**/api/**', async route => {
     const url = route.request().url();
     if (url.includes('/api/users?role=')) {
       if (usersFail) {
         return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify(FAILURE_BODY) });
+      }
+      if (emptyRole && url.includes(`/api/users?role=${emptyRole}`)) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(EMPTY_BODY) });
       }
       await new Promise(r => setTimeout(r, USERS_DELAY_MS));
     }
@@ -101,10 +112,21 @@ const waitFor = (fn, timeout = 5000) => fn().then(() => true).catch(() => false)
   await page.click('button:has-text("Teachers")');
   check('the border bar shows for a tab switch', await waitFor(barVisible));
   check('the border bar goes away once the switch has rendered', await waitFor(barHidden));
-  await page.waitForSelector('text=No teachers yet', { timeout: 20000 }).catch(() => {});
-  check('the switched-to tab shows its own list', await hasText('No teachers yet') && !(await hasText('Test Student')));
-  check('a loaded-and-empty list shows a real empty state', await hasText('Add a teacher above to get started'));
+  // The fixture's directory seeds a teacher login, so this tab has a row of its own — not the
+  // students' — and the list it shows is the one the switch asked for.
+  await page.waitForSelector('text=Seed Teacher', { timeout: 20000 }).catch(() => {});
+  check('the switched-to tab shows its own list', (await hasText('Seed Teacher')) && !(await hasText('Test Student')));
+
+  // --- A loaded-and-empty list: the three states again, with the empty one faked ---
+  // Every tab of the fixture's directory has a row, so the empty state is forced on one tab for this
+  // click instead of waiting for a tab that happens to be empty.
+  emptyRole = 'Parent';
+  await page.click('button:has-text("Parents")');
+  await page.waitForSelector('text=No parents yet', { timeout: 20000 }).catch(() => {});
+  check('a loaded-and-empty list shows a real empty state',
+    (await hasText('No parents yet')) && (await hasText('Add a parent above to get started.')));
   check('no loading message after the tab switch', !(await hasText('Loading')));
+  emptyRole = null;
 
   // --- /api/users answering 500: an error state naming what failed, with a retry ---
   usersFail = true;
@@ -121,10 +143,12 @@ const waitFor = (fn, timeout = 5000) => fn().then(() => true).catch(() => false)
   check('a failed list leaves no loading message behind', !(await hasText('Loading')));
 
   // --- The retry, with the endpoint healthy again, loads the list ---
+  // The user-management tab the error was seen on is still the active one (Parents), and its empty
+  // payload was only the route interception above, so the retry has to show the seeded parent row.
   usersFail = false;
   await page.click('#app button:has-text("Retry")');
-  await page.waitForSelector('text=No teachers yet', { timeout: 20000 }).catch(() => {});
-  check('the retry loads the list', await hasText('No teachers yet') && !(await hasText('the users query failed')));
+  await page.waitForSelector('text=Seed Parent', { timeout: 20000 }).catch(() => {});
+  check('the retry loads the list', (await hasText('Seed Parent')) && !(await hasText('the users query failed')));
 
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 

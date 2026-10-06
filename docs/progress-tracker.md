@@ -516,7 +516,17 @@ a patch, an incomplete payload is a 400 naming the missing field, `DELETE` then 
 modes, the completed row becoming a normal row, the teachers tab, no page errors.
 
 The fixture's directory now starts with one login per role plus two that belong to no role (`seed_user`), and
-its created logins carry `groups_obj: []` the way Authentik's own API does.
+its created logins carry `groups_obj: []` the way Authentik's own API does — and a **numeric** pk, the shape
+the real API sends, because a mock that only ever sends string pks is what hid the two bugs below.
+
+**The suites** (`tests/e2e/`, sandbox 8212/9212/8312, fresh fixture): `users_api.sh` **54/54** (28 existing +
+26 for the directory listing and the completing write, run twice on one sandbox), `e2e_users_directory.cjs`
+**17/17** (new; the badge, the form switching modes, the write being a `PUT` about that login with no email,
+the row becoming normal; run twice), `e2e_loading.cjs` **20/20** (its four stale checks asserted the Teachers
+tab was empty — every tab has a seeded row now, so the empty state is faked for one tab through the route
+interception it already used for the 500 case), `e2e_admin.cjs` 5/5, `e2e_admin_config.cjs` 53/53,
+`e2e_student.cjs` 7/7, `authz.sh` 27/27. `roc check main.roc` 0 errors / 3 warnings, `roc check app.roc` 0
+errors.
 
 **Two bugs the sandbox had been hiding, both about the shape of a pk.** Authentik sends a login's `pk` as a
 *number* (`"pk":13`) and puts it first in the object; the group objects that follow carry a string `pk` of
@@ -537,6 +547,12 @@ a row made by the create path could not be joined to its login. The fixture's cr
 pks too, so this class of bug cannot hide in the sandbox again. A profile-less row also carries the login's
 `username`, which is what the page shows when a login has no name at all — two of the real directory's are
 named only by their username.
+
+One more thing the tests had to learn: a pk that looks like a number is still a *string* id part, so a raw
+SurrealQL statement has to spell it `type::record('student_profile','14')` the way `record_ref!` does —
+`student_profile:14` in a statement is a number part, a different record from the one the app writes.
+`users_api.sh` builds its ids through a `rid` helper now, and reads a created row's pk out of the listing
+(or strips the quotes SurrealDB puts on it in a write's own answer).
 
 ---
 

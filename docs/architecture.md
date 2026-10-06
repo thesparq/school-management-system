@@ -84,6 +84,10 @@ file stale. What belongs here is the shape and the rules:
 - **Record links, not strings**: a filter on a link column must compare against a record literal
   (`record_ref!` / `type::record('<table>','<id>')`). A quoted string never matches — verified: quoted → 0 rows,
   record → 225 rows.
+- **Ids are written `table:pk`**, and a pk that looks like a number is still a *string* id part. SurrealDB
+  renders such a part back to us quoted (``student_profile:`14``) in a write's own answer, so `bare_id` strips
+  the quotes: a write response's id and a listing's id name the same record, and PUT/DELETE accept either
+  spelling. The listings normalize what they emit (`student_profile:14`).
 - **`SCHEMAFULL` means what it says**: a field (or sub-field, e.g. `answers[*].allocated_mark`) that is not
   declared is rejected, and the statement's error arrives inside an HTTP 200 body.
 - **Soft deletes**: `deleted_at`, with listings filtering `deleted_at IS NONE`.
@@ -100,6 +104,11 @@ file stale. What belongs here is the shape and the rules:
    belong to Authentik and are *read from it*, not copied into SurrealDB; school attributes (class level, date
    of birth, passport, role title, enrolment) belong to the profile tables. The two are joined by the Authentik
    pk. Writes act on the owner first — creating a user creates the login, then the profile row.
+   The two sides are also *listed* together: the user listing is the union of a role's profile rows and the
+   logins the directory puts in that role, so a user an admin created in Authentik appears (marked
+   `has_profile:false`, with the login's own name, email and enabled state) before any school data exists, and
+   `PUT` attaches the profile row to that login. A login in no role group — an outpost, a service account —
+   belongs to no tab and is listed nowhere.
 2. **A write must report what the database did.** SurrealDB answers HTTP 200 with `"status":"ERR"` in the body
    when a statement fails, so every write goes through `db_body!` / `db_response!` and a failure answers 500
    with the statement's own message. Trusting the status is how a rejected write gets reported as success.
