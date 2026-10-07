@@ -172,6 +172,18 @@ serves **spaced** JSON like the real one, and `matrix_token.sh` (24 checks) prov
 `mock-student-token`'s `sub` lands in the Synapse caller id as
 `%40mock_uuid_student%3Amatrix.johnethel.school`.
 
+**Follow-up 5 (2026-10-07) — the id is Authentik's hashed subject**: once the extractor was
+fixed, the deployed user id became `@addd0ec45fbe…07145a:matrix.johnethel.school` — 64 hex
+chars, Authentik's hashed `sub`. That is the account's stable identity (the same key the app
+writes `created_by`/`student_id` with), so it is kept as the Matrix id; it is not the blocker.
+The remaining deployed error, `Matrix create user failed (HTTP 401: Invalid access token
+passed.)`, is Synapse rejecting `MATRIX_ADMIN_TOKEN` itself (401 = not a recognised token; a
+non-admin token would be 403) — the operator must mint a fresh one via
+`devops/generate_matrix_admin.sh`. The chat UI also rendered the raw localpart for senders; it
+now loads the room's member list on open and shows display names, falling back to the localpart
+(Matrix ids are opaque by design — the display name is what people see, and the backend already
+sets it from the user's own name on every ensure).
+
 ### Resolved — the app runs the full student flow against prod
 
 Two independent causes, both found and fixed:

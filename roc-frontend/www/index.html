@@ -1991,7 +1991,7 @@
     // MATRIX / SYNAPSE MESSAGING
     // ========================================================
 
-    let _matrixClient = { token: null, homeserver: null, nextBatch: null };
+    let _matrixClient = { token: null, homeserver: null, nextBatch: null, members: {} };
     let _matrixRefreshingToken = false;
     // The minted token is cached for the tab session: every visit sends it back as X-Matrix-Token,
     // the proxy validates it against the homeserver and reuses it, and a fresh token (a fresh
@@ -2337,6 +2337,21 @@
         if (nameEl) nameEl.textContent = "# " + name;
         if (messagesEl) messagesEl.innerHTML = '<div class="text-center text-muted-foreground text-sm py-4">Loading messages...</div>';
 
+        // Display names for this room, so messages show real names rather than the raw user id
+        // (`@addd0ec4…:matrix.johnethel.school`) — the localpart is the account's opaque key.
+        _matrixClient.members = {};
+        try {
+            const membersRes = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/members`, {
+                headers: matrixAuthHeaders()
+            });
+            if (membersRes.ok) {
+                const membersData = await membersRes.json();
+                (membersData.chunk || []).forEach(m => {
+                    if (m.user_id) _matrixClient.members[m.user_id] = m.displayname || "";
+                });
+            }
+        } catch(e) { /* members are a nicety; messages still render */ }
+
         // Load recent messages
         try {
             const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=50`, {
@@ -2360,7 +2375,9 @@
         filtered.forEach(event => {
             const div = document.createElement("div");
             div.className = "flex flex-col gap-0.5";
-            const sender = event.sender?.split(":")[0]?.replace("@", "") || "Unknown";
+            // Real names come from the room's member state; the localpart is only a fallback.
+            const display = (event.sender && _matrixClient.members[event.sender]) || "";
+            const sender = display || event.sender?.split(":")[0]?.replace("@", "") || "Unknown";
             const body = event.content?.body || "";
             const time = event.origin_server_ts ? new Date(event.origin_server_ts).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "";
             div.innerHTML = `
