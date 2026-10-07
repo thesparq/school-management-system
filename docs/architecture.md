@@ -106,7 +106,10 @@ file stale. What belongs here is the shape and the rules:
   twice), a create that never set its password is rolled back (the value is gone by design), and a
   delete finishes the half that was left. Anything that cannot be settled stays visible as a
   `failed` row with its message (`GET /api/users/pending`). The password itself is never journaled,
-  stored or logged — only a `wants_password` flag.
+  stored or logged — only a `wants_password` flag. This journal is the write-side record a future
+  event stream would be built from; **CQRS/event sourcing is deliberately not in use** — the
+  retired stack's `EventStore.roc` stub was removed — and the decision is deferred to the roc-golem
+  design.
 - **School numbers are the person's school identity, and what is stored is the integer alone.**
   `student_profile.admission_number` and `staff_id` on `teacher_profile` and `admin_profile` hold an
   `option<int>` — no prefix, no padding — drawn from one counter per class of member in `id_sequences`
