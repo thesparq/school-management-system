@@ -917,7 +917,46 @@ the password replays the profile from the journal (new school number, `done`, ro
 delete interrupted between the two sides is finished by the reconciler; `pending`/`reconcile` are
 403 for non-admin; `users_api.sh` 94/94 (was 87), `authz.sh` 27/27, `assessment_flow.sh` 41/41.
 The frontend half (password field + Generate + Copy credentials, working row actions, richer
-columns) follows as the next unit.
+columns) is done — the section below.
+
+### User management's frontend half — done (2026-10-07)
+
+The backend half (passwords, activate, the journal) shipped above; this is the form and the row
+actions the admin actually uses, plus the two small backend fixes the form exposed.
+
+- **The create form carries an optional password**, with a Generate button (the page's own generator — Roc has
+  no random source — answers through the rendered input's input event, exactly like typing). A create that
+  carried one comes back as a **one-time credentials panel**: the email and the password, shown once with a
+  Copy button (`copy_to_clipboard` port; plain-http origins fall back to execCommand) and cleared the moment
+  the form starts another write. The password is never stored anywhere (the backend journal marks only its
+  presence) and bad ones stay refused (8-72 chars, no line breaks).
+- **The row actions work.** Edit loads the row into the form above (prefilled from the row's own listing
+  line; the submit is the same PUT, patching), Deactivate soft-deletes the profile and disables the login
+  (DELETE /api/users), and the toggle follows the login's true state — a row whose login is off offers
+  Activate (POST /api/users/activate) instead. A profile-less row still offers exactly Complete profile (its
+  one action).
+- **The payload mirrors what the form shows.** `role_title` rides only an Admin write — it is a column of
+  `admin_profile` alone, and a carried non-column field is a 400 on the backend, which the first Edit of a
+  student row hit because fixture rows carry a stray flex `role_title`. And the parent completing path was
+  unblocked on the backend: `misplaced_update_fields` refused first/middle/surname for `parent_profile` even
+  though its own attach validation demands them and `update_clauses!` derives the parent's single `name`
+  from them. A parent attached through the form now lands with the derived name ("Ada Okeke"), locked by two
+  new `users_api.sh` checks.
+- The richer listing columns (school number, status) were already in from the backend half; the row line
+  now also carries first/middle/surname/date_of_birth/current_class/role_title/passport for Edit's prefill.
+
+**Verified** (`roc check main.roc` 0 errors; `roc check app.roc` 0 errors; sandbox 8322): `e2e_admin.cjs`
+9/9 (new: Generate fills a 16-char password; the panel hands over `email\npassword` and the clipboard holds
+it), `e2e_users_directory.cjs` 23/23 (new: activate re-enables and flips the toggle to Deactivate;
+Edit-prefill → Save changes → `User updated` and the row shows the edited surname), `e2e_loading.cjs` 20/20
+(retry check now keys on the login's address, so a users_api.sh run that leaves the seed parent completed
+cannot trip it), `e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96 (was 94; +2 parent-completing),
+`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+**Still open**: `e2e_admin_config.cjs`'s curriculum create is not re-runnable on one long-lived sandbox — the
+JSS 2 + Agricultural Science link it adds collides on the unique index with the link an earlier run left
+behind (every other create in the suite stamps its name). It passes on a fresh fixture; re-running needs
+that leftover edge deleted, or the create stamped like the rest.
 
 ---
 

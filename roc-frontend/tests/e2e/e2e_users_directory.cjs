@@ -6,8 +6,9 @@
 // The login this drives is one the fixture's Authentik starts with, and the fixture's database seeds
 // no profile row for it. A previous run (or users_api.sh) leaves one behind, so a profile is deleted
 // first: the tab then lists the bare login again, which is the state this suite covers. That delete
-// switches the mock login off, the way a delete does — nothing here reads the enabled state, so the
-// suite runs again and again against the same sandbox.
+// also switches the mock login off, the way a delete does — and the suite now reads that enabled
+// state, because the row's second action is the login's true one (Activate while it is off,
+// Deactivate once it is back on).
 //
 //   node tests/e2e/e2e_users_directory.cjs
 
@@ -160,12 +161,51 @@ const summary = () => {
   check("it shows the profile's own name, not the directory's", completedName !== '' && completedName !== directoryName, completedName);
   check("and the login's address is still its email", (await completedRow.innerText()).includes(LOGIN_EMAIL));
   const completedActions = await completedRow.locator('button').allInnerTexts();
-  check('with Edit and Deactivate back', completedActions.join(',') === 'Edit,Deactivate', JSON.stringify(completedActions));
+  // The suite's own delete up top left the mock login off, so the completed row carries the login's
+  // true state: its second action is Activate (Deactivate would be the wrong offer for an account
+  // that is already off). The row a completely fresh sandbox would show lists Deactivate instead;
+  // either is correct, the toggle has to follow the login.
+  check('with Edit and the login\'s true toggle back',
+    completedActions.length === 2 && completedActions[0] === 'Edit' && ['Deactivate', 'Activate'].includes(completedActions[1]),
+    JSON.stringify(completedActions));
+
+  // --- The completed row's own actions: the toggle first (re-enable the login the delete turned off), ---
+  // --- then edit-and-save through the form ---
+  await page.waitForFunction((email) => {
+    const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+    if (!r) return false;
+    const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
+    return labels.join(',') === 'Edit,Activate';
+  }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
+  await row(LOGIN_EMAIL).locator('button', { hasText: 'Activate' }).click();
+  await page.waitForSelector('text=User activated', { timeout: 20000 }).catch(() => {});
+  check('activating re-enables the login', await hasText('User activated'));
+  await page.waitForFunction((email) => {
+    const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+    if (!r) return false;
+    const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
+    return labels.join(',') === 'Edit,Deactivate';
+  }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
+  check('the row now offers Deactivate', (await row(LOGIN_EMAIL).locator('button').allInnerTexts()).join(',') === 'Edit,Deactivate');
+
+  // Edit loads the row into the form above — prefilled, the same PUT as completing — and Save
+  // changes patches it. The email stays the login's own and disabled; the school fields are editable.
+  await row(LOGIN_EMAIL).locator('button', { hasText: 'Edit' }).click();
+  await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Edit User', null, { timeout: 10000 }).catch(() => {});
+  check('Edit loads the form with its own labels', (await cardTitle()) === 'Edit User', await cardTitle());
+  check('with the login\'s address still disabled',
+    await page.locator('input[type="email"]').evaluate((el, email) => el.disabled && el.value === email, LOGIN_EMAIL));
+  const editedSurname = `Edited${stamp % 10000}`;
+  await fill('e.g. Musa', editedSurname);
+  await page.click('text=Save changes');
+  await page.waitForSelector('text=User updated', { timeout: 20000 }).catch(() => {});
+  check('the edit reports User updated', await hasText('User updated'));
+  await page.waitForFunction((name) => [...document.querySelectorAll('#app table tbody tr')].some(r => r.innerText.includes(name)), editedSurname, { timeout: 20000 }).catch(() => {});
+  check('the row shows the edited surname', await hasText(editedSurname));
 
   // --- The form is ready for the next account again ---
   check('the form returns to Add New User',
     (await cardTitle()) === 'Add New User' && await page.locator('input[type="email"]').evaluate(el => !el.disabled && el.value === ''));
-
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 
   await browser.close();

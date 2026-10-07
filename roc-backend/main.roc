@@ -1129,7 +1129,14 @@ misplaced_update_fields = |table, payload_raw| {
 
     List.keep_if(known_update_fields, |field| {
         carried = carries_field(payload_raw, field)
-        carried and !List.contains(columns, field)
+
+        # A parent's name arrives as the three parts the form sends (first/middle/surname) and the
+        # update path derives the profile's single `name` column from them (see update_clauses!):
+        # the attach validation even demands first_name and surname. They are inputs, not columns,
+        # so they must not be refused as misplaced.
+        parent_name_part = table == "parent_profile" and List.contains(["first_name", "middle_name", "surname"], field)
+
+        carried and !parent_name_part and !List.contains(columns, field)
     })
 }
 

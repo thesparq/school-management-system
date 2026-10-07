@@ -331,6 +331,19 @@ P_PK=$(pk_of "$P_CREATE")
 check "a parent is created without a number" "$(listing Parent | row_of "$P_PK")" '"school_number":""'
 check "and neither counter moved for them" "$(counter student),$(counter staff)" "$NUM_TWO,$STAFF_TWO"
 
+# --- 16b. a profile-less parent login is completed the way the form sends it ---
+# The Parents tab's Complete profile form sends the name as the three parts (first/middle/surname),
+# which the backend derives the profile's single `name` column from. The fixture seeds one parent login
+# with no profile row; a profile left by an earlier run would hide that state, so it is dropped first.
+P_SEED_EMAIL="seed-parent@example.com"
+P_SEED_ID=$(listing Parent | row_where email "$P_SEED_EMAIL" | field_of id)
+P_SEED_PK=${P_SEED_ID#parent_profile:}
+P_SEED_REF=$(rid parent_profile "$P_SEED_PK")
+if [ -n "$P_SEED_ID" ]; then db_query "DELETE ${P_SEED_REF};" > /dev/null; fi
+P_FORM=$(curl -s -w ' HTTP %{http_code}' -X PUT "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"$P_SEED_ID\",\"first_name\":\"Ada\",\"middle_name\":\"\",\"surname\":\"ParentForm${STAMP}\",\"passport\":\"https://example.com/form-parent.jpg\"}")
+check "completing a parent from the form's payload is a 200" "$P_FORM" "HTTP 200"
+check "and the row carries the derived name" "$(listing Parent | row_of "$P_SEED_PK")" "\"display_name\":\"Ada ParentForm${STAMP}\""
+
 # --- 17. passwords: set at create, reset, and the activate restore ---
 # The mock records every set_password call (GET $MOCK/password_sets), so these checks prove the
 # backend actually talked to Authentik — the real deploy needs a smoke test with the live token.

@@ -1,5 +1,7 @@
 // Admin user management against a *sandbox* backend (see README.md): creates a student through the form,
-// checks the new account shows up, and checks a validation error reaches the UI.
+// checks the new account shows up, and checks a validation error reaches the UI. The create now carries
+// a generated password: Generate fills the field, the create lands, and the one-time credentials panel
+// hands over the address and the (once-visible) password with a copy button.
 //
 //   node tests/e2e/e2e_admin.cjs
 
@@ -21,6 +23,9 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 (async () => {
   const browser = await chromium.launch({ channel: 'chromium' });
   const ctx = await browser.newContext();
+  // The copy button uses the async clipboard API; read permission lets the suite verify the
+  // clipboard's contents rather than only the button's feedback.
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: appUrl });
   await ctx.addInitScript(t => localStorage.setItem('auth_token', t), token);
   const page = await ctx.newPage();
   const errors = [];
@@ -42,9 +47,29 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.selectOption('#new-user-class-level', 'class_levels:jss_2');
   await fill('https://...', 'https://example.com/grace.jpg');
   await page.locator('input[type="date"]').fill('2011-09-14');
+  // The password half of the form: Generate fills the field, and the created account's credentials
+  // come back once, in the panel, with a copy button.
+  await page.click('text=Generate');
+  const generated = await page.locator('#new-user-password-field input').inputValue();
+  check('Generate fills a password field', generated.length >= 12, `len=${generated.length}`);
   await page.click('text=Create User');
   await page.waitForSelector('text=User created', { timeout: 20000 }).catch(() => {});
   check('form submit reports success', await page.evaluate(() => document.body.innerText.includes('User created')));
+  const panelText = await page.evaluate(() => {
+    const els = [...document.querySelectorAll('#app div')];
+    const panel = els.find(d => d.innerText && d.innerText.includes('copy the credentials to hand over') && d.querySelector('button'));
+    return panel ? panel.innerText : '';
+  });
+  check('the credentials panel hands over the account once',
+    panelText.includes(`grace${stamp}@example.com`) && panelText.includes(generated), '');
+  await page.click('text=Copy credentials');
+  await page.waitForSelector('text=Copied!', { timeout: 5000 }).catch(() => {});
+  check('copy reports Copied', await page.evaluate(() => document.body.innerText.includes('Copied!')));
+  const clip = await page.evaluate(async () => {
+    try { return await navigator.clipboard.readText(); } catch (e) { return ''; }
+  });
+  check('the clipboard holds the address and the password',
+    clip === `grace${stamp}@example.com\n${generated}`, JSON.stringify(clip));
   await page.waitForTimeout(2500);
   check('created student appears in the table', await page.evaluate((s) => document.body.innerText.includes(s), surname));
 

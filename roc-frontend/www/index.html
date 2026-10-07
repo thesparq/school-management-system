@@ -343,6 +343,21 @@
             window.location.href = AUTH_HOST + "/application/o/school-management-system/end-session/?post_logout_redirect_uri=" + encodeURIComponent(back);
         });
 
+        // Port: generate_password — the Add User form's Generate button. The generator lives on the
+        // page (Roc has no random source), and the value reaches the model through the input event,
+        // exactly like a typed password: fill the rendered input and let the app's own listener pick
+        // it up.
+        app.onPort("generate_password", () => {
+            setUserPassword(generatePassword());
+        });
+
+        // Port: copy_to_clipboard — the one-time credentials panel's Copy button (and anything else
+        // that hands a value to the clipboard). The tiny feedback line lives next to the button and
+        // is the page's own DOM, so the copy result can be shown without an app round trip.
+        app.onPort("copy_to_clipboard", (text) => {
+            copyTextToClipboard(String(text || ""));
+        });
+
         // The avatar menu closes on a click anywhere outside it. The app owns whether it is open
         // (`userMenuOpen`), so the page only reports the outside click through the hidden input.
         document.addEventListener("click", (e) => {
@@ -447,18 +462,24 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number. The id is what "Complete profile" sends back (PUT
-    // /api/users resolves the profile table from it), and has_profile false marks a login the
-    // directory lists that the profile tables have nothing for — a user the admin made in Authentik.
-    // The login's username is the last fallback for its name: a login created with nothing but a
-    // username has no name at all, and without the fallback two such rows read "Unknown".
-    // school_number is the backend's rendered form (`JES-000123`, `EMP-000045`), or "" for a row
-    // without one (a parent, a login with no profile yet): the page shows it and never builds it, so
-    // the prefix lives in one place.
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport.
+    // The first six fields are what the table renders today; the last seven are what the row's Edit
+    // action loads into the form above (the backend's PUT patches the row, so the form has to start
+    // with the values that are there). date_of_birth arrives with a time on it, but the form's date
+    // input wants the bare day, so only the YYYY-MM-DD part is carried. The id is what "Complete
+    // profile" and Edit send back (PUT /api/users resolves the profile table from it), and
+    // has_profile false marks a login the directory lists that the profile tables have nothing for —
+    // a user the admin made in Authentik. The login's username is the last fallback for its name: a
+    // login created with nothing but a username has no name at all, and without the fallback two such
+    // rows read "Unknown". school_number is the backend's rendered form (`JES-000123`, `EMP-000045`),
+    // or "" for a row without one (a parent, a login with no profile yet): the page shows it and
+    // never builds it, so the prefix lives in one place.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
-            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "");
+            return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "")
+                + "|" + (u.first_name || "") + "|" + (u.middle_name || "") + "|" + (u.surname || "")
+                + "|" + String(u.date_of_birth || "").slice(0, 10) + "|" + (u.current_class || "") + "|" + (u.role_title || "") + "|" + (u.passport || "");
         });
     }
 
@@ -781,6 +802,64 @@
         if (!input) return;
         input.value = url;
         input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // --- The Add User form's generated password, and the credentials copy ---
+
+    // No look-alikes (no 0/O, 1/l/I), so a password read aloud or typed from a slip of paper is
+    // unambiguous — the school hands these over in person.
+    const PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+    function generatePassword(length = 16) {
+        const out = new Uint32Array(length);
+        crypto.getRandomValues(out);
+        let s = "";
+        for (let i = 0; i < length; i++) s += PASSWORD_ALPHABET[out[i] % PASSWORD_ALPHABET.length];
+        return s;
+    }
+
+    // Write a generated password into the form's password field the way a typed one lands: set the
+    // value on the rendered input and dispatch the input event, so the app's on_input picks it up
+    // (the same bridge the passport URL uses).
+    function setUserPassword(value) {
+        const field = document.getElementById("new-user-password-field");
+        const input = field && field.querySelector("input");
+        if (!input) return;
+        input.value = value;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    async function copyTextToClipboard(text) {
+        let ok = false;
+        try {
+            await navigator.clipboard.writeText(text);
+            ok = true;
+        } catch (e) { /* fall through to the legacy path */ }
+        if (!ok) {
+            // An http origin (or an old engine) has no async clipboard API; the hidden-textarea
+            // execCommand path is the fallback.
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
+            document.body.removeChild(ta);
+        }
+        showCopyFeedback(ok ? "Copied!" : "Copy failed — select the text manually");
+    }
+
+    function showCopyFeedback(message) {
+        const el = document.getElementById("copy-credentials-feedback");
+        if (el) el.textContent = message;
+        // Clear it again so the panel does not claim Copied forever; the app re-renders the span
+        // back to empty on any state change, this covers the static case.
+        setTimeout(() => {
+            const again = document.getElementById("copy-credentials-feedback");
+            if (again && again.textContent === message) again.textContent = "";
+        }, 2000);
     }
 
     function setPassportUploadMessage(message, isError) {
