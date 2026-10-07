@@ -129,8 +129,12 @@ def pk_of(path):
     return path[len(USERS_PATH):].strip('/') or None
 
 
-def send(handler, status, payload=None):
-    body = b'' if payload is None else json.dumps(payload, separators=(",", ":")).encode()
+def send(handler, status, payload=None, spaced=False):
+    # The REST API answers compact; the OIDC userinfo endpoint answers spaced ("field": "value")
+    # like the real Authentik, which the backend's text scanners must tolerate.
+    body = b'' if payload is None else (
+        json.dumps(payload) if spaced else json.dumps(payload, separators=(",", ":"))
+    ).encode()
     handler.send_response(status)
     if payload is not None:
         handler.send_header('Content-Type', 'application/json')
@@ -179,7 +183,7 @@ class MockHandler(BaseHTTPRequestHandler):
             if body is None:
                 send(self, 401, {'detail': 'Invalid token.'})
             else:
-                send(self, 200, body)
+                send(self, 200, body, spaced=True)
         elif parsed.path.rstrip('/') == '/password_sets':
             send(self, 200, password_sets)
         elif pk_of(parsed.path) is None and parsed.path.rstrip('/') == USERS_PATH.rstrip('/'):

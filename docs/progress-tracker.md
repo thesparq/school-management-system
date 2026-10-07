@@ -37,6 +37,167 @@
 - `renderLesson` driven with a real prod lesson through the page's own JS (DOM stub): introduction,
   objectives (no raw JSON), sections, sub-points, key points and conclusion all render.
 
+### coturn container — TURN for Matrix calls (2026-10-07)
+
+The `coturn` service (host networking) never came up: a crash loop of
+`Cannot bind TLS/TCP listener socket to addr 127.0.0.1:3478` (EADDRINUSE) ending in
+`Fatal final failure` after 60 s of retries, then `restart: unless-stopped` starts it again.
+Diagnosed from outside the box:
+
+- With no `listening-ip`, coturn discovers every host address (loopback included) and binds a
+  stream listener on each; one EADDRINUSE makes turnserver retry 60 s and `exit(1)` — a single
+  bad address kills the whole server (`src/apps/relay/tls_listener.c`: `max_binding_time = 60`
+  then `exit(-1)`).
+- Port 3478 (tcp+udp) on the host answers STUN with a `SOFTWARE=eturnal` attribute: a leftover
+  **eturnal** TURN install on the VPS owns the wildcard `0.0.0.0:/[::]:3478` (verified with
+  `ss -tulpn`, root: `users:(("eturnal",…))`), unrelated to this stack (no eturnal anywhere in
+  the repo). A wildcard listener blocks every other bind on the port, so no coturn (pinned or
+  not) can start until it is removed. Synapse/Element themselves were fine (HTTP 200 on
+  `matrix.`/`chat.`), so only calls fail — messaging works.
+
+Fix (in-repo): `--listening-ip=${COTURN_LISTEN_IP:-185.214.135.229}` pins coturn to the server's
+own address so loopback is never bound and the bind set is exactly one address; dropped
+`--no-tcp-relay` (TCP relay leg matters on UDP-blocked school networks; the homeserver already
+advertises `?transport=tcp`); `.env.example` documents `COTURN_LISTEN_IP`; `devops/README.md`
+gains a coturn section (host must not run another TURN — `ss -tulpn | grep 3478`, the eturnal
+signature — and the ports to open: 3478/tcp+udp, 5349/tcp, 49152-49252/udp).
+
+**Server action still required (not run from here)**: `systemctl disable --now eturnal` (or
+remove the package), then `docker compose -f devops/docker-compose.yml up -d coturn`; verify with
+`docker logs coturn` and `python3 devops/stun_probe.py` (should answer `Coturn-…`, not
+`eturnal`).
+
+### In-app messaging — the chat token proxy (2026-10-07)
+
+With coturn up, the remaining blocker was in the app itself: `GET /api/matrix/token` was a
+hardcoded stub that always answered `"token":null`, so the Messaging page immediately showed
+"Matrix authentication not configured" and never synced (`roc-frontend/www/index.html` refuses to
+sync without a token). Synapse/Element themselves were healthy — the app was the dead link.
+
+- **`roc-backend/Matrix.roc` (new)** — the two homeserver admin calls the proxy needs,
+  mirroring the retired MoonBit stack's `matrix_client.mbt`: `ensure_user!` (idempotent
+  `PUT /_synapse/admin/v2/users/<id>`, so the account is created on first use and later logins
+  refresh the display name) and `get_user_token!` (`POST /_synapse/admin/v1/users/<id>/login`,
+  returns the access token). User ids are `@<the app user's own id>:matrix.johnethel.school` —
+  same form the retired stack wrote, so accounts from that era are reused. `@`/`:` are
+  percent-encoded for the path; a trailing-slash trim keeps the homeserver URL tidy.
+- **`main.roc`** — the stub answers 503 naming the missing env var when `PUBLIC_MATRIX_URL` or
+  `MATRIX_ADMIN_TOKEN` is unset (the R2 convention), then ensures the account and mints the token
+  as the caller; display name from the userinfo `name`, then `preferred_username`, then the id.
+  Only the backend holds the admin token — the browser gets only its own account's token.
+- **Deploy wiring** — `PUBLIC_MATRIX_URL`/`MATRIX_ADMIN_TOKEN` added to the compose `app`
+  environment and both `.env.example` files; `devops/generate_matrix_admin.sh` rewritten for the
+  current stack (old one named the retired `matrix-synapse-1` container and relied on password
+  login, which `homeserver.yaml` now disables: register the admin via the registration secret,
+  grab its token during a one-line temporary `password_config.enabled: true`, restore).
+- **Frontend** — the messaging error path now shows the backend's own error text (e.g. a 503
+  naming `MATRIX_ADMIN_TOKEN`) instead of a generic "not configured" line.
+
+**Verified**: `roc check main.roc` 0 errors / 0 warnings; `sh
+roc-frontend/tests/e2e/matrix_token.sh` 16/16 against a mock Synapse
+(`fixtures/mock_synapse.py`, new): 401 without a token, every role allowed, the response carries
+homeserver + a real token (not `null`), the mock saw the caller's encoded user id on both admin
+calls plus the caller's display name, and a missing admin token answers 503 naming it.
+
+**Follow-up 6 (2026-10-07) — Matrix server admin follows the Authentik admin group**: stock
+Synapse has no group→admin mapping (server admin is a Synapse-internal boolean, settable only by
+`register_new_matrix_user -a` or the admin API). Since the backend already derives the caller's
+role from Authentik for authorization, the token proxy now mirrors it: after `ensure_user!`, it
+calls `PUT /_synapse/admin/v1/users/<id>/admin` (`Matrix.ensure_admin!`) with the caller's own
+authoritative role (`caller.role == "admin"` — the same value that gates routes, so dev tokens
+work too), on every mint. A demotion in Authentik removes Matrix admin at the next request;
+`system_admin` (no Authentik identity) is never touched. Verified: suite 26/26 (admin caller
+→ `{"admin": true}`, student → `{"admin": false}`); `roc check` 0/0.
+
+**Still to finish on the server**: obtain one valid `MATRIX_ADMIN_TOKEN` (e.g. the database
+bootstrap: elevate the operator's Synapse user temporarily, mint `system_admin`'s token via
+`POST /_synapse/admin/v1/users/@system_admin:…/login`, de-elevate), inject in Dokploy/Infisical,
+redeploy — after that the app keeps every admin in step automatically. Also still open: the
+double-`devops` compose mount on the server (a manually-run compose without `-p`/`--project-directory`
+created a parallel `code_*` project; cleanup + a correct recreate from Dokploy's invocation remain).
+
+**Both follow-ups closed (2026-10-07)** — no more fresh device per visit, and in-app room
+provisioning:
+
+- **Token/device reuse.** The proxy now validates the token the page already holds: the page caches
+  it in `sessionStorage` (`matrix_token`) and sends it back as `X-Matrix-Token`;
+  `Matrix.is_token_valid!` (new, `GET /_matrix/client/v3/account/whoami`) checks it still acts as
+  the caller, and a fresh token — a fresh Synapse device — is minted only when the old one is gone
+  or invalid. A 401 on any client call makes the page drop the cache and mint once more
+  (`_matrixRefreshingToken` guards the retry). The minted token is the admin's, acting as the user
+  (Synapse's admin `login` endpoint ignores any `device_id` body and creates a new device each
+  call), so reuse is what stops the device accumulation.
+- **Room UI (all client API, `roc-frontend/www/index.html`).** Create a channel (public, so it
+  appears in the directory), browse/join public channels, accept pending invites (sync's
+  `rooms.invite` → Join), and invite members by display name or user id (`user_directory` search
+  → `/_rooms/<id>/invite`). Two auth helpers (`appAuthHeaders` for the proxy, `matrixAuthHeaders`
+  for the homeserver) so the two bearer tokens can't be confused; the cache is cleared on sign-out.
+
+**Verified**: `roc check main.roc` 0/0; `node --check` on the page's script; `sh
+roc-frontend/tests/e2e/matrix_token.sh` 21/21 (mock now answers whoami and tracks minted tokens,
+so the suite proves a valid cached token comes back unchanged with no extra login while a stale one
+is replaced by exactly one fresh mint).
+
+**Diagnosability follow-up (2026-10-07)**: the transport error the chat page surfaces was a bare
+"Http Error contacting the Matrix homeserver" — the real reason (DNS/connect/TLS) sits behind an
+opaque `InternalHttp.TransportErr` this package cannot destructure, so it was dropped. Now the
+message names the homeserver it could not reach (e.g. `cannot reach the Matrix homeserver at
+https://matrix.example.com`), which is what actually misconfigures this: a `PUBLIC_MATRIX_URL`
+pointing at an unreachable value. Reproduced locally. The local `.env.example` shipped a dead
+`matrix.example.com` placeholder that would trigger exactly this; it now defaults to the real
+homeserver like the compose file.
+
+**Follow-up 2 (2026-10-07)**: the deployed app reported `invalid URL for the Matrix homeserver:
+https://matrix.johnethel.school` with the correct URL set in Infisical. Every URL the backend
+builds parses cleanly (probed the platform's parser directly: dev/uuid/numeric local parts,
+login and whoami paths, all OK), which pointed at the run-time value, not the builder. Two fixes:
+(1) the token proxy's env reads (`PUBLIC_MATRIX_URL`, `MATRIX_ADMIN_TOKEN`, `MATRIX_SERVER_NAME`)
+are `Str.trim`-ed, so a hidden trailing space/carriage return in the pasted value — invisible in
+both logs and the old message — can no longer break the URL; (2) an `InvalidUrl` reply now names
+the parser's actual reason (`invalid character byte 32`, `invalid host: …`, …) via the public
+`Url.ParseErr` tags, so anything left uncaught is self-describing. Verified locally: a trailing
+space after the URL now connects through to the real homeserver; a genuinely invalid URL answers
+with the byte-level reason.
+
+**Follow-up 3 (2026-10-07)**: with the reason now shown, the deployed app reported `invalid
+character byte 32` — an ASCII space inside the built URL path. The env values are trimmed, so the
+space is mid-value: it lived in the built user id (`@<sub>:<server>`), and `path_segment` encoded
+only `@` and `:`, leaving the space raw and the whole URL unparsable. Fix: the path segment now
+percent-encodes the parser's full forbidden set (space, controls, `"` `<` `>` `\` `#` `?`, plus
+`@`/`:`), so whatever a user id carries the URL always parses, and mint-failure messages include
+the user id. Verified: suite 21/21; a space in the server name flows through the mock encoded
+(`%40dev_user%3Amatrix%20johnethel.school`).
+
+**Follow-up 4 (2026-10-07) — the real root cause**: with the user id now shown, the built id was
+`@ ["authentik Admins", "Super Admins"]}:matrix.johnethel.school` — a fragment of the userinfo
+body after its last colon, i.e. `caller_id!` had taken its *fallback* (`bare_id(user)` over the
+whole body). The fragment starts with a space after a colon: Authentik's real userinfo is spaced
+(`"sub": "…"`, `"groups": [ … ]`), while `extract_field` matched the needle `"sub":"` (colon
+right against the quote). Only the mock Authentik's compact `separators=(",", ":")` output ever
+satisfied it, so the caller's identity was garbage for every real user — the messaging failure was
+just the first user-visible one (`created_by` on assessments and `student_id` on submissions were
+silently writing the same garbage as record ids; `name`/`preferred_username` extraction was broken
+too). The role claim worked because `extract_json_array` trims before inspecting.
+
+Fix: all three `extract_field` copies (`main.roc`, `Authentik.roc`, `Matrix.roc`) now split on
+`"field":` with a trim before the quote split, so both `"field":"v"` and `"field": "v"` parse;
+the value is the text between the first two quotes either way. The mock Authentik's userinfo now
+serves **spaced** JSON like the real one, and `matrix_token.sh` (24 checks) proves a
+`mock-student-token`'s `sub` lands in the Synapse caller id as
+`%40mock_uuid_student%3Amatrix.johnethel.school`.
+
+**Follow-up 5 (2026-10-07) — the id is Authentik's hashed subject**: once the extractor was
+fixed, the deployed user id became `@addd0ec45fbe…07145a:matrix.johnethel.school` — 64 hex
+chars, Authentik's hashed `sub`. That is the account's stable identity (the same key the app
+writes `created_by`/`student_id` with), so it is kept as the Matrix id; it is not the blocker.
+The remaining deployed error, `Matrix create user failed (HTTP 401: Invalid access token
+passed.)`, is Synapse rejecting `MATRIX_ADMIN_TOKEN` itself (401 = not a recognised token; a
+non-admin token would be 403) — the operator must mint a fresh one via
+`devops/generate_matrix_admin.sh`. The chat UI also rendered the raw localpart for senders; it
+now loads the room's member list on open and shows display names, falling back to the localpart
+(Matrix ids are opaque by design — the display name is what people see, and the backend already
+sets it from the user's own name on every ensure).
+
 ### Resolved — the app runs the full student flow against prod
 
 Two independent causes, both found and fixed:
