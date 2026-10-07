@@ -124,6 +124,15 @@ roc-frontend/tests/e2e/matrix_token.sh` 21/21 (mock now answers whoami and track
 so the suite proves a valid cached token comes back unchanged with no extra login while a stale one
 is replaced by exactly one fresh mint).
 
+**Diagnosability follow-up (2026-10-07)**: the transport error the chat page surfaces was a bare
+"Http Error contacting the Matrix homeserver" — the real reason (DNS/connect/TLS) sits behind an
+opaque `InternalHttp.TransportErr` this package cannot destructure, so it was dropped. Now the
+message names the homeserver it could not reach (e.g. `cannot reach the Matrix homeserver at
+https://matrix.example.com`), which is what actually misconfigures this: a `PUBLIC_MATRIX_URL`
+pointing at an unreachable value. Reproduced locally. The local `.env.example` shipped a dead
+`matrix.example.com` placeholder that would trigger exactly this; it now defaults to the real
+homeserver like the compose file.
+
 ### Resolved — the app runs the full student flow against prod
 
 Two independent causes, both found and fixed:

@@ -81,7 +81,7 @@ Matrix := [].{
                 } else {
                     Err("Matrix create user failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)})")
                 }
-            Err(_) => Err("Http Error contacting the Matrix homeserver")
+            Err(err) => Err(transport_message(err, trim_slash(api_base)))
         }
     }
 
@@ -113,7 +113,7 @@ Matrix := [].{
                 } else {
                     Err("Matrix login failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)})")
                 }
-            Err(_) => Err("Http Error contacting the Matrix homeserver")
+            Err(err) => Err(transport_message(err, trim_slash(api_base)))
         }
     }
 
@@ -143,7 +143,7 @@ Matrix := [].{
                 } else {
                     Err("Matrix token check failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)})")
                 }
-            Err(_) => Err("Http Error contacting the Matrix homeserver")
+            Err(err) => Err(transport_message(err, trim_slash(api_base)))
         }
     }
 
@@ -189,6 +189,19 @@ Matrix := [].{
                 }
             }
             Err(_) => ""
+        }
+    }
+
+    ## A readable reason for an outbound call that never got a response, so a chat page problem is
+    ## not a wall of "Http Error". The transport failure behind `HttpErr` is an opaque type this
+    ## package cannot destructure, so what stays actionable is naming the homeserver being contacted
+    ## — the misconfiguration this usually hides is a `PUBLIC_MATRIX_URL` that points somewhere
+    ## unreachable.
+    transport_message = |err, api_base| {
+        match err {
+            InvalidUrl(_) => "invalid URL for the Matrix homeserver: ${api_base}"
+            InvalidRequest(message) => "invalid request to the Matrix homeserver: ${message}"
+            _ => "cannot reach the Matrix homeserver at ${api_base}"
         }
     }
 }
