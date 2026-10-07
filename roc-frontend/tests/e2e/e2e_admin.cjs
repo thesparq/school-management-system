@@ -39,10 +39,10 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await fill('e.g. Ibrahim', 'Chioma');
   await fill('e.g. Musa', surname);
   await fill('e.g. adamu@johnethel.school', `grace${stamp}@example.com`);
-  await fill('jss_1, jss_2, jss_3, year_1 ...', 'jss_2');
+  await page.selectOption('#new-user-class-level', 'class_levels:jss_2');
   await fill('https://...', 'https://example.com/grace.jpg');
   await page.locator('input[type="date"]').fill('2011-09-14');
-  await page.click('text=Add User');
+  await page.click('text=Create User');
   await page.waitForSelector('text=User created', { timeout: 20000 }).catch(() => {});
   check('form submit reports success', await page.evaluate(() => document.body.innerText.includes('User created')));
   await page.waitForTimeout(2500);
@@ -53,7 +53,7 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await fill('e.g. Musa', `Passport${stamp % 10000}`);
   await fill('e.g. adamu@johnethel.school', `nopassport${stamp}@example.com`);
   await fill('https://...', '');
-  await page.click('text=Add User');
+  await page.click('text=Create User');
   await page.waitForSelector('text=passport is required', { timeout: 20000 }).catch(() => {});
   check('validation error surfaces in the UI', await page.evaluate(() => document.body.innerText.includes('passport is required')));
 

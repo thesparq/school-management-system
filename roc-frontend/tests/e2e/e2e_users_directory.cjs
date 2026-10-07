@@ -133,7 +133,7 @@ const summary = () => {
   const fill = (placeholder, value) => page.locator(`input[placeholder="${placeholder}"]`).fill(value);
   await fill('e.g. Adamu', 'Ada');
   await fill('e.g. Musa', surname);
-  await fill('jss_1, jss_2, jss_3, year_1 ...', 'jss_2');
+  await page.selectOption('#new-user-class-level', 'class_levels:jss_2');
   await fill('https://...', 'https://example.com/directory.jpg');
   await page.locator('input[type="date"]').fill('2011-07-08');
   await submit.click();

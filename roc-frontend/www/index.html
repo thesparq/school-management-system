@@ -413,6 +413,7 @@
             { match: (u) => u === "/api/terms", input: "terms_data_input", format: formatTerms },
             { match: (u) => u === "/api/subjects?all=true", input: "config_subjects_data_input", format: formatSubjectsAll },
             { match: (u) => u === "/api/class_levels?all=true", input: "class_levels_data_input", format: formatClassLevels },
+            { match: (u) => u === "/api/class_levels", input: "user_class_levels_data_input", format: formatClassLevels },
             { match: (u) => u === "/api/curriculum?all=true", input: "curriculum_data_input", format: formatCurriculum },
             { match: (u) => u === "/api/session_terms", input: "session_terms_data_input", format: formatSessionTerms },
             { match: (u) => u === "/api/subjects" || u === "/api/student/subjects", input: "subjects_data_input", format: formatSubjectsActive },
