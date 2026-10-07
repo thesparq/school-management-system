@@ -2389,9 +2389,13 @@ respond! = |request, context| {
                             match Matrix.ensure_user!(matrix_url, admin_token, matrix_user_id, display_name) {
                                 Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                                 Ok(_) =>
-                                    match Matrix.get_user_token!(matrix_url, admin_token, matrix_user_id) {
+                                    match Matrix.ensure_admin!(matrix_url, admin_token, matrix_user_id, caller.role == "admin") {
                                         Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
-                                        Ok(fresh_token) => Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${fresh_token |> sanitize_json_text}\"}")),
+                                        Ok(_) =>
+                                            match Matrix.get_user_token!(matrix_url, admin_token, matrix_user_id) {
+                                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                                Ok(fresh_token) => Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${fresh_token |> sanitize_json_text}\"}")),
+                                            }
                                     }
                             }
                         }

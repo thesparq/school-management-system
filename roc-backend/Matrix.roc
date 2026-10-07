@@ -100,6 +100,30 @@ Matrix := [].{
         }
     }
 
+    ## Keep the Synapse server-admin flag in step with the caller's Authentik role, by the
+    ## official admin API (`PUT /_synapse/admin/v1/users/<id>/admin`); idempotent, so it is safe
+    ## on every token request. Authentik is the identity authority, so its admin group decides
+    ## who is a Matrix server admin too — a demotion in Authentik strips it at the next request.
+    ensure_admin! : Str, Str, Str, Bool => [Ok(Str), Err(Str)]
+    ensure_admin! = |api_base, admin_token, matrix_user_id, is_admin| {
+        req =
+            Request.from_method(PUT)
+                |> Request.with_uri("${trim_slash(api_base)}/_synapse/admin/v1/users/${path_segment(matrix_user_id)}/admin")
+                |> Request.add_header("Authorization", "Bearer ${admin_token}")
+                |> Request.add_header("Content-Type", "application/json")
+                |> Request.with_body(Str.to_utf8(if is_admin { "{\"admin\": true}" } else { "{\"admin\": false}" }))
+
+        match Http.send!(req) {
+            Ok(response) =>
+                if Response.status(response) == 200 {
+                    Ok("")
+                } else {
+                    Err("Matrix admin sync failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)}) for ${matrix_user_id}")
+                }
+            Err(err) => Err(transport_message(err, trim_slash(api_base)))
+        }
+    }
+
     ## POST /_synapse/admin/v1/users/<id>/login: an access token for the account, which the page
     ## sends as a bearer on the client API.
     get_user_token! : Str, Str, Str => [Ok(Str), Err(Str)]

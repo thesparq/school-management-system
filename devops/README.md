@@ -63,6 +63,14 @@ Synapse authenticates through Authentik:
    `SYNAPSE_CLIENT_ID`/`SYNAPSE_CLIENT_SECRET` environment.
 3. Restart Synapse.
 
+**Server admin follows the Authentik admin group.** On every token mint, the proxy calls
+`PUT /_synapse/admin/v1/users/<id>/admin` with the same role decision the app's authorization
+uses: a caller whose Authentik groups map to admin is (re)made a Synapse server admin, anyone
+else is kept a non-admin — a demotion in Authentik strips it at the next request. Server admin
+is still a Synapse-internal flag (stock Synapse has no group→admin mapping), so this app-level
+sync is what keeps the two authorities in step. The one user it never touches is `system_admin`
+(the service account that issues `MATRIX_ADMIN_TOKEN`), which has no Authentik identity.
+
 ## coturn (voice/video calls)
 
 `coturn` runs with `network_mode: host` because the TURN invitation Synapse hands out points

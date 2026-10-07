@@ -99,8 +99,22 @@ roc-frontend/tests/e2e/matrix_token.sh` 16/16 against a mock Synapse
 homeserver + a real token (not `null`), the mock saw the caller's encoded user id on both admin
 calls plus the caller's display name, and a missing admin token answers 503 naming it.
 
-**To finish on the server**: get `MATRIX_ADMIN_TOKEN` (`devops/generate_matrix_admin.sh`), inject
-it in Dokploy/Infisical, redeploy, and a real user's Messaging page should list rooms.
+**Follow-up 6 (2026-10-07) — Matrix server admin follows the Authentik admin group**: stock
+Synapse has no group→admin mapping (server admin is a Synapse-internal boolean, settable only by
+`register_new_matrix_user -a` or the admin API). Since the backend already derives the caller's
+role from Authentik for authorization, the token proxy now mirrors it: after `ensure_user!`, it
+calls `PUT /_synapse/admin/v1/users/<id>/admin` (`Matrix.ensure_admin!`) with the caller's own
+authoritative role (`caller.role == "admin"` — the same value that gates routes, so dev tokens
+work too), on every mint. A demotion in Authentik removes Matrix admin at the next request;
+`system_admin` (no Authentik identity) is never touched. Verified: suite 26/26 (admin caller
+→ `{"admin": true}`, student → `{"admin": false}`); `roc check` 0/0.
+
+**Still to finish on the server**: obtain one valid `MATRIX_ADMIN_TOKEN` (e.g. the database
+bootstrap: elevate the operator's Synapse user temporarily, mint `system_admin`'s token via
+`POST /_synapse/admin/v1/users/@system_admin:…/login`, de-elevate), inject in Dokploy/Infisical,
+redeploy — after that the app keeps every admin in step automatically. Also still open: the
+double-`devops` compose mount on the server (a manually-run compose without `-p`/`--project-directory`
+created a parallel `code_*` project; cleanup + a correct recreate from Dokploy's invocation remain).
 
 **Both follow-ups closed (2026-10-07)** — no more fresh device per visit, and in-app room
 provisioning:

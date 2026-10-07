@@ -54,6 +54,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         self._record(body)
+        if self.path.startswith("/_synapse/admin/v1/users/") and self.path.endswith("/admin"):
+            if not self._admin_ok():
+                return self._send(403, '{"errcode":"M_FORBIDDEN","error":"admin required"}')
+            return self._send(200, "{}")
         if not self.path.startswith("/_synapse/admin/v2/users/"):
             return self._send(404, '{"errcode":"M_UNRECOGNIZED","error":"no such endpoint"}')
         if not self._admin_ok():

@@ -96,6 +96,10 @@ check "the account upsert used the caller's encoded user id" "$(grep 'PUT /_syna
 check "the upsert carried the caller's display name" "$(grep 'displayname' "$MOCK_LOG" | head -1)" '"displayname": "dev_user"'
 check "the login call used the caller's encoded user id" "$(grep 'POST /_synapse/admin/v1/users/%40dev_user%3Amatrix.johnethel.school/login' "$MOCK_LOG" | head -1)" "POST /_synapse/admin/v1/users/%40dev_user%3Amatrix.johnethel.school/login"
 
+# --- Server admin follows the Authentik role, synced on every mint -----------------
+check "an admin caller is synced as a server admin" "$(grep 'PUT /_synapse/admin/v1/users/%40dev_user%3Amatrix.johnethel.school/admin' "$MOCK_LOG" | head -1)" '{"admin": true}'
+check "a student caller is kept a non-admin" "$(grep 'PUT /_synapse/admin/v1/users/%40dev_student%3Amatrix.johnethel.school/admin' "$MOCK_LOG" | head -1)" '{"admin": false}'
+
 # --- A valid cached token is reused, not re-minted (no new Synapse device) ---
 FIRST_TOKEN=$(echo "$ADMIN" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
 REUSED=$(curl -s "$B_A/api/matrix/token" -H "Authorization: Bearer dev-skip" -H "X-Matrix-Token: $FIRST_TOKEN")
