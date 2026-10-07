@@ -137,7 +137,7 @@ admin_users_view = |model| {
                             Html.text(
                                 if model.isSubmitting {
                                     if completing { "Completing..." } else { "Adding..." }
-                                } else if completing { "Complete profile" } else { "Add User" }
+                                } else if completing { "Complete profile" } else { "Create User" }
                             )
                         ]
                     )
@@ -169,6 +169,12 @@ admin_users_view = |model| {
             Attribute.value(model.usersAdminsData),
             Attribute.id("users_admins_data_input"),
             Attribute.on_input(|s| GotAdminsData(s))
+        ]),
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.value(model.userClassLevelsData),
+            Attribute.id("user_class_levels_data_input"),
+            Attribute.on_input(|s| GotUserClassLevels(s))
         ]),
 
         # Role tabs + users table
@@ -272,6 +278,35 @@ user_role_select = |model| {
     ])
 }
 
+# A picker fed from /api/class_levels (the active levels): the value the form submits is the record
+# id (`class_levels:jss_1`), which the backend's record_ref! reads back as the link. Until the list
+# answers there is a loading option; if it errors, the form says so instead of submitting a guess.
+user_class_level_select = |model, classes| {
+    options = match list_state(classes) {
+        Pending => [Html.option([Attribute.disabled(Bool.True), Attribute.value("")], [Html.text("Fetching class levels…")])]
+        Failed(_) => [Html.option([Attribute.disabled(Bool.True), Attribute.value("")], [Html.text("Could not load class levels — refresh")])]
+        Ready(lines) =>
+            List.map(lines, |line| {
+                parts = Str.split_on(line, "|")
+                id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+                name = match List.get(parts, 1) { Ok(v) => v, Err(_) => id }
+                Html.option([Attribute.value(id)], [Html.text(name)])
+            })
+    }
+    placeholder = Html.option([Attribute.value(""), Attribute.disabled(Bool.True)], [Html.text("Select class level…")])
+
+    Html.div([Attribute.class("relative")], [
+        Html.select([
+            Attribute.class(config_select_classes),
+            Attribute.id("new-user-class-level"),
+            Attribute.value(model.newUserClassLevel),
+            Attribute.on_change(|s| UpdateNewUserClassLevel(s)),
+            Attribute.disabled(model.isSubmitting),
+        ], List.concat([placeholder], options)),
+        Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
+    ])
+}
+
 # The profile fields the chosen role's create actually reads: date_of_birth and class_level for a
 # student, role_title for an admin, nothing extra for a teacher or a parent.
 user_role_fields = |model| {
@@ -289,7 +324,7 @@ user_role_fields = |model| {
                 is_disabled: model.isSubmitting,
                 classes: ""
             })),
-            user_form_field("Class level (*)", user_form_text_input("jss_1, jss_2, jss_3, year_1 ...", model.newUserClassLevel, model.isSubmitting, |s| UpdateNewUserClassLevel(s)))
+            user_form_field("Class level (*)", user_class_level_select(model, model.userClassLevelsData))
         ])
     } else {
         Html.div([], [])

@@ -98,7 +98,8 @@ Model : {
 	currentLessonContent : Str,
 	# Configuration hub: the five list payloads the page's hidden inputs carry, one form per
 	# section, and the feedback from the last create.
-	classLevelsData : Str,
+	    classLevelsData : Str,
+	    userClassLevelsData : Str,
 	curriculumData : Str,
 	sessionTermsData : Str,
 	# The hub's own subject list: every subject, active or not. `subjectsData` above is the
@@ -181,7 +182,8 @@ Msg : [
 	GotLessonContent(Str),
 	BackToSubjects,
 	BackToTerms,
-	GotClassLevelsData(Str),
+	    GotClassLevelsData(Str)
+    GotUserClassLevels(Str)
 	GotCurriculumData(Str),
 	GotSessionTermsData(Str),
 	GotConfigSubjectsData(Str),
@@ -290,7 +292,8 @@ init = |flags| {
 		studentLessonsData: "",
 		teacherLessonsData: "",
 		currentLessonContent: "",
-		classLevelsData: "",
+		            classLevelsData: "",
+		            userClassLevelsData: "",
 		curriculumData: "",
 		sessionTermsData: "",
 		configSubjectsData: "",
@@ -330,14 +333,17 @@ init = |flags| {
 			Port.send("fetch_data", "/api/session_terms"),
 			Port.send("fetch_data", "/api/subjects?all=true"),
 		]
-		_ => [
-			Port.send("fetch_data", "/api/users?role=Student"),
-			Port.send("fetch_data", "/api/users?role=Teacher"),
-			Port.send("fetch_data", "/api/users?role=Parent"),
-			Port.send("fetch_data", "/api/users?role=Admin"),
-			Port.send("fetch_data", "/api/subjects"),
-			Port.send("fetch_data", "/api/teacher/lessons"),
-		]
+		                _ => [
+		                        Port.send("fetch_data", "/api/users?role=Student"),
+		                        Port.send("fetch_data", "/api/users?role=Teacher"),
+		                        Port.send("fetch_data", "/api/users?role=Parent"),
+		                        Port.send("fetch_data", "/api/users?role=Admin"),
+		                        Port.send("fetch_data", "/api/subjects"),
+		                        Port.send("fetch_data", "/api/teacher/lessons"),
+		                        # The AdminUserManagement view's create form needs the active class levels for
+		                        # its picker even when the page is reached by a direct load (init, not NavigateTo).
+		                        Port.send("fetch_data", "/api/class_levels"),
+		                ]
 	})
 }
 
@@ -513,10 +519,13 @@ update = |model, msg|
 			}
 			(
 				{ ..model, route: AdminUserManagement, mobileMenuOpen: Bool.False },
-				[
-					Port.send("push_state", "/admin/users"),
-					Port.send("fetch_data", active_tab_url),
-				]
+				                        [
+				                                Port.send("push_state", "/admin/users"),
+				                                Port.send("fetch_data", active_tab_url),
+				                                # The create form's class-level picker needs the active levels, and
+				                                # fetching them here means the dropdown is ready before a first submit.
+				                                Port.send("fetch_data", "/api/class_levels"),
+				                        ]
 			)
 		}
 		NavigateTo(AdminConfigurationHub) => (
@@ -613,7 +622,8 @@ update = |model, msg|
 		GotUsersData(str) => ({ ..model, usersData: str }, [])
 		GotTermsData(str) => ({ ..model, termsData: str }, [])
 		GotSubjectsData(str) => ({ ..model, subjectsData: str }, [])
-		GotClassLevelsData(str) => ({ ..model, classLevelsData: str }, [])
+		            GotClassLevelsData(str) => ({ ..model, classLevelsData: str }, [])
+		            GotUserClassLevels(str) => ({ ..model, userClassLevelsData: str }, [])
 		GotCurriculumData(str) => ({ ..model, curriculumData: str }, [])
 		GotSessionTermsData(str) => ({ ..model, sessionTermsData: str }, [])
 		GotConfigSubjectsData(str) => ({ ..model, configSubjectsData: str }, [])
