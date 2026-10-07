@@ -147,14 +147,30 @@ with the byte-level reason.
 
 **Follow-up 3 (2026-10-07)**: with the reason now shown, the deployed app reported `invalid
 character byte 32` — an ASCII space inside the built URL path. The env values are trimmed, so the
-space is mid-value: it lives in the built user id (`@<sub>:<server>`), from the Authentik `sub`
-or `MATRIX_SERVER_NAME`. `path_segment` previously encoded only `@` and `:`, so a stray space
-made the whole URL unparsable. Fix: the path segment now percent-encodes the parser's full
-forbidden set (space, controls, `"` `<` `>` `\` `#` `?`, plus `@`/`:`), so whatever a user id
-carries the URL always parses — a malformed id then surfaces as the homeserver's own error, and
-mint-failure messages now include the user id (`… failed (HTTP …) for @…:…`). Verified: suite
-21/21; a space placed in the server name now flows through the mock with the id encoded
+space is mid-value: it lived in the built user id (`@<sub>:<server>`), and `path_segment` encoded
+only `@` and `:`, leaving the space raw and the whole URL unparsable. Fix: the path segment now
+percent-encodes the parser's full forbidden set (space, controls, `"` `<` `>` `\` `#` `?`, plus
+`@`/`:`), so whatever a user id carries the URL always parses, and mint-failure messages include
+the user id. Verified: suite 21/21; a space in the server name flows through the mock encoded
 (`%40dev_user%3Amatrix%20johnethel.school`).
+
+**Follow-up 4 (2026-10-07) — the real root cause**: with the user id now shown, the built id was
+`@ ["authentik Admins", "Super Admins"]}:matrix.johnethel.school` — a fragment of the userinfo
+body after its last colon, i.e. `caller_id!` had taken its *fallback* (`bare_id(user)` over the
+whole body). The fragment starts with a space after a colon: Authentik's real userinfo is spaced
+(`"sub": "…"`, `"groups": [ … ]`), while `extract_field` matched the needle `"sub":"` (colon
+right against the quote). Only the mock Authentik's compact `separators=(",", ":")` output ever
+satisfied it, so the caller's identity was garbage for every real user — the messaging failure was
+just the first user-visible one (`created_by` on assessments and `student_id` on submissions were
+silently writing the same garbage as record ids; `name`/`preferred_username` extraction was broken
+too). The role claim worked because `extract_json_array` trims before inspecting.
+
+Fix: all three `extract_field` copies (`main.roc`, `Authentik.roc`, `Matrix.roc`) now split on
+`"field":` with a trim before the quote split, so both `"field":"v"` and `"field": "v"` parse;
+the value is the text between the first two quotes either way. The mock Authentik's userinfo now
+serves **spaced** JSON like the real one, and `matrix_token.sh` (24 checks) proves a
+`mock-student-token`'s `sub` lands in the Synapse caller id as
+`%40mock_uuid_student%3Amatrix.johnethel.school`.
 
 ### Resolved — the app runs the full student flow against prod
 

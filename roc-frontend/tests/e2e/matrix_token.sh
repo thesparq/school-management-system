@@ -21,15 +21,20 @@ LOG=$(mktemp)
 MOCK_LOG=$(mktemp)
 LOGIN_PATH="POST /_synapse/admin/v1/users/%40dev_user%3Amatrix.johnethel.school/login"
 
-# --- Boot the mock Synapse --------------------------------------------------
+# --- Boot the mock Synapse and the mock Authentik ---------------------------
 python3 roc-frontend/tests/e2e/fixtures/mock_synapse.py 9010 >"$MOCK_LOG" 2>&1 &
 MOCK_PID=$!
 
-trap 'kill "$BACKEND_A" "$BACKEND_B" "$MOCK_PID" 2>/dev/null || true; rm -rf "$BIN" "$LOG" "$MOCK_LOG"' EXIT INT TERM
+# The mock Authentik serves its userinfo spaced ("sub": "…") like the real one; the
+# mock-*-tokens exercise the proxy's caller-id extraction against that format.
+python3 roc-frontend/tests/e2e/fixtures/mock_authentik_unique.py >/tmp/matrix-mock-auth.log 2>&1 &
+MOCK_AUTH_PID=$!
+
+trap 'kill "$BACKEND_A" "$BACKEND_B" "$MOCK_PID" "$MOCK_AUTH_PID" 2>/dev/null || true; rm -rf "$BIN" "$LOG" "$MOCK_LOG"' EXIT INT TERM
 
 # --- Build the backend once, run it twice -----------------------------------
 # A dead database URL so the sandbox can never reach prod; the matrix route touches no database.
-COMMON="DEV_MODE=true BIND_HOST=127.0.0.1 SURREAL_URL=http://127.0.0.1:59999/sql"
+COMMON="DEV_MODE=true BIND_HOST=127.0.0.1 SURREAL_URL=http://127.0.0.1:59999/sql AUTHENTIK_ISSUER_URL=http://127.0.0.1:9000/application/o/school/"
 
 if [ -z "${APP_URL:-}" ]; then
   echo "building the backend (first run is slow)..."
@@ -103,6 +108,14 @@ check "reuse mints no new device" "$(grep -c "$LOGIN_PATH" "$MOCK_LOG")" "1"
 STALE=$(curl -s "$B_A/api/matrix/token" -H "Authorization: Bearer dev-skip" -H "X-Matrix-Token: syt_mock_%40someone_else%3Amatrix.johnethel.school")
 check "a stale token is replaced with a fresh mint" "$STALE" '"token":"syt_mock_%40dev_user%3Amatrix.johnethel.school"'
 check "the stale token mints exactly one fresh device" "$(grep -c "$LOGIN_PATH" "$MOCK_LOG")" "2"
+
+# --- A real-looking token: the caller id comes from the userinfo `sub` claim ---
+# The mock Authentik serves its userinfo *spaced* (`"sub": "mock_uuid_student"`) like the real
+# one — the format that used to make the proxy build a user id out of a JSON fragment.
+SPACED=$(curl -s "$B_A/api/matrix/token" -H "Authorization: Bearer mock-student-token")
+check "a spaced-sub token is accepted" "$SPACED" '"token":"syt_mock_'
+check "the account upsert used the userinfo's own sub" "$(grep 'PUT /_synapse/admin/v2/users/%40mock_uuid_student%3Amatrix.johnethel.school' "$MOCK_LOG" | head -1)" "PUT /_synapse/admin/v2/users/%40mock_uuid_student%3Amatrix.johnethel.school"
+check "the login call used the userinfo's own sub" "$(grep 'POST /_synapse/admin/v1/users/%40mock_uuid_student%3Amatrix.johnethel.school/login' "$MOCK_LOG" | head -1)" "POST /_synapse/admin/v1/users/%40mock_uuid_student%3Amatrix.johnethel.school/login"
 
 # --- A missing admin token is a loud 503, not a silent null -----------------
 if [ -n "$B_B" ]; then

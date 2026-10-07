@@ -1398,11 +1398,16 @@ display_name_for = |user_json, local_part| {
 # --- JSON field extractor ---
 
 extract_field = |json_str, field| {
-    parts = Str.split_on(json_str, "\"${field}\":\"")
+    parts = Str.split_on(json_str, "\"${field}\":")
     match List.get(parts, 1) {
         Ok(rest) => {
-            val_parts = Str.split_on(rest, "\"")
-            match List.get(val_parts, 0) {
+            # The value may sit right after the colon (`"field":"v"`) or a space after it
+            # (`"field": "v"`) — Authentik and SurrealDB bodies come in both styles — so trim
+            # before looking for the opening quote. Either way the value is the text between the
+            # first two quotes after the field name.
+            trimmed = Str.trim(rest)
+            val_parts = Str.split_on(trimmed, "\"")
+            match List.get(val_parts, 1) {
                 Ok(val) => val
                 Err(_) => ""
             }

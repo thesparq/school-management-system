@@ -44,11 +44,14 @@ Authentik := [].{
     }
 
     extract_field = |json_str, field| {
-        parts = Str.split_on(json_str, "\"${field}\":\"")
+        parts = Str.split_on(json_str, "\"${field}\":")
         match List.get(parts, 1) {
             Ok(rest) => {
-                val_parts = Str.split_on(rest, "\"")
-                match List.get(val_parts, 0) {
+                # Spaced and compact JSON both occur (`"field": "v"` vs `"field":"v"`), so
+                # trim before the quote split; the value is the text between the first two quotes.
+                trimmed = Str.trim(rest)
+                val_parts = Str.split_on(trimmed, "\"")
+                match List.get(val_parts, 1) {
                     Ok(val) => val
                     Err(_) => ""
                 }

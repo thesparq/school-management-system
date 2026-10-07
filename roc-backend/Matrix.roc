@@ -191,14 +191,16 @@ Matrix := [].{
     }
 
     ## One JSON string field, read with the fixed scanners this codebase uses everywhere (this Roc
-    ## version has no JSON parser).
+    ## version has no JSON parser). The value may sit against the colon (`"field":"v"`) or after a
+    ## space (`"field": "v"`), so the rest is trimmed before the quote split; either way the value
+    ## is the text between the first two quotes after the field name.
     extract_field : Str, Str -> Str
     extract_field = |json_str, field| {
-        parts = Str.split_on(json_str, "\"${field}\":\"")
+        parts = Str.split_on(json_str, "\"${field}\":")
         match List.get(parts, 1) {
             Ok(rest) => {
-                val_parts = Str.split_on(rest, "\"")
-                match List.get(val_parts, 0) {
+                val_parts = Str.split_on(Str.trim(rest), "\"")
+                match List.get(val_parts, 1) {
                     Ok(val) => val
                     Err(_) => ""
                 }
