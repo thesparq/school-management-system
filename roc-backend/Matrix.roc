@@ -25,12 +25,26 @@ Matrix := [].{
     }
 
     ## A user id ready for a URL path. Synapse's admin API documents the segment percent-encoded,
-    ## so `@` and `:` are encoded; the pk itself is uuid/digits/dashes and passes through.
+    ## and the platform's URL parser rejects control bytes, `"`, `<`, `>`, `\`, `#` and `?` in a
+    ## path (authentik pks and server names are clean, but a stray space from any source would
+    ## otherwise make the whole URL unparsable). Encoding that full set means whatever a user id
+    ## carries, the URL itself always parses and the homeserver answers its own error about the id.
+    ## `%` is left alone so an already-encoded value is not double-encoded.
     path_segment : Str -> Str
     path_segment = |id| {
         id
+            |> Str.replace_each(" ", "%20")
+            |> Str.replace_each("\"", "%22")
+            |> Str.replace_each("<", "%3C")
+            |> Str.replace_each(">", "%3E")
+            |> Str.replace_each("\\", "%5C")
+            |> Str.replace_each("#", "%23")
+            |> Str.replace_each("?", "%3F")
             |> Str.replace_each("@", "%40")
             |> Str.replace_each(":", "%3A")
+            |> Str.replace_each("\t", "%09")
+            |> Str.replace_each("\n", "%0A")
+            |> Str.replace_each("\r", "%0D")
     }
 
     ## A base URL without trailing slashes, so `https://…/school/` and `https://…/school` build
@@ -80,7 +94,7 @@ Matrix := [].{
                 if Response.status(response) == 200 or Response.status(response) == 201 {
                     Ok("")
                 } else {
-                    Err("Matrix create user failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)})")
+                    Err("Matrix create user failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)}) for ${matrix_user_id}")
                 }
             Err(err) => Err(transport_message(err, trim_slash(api_base)))
         }
@@ -112,7 +126,7 @@ Matrix := [].{
                         Ok(token)
                     }
                 } else {
-                    Err("Matrix login failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)})")
+                    Err("Matrix login failed (HTTP ${U16.to_str(Response.status(response))}${error_detail(response)}) for ${matrix_user_id}")
                 }
             Err(err) => Err(transport_message(err, trim_slash(api_base)))
         }

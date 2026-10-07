@@ -145,6 +145,17 @@ the parser's actual reason (`invalid character byte 32`, `invalid host: …`, �
 space after the URL now connects through to the real homeserver; a genuinely invalid URL answers
 with the byte-level reason.
 
+**Follow-up 3 (2026-10-07)**: with the reason now shown, the deployed app reported `invalid
+character byte 32` — an ASCII space inside the built URL path. The env values are trimmed, so the
+space is mid-value: it lives in the built user id (`@<sub>:<server>`), from the Authentik `sub`
+or `MATRIX_SERVER_NAME`. `path_segment` previously encoded only `@` and `:`, so a stray space
+made the whole URL unparsable. Fix: the path segment now percent-encodes the parser's full
+forbidden set (space, controls, `"` `<` `>` `\` `#` `?`, plus `@`/`:`), so whatever a user id
+carries the URL always parses — a malformed id then surfaces as the homeserver's own error, and
+mint-failure messages now include the user id (`… failed (HTTP …) for @…:…`). Verified: suite
+21/21; a space placed in the server name now flows through the mock with the id encoded
+(`%40dev_user%3Amatrix%20johnethel.school`).
+
 ### Resolved — the app runs the full student flow against prod
 
 Two independent causes, both found and fixed:
