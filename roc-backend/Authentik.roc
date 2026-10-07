@@ -243,4 +243,34 @@ Authentik := [].{
             Err(_) => Err("Http Error deleting user")
         }
     }
+
+    # Set or reset a login's password, through Authentik's admin API
+    # (`POST …/core/users/<pk>/set_password/`, body `{"password": …}`). Used at create time (when the
+    # form carries a password) and by the admin's Reset-password action. The password is never stored
+    # or logged here — Authentik keeps the hash, and the page shows the raw value once.
+    setPassword! : Str, Str => [Ok(Str), Err(Str)]
+    setPassword! = |user_id, password| {
+        escaped_password = password |> Str.replace_each("\\", "\\\\") |> Str.replace_each("\"", "\\\"")
+        token = api_token!("")
+        api_url = api_url!("")
+
+        req =
+            Request.from_method(POST)
+                |> Request.with_uri("${api_url}${user_id}/set_password/")
+                |> Request.add_header("Authorization", "Bearer ${token}")
+                |> Request.add_header("Content-Type", "application/json")
+                # Escape for the JSON string: a typed password may legitimately contain a quote or a backslash.
+                |> Request.with_body(Str.to_utf8("{\"password\": \"${escaped_password}\"}"))
+
+        match Http.send!(req) {
+            Ok(response) => {
+                if Response.status(response) == 204 or Response.status(response) == 200 {
+                    Ok(user_id)
+                } else {
+                    Err("Authentik failed to set the password")
+                }
+            }
+            Err(_) => Err("Http Error setting password")
+        }
+    }
 }

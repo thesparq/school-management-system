@@ -47,6 +47,7 @@ counter = itertools.count(1)
 # form, and missing it is how a created login's profile row gets written under a placeholder id.
 pk_prefix = f"mock_uuid_{os.getpid()}"
 users = {}  # pk (as text) -> the login, exactly as the list endpoint returns it
+password_sets = {}  # pk -> the password the app asked to set (so tests can assert the call landed)
 
 
 def next_pk():
@@ -179,6 +180,8 @@ class MockHandler(BaseHTTPRequestHandler):
                 send(self, 401, {'detail': 'Invalid token.'})
             else:
                 send(self, 200, body)
+        elif parsed.path.rstrip('/') == '/password_sets':
+            send(self, 200, password_sets)
         elif pk_of(parsed.path) is None and parsed.path.rstrip('/') == USERS_PATH.rstrip('/'):
             query = parse_qs(parsed.query)
             page_size = max(1, int(query.get('page_size', ['20'])[0]))
@@ -204,7 +207,17 @@ class MockHandler(BaseHTTPRequestHandler):
             send(self, 404, {'detail': 'Not found.'})
 
     def do_POST(self):
-        if urlparse(self.path).path == USERS_PATH:
+        path = urlparse(self.path).path
+        set_password = path.endswith('/set_password/')
+        if set_password:
+            pk = pk_of(path[:-len('/set_password/')])
+            if pk is None or pk not in users:
+                send(self, 404, {'detail': 'Not found.'})
+                return
+            body = read_json(self)
+            password_sets[pk] = body.get('password', '')
+            send(self, 204)
+        elif path == USERS_PATH:
             body = read_json(self)
             pk = next_pk()
             email = body.get('email', '')
