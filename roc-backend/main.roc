@@ -2349,9 +2349,12 @@ respond! = |request, context| {
                 # against the homeserver and reused when it still works; a fresh token — and with
                 # it a fresh Synapse device — is minted only when the old one is gone or invalid.
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/matrix/token" {
-                    matrix_url = match Env.var!("PUBLIC_MATRIX_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    admin_token = match Env.var!("MATRIX_ADMIN_TOKEN") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    server_name = match Env.var!("MATRIX_SERVER_NAME") { Ok(os) => OsStr.display(os), Err(_) => "matrix.johnethel.school" }
+                    # The env values are trimmed: a stray trailing space or carriage return in a
+                    # pasted value looks identical in logs but makes the homeserver URL unparsable
+                    # (and the error below would name no cause).
+                    matrix_url = match Env.var!("PUBLIC_MATRIX_URL") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "" }
+                    admin_token = match Env.var!("MATRIX_ADMIN_TOKEN") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "" }
+                    server_name = match Env.var!("MATRIX_SERVER_NAME") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "matrix.johnethel.school" }
 
                     if Str.is_empty(matrix_url) {
                         Ok(json_response(503, "{\"error\":\"PUBLIC_MATRIX_URL is not set\"}"))

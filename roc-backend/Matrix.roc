@@ -14,6 +14,7 @@
 import http.Request
 import http.Response
 import pf.Http
+import pf.Url
 
 Matrix := [].{
     ## The Matrix user id of an app user: the app's own id (the Authentik pk the profile rows are
@@ -199,9 +200,31 @@ Matrix := [].{
     ## unreachable.
     transport_message = |err, api_base| {
         match err {
-            InvalidUrl(_) => "invalid URL for the Matrix homeserver: ${api_base}"
+            InvalidUrl(reason) => "invalid URL for the Matrix homeserver: ${api_base} (${parse_reason(reason)})"
             InvalidRequest(message) => "invalid request to the Matrix homeserver: ${message}"
             _ => "cannot reach the Matrix homeserver at ${api_base}"
+        }
+    }
+
+    ## The specific reason the URL parser rejected a URL — a hidden trailing space or carriage
+    ## return in the homeserver value surfaces here as a control character or a bad host, which is
+    ## exactly what a request that "looks right" but parses as invalid turns out to be.
+    parse_reason = |reason| {
+        match reason {
+            CredentialsNotAllowed => "userinfo not allowed"
+            EmptyHost => "empty host"
+            InternationalHostUnsupported => "international host not supported"
+            InvalidCharacter(byte) => "invalid character byte ${U8.to_str(byte)}"
+            InvalidHost(text) => "invalid host: ${text}"
+            InvalidIpv4(text) => "invalid IPv4: ${text}"
+            InvalidIpv6(text) => "invalid IPv6: ${text}"
+            InvalidPercentEncoding(index) => "invalid percent-encoding at offset ${U64.to_str(index)}"
+            InvalidPort(text) => "invalid port: ${text}"
+            MissingAuthority => "missing authority"
+            MissingScheme => "missing scheme"
+            PortOutOfRange(port) => "port out of range: ${U64.to_str(port)}"
+            UnsupportedScheme(text) => "unsupported scheme: ${text}"
+            _ => "other parse error"
         }
     }
 }

@@ -133,6 +133,18 @@ pointing at an unreachable value. Reproduced locally. The local `.env.example` s
 `matrix.example.com` placeholder that would trigger exactly this; it now defaults to the real
 homeserver like the compose file.
 
+**Follow-up 2 (2026-10-07)**: the deployed app reported `invalid URL for the Matrix homeserver:
+https://matrix.johnethel.school` with the correct URL set in Infisical. Every URL the backend
+builds parses cleanly (probed the platform's parser directly: dev/uuid/numeric local parts,
+login and whoami paths, all OK), which pointed at the run-time value, not the builder. Two fixes:
+(1) the token proxy's env reads (`PUBLIC_MATRIX_URL`, `MATRIX_ADMIN_TOKEN`, `MATRIX_SERVER_NAME`)
+are `Str.trim`-ed, so a hidden trailing space/carriage return in the pasted value — invisible in
+both logs and the old message — can no longer break the URL; (2) an `InvalidUrl` reply now names
+the parser's actual reason (`invalid character byte 32`, `invalid host: …`, …) via the public
+`Url.ParseErr` tags, so anything left uncaught is self-describing. Verified locally: a trailing
+space after the URL now connects through to the real homeserver; a genuinely invalid URL answers
+with the byte-level reason.
+
 ### Resolved — the app runs the full student flow against prod
 
 Two independent causes, both found and fixed:
