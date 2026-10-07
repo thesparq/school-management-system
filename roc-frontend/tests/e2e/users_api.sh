@@ -355,6 +355,25 @@ check "and the listing shows the row again" "$(listing Student | row_of "$PW_PK"
 # --- 18. the listing carries the richer profile fields ---
 check "the listing row carries middle_name and class_name" "$(listing Student | row_of "$PW_PK")" '"class_name"'
 
+# --- 19. the two-system write journal (pending_ops) ---
+# Every create/delete is journaled first and a reconciler settles anything left running; these
+# checks prove the happy path lands `done` and that a crash between the password and the profile
+# is replayed from the journal.
+J_EMAIL="users_api_journal_${STAMP}@example.com"
+J_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"email\":\"$J_EMAIL\",\"first_name\":\"J\",\"surname\":\"Log${STAMP}\",\"date_of_birth\":\"2011-07-07\",\"class_level\":\"class_levels:jss_2\",\"passport\":\"https://example.com/j.jpg\",\"password\":\"Journal-Pw-${STAMP}!\"}")
+J_PK=$(pk_of "$J_CREATE")
+check "a journal row is written for the create" "$(db_query "SELECT state FROM pending_ops WHERE pk = '$J_PK';")" '"state":"done"'
+check "finished at the profile step" "$(db_query "SELECT step FROM pending_ops WHERE pk = '$J_PK';")" '"step":"profile"'
+check "reconcile is 403 for a student token" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/users/reconcile" -H 'Authorization: Bearer dev-student')" "403"
+check "pending is 403 for a student token" "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/users/pending" -H 'Authorization: Bearer dev-student')" "403"
+check "reconcile answers 200 for an admin" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/users/reconcile" -H "$T")" "200"
+# Crash after the password, before the profile: drop the row, rewind the journal, reconcile.
+J_RID=$(db_query "SELECT id FROM pending_ops WHERE pk = '$J_PK';" | sed -E 's/.*"id":"pending_ops:([^"]+)".*/\1/')
+db_query "DELETE type::record('student_profile', '$J_PK'); UPDATE pending_ops:$J_RID SET state = 'running', step = 'password';" > /dev/null
+curl -s -X POST "$B/api/users/reconcile" -H "$T" > /dev/null
+check "the reconciler replays the missing profile" "$(listing Student | row_of "$J_PK")" '"school_number":'
+check "and finishes the journal row" "$(db_query "SELECT state FROM pending_ops WHERE id = pending_ops:$J_RID;")" '"state":"done"'
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

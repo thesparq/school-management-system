@@ -891,6 +891,34 @@ the same way email and `is_active` do there.
 **Still to do on the server**: apply `db/schema-v8-ids.surql` to prod (row counts either side, as always)
 **before** the backend deploy; the number column then appears in User Management. If the school ever wants a
 different written form, only the renderer in `main.roc` changes.
+
+### Two-system writes are journaled — done (create/delete reconciled)
+
+User management spans Authentik and SurrealDB with no shared transaction. Previously the create and
+delete were compensated sagas: each step failure triggered the matching rollback, but a *crash*
+between two steps left a half-state no compensation ran for. The developer asked for a proper tie;
+this adds a write journal (`db/schema-v9-pending-ops.surql`, also mirrored in the fixture).
+
+- Every `POST /api/users` (with or without a password) and `DELETE /api/users` first records its
+  intent in `pending_ops` (`CREATE … RETURN id`, SurrealDB's own unique id — a timestamp id collided
+  on same-millisecond calls and a hyphenated part is parsed as subtraction). Each completed side
+  advances `step`: login → password → profile (create); profile_hidden → login_disabled (delete).
+- `reconcile_pending!` (boot + `POST /api/users/reconcile`, admin) settles rows stuck in `running`:
+  the profile write replays idempotently from the journaled payload (school number allocated in the
+  same statement, never duplicated), a create whose password was never set is rolled back (the value
+  is gone by design — never journaled), and a delete finishes the un-done half. Unsettlable rows stay
+  visible at `GET /api/users/pending` (admin) with the failing message.
+- The journaled payload is a quote-free `;`-separated string on purpose: the file's JSON scanners
+  read a value up to the first double quote, so a payload with JSON quotes could not be read back.
+
+**Verified** (`roc check main.roc` 0/0; sandbox): a normal create lands its row `done/profile`; a
+simulated crash after the login removes the unusable login and marks the row failed; a crash after
+the password replays the profile from the journal (new school number, `done`, row listed again); a
+delete interrupted between the two sides is finished by the reconciler; `pending`/`reconcile` are
+403 for non-admin; `users_api.sh` 94/94 (was 87), `authz.sh` 27/27, `assessment_flow.sh` 41/41.
+The frontend half (password field + Generate + Copy credentials, working row actions, richer
+columns) follows as the next unit.
+
 ---
 
 ## Completed Work

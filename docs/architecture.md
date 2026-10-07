@@ -95,6 +95,18 @@ file stale. What belongs here is the shape and the rules:
   v8 is applied to prod — and until it is, a create that has to hand one out fails with the statement's own
   error (the login is rolled back, so the admin can retry after the schema lands). Nothing else differs: apart
   from the v8 fields, the sandbox fixture and prod match field-for-field on the tables the app uses.
+- **Two-system writes are journaled, not just compensated.** A create writes to Authentik (the
+  login and its password) *and* to SurrealDB (the profile); a delete hides the profile *and* disables
+  the login — two stores with no shared transaction, so a crash between the steps used to be able to
+  leave a half-state no compensation ran for. Every mutating user operation now records its intent in
+  `pending_ops` first (`db/schema-v9-pending-ops.surql`) and advances a `step` as each side
+  completes; `reconcile_pending!` in `main.roc` runs at boot and on demand
+  (`POST /api/users/reconcile`) and settles anything left `running`: the profile write replays
+  idempotently from the journaled payload (the school number allocates in the same statement, never
+  twice), a create that never set its password is rolled back (the value is gone by design), and a
+  delete finishes the half that was left. Anything that cannot be settled stays visible as a
+  `failed` row with its message (`GET /api/users/pending`). The password itself is never journaled,
+  stored or logged — only a `wants_password` flag.
 - **School numbers are the person's school identity, and what is stored is the integer alone.**
   `student_profile.admission_number` and `staff_id` on `teacher_profile` and `admin_profile` hold an
   `option<int>` — no prefix, no padding — drawn from one counter per class of member in `id_sequences`

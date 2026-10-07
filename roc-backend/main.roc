@@ -82,13 +82,19 @@ init! = || {
         {}
     }
 
+    ctx = {
+        surreal: { url: surreal_url, ns: surreal_ns, db: surreal_db, auth: surreal_auth },
+        dev_mode: dev_mode_str == "true",
+        static_dir: static_dir_str,
+    }
+
+    # Settle anything a previous run left mid-operation before serving: the two-system journal
+    # only self-heals when something looks at it.
+    warn!(reconcile_pending!(ctx.surreal))
+
     Ok({
         config: Server.default_config.with_listen({ host: bind_host, port }),
-        context: {
-            surreal: { url: surreal_url, ns: surreal_ns, db: surreal_db, auth: surreal_auth },
-            dev_mode: dev_mode_str == "true",
-            static_dir: static_dir_str,
-        },
+        context: ctx,
     })
 }
 
@@ -673,6 +679,241 @@ school_number_clause! = |pk, role, config| {
         } else {
             "${column} = ${reused}"
         }
+    }
+}
+
+# --- The two-system write journal (pending_ops) ---
+#
+# User management spans two systems that share no transaction: Authentik owns the login (and its
+# password and enabled state), SurrealDB owns the profile. Create and delete still run as a
+# compensated saga, but each now also journals its intent and its progress first: the row records
+# the last completed `step`, and the reconciler below completes or rolls back anything left in
+# `running` (run at boot and on demand). That turns a crash between two steps from an invisible
+# half-state into a repaired one — or a visible `failed` row with a message — instead of a login or
+# a profile that exists on one side only, forever.
+
+# Begin a journal row and return its record id ("pending_ops:<ulid>"). The id is SurrealDB's own
+# generated one — a timestamp-based id collided when two operations landed in the same millisecond,
+# and a hyphenated part would be read as subtraction. The row begins `running` with no step done.
+journal_begin! : Str, Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+journal_begin! = |kind, email, payload, config| {
+    email_clause = if Str.is_empty(email) { "email = NONE" } else { "email = '${surreal_literal(email)}'" }
+    payload_clause = if Str.is_empty(payload) { "payload = NONE" } else { "payload = '${surreal_literal(payload)}'" }
+    match db_body!("CREATE pending_ops SET kind = '${kind}', state = 'running', step = '', ${email_clause}, ${payload_clause}, created_at = time::now() RETURN id;", config) {
+        Ok(body) => {
+            id = extract_field(body, "id")
+            if Str.is_empty(id) { Err("the database did not return the journal row id") } else { Ok(id) }
+        }
+        Err(detail) => Err(detail)
+    }
+}
+
+# Mark the row with its next progress step. The row id is the full `pending_ops:<id>` spelling, so
+# the helpers can be used from the handlers and the reconciler alike.
+journal_mark! : Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+journal_mark! = |row_id, step, config| {
+    pending_table = "pending_ops"
+    db_body!("UPDATE ${record_ref!(row_id, pending_table)} SET step = '${step}', updated_at = time::now();", config)
+}
+
+# The row is finished cleanly; the final step names the last completed side.
+journal_done! : Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+journal_done! = |row_id, final_step, config| {
+    pending_table = "pending_ops"
+    db_body!("UPDATE ${record_ref!(row_id, pending_table)} SET state = 'done', step = '${final_step}', updated_at = time::now();", config)
+}
+
+# The operation cannot be settled; it stays visible with the step it reached and a message for an
+# admin (the reconciler never re-runs a failed row — that belongs to a human or a later retry).
+journal_fail! : Str, Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+journal_fail! = |row_id, step, message, config| {
+    pending_table = "pending_ops"
+    db_body!("UPDATE ${record_ref!(row_id, pending_table)} SET state = 'failed', step = '${step}', message = '${surreal_literal(message)}', updated_at = time::now();", config)
+}
+
+# The reconciler: complete (or visibly fail) every operation still in `running`. Each step is
+# made idempotent — the profile write replays only when the row is absent, login creation is
+# detected by email, password never replays (the value is gone by design, so an account that would
+# end up passwordless is removed instead). Returns a short summary for the log and the endpoint.
+reconcile_pending! : SurrealDB.Config => Str
+reconcile_pending! = |config| {
+    res = SurrealDB.query!("SELECT id, kind, step, email, pk, payload FROM pending_ops WHERE state = 'running' LIMIT 50;", config)
+
+    match res {
+        Err(_) => "reconcile: could not read pending_ops"
+        Ok(body) => {
+            rows = split_json_elements(extract_json_array(body, "result"))
+            counts = reconcile_rows!(rows, 0, 0, config)
+            "reconcile: ${U64.to_str(counts.done)} settled, ${U64.to_str(counts.failed)} failed"
+        }
+    }
+}
+
+reconcile_rows! : List(Str), U64, U64, SurrealDB.Config => { done: U64, failed: U64 }
+reconcile_rows! = |rows, done, failed, config| {
+    match rows {
+        [] => { done: done, failed: failed }
+        [row, .. as rest] =>
+            match settle_one!(row, config) {
+                Ok(_) => reconcile_rows!(rest, done + 1, failed, config)
+                Err(_) => reconcile_rows!(rest, done, failed + 1, config)
+            }
+    }
+}
+
+# Settle one running row: finish or fail it. `Ok`/`Err` is about whether the row reached a settled
+# state (`done` or `failed`) without another error, which the summary counts.
+settle_one! : Str, SurrealDB.Config => [Ok({}), Err(Str)]
+settle_one! = |row, config| {
+    row_id = extract_field(row, "id")
+    kind = extract_field(row, "kind")
+    step = extract_field(row, "step")
+
+    if kind == "create_user" { settle_create!(row, row_id, step, config) }
+    else if kind == "delete_user" { settle_delete!(row, row_id, config) }
+    else {
+        # An unknown kind is best left failed rather than guessed at.
+        _ = journal_fail!(row_id, step, "unknown operation kind", config)
+        Ok({})
+    }
+}
+
+# Replay or roll back a create that stalled. `password` is never replayed (its value is gone by
+# design): a create that stalled before the password was set ends by removing the half-made login,
+# so a passwordless account cannot linger. The profile write replays idempotently.
+settle_create! : Str, Str, Str, SurrealDB.Config => [Ok({}), Err(Str)]
+settle_create! = |row, row_id, step, config| {
+    email = extract_field(row, "email")
+    payload = extract_field(row, "payload")
+    pk = extract_field(row, "pk")
+
+    # C: the login is known by its pk; otherwise try the directory by email — a create that died
+    # before the pk was journaled still finds its login there.
+    login_pk = if Str.is_empty(pk) { directory_pk_for_email!(email) } else { bare_id(pk) }
+
+    if Str.is_empty(login_pk) {
+        # No login exists: the create never got past Authentik (or a compensation removed it). The
+        # op is dead — record that instead of leaving it running forever.
+        _ = journal_fail!(row_id, step, "no login was created (or it was already compensated)", config)
+        Ok({})
+    } else if wants_password(payload) and step != "password" and step != "profile" {
+        # The login exists but was never given its password, and the value cannot be replayed.
+        match Authentik.deleteUser!(login_pk) {
+            Ok(_) => {
+                _ = journal_fail!(row_id, "password", "create stalled before the password was set; the login was removed", config)
+                Ok({})
+            }
+            Err(msg) => {
+                _ = journal_fail!(row_id, "password", "create stalled before the password was set AND the login could not be removed: ${msg}", config)
+                Err("login removal failed")
+            }
+        }
+    } else if profile_missing!(login_pk, profile_table_for(extract_field(payload, "role")), config) {
+        # Replay the profile write from the journaled payload. The school number is allocated by the
+        # same statement, so a repeated attempt after a crash never duplicates a number.
+        replayed = create_profile_from_journal!(login_pk, payload, config)
+        match replayed {
+            Ok(_) => {
+                _ = journal_done!(row_id, "profile", config)
+                Ok({})
+            }
+            Err(msg) => {
+                _ = journal_fail!(row_id, "profile", msg, config)
+                Err(msg)
+            }
+        }
+    } else {
+        # The profile is already there — the create fully landed, only the journal didn't finish.
+        _ = journal_done!(row_id, "profile", config)
+        Ok({})
+    }
+}
+
+# Replay or roll back a delete that stalled: hide the profile and disable the login, idempotently.
+settle_delete! : Str, Str, SurrealDB.Config => [Ok({}), Err(Str)]
+settle_delete! = |row, row_id, config| {
+    id_val = extract_field(row, "payload")
+    table_res = profile_table_of(id_val)
+
+    match table_res {
+        Err(_) => {
+            _ = journal_fail!(row_id, "", "delete payload does not name a profile row", config)
+            Ok({})
+        }
+        Ok(table) => {
+            # The profile may already be hidden; the update is idempotent either way.
+            _ = db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", config)
+            match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
+                Ok(_) => {
+                    _ = journal_done!(row_id, "login_disabled", config)
+                    Ok({})
+                }
+                Err(msg) => {
+                    _ = journal_fail!(row_id, "login_disabled", "profile hidden but the login could not be disabled: ${msg}", config)
+                    Err("login disable failed")
+                }
+            }
+        }
+    }
+}
+
+# One field of the journaled (quote-free, ";"-separated) payload, or "" when absent.
+journal_field : Str, Str -> Str
+journal_field = |payload, field| {
+    parts = Str.split_on(payload, "${field}=")
+    match List.get(parts, 1) {
+        Ok(rest) => match List.first(Str.split_on(rest, ";")) { Ok(value) => value, Err(_) => "" }
+        Err(_) => ""
+    }
+}
+
+# Whether the journaled payload carried a password request (the flag "1"; the value is never stored).
+wants_password = |payload| Str.contains(payload, "wants_password=1")
+
+# Whether a profile row is missing for this login and role table.
+profile_missing! : Str, Str, SurrealDB.Config => Bool
+profile_missing! = |pk, table, config| {
+    match SurrealDB.query!("SELECT id FROM ${record_ref!(pk, table)};", config) {
+        Ok(body) => !Str.contains(body, "\"result\":[{\"id\"")
+        Err(_) => Bool.True
+    }
+}
+
+# Find a login's pk in the directory by its email; the login is unique by email in Authentik.
+# Empty when the directory cannot be read or the email is not there.
+directory_pk_for_email! : Str => Str
+directory_pk_for_email! = |email| {
+    match Authentik.listUsers!("200") {
+        Err(_) => ""
+        Ok(users_body) => {
+            elements = split_json_elements(extract_json_array(users_body, "results"))
+            match List.find_first(elements, |user| extract_field(user, "email") == email) {
+                Ok(user) => directory_pk!(user)
+                Err(_) => ""
+            }
+        }
+    }
+}
+
+# Rebuild the profile row from the journaled payload. The payload is the create request's JSON
+# (minus the password, which is never stored), read back with the scanners.
+create_profile_from_journal! : Str, Str, SurrealDB.Config => [Ok({}), Err(Str)]
+create_profile_from_journal! = |pk, payload, config| {
+    role = journal_field(payload, "role") |> sanitize
+    first_name = journal_field(payload, "first_name") |> sanitize
+    middle_name = journal_field(payload, "middle_name") |> sanitize
+    surname = journal_field(payload, "surname") |> sanitize
+    date_of_birth = journal_field(payload, "date_of_birth") |> sanitize
+    class_level = journal_field(payload, "class_level") |> sanitize
+    role_title = journal_field(payload, "role_title") |> sanitize
+    passport = journal_field(payload, "passport") |> sanitize
+    display_name = if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
+    number_clause = school_number_clause!(pk, role, config)
+    create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
+    match db_body!(create_sql, config) {
+        Ok(_) => Ok({})
+        # The row already exists (the create landed, the journal was behind): that is a settle.
+        Err(detail) => if Str.contains(detail, "already exists") { Ok({}) } else { Err(detail) }
     }
 }
 
@@ -1653,6 +1894,10 @@ required_role = |method, target| {
         "student"
     } else if Str.starts_with(target, "/api/teacher/") {
         "teacher"
+    } else if target == "/api/users/pending" or target == "/api/users/reconcile" {
+        # The journal's open operations and its repair trigger: in-flight ops carry emails and the
+        # messages of failures, so this is admin business even though other /api/users GETs are shared.
+        "admin"
     } else if target == "/api/users" or Str.starts_with(target, "/api/users?") or target == "/api/users/set-password" or target == "/api/users/activate" {
         # Reading the directory is any role's business (the hub's tabs, the pickers); creating,
         # renaming or disabling an account is the admin's.
@@ -1923,8 +2168,10 @@ respond! = |request, context| {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/users" {
                     # Create the login in Authentik, then (optionally set its password, then) write
-                    # the role's profile record. Every later step that fails removes the login again
-                    # so the admin can retry — the create is a compensated saga, not a transaction.
+                    # the role's profile record. The intent is journaled before any side effect and
+                    # every completed side advances the journal, so a crash mid-way leaves the
+                    # reconciler something to settle instead of an invisible half-state. Every later
+                    # step that fails still compensates (delete the login) and marks the row failed.
                     payload_raw = read_body!(request)
 
                     role = extract_field(payload_raw, "role") |> sanitize
@@ -1938,9 +2185,8 @@ respond! = |request, context| {
                     passport = extract_field(payload_raw, "passport") |> sanitize
                     # The password is optional, and deliberately not sanitize()d: it goes straight into
                     # the JSON body of the Authentik set-password call (escaped there), not into SQL.
+                    # It is never journaled, stored or logged — only its presence is (wants_password).
                     password_val = extract_field(payload_raw, "password")
-                    # One derivation rule for the display name, shared with the PUT that attaches a
-                    # profile to a login that has none.
                     display_name = display_name_from!(payload_raw)
 
                     match validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport) {
@@ -1949,23 +2195,32 @@ respond! = |request, context| {
                             if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
-                                # Check the class level before creating a login, so an invalid profile
-                                # never leaves an orphan account behind.
                                 class_ok =
                                     if role == "Student" { class_level_exists!(class_level, context.surreal) } else { Bool.True }
                                 if !class_ok {
                                     Ok(json_response(400, "{\"error\":\"class_level '${class_level}' does not exist\"}"))
                                 } else {
+                                    wants_pw = if Str.is_empty(password_val) { "0" } else { "1" }
+                                    # Quote-free delimiter format on purpose: the JSON scanners in this
+                                    # file read a value up to the first double quote, so a payload that
+                                    # itself contains quotes could never be read back. One token per
+                                    # field, none of the values may contain ";".
+                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};wants_password=${wants_pw}"
+                                    journal_res = journal_begin!("create_user", email_val, payload_journal, context.surreal)
+                                    match journal_res {
+                                        Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                        Ok(row_id) => {
                                     auth_res = Authentik.createUser!(email_val, display_name)
                                     match auth_res {
                                         Ok(user_id) => {
-                                            # Optional password, set before anything school-side is
-                                            # written so a failure rolls the whole create back.
+                                            pending_table = "pending_ops"
+                                            _ = db_body!("UPDATE ${record_ref!(row_id, pending_table)} SET step = 'login', pk = '${sanitize_json_text(user_id)}', updated_at = time::now();", context.surreal)
                                             password_attempt =
                                                 if Str.is_empty(password_val) { Ok("") }
                                                 else { Authentik.setPassword!(user_id, password_val) }
                                             match password_attempt {
                                                 Err(pw_msg) => {
+                                                    _ = journal_fail!(row_id, "password", pw_msg, context.surreal)
                                                     match Authentik.deleteUser!(user_id) {
                                                         Ok(_) => {}
                                                         Err(_) => {}
@@ -1973,18 +2228,17 @@ respond! = |request, context| {
                                                     Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(pw_msg)}\"}"))
                                                 }
                                                 Ok(_) => {
-                                                    # The number the new row is given: a fresh one from the
-                                                    # role's own counter, or the staff number this pk already
-                                                    # holds. It travels in the profile statement below, so
-                                                    # the write that fails takes the allocation down with it.
+                                                    _ = journal_mark!(row_id, "password", context.surreal)
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
                                                     create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
-                                                    # SurrealDB answers 200 even when a statement fails, so the body decides.
                                                     created = db_body!(create_sql, context.surreal)
                                                     match created {
-                                                        Ok(body) => Ok(json_response(200, body))
+                                                        Ok(body) => {
+                                                            _ = journal_done!(row_id, "profile", context.surreal)
+                                                            Ok(json_response(200, body))
+                                                        }
                                                         Err(detail) => {
-                                                            # Compensate: drop the login so a retry can succeed.
+                                                            _ = journal_fail!(row_id, "profile", detail, context.surreal)
                                                             match Authentik.deleteUser!(user_id) {
                                                                 Ok(_) => {}
                                                                 Err(_) => {}
@@ -1995,7 +2249,12 @@ respond! = |request, context| {
                                                 }
                                             }
                                         }
-                                        Err(err_msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(err_msg)}\"}"))
+                                        Err(err_msg) => {
+                                            _ = journal_fail!(row_id, "", err_msg, context.surreal)
+                                            Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(err_msg)}\"}"))
+                                        }
+                                    }
+                                        }
                                     }
                                 }
                             }
@@ -2497,15 +2756,34 @@ respond! = |request, context| {
                     } else {
                         match profile_table_of(id_val) {
                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
-                            Ok(table) =>
-                                match db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", context.surreal) {
-                                    Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
-                                    Ok(body) =>
-                                        match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
-                                            Ok(_) => Ok(json_response(200, body)),
-                                            Err(message) => Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}")),
+                            Ok(table) => {
+                                # Journal the delete before touching either side, so a crash between the
+                                # profile hide and the login disable is settled by the reconciler.
+                                journal_res = journal_begin!("delete_user", "", id_val, context.surreal)
+                                match journal_res {
+                                    Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                    Ok(row_id) =>
+                                        match db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", context.surreal) {
+                                            Err(detail) => {
+                                                _ = journal_fail!(row_id, "", detail, context.surreal)
+                                                Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}"))
+                                            }
+                                            Ok(body) => {
+                                                _ = journal_mark!(row_id, "profile_hidden", context.surreal)
+                                                match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
+                                                    Ok(_) => {
+                                                        _ = journal_done!(row_id, "login_disabled", context.surreal)
+                                                        Ok(json_response(200, body))
+                                                    }
+                                                    Err(message) => {
+                                                        _ = journal_fail!(row_id, "login_disabled", message, context.surreal)
+                                                        Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}"))
+                                                    }
+                                                }
+                                            }
                                         }
                                 }
+                            }
                         }
                     }
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/users/set-password" {
@@ -2547,7 +2825,18 @@ respond! = |request, context| {
                                 }
                         }
                     }
-                                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
+                                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/reconcile" {
+                    # The reconciler: settle anything a crash left mid-operation. Also runs at boot;
+                    # this is the on-demand trigger, mostly for tests and for after a redeploy.
+                    Ok(json_response(200, "{\"reconcile\":\"${sanitize_json_text(reconcile_pending!(context.surreal))}\"}"))
+                } else if Method.is_eq(request.method, GET) and request.target == "/api/users/pending" {
+                    # The ops that are not finished: running ones plus failed ones with their
+                    # message, so an admin can see exactly what needs a human.
+                    match SurrealDB.query_read!("SELECT * FROM pending_ops WHERE state != 'done' ORDER BY created_at DESC LIMIT 50;", context.surreal) {
+                        Ok(body) => Ok(json_response(200, body)),
+                        Err(err) => Ok(db_read_error!(err)),
+                    }
+                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
                     # The nav bar's badge: the one active session term, with its term's own name joined
                     # in (`term.name` follows the record link). The page refetches it on every
                     # navigation. Under /api/session_terms, so every authenticated role may read it.

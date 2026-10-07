@@ -239,3 +239,16 @@ CREATE lessons:test_lesson SET topic_title = 'Packaging Criteria for Farm Produc
 # The dev-skip token identifies the caller as `dev_user`, so give that caller a student profile:
 # submission rows then resolve a display name instead of showing a bare id.
 CREATE student_profile:dev_user SET first_name = 'Test', surname = 'Student', display_name = 'Test Student', date_of_birth = <datetime> '2012-05-01', current_class = type::record('class_levels', 'jss_1'), class_enrolled = type::record('class_levels', 'jss_1'), passport = 'https://example.com/dev.jpg', created_at = time::now();
+
+-- --- V9: the two-system write journal (see db/schema-v9-pending-ops.surql) ---
+DEFINE TABLE IF NOT EXISTS pending_ops SCHEMAFULL PERMISSIONS NONE;
+DEFINE FIELD IF NOT EXISTS kind ON pending_ops TYPE string ASSERT $value IN ["create_user", "delete_user"];
+DEFINE FIELD IF NOT EXISTS state ON pending_ops TYPE string ASSERT $value IN ["running", "done", "failed"];
+DEFINE FIELD IF NOT EXISTS step ON pending_ops TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS email ON pending_ops TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS pk ON pending_ops TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS payload ON pending_ops TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS message ON pending_ops TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS created_at ON pending_ops TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at ON pending_ops TYPE option<datetime>;
+DEFINE INDEX IF NOT EXISTS idx_pending_state ON pending_ops COLUMNS state;
