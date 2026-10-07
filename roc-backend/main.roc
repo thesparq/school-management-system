@@ -17,6 +17,7 @@ import Url
 import R2
 import Golem
 import Authentik
+import Matrix
 
 Context : { surreal: SurrealDB.Config, dev_mode: Bool, static_dir: Str }
 
@@ -114,6 +115,16 @@ get_token = |headers| {
             }
         }
         Err(_) => Err("No Authorization header")
+    }
+}
+
+# The Matrix token the page already holds, if it sent one (the chat proxy validates it and only
+# mints a fresh token — a new Synapse device — when the old one is gone or invalid).
+matrix_header_token = |headers| {
+    matrix_headers = List.keep_if(headers, |h| h.name == "X-Matrix-Token" or h.name == "x-matrix-token")
+    match List.first(matrix_headers) {
+        Ok(h) => h.value
+        Err(_) => ""
     }
 }
 
@@ -1368,6 +1379,22 @@ sanitize_json_text = |text| {
         |> Str.replace_each("\r", " ")
 }
 
+# The display name the chat account is created with: the userinfo `name`, then the username
+# (`preferred_username`), then the caller's own id — whichever the body has first.
+display_name_for : Str, Str -> Str
+display_name_for = |user_json, local_part| {
+    name = extract_field(user_json, "name")
+    username = extract_field(user_json, "preferred_username")
+
+    if !Str.is_empty(name) {
+        name
+    } else if !Str.is_empty(username) {
+        username
+    } else {
+        local_part
+    }
+}
+
 # --- JSON field extractor ---
 
 extract_field = |json_str, field| {
@@ -2312,10 +2339,55 @@ respond! = |request, context| {
                         Ok(json_response(200, "{\"key\":\"${key_val}\",\"uploadUrl\":\"${upload_url}\",\"publicUrl\":\"${public_url}\",\"expiresIn\":${U64.to_str(expires)}}"))
                     }
 
-                # --- Matrix token proxy ---
+                # --- Matrix token proxy: the chat page's access token ---
+                # The backend talks to the homeserver's admin API with the shared admin token and
+                # hands the page a token for its own account (`@<this user's id>:<server>`). The
+                # account is created on first use, so users initialized before the chat existed get
+                # a Synapse account the first time they open Messaging.
+                #
+                # A token the page already holds (sent back as `X-Matrix-Token`) is validated
+                # against the homeserver and reused when it still works; a fresh token — and with
+                # it a fresh Synapse device — is minted only when the old one is gone or invalid.
                 } else if Method.is_eq(request.method, GET) and request.target == "/api/matrix/token" {
                     matrix_url = match Env.var!("PUBLIC_MATRIX_URL") { Ok(os) => OsStr.display(os), Err(_) => "" }
-                    Ok(json_response(200, "{\"homeserver\":\"${matrix_url}\",\"token\":null}"))
+                    admin_token = match Env.var!("MATRIX_ADMIN_TOKEN") { Ok(os) => OsStr.display(os), Err(_) => "" }
+                    server_name = match Env.var!("MATRIX_SERVER_NAME") { Ok(os) => OsStr.display(os), Err(_) => "matrix.johnethel.school" }
+
+                    if Str.is_empty(matrix_url) {
+                        Ok(json_response(503, "{\"error\":\"PUBLIC_MATRIX_URL is not set\"}"))
+                    } else if Str.is_empty(admin_token) {
+                        Ok(json_response(503, "{\"error\":\"MATRIX_ADMIN_TOKEN is not set\"}"))
+                    } else {
+                        local_part = caller_id!(user_json)
+                        matrix_user_id = Matrix.user_id(local_part, server_name)
+                        display_name = display_name_for(user_json, local_part)
+                        cached_token = matrix_header_token(request.headers)
+
+                        reuse_token =
+                            if Str.is_empty(cached_token) {
+                                Bool.False
+                            } else {
+                                match Matrix.is_token_valid!(matrix_url, matrix_user_id, cached_token) {
+                                    Ok(valid) => valid
+                                    # The validation itself failed (a sick homeserver); fall back
+                                    # to minting — which fails loudly too if it is really down.
+                                    Err(_) => Bool.False
+                                }
+                            }
+
+                        if reuse_token {
+                            Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${cached_token |> sanitize_json_text}\"}"))
+                        } else {
+                            match Matrix.ensure_user!(matrix_url, admin_token, matrix_user_id, display_name) {
+                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                Ok(_) =>
+                                    match Matrix.get_user_token!(matrix_url, admin_token, matrix_user_id) {
+                                        Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                        Ok(fresh_token) => Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${fresh_token |> sanitize_json_text}\"}")),
+                                    }
+                            }
+                        }
+                    }
 
                 } else if Method.is_eq(request.method, PUT) and request.target == "/api/users" {
                     # Update the profile row the id names. The table comes from the id's own prefix

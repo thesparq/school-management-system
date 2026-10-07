@@ -43,6 +43,7 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | `e2e_general_assessments.cjs` | General (term-weighted) assessment lifecycle in Chromium: the teacher creates one with hand-written questions from the Assessments & Grading hub and publishes it; the student sees it under My Assignments, answers it, and a closed one shows its deadline state; the teacher grades and releases it from the hub's Grading tab. | Sandbox backend |
 | `e2e_loading.cjs` | Loading states in Chromium, driven by *clicking* — landing on the dashboard and going through the sidebar — because that is the path the suites above never took. The users list shows a skeleton that hands over to its table, no list is left on a loading message, the top border bar shows for a navigation and for a tab switch and goes away once the view has rendered, the nav bar carries the active session term, a tab switch shows that tab's own rows, a list whose payload is empty shows the empty state (faked for one tab through the route interception, because the fixture's directory gives every tab a row), and with `/api/users?role=*` answering 500 the list shows the backend's own message with a retry (and the retry loads the list) instead of a spinner. | Sandbox backend |
 | `general_assessment_flow.sh` | The same general lifecycle over the API, including `assessment_type=general` submissions, the weight budget, the strict question shape and the opens/closes/attempt rules. Creates its own subject per run, so it never spends the fixture's weight budget. | Sandbox backend |
+| `matrix_token.sh` | The chat proxy (`GET /api/matrix/token`) against a mock Synapse (`fixtures/mock_synapse.py`): no/bogus token is a 401; every role is allowed and receives a homeserver plus a real token (not the old `null` stub); the backend upserts and logs in **the caller's own** encoded user id with the caller's display name; a valid cached token is reused (validated via whoami, no new device minted) while a stale one is replaced; a missing `MATRIX_ADMIN_TOKEN` answers 503 naming it. Self-contained: builds the backend and boots it twice plus the mock — no database or Authentik needed. | Roc toolchain |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -58,6 +59,7 @@ node tests/e2e/e2e_admin_config.cjs
 node tests/e2e/e2e_assessments.cjs
 node tests/e2e/e2e_general_assessments.cjs
 node tests/e2e/e2e_loading.cjs
+sh tests/e2e/matrix_token.sh          # self-boots backend + mock Synapse (see its header)
 sh tests/e2e/assessment_flow.sh
 sh tests/e2e/users_api.sh
 sh tests/e2e/general_assessment_flow.sh

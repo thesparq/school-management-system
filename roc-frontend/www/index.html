@@ -336,6 +336,9 @@
             // to have run before this navigation starts, and a sign-out that leaves a usable token in
             // storage is not a sign-out.
             localStorage.removeItem("auth_token");
+            // The chat token belongs to the account that is signing out; a stale one would merely be
+            // validated and rejected for the next account, but there is no reason to carry it.
+            sessionStorage.removeItem("matrix_token");
             const back = window.location.origin + "/auth/callback";
             window.location.href = AUTH_HOST + "/application/o/school-management-system/end-session/?post_logout_redirect_uri=" + encodeURIComponent(back);
         });
@@ -1988,21 +1991,51 @@
     // MATRIX / SYNAPSE MESSAGING
     // ========================================================
 
-    let _matrixClient = { token: null, homeserver: null, userId: null, nextBatch: null };
+    let _matrixClient = { token: null, homeserver: null, nextBatch: null };
+    let _matrixRefreshingToken = false;
+    // The minted token is cached for the tab session: every visit sends it back as X-Matrix-Token,
+    // the proxy validates it against the homeserver and reuses it, and a fresh token (a fresh
+    // Synapse device) is minted only when the old one is gone or invalid.
+    const MATRIX_TOKEN_KEY = "matrix_token";
+
+    // The backend proxy is authenticated with the app's own token; every client-API call against
+    // the homeserver carries the minted Matrix token instead. Two helpers, so they cannot be
+    // confused.
+    function appAuthHeaders() {
+        return { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+    }
+
+    function matrixAuthHeaders(extra) {
+        const headers = { "Authorization": "Bearer " + (_matrixClient.token || "") };
+        return extra ? Object.assign(headers, extra) : headers;
+    }
+
+    // Ask the backend for a chat token; the cached one rides along so it can be validated and
+    // reused instead of minting a new Synapse device.
+    async function fetchMatrixToken() {
+        const headers = appAuthHeaders();
+        const cached = sessionStorage.getItem(MATRIX_TOKEN_KEY);
+        if (cached) headers["X-Matrix-Token"] = cached;
+        const res = await fetch("/api/matrix/token", { headers });
+        const data = await res.json();
+        // A rejected proxy (503 naming the missing env var, a 401 for a bad app token) carries
+        // the backend's own error text — say that instead of the generic "not configured" line.
+        if (!res.ok || data.error) throw new Error(data.error || "Matrix authentication not configured. Contact your administrator.");
+        sessionStorage.setItem(MATRIX_TOKEN_KEY, data.token || "");
+        return data;
+    }
 
     async function setupMessaging() {
         if (_matrixSyncInterval) { clearInterval(_matrixSyncInterval); _matrixSyncInterval = null; }
+        _matrixRefreshingToken = false;
+        _currentMatrixRoom = null;
 
-        // Fetch Matrix token from backend proxy
         try {
-            const res = await fetch("/api/matrix/token", {
-                headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") }
-            });
-            const { token, homeserver } = await res.json();
-            _matrixClient.token = token;
-            _matrixClient.homeserver = homeserver || "https://matrix.johnethel.school";
+            const data = await fetchMatrixToken();
+            _matrixClient.token = data.token;
+            _matrixClient.homeserver = data.homeserver || "https://matrix.johnethel.school";
 
-            if (!token) {
+            if (!_matrixClient.token) {
                 showMatrixError("Matrix authentication not configured. Contact your administrator.");
                 return;
             }
@@ -2011,15 +2044,10 @@
             await matrixSync();
             _matrixSyncInterval = setInterval(matrixSync, 5000);
 
-            // Setup send button
-            const sendBtn = document.getElementById("matrix-send-btn");
-            const inputEl = document.getElementById("matrix-input");
-            sendBtn && sendBtn.addEventListener("click", () => sendMatrixMessage());
-            inputEl && inputEl.addEventListener("keydown", (e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMatrixMessage(); }
-            });
+            bindMatrixComposer();
+            renderMatrixChannelControls();
         } catch(e) {
-            showMatrixError("Failed to connect to messaging server.");
+            showMatrixError(e.message || "Failed to connect to messaging server.");
             console.error("Matrix setup error:", e);
         }
     }
@@ -2029,16 +2057,43 @@
         if (roomsList) roomsList.innerHTML = `<p class="text-xs text-red-500">${escHtml(msg)}</p>`;
     }
 
+    function bindMatrixComposer() {
+        const sendBtn = document.getElementById("matrix-send-btn");
+        const inputEl = document.getElementById("matrix-input");
+        sendBtn && sendBtn.addEventListener("click", () => sendMatrixMessage());
+        inputEl && inputEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMatrixMessage(); }
+        });
+    }
+
+    // A 401 on a client call means the cached token died server-side: drop it and mint once more.
+    async function refreshMatrixTokenOnce() {
+        if (_matrixRefreshingToken) return;
+        _matrixRefreshingToken = true;
+        try {
+            sessionStorage.removeItem(MATRIX_TOKEN_KEY);
+            const data = await fetchMatrixToken();
+            _matrixClient.token = data.token;
+            await matrixSync();
+        } catch(e) {
+            showMatrixError(e.message || "Failed to reconnect to messaging server.");
+        }
+    }
+
     async function matrixSync() {
         if (!_matrixClient.token) return;
         try {
             const params = _matrixClient.nextBatch ? `?since=${_matrixClient.nextBatch}&timeout=0` : "?timeout=0";
             const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/sync${params}`, {
-                headers: { "Authorization": "Bearer " + _matrixClient.token }
+                headers: matrixAuthHeaders()
             });
+            if (res.status === 401) { await refreshMatrixTokenOnce(); return; }
             if (!res.ok) return;
             const sync = await res.json();
             _matrixClient.nextBatch = sync.next_batch;
+
+            // Pending invitations first, then the joined rooms
+            renderMatrixInvites(sync.rooms?.invite || {});
 
             // Update rooms list
             const rooms = sync.rooms?.join || {};
@@ -2055,7 +2110,7 @@
                     </button>`;
                 }).join("");
             } else if (roomsList && !roomsList.children.length) {
-                roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">No channels available.</p>`;
+                roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">No channels yet — create or join one above.</p>`;
             }
 
             // If a room is selected, update its messages
@@ -2065,6 +2120,215 @@
             }
         } catch(e) { /* silent — will retry */ }
     }
+
+    // --- Pending invitations: accept to join a room someone invited you to ---
+    function renderMatrixInvites(invites) {
+        const roomsDiv = document.getElementById("matrix-rooms");
+        const roomsList = document.getElementById("matrix-rooms-list");
+        if (!roomsDiv || !roomsList) return;
+        const ids = Object.keys(invites);
+        let box = document.getElementById("matrix-invites");
+        if (!ids.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement("div");
+            box.id = "matrix-invites";
+            box.className = "mb-3 space-y-1";
+            roomsDiv.insertBefore(box, roomsList);
+        }
+        box.innerHTML = `<p class="text-xs font-medium text-muted-foreground mb-1">Invitations</p>` +
+            ids.map((roomId) => {
+                const inv = invites[roomId];
+                const nameEvent = (inv.invite_state?.events || []).find(e => e.type === "m.room.name");
+                const name = nameEvent?.content?.name || roomId.split(":")[0].replace("!", "").slice(0, 20);
+                return `<div class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 bg-muted/50">
+                    <span class="truncate text-sm font-medium"># ${escHtml(name)}</span>
+                    <button onclick="acceptMatrixInvite('${escHtml(roomId)}')" class="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Accept</button>
+                </div>`;
+            }).join("");
+    }
+
+    window.acceptMatrixInvite = async (roomId) => {
+        try {
+            await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`, {
+                method: "POST", headers: matrixAuthHeaders(), body: "{}"
+            });
+            await matrixSync();
+        } catch(e) { console.error("Accept invite failed:", e); }
+    };
+
+    // --- Sidebar actions: create a channel, or browse and join public ones ---
+    function renderMatrixChannelControls() {
+        const roomsDiv = document.getElementById("matrix-rooms");
+        if (!roomsDiv || document.getElementById("matrix-channel-actions")) return;
+        const actions = document.createElement("div");
+        actions.id = "matrix-channel-actions";
+        actions.className = "flex gap-1.5 mb-3";
+        actions.innerHTML = `
+            <button id="matrix-new-channel-btn" class="flex-1 text-xs px-2 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer">＋ New channel</button>
+            <button id="matrix-join-channel-btn" class="flex-1 text-xs px-2 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer">Join</button>`;
+        roomsDiv.prepend(actions);
+
+        document.getElementById("matrix-new-channel-btn").addEventListener("click", () => toggleChannelForm("matrix-new-channel-form", buildNewChannelForm));
+        document.getElementById("matrix-join-channel-btn").addEventListener("click", () => toggleChannelForm("matrix-join-channel-form", buildJoinChannelForm));
+        bindInviteControl();
+    }
+
+    function toggleChannelForm(id, build) {
+        let form = document.getElementById(id);
+        if (!form) form = build(id);
+        form.classList.toggle("hidden");
+    }
+
+    // Public preset: the channel appears in the directory, so anyone can find and join it.
+    function buildNewChannelForm(id) {
+        const roomsList = document.getElementById("matrix-rooms-list");
+        const form = document.createElement("div");
+        form.id = id;
+        form.className = "mb-3 space-y-1.5 hidden";
+        form.innerHTML = `
+            <input id="matrix-new-name" placeholder="Channel name" class="w-full text-sm border rounded-md px-2 py-1.5 bg-background"/>
+            <button id="matrix-new-create" class="w-full text-xs px-2 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Create channel</button>`;
+        roomsList.parentElement.insertBefore(form, roomsList);
+        document.getElementById("matrix-new-create").addEventListener("click", async () => {
+            const name = document.getElementById("matrix-new-name").value.trim();
+            if (!name) return;
+            try {
+                const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/createRoom`, {
+                    method: "POST",
+                    headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
+                    body: JSON.stringify({ name, preset: "public_chat", visibility: "public", topic: "School channel" })
+                });
+                const data = await res.json();
+                if (!res.ok) { showMatrixError(data.error || "Failed to create the channel."); return; }
+                form.remove();
+                await matrixSync();
+                if (data.room_id) await window.selectRoom(data.room_id, name);
+            } catch(e) { console.error("Create channel failed:", e); }
+        });
+        return form;
+    }
+
+    function buildJoinChannelForm(id) {
+        const roomsList = document.getElementById("matrix-rooms-list");
+        const form = document.createElement("div");
+        form.id = id;
+        form.className = "mb-3 space-y-1.5 hidden";
+        form.innerHTML = `
+            <div class="flex gap-1.5">
+                <input id="matrix-join-search" placeholder="Find a channel…" class="flex-1 text-sm border rounded-md px-2 py-1.5 bg-background"/>
+                <button id="matrix-join-go" class="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted cursor-pointer">Browse</button>
+            </div>
+            <div id="matrix-join-results" class="space-y-1"></div>`;
+        roomsList.parentElement.insertBefore(form, roomsList);
+        document.getElementById("matrix-join-go").addEventListener("click", () => searchPublicRooms());
+        const input = document.getElementById("matrix-join-search");
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") searchPublicRooms(); });
+        return form;
+    }
+
+    async function searchPublicRooms() {
+        const term = (document.getElementById("matrix-join-search").value || "").trim();
+        const results = document.getElementById("matrix-join-results");
+        if (!results) return;
+        try {
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/publicRooms`, {
+                method: "POST",
+                headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ limit: 20, filter: { generic_search_term: term } })
+            });
+            const data = await res.json();
+            const rooms = (data.chunk || []).filter(r => r.name || r.canonical_alias);
+            results.innerHTML = rooms.length
+                ? rooms.map(r => {
+                    const label = r.name || r.canonical_alias || r.room_id;
+                    return `<div class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+                        <span class="truncate text-sm"># ${escHtml(label)}</span>
+                        <button onclick="joinPublicRoom('${escHtml(r.room_id)}', '${escHtml(label)}')" class="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Join</button>
+                    </div>`;
+                }).join("")
+                : `<p class="text-xs text-muted-foreground italic">No public channels match.</p>`;
+        } catch(e) { console.error("Browse channels failed:", e); }
+    }
+
+    window.joinPublicRoom = async (roomId, name) => {
+        try {
+            await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`, {
+                method: "POST", headers: matrixAuthHeaders(), body: "{}"
+            });
+            await matrixSync();
+            await window.selectRoom(roomId, name);
+        } catch(e) { console.error("Join failed:", e); }
+    };
+
+    // --- Invite a member into the selected room, by display name or user id ---
+    function bindInviteControl() {
+        const inputEl = document.getElementById("matrix-input");
+        const composer = inputEl && inputEl.parentElement;
+        if (!composer || document.getElementById("matrix-invite-btn")) return;
+        const btn = document.createElement("button");
+        btn.id = "matrix-invite-btn";
+        btn.className = "whitespace-nowrap text-xs px-2.5 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer";
+        btn.textContent = "＋ Invite";
+        composer.appendChild(btn);
+        btn.addEventListener("click", () => toggleInviteSearch());
+    }
+
+    function toggleInviteSearch() {
+        let row = document.getElementById("matrix-invite-search");
+        if (row) { row.remove(); return; }
+        const composer = document.getElementById("matrix-input")?.parentElement;
+        if (!composer || !_currentMatrixRoom) return;
+        row = document.createElement("div");
+        row.id = "matrix-invite-search";
+        row.className = "p-3 border-t space-y-1.5";
+        row.innerHTML = `
+            <input id="matrix-invite-term" placeholder="Invite by name or @user:matrix.johnethel.school" class="w-full text-sm border rounded-md px-2 py-1.5 bg-background"/>
+            <div id="matrix-invite-results" class="space-y-1"></div>`;
+        composer.parentElement.insertBefore(row, composer);
+        const term = document.getElementById("matrix-invite-term");
+        term.addEventListener("keydown", (e) => { if (e.key === "Enter") searchUsersToInvite(); });
+        term.focus();
+    }
+
+    async function searchUsersToInvite() {
+        const term = (document.getElementById("matrix-invite-term").value || "").trim();
+        const results = document.getElementById("matrix-invite-results");
+        if (!results || !term || !_currentMatrixRoom) return;
+        try {
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/user_directory/search?search_term=${encodeURIComponent(term)}`, {
+                headers: matrixAuthHeaders()
+            });
+            const data = await res.json();
+            const people = (data.results || []).filter(u => u.user_id && u.user_id.startsWith("@"));
+            results.innerHTML = people.length
+                ? people.map(p => {
+                    const label = p.display_name || p.user_id.replace("@", "").split(":")[0];
+                    return `<div class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+                        <span class="truncate text-sm">${escHtml(label)} <span class="text-xs text-muted-foreground">(${escHtml(p.user_id)})</span></span>
+                        <button onclick="inviteMatrixUser('${escHtml(p.user_id)}')" class="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Invite</button>
+                    </div>`;
+                }).join("")
+                : `<p class="text-xs text-muted-foreground italic">No users match.</p>`;
+        } catch(e) { console.error("User search failed:", e); }
+    }
+
+    window.inviteMatrixUser = async (userId) => {
+        if (!_currentMatrixRoom) return;
+        try {
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(_currentMatrixRoom)}/invite`, {
+                method: "POST",
+                headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ user_id: userId })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                showMatrixError(data.error || "Invite failed.");
+            } else {
+                const row = document.getElementById("matrix-invite-search");
+                if (row) row.remove();
+            }
+        } catch(e) { console.error("Invite failed:", e); }
+    };
 
     window.selectRoom = async (roomId, name) => {
         _currentMatrixRoom = roomId;
@@ -2076,7 +2340,7 @@
         // Load recent messages
         try {
             const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages?dir=b&limit=50`, {
-                headers: { "Authorization": "Bearer " + _matrixClient.token }
+                headers: matrixAuthHeaders()
             });
             const data = await res.json();
             const events = (data.chunk || []).filter(e => e.type === "m.room.message").reverse();
@@ -2120,7 +2384,7 @@
             const txnId = Date.now();
             await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(_currentMatrixRoom)}/send/m.room.message/${txnId}`, {
                 method: "PUT",
-                headers: { "Authorization": "Bearer " + _matrixClient.token, "Content-Type": "application/json" },
+                headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ msgtype: "m.text", body })
             });
         } catch(e) { console.error("Send failed:", e); input.value = body; }

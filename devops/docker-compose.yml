@@ -47,6 +47,13 @@ services:
     - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
     - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
     - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+    # The chat page's token proxy (`/api/matrix/token`): PUBLIC_MATRIX_URL is the homeserver the
+    # page talks to (same host `main.roc` calls for the admin API), and MATRIX_ADMIN_TOKEN is a
+    # Synapse admin access token (see devops/generate_matrix_admin.sh — 
+    # get one without password login by temporarily enabling it, or reuse the token injected for the
+    # retired Golem stack). Missing token: the route answers 503 naming it, like R2.
+    - PUBLIC_MATRIX_URL=${PUBLIC_MATRIX_URL:-https://matrix.johnethel.school}
+    - MATRIX_ADMIN_TOKEN=${MATRIX_ADMIN_TOKEN:-}
     labels:
     - traefik.enable=true
     - traefik.docker.network=dokploy-network
@@ -60,15 +67,31 @@ services:
     - dokploy-network
     restart: unless-stopped
   coturn:
+    # TURN/STUN for Element calls. Host networking: TURN must answer on the host's own ports
+    # (3478/tcp+udp, 5349/tcp, 49152-49252/udp) because the invitation Synapse hands out only ever
+    # points clients at matrix.johnethel.school — Traefik is not in the path.
+    #
+    # `--listening-ip` is pinned to the server's own address on purpose. With no listener IP, coturn
+    # discovers every address on the host (loopback included) and binds a stream listener on each;
+    # one EADDRINUSE — e.g. a leftover TURN install (this host runs a stray `eturnal` bound to
+    # 0.0.0.0/:: 3478) or a port forwarder on the loopback — makes it retry for 60 s and then
+    # `exit(1)`, and `restart: unless-stopped` spins it forever. A wildcard holder blocks every
+    # other bind on the port, so it must be removed regardless of the pinned address. Pinning
+    # leaves exactly one listener address to reason about, and COTURN_LISTEN_IP must be the
+    # server's own address (`hostname -I`); the default matches the deployed box
+    # (185.214.135.229, same host as app./auth./db2./chat.).
     command:
     - -n
     - --log-file=stdout
+    - --listening-ip=${COTURN_LISTEN_IP:-185.214.135.229}
     - --min-port=49152
     - --max-port=49252
     - --use-auth-secret
     - --static-auth-secret=${COTURN_SHARED_SECRET}
     - --realm=${SYNAPSE_SERVER_NAME}
-    - --no-tcp-relay
+    # TCP relays (in addition to UDP) are left enabled on purpose: a school network that blocks UDP
+    # between students and the server still gets calls over the TCP relay leg, which is why the
+    # homeserver advertises `?transport=tcp` too (`devops/matrix-config/homeserver.yaml`).
     environment:
     - COTURN_SHARED_SECRET=${COTURN_SHARED_SECRET}
     - SYNAPSE_SERVER_NAME=${SYNAPSE_SERVER_NAME}
