@@ -331,6 +331,30 @@ P_PK=$(pk_of "$P_CREATE")
 check "a parent is created without a number" "$(listing Parent | row_of "$P_PK")" '"school_number":""'
 check "and neither counter moved for them" "$(counter student),$(counter staff)" "$NUM_TWO,$STAFF_TWO"
 
+# --- 17. passwords: set at create, reset, and the activate restore ---
+# The mock records every set_password call (GET $MOCK/password_sets), so these checks prove the
+# backend actually talked to Authentik — the real deploy needs a smoke test with the live token.
+PW="Pw-${STAMP}-Ab1!"
+PW_EMAIL="users_api_pw_${STAMP}@example.com"
+PW_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"email\":\"$PW_EMAIL\",\"first_name\":\"Pw\",\"surname\":\"Check${STAMP}\",\"date_of_birth\":\"2011-03-03\",\"class_level\":\"class_levels:jss_2\",\"passport\":\"https://example.com/pw.jpg\",\"password\":\"$PW\"}")
+PW_PK=$(pk_of "$PW_CREATE")
+check "a create with a password answers 200" "$PW_CREATE" '"status":"OK"'
+check "and the password reaches Authentik" "$(curl -s "$MOCK/password_sets")" "$PW_PK"
+SHORT_CREATE=$(curl -s -w ' HTTP %{http_code}' -X POST "$B/api/users" -H "$T" -H "$C" -d '{"role":"Teacher","email":"shortpw'"$STAMP"'@example.com","first_name":"S","surname":"P","passport":"https://example.com/x.jpg","password":"123"}')
+check "a too-short password is refused" "$SHORT_CREATE" "HTTP 400"
+PW_RESET=$(curl -s -w ' HTTP %{http_code}' -X POST "$B/api/users/set-password" -H "$T" -H "$C" -d "{\"id\":\"student_profile:$PW_PK\",\"password\":\"Reset-$STAMP-Ab1!\"}")
+check "set-password answers 200 for an admin" "$PW_RESET" "HTTP 200"
+check "and the new password reaches Authentik" "$(curl -s "$MOCK/password_sets")" "Reset-$STAMP-Ab1!"
+check "set-password is 403 for a student token" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/users/set-password" -H 'Authorization: Bearer dev-student' -H "$C" -d "{\"id\":\"student_profile:$PW_PK\",\"password\":\"Nope-$STAMP\"}")" "403"
+check "activate is 403 for a student token" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/users/activate" -H 'Authorization: Bearer dev-student' -H "$C" -d "{\"id\":\"student_profile:$PW_PK\"}")" "403"
+curl -s -X DELETE "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"student_profile:$PW_PK\"}" > /dev/null
+ACTIVATE=$(curl -s -w ' HTTP %{http_code}' -X POST "$B/api/users/activate" -H "$T" -H "$C" -d "{\"id\":\"student_profile:$PW_PK\"}")
+check "activate restores a deleted row (200)" "$ACTIVATE" "HTTP 200"
+check "and the listing shows the row again" "$(listing Student | row_of "$PW_PK")" '"school_number":'
+
+# --- 18. the listing carries the richer profile fields ---
+check "the listing row carries middle_name and class_name" "$(listing Student | row_of "$PW_PK")" '"class_name"'
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -699,6 +699,15 @@ looks_like_email = |text| {
         and !Str.ends_with(domain, ".")
 }
 
+# A password the admin typed or the page generated: 8..72 characters with no line break — long
+# enough to matter, short enough to survive a paste; a newline would break the JSON that the
+# Authentik set-password call embeds the password in.
+password_ok : Str -> Bool
+password_ok = |text| {
+    length = Str.count_utf8_bytes(text)
+    length >= 8 and length <= 72 and !Str.contains(text, "\n") and !Str.contains(text, "\r")
+}
+
 # The profile fields a row has to carry: the profile tables are SCHEMAFULL and require these, and
 # the passport rule mirrors validate_passport_url in the MoonBit admin agent, so both stacks accept
 # the same input. POST (a new login) and the PUT that attaches a profile to an existing login both
@@ -1198,8 +1207,12 @@ user_row_with_identity! = |row, users, role| {
         "\"id\":\"${sanitize_json_text(record_id_text!(extract_field(row, "id")))}\"",
         "\"display_name\":\"${sanitize_json_text(extract_field(row, "display_name"))}\"",
         "\"first_name\":\"${sanitize_json_text(extract_field(row, "first_name"))}\"",
+        "\"middle_name\":\"${sanitize_json_text(extract_field(row, "middle_name"))}\"",
         "\"surname\":\"${sanitize_json_text(extract_field(row, "surname"))}\"",
         "\"passport\":\"${sanitize_json_text(extract_field(row, "passport"))}\"",
+        "\"date_of_birth\":\"${sanitize_json_text(extract_field(row, "date_of_birth"))}\"",
+        "\"role_title\":\"${sanitize_json_text(extract_field(row, "role_title"))}\"",
+        "\"class_name\":\"${sanitize_json_text(extract_field(row, "class_name"))}\"",
         "\"created_at\":\"${sanitize_json_text(extract_field(row, "created_at"))}\"",
         "\"current_class\":\"${sanitize_json_text(extract_field(row, "current_class"))}\"",
         "\"school_number\":\"${sanitize_json_text(row_number!(row, role))}\"",
@@ -1257,10 +1270,14 @@ profile_less_row! = |user, table| {
         "\"id\":\"${table}:${sanitize_json_text(directory_pk!(user))}\"",
         "\"display_name\":\"${sanitize_json_text(extract_field(user, "name"))}\"",
         "\"first_name\":\"\"",
+        "\"middle_name\":\"\"",
         "\"surname\":\"\"",
         "\"passport\":\"\"",
         "\"created_at\":\"\"",
         "\"current_class\":\"\"",
+        "\"date_of_birth\":\"\"",
+        "\"role_title\":\"\"",
+        "\"class_name\":\"\"",
         "\"school_number\":\"\"",
         "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
         "\"username\":\"${sanitize_json_text(extract_field(user, "username"))}\"",
@@ -1636,7 +1653,7 @@ required_role = |method, target| {
         "student"
     } else if Str.starts_with(target, "/api/teacher/") {
         "teacher"
-    } else if target == "/api/users" or Str.starts_with(target, "/api/users?") {
+    } else if target == "/api/users" or Str.starts_with(target, "/api/users?") or target == "/api/users/set-password" or target == "/api/users/activate" {
         # Reading the directory is any role's business (the hub's tabs, the pickers); creating,
         # renaming or disabling an account is the admin's.
         if Method.is_eq(method, GET) { "" } else { "admin" }
@@ -1905,8 +1922,9 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request.target == "/api/users" {
-                    # Create the login in Authentik, then the role's profile record. A failed
-                    # profile write removes the login again so the admin can retry.
+                    # Create the login in Authentik, then (optionally set its password, then) write
+                    # the role's profile record. Every later step that fails removes the login again
+                    # so the admin can retry — the create is a compensated saga, not a transaction.
                     payload_raw = read_body!(request)
 
                     role = extract_field(payload_raw, "role") |> sanitize
@@ -1918,48 +1936,70 @@ respond! = |request, context| {
                     class_level = extract_field(payload_raw, "class_level") |> sanitize
                     role_title = extract_field(payload_raw, "role_title") |> sanitize
                     passport = extract_field(payload_raw, "passport") |> sanitize
+                    # The password is optional, and deliberately not sanitize()d: it goes straight into
+                    # the JSON body of the Authentik set-password call (escaped there), not into SQL.
+                    password_val = extract_field(payload_raw, "password")
                     # One derivation rule for the display name, shared with the PUT that attaches a
                     # profile to a login that has none.
                     display_name = display_name_from!(payload_raw)
 
                     match validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport) {
                         Err(message) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
-                        Ok(_) => {
-                            # Check the class level before creating a login, so an invalid profile
-                            # never leaves an orphan account behind.
-                            class_ok =
-                                if role == "Student" { class_level_exists!(class_level, context.surreal) } else { Bool.True }
-                            if !class_ok {
-                                Ok(json_response(400, "{\"error\":\"class_level '${class_level}' does not exist\"}"))
+                        Ok(_) =>
+                            if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
+                                Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
-                            auth_res = Authentik.createUser!(email_val, display_name)
-                            match auth_res {
-                                Ok(user_id) => {
-                                    # The number the new row is given: a fresh one from the role's own
-                                    # counter, or the staff number this pk already holds. It travels in
-                                    # the profile statement below, so the write that fails takes the
-                                    # allocation down with it.
-                                    number_clause = school_number_clause!(user_id, role, context.surreal)
-                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
-                                    # SurrealDB answers 200 even when a statement fails, so the body decides.
-                                    created = db_body!(create_sql, context.surreal)
-                                    match created {
-                                        Ok(body) => Ok(json_response(200, body))
-                                        Err(detail) => {
-                                            # Compensate: drop the login so a retry can succeed.
-                                            match Authentik.deleteUser!(user_id) {
-                                                Ok(_) => {}
-                                                Err(_) => {}
+                                # Check the class level before creating a login, so an invalid profile
+                                # never leaves an orphan account behind.
+                                class_ok =
+                                    if role == "Student" { class_level_exists!(class_level, context.surreal) } else { Bool.True }
+                                if !class_ok {
+                                    Ok(json_response(400, "{\"error\":\"class_level '${class_level}' does not exist\"}"))
+                                } else {
+                                    auth_res = Authentik.createUser!(email_val, display_name)
+                                    match auth_res {
+                                        Ok(user_id) => {
+                                            # Optional password, set before anything school-side is
+                                            # written so a failure rolls the whole create back.
+                                            password_attempt =
+                                                if Str.is_empty(password_val) { Ok("") }
+                                                else { Authentik.setPassword!(user_id, password_val) }
+                                            match password_attempt {
+                                                Err(pw_msg) => {
+                                                    match Authentik.deleteUser!(user_id) {
+                                                        Ok(_) => {}
+                                                        Err(_) => {}
+                                                    }
+                                                    Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(pw_msg)}\"}"))
+                                                }
+                                                Ok(_) => {
+                                                    # The number the new row is given: a fresh one from the
+                                                    # role's own counter, or the staff number this pk already
+                                                    # holds. It travels in the profile statement below, so
+                                                    # the write that fails takes the allocation down with it.
+                                                    number_clause = school_number_clause!(user_id, role, context.surreal)
+                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
+                                                    # SurrealDB answers 200 even when a statement fails, so the body decides.
+                                                    created = db_body!(create_sql, context.surreal)
+                                                    match created {
+                                                        Ok(body) => Ok(json_response(200, body))
+                                                        Err(detail) => {
+                                                            # Compensate: drop the login so a retry can succeed.
+                                                            match Authentik.deleteUser!(user_id) {
+                                                                Ok(_) => {}
+                                                                Err(_) => {}
+                                                            }
+                                                            Ok(json_response(500, "{\"error\":\"Profile could not be created; the login was removed so you can retry\",\"detail\":\"${sanitize_json_text(detail)}\"}"))
+                                                        }
+                                                    }
+                                                }
                                             }
-                                            Ok(json_response(500, "{\"error\":\"Profile could not be created; the login was removed so you can retry\",\"detail\":\"${sanitize_json_text(detail)}\"}"))
                                         }
+                                        Err(err_msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(err_msg)}\"}"))
                                     }
                                 }
-                                Err(err_msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${err_msg}\"}"))
-                            }
                             }
                         }
-                    }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/users") {
                     # Support ?role=Student|Teacher|Parent|Admin for tab filtering. The role picks the
                     # profile table and is what the directory's own logins are filtered by, so both
@@ -1974,7 +2014,7 @@ respond! = |request, context| {
                     # number column is selected too — the row handed back carries it as the rendered
                     # `school_number`.
                     number_select = number_select_for(role_param)
-                    query = "SELECT id, display_name, first_name, surname, passport, created_at, current_class${number_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body_read!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
@@ -2468,7 +2508,46 @@ respond! = |request, context| {
                                 }
                         }
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/set-password" {
+                    # The admin's Reset-password action: set a new password on a login (Authentik owns
+                    # it; nothing school-side changes). The page shows the value once and never stores it.
+                    payload_raw = read_body!(request)
+                    id_val = extract_field(payload_raw, "id") |> sanitize
+                    password_val = extract_field(payload_raw, "password")
+                    if Str.is_empty(id_val) {
+                        Ok(json_response(400, "{\"error\":\"id is required\"}"))
+                    } else if Str.is_empty(password_val) {
+                        Ok(json_response(400, "{\"error\":\"password is required\"}"))
+                    } else if password_ok(password_val) == Bool.False {
+                        Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
+                    } else {
+                        match Authentik.setPassword!(bare_id(id_val), password_val) {
+                            Err(msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(msg)}\"}")),
+                            Ok(_) => Ok(json_response(200, "{\"ok\":true}")),
+                        }
+                    }
+                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/activate" {
+                    # Bring a soft-deleted profile back and re-enable its login: the mirror of
+                    # DELETE /api/users. Either side failing is reported, not papered over.
+                    payload_raw = read_body!(request)
+                    id_val = extract_field(payload_raw, "id") |> sanitize
+                    if Str.is_empty(id_val) {
+                        Ok(json_response(400, "{\"error\":\"id is required\"}"))
+                    } else {
+                        match profile_table_of(id_val) {
+                            Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                            Ok(table) =>
+                                match db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = NONE;", context.surreal) {
+                                    Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                    Ok(_) =>
+                                        match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": true}") {
+                                            Ok(_) => Ok(json_response(200, "{\"restored\":\"${sanitize_json_text(id_val)}\"}")),
+                                            Err(message) => Ok(json_response(502, "{\"error\":\"The profile is restored, but the login could not be re-enabled in Authentik\",\"detail\":\"${sanitize_json_text(message)}\"}")),
+                                        }
+                                }
+                        }
+                    }
+                                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
                     # The nav bar's badge: the one active session term, with its term's own name joined
                     # in (`term.name` follows the record link). The page refetches it on every
                     # navigation. Under /api/session_terms, so every authenticated role may read it.
