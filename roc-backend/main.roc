@@ -884,7 +884,7 @@ profile_missing! = |pk, table, config| {
 # Empty when the directory cannot be read or the email is not there.
 directory_pk_for_email! : Str => Str
 directory_pk_for_email! = |email| {
-    match Authentik.listUsers!("200") {
+    match directory_users!() {
         Err(_) => ""
         Ok(users_body) => {
             elements = split_json_elements(extract_json_array(users_body, "results"))
@@ -1397,7 +1397,11 @@ pk_text = |value| {
 # no role group (an outpost, a service account) maps to no role and is listed in no tab.
 directory_role! : Str => Str
 directory_role! = |element| {
-    role_from_group_names(group_names_from_objects!(split_json_elements(extract_json_array(element, "groups_obj")), []))
+    # The role comes from the login's own groups; Authentik names the objects `groups_obj` in the
+    # user list, with the bare `groups` list as a fallback for API shapes that drop the objects.
+    names = group_names_from_objects!(split_json_elements(extract_json_array(element, "groups_obj")), [])
+    fallback = group_names_from_objects!(split_json_elements(extract_json_array(element, "groups")), [])
+    role_from_group_names(if List.is_empty(names) { fallback } else { names })
 }
 
 # Whether this element of Authentik's user list is the user a profile row's bare id names.
@@ -1428,6 +1432,29 @@ record_id_text! = |raw| {
     }
 
     "${table}:${bare_id(raw)}"
+}
+
+# The whole user directory, paged through Authentik until a short page says it is complete
+# (page_size=200, ordered by pk): a directory past one page must not drop the newest login — that is
+# how a user created directly in Authentik disappeared once other users existed. The elements are
+# passed through unparsed and the envelope is rebuilt, so the object shape is whatever Authentik sent.
+# The walk is recursive for the same reason the other effectful walks are: the scanners carry an effect.
+directory_users! = || directory_user_pages!([], 1)
+
+directory_user_pages! : List(Str), U64 => [Ok(Str), Err(Str)]
+directory_user_pages! = |collected, page| {
+    match Authentik.listUsersPage!("200", U64.to_str(page)) {
+        Err(message) => Err(message)
+        Ok(body_str) => {
+            elements = split_json_elements(extract_json_array(body_str, "results"))
+            if List.len(elements) == 200 {
+                directory_user_pages!(List.concat(collected, elements), page + 1)
+            } else {
+                all = List.concat(collected, elements)
+                Ok("{\"pagination\":{},\"results\":[${Str.join_with(all, ",")}]}")
+            }
+        }
+    }
 }
 
 # One row of the rebuilt listing: the profile's own fields (the ones the listing selects) plus the
@@ -2300,7 +2327,7 @@ respond! = |request, context| {
                     match db_body_read!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
-                            match Authentik.listUsers!("200") {
+                            match directory_users!() {
                                 Ok(users_body) => Ok(json_response(200, merge_identity!(body, users_body, role_param))),
                                 Err(_) =>
                                     # Authentik is unreachable (or no token is configured): answer the
@@ -2800,7 +2827,7 @@ respond! = |request, context| {
                                                 # the pk; when the directory cannot even be read, the disable is
                                                 # attempted as before — a reachable login that stays live must
                                                 # keep answering 502.
-                                                match Authentik.listUsers!("200") {
+                                                match directory_users!() {
                                                     Ok(users_body) =>
                                                         if Str.is_empty(matching_user!(split_json_elements(extract_json_array(users_body, "results")), bare_id(id_val))) {
                                                             _ = journal_done!(row_id, "login_disabled", context.surreal)

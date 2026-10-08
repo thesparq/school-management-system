@@ -160,11 +160,11 @@ Authentik := [].{
     }
 
     # One page of the user directory: `{"pagination":{…},"results":[{pk, email, is_active, …}, …]}`.
-    # Email, whether the account is enabled and the groups live here rather than in the profile tables,
-    # so the listing calls this once and merges the attributes in by pk. The body is returned as it
-    # arrives: this codebase has no JSON parser, and main.roc reads it with its own scanners.
-    listUsers! : Str => [Ok(Str), Err(Str)]
-    listUsers! = |page_size| {
+    # Email, whether the account is enabled and the groups live here rather than in the profile tables.
+    # The listing pages walk through main.roc's `directory_users!`, which calls this once per page;
+    # the body is passed through unparsed, and main.roc reads it with its own scanners.
+    listUsersPage! : Str, Str => [Ok(Str), Err(Str)]
+    listUsersPage! = |page_size, page| {
         token = api_token!("")
         api_url = api_url!("")
         size = if Str.is_empty(page_size) { "200" } else { page_size }
@@ -174,7 +174,7 @@ Authentik := [].{
         } else {
             req =
                 Request.from_method(GET)
-                    |> Request.with_uri("${api_url}?page_size=${size}")
+                    |> Request.with_uri("${api_url}?page_size=${size}&page=${page}")
                     |> Request.add_header("Authorization", "Bearer ${token}")
                     |> Request.add_header("Accept", "application/json")
 

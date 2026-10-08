@@ -46,7 +46,7 @@ teacher_classes_view = |model| {
             Failed(message) => UI.list_error_state("Could not load your classes", message, Click(RetryList("/api/subjects")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("📖", "No subjects yet", "Subjects appear here once an administrator adds them.")
+                    UI.list_empty_state("book-open", "No subjects yet", "Subjects appear here once an administrator adds them.")
                 } else {
                     Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")],
                         List.map(rows, |line| {
@@ -122,7 +122,7 @@ teacher_lesson_picker = |model| {
             Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/teacher/lessons")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("📖", "No lessons yet", "Lessons appear here once they are added to a subject.")
+                    UI.list_empty_state("book-open", "No lessons yet", "Lessons appear here once they are added to a subject.")
                 } else {
                     Html.div([Attribute.class("space-y-3")],
                         List.map(rows, |line| {

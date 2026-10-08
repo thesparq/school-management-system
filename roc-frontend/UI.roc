@@ -1,7 +1,54 @@
 
-import html.Html exposing [div, h3, p, aside, nav, a, input, label, text]
+import html.Html exposing [div, h3, p, aside, nav, a, input, label, text, element]
 import html.Attribute exposing [class, type, disabled, on_click, href, value, placeholder, on_input, attribute, data]
 UI := [].{
+
+# --- ICONS ---
+
+# One inline SVG from the Lucide set (MIT), drawn with `currentColor` so it follows the surrounding
+# text colour. The same stroke style everywhere is what keeps the UI uniform; `name` is a key from
+# `icon_paths`, with a nearly-invisible fallback for anything not listed. The size is the caller's
+# classes ("w-4 h-4", "h-5 w-5", ...).
+icon : Str, Str -> Html(msg)
+icon = |name, classes| {
+    (viewbox, paths) = icon_paths(name)
+    element(
+        "svg",
+        [
+            class("${classes} shrink-0"),
+            attribute("viewBox", viewbox),
+            attribute("fill", "none"),
+            attribute("stroke", "currentColor"),
+            attribute("stroke-width", "2"),
+            attribute("stroke-linecap", "round"),
+            attribute("stroke-linejoin", "round"),
+            attribute("aria-hidden", "true"),
+        ],
+        List.map(paths, |path_d| element("path", [attribute("d", path_d)], [])),
+    )
+}
+
+# The Lucide paths per icon: `(viewBox, List(path d strings)`. Kept to the icons this app calls.
+icon_paths : Str -> (Str, List(Str))
+icon_paths = |name| {
+    match name {
+        "plus" => ("0 0 24 24", ["M5 12h14", "M12 5v14"])
+        "x" => ("0 0 24 24", ["M18 6 6 18", "m6 6 12 12"])
+        "users" => ("0 0 24 24", ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8", "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"])
+        "graduation-cap" => ("0 0 24 24", ["M21.42 10.92a1 1 0 0 0-.42-.92l-8.58-5.72a2 2 0 0 0-2.84 0L1.58 10a1 1 0 0 0 0 1.67l2.92 1.94", "M22 10v6", "M6 12.5V16a6 3 0 0 0 12 0v-3.5"])
+        "presentation" => ("0 0 24 24", ["M2 3h20", "M21 3v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3", "M7 21l5-5 5 5"])
+        "shield" => ("0 0 24 24", ["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2.2 0 4-1.5 5-4 1 2.5 2.8 4 5 4a1 1 0 0 1 1 1z"])
+        "camera" => ("0 0 24 24", ["M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z", "M15 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"])
+        "key" => ("0 0 24 24", ["M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z", "M16.5 8a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"])
+        "pencil" => ("0 0 24 24", ["M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"])
+        "trash" => ("0 0 24 24", ["M3 6h18", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"])
+        "folder" => ("0 0 24 24", ["M20 7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l3 3h8a2 2 0 0 1 2 2z"])
+        "book-open" => ("0 0 24 24", ["M12 7v14", "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"])
+        "calendar" => ("0 0 24 24", ["M8 2v4", "M16 2v4", "M3 10h18", "M21 6v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"])
+        _ => ("0 0 24 24", ["M12 8v.01", "M12 12v.01", "M12 16v.01"])
+    }
+}
+
 
 # --- BUTTON ---
 
@@ -299,9 +346,9 @@ table_state_row = |column_count, content| {
 
 # A real empty state: the list loaded and holds no rows. `data-empty-state` marks it, like the
 # page's own JavaScript-rendered empty states, so the two are the same thing to a browser check.
-table_empty_state = |column_count, icon, title, description| {
+table_empty_state = |column_count, icon_name, title, description| {
 	table_state_row(column_count, div([class("flex flex-col items-center gap-2"), data("empty-state", "")], [
-		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg")], [text(icon)]),
+		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground")], [icon(icon_name, "h-5 w-5")]),
 		p([class("text-sm font-medium text-foreground")], [text(title)]),
 		p([class("text-xs text-muted-foreground")], [text(description)])
 	]))
@@ -317,9 +364,9 @@ table_error_state = |column_count, title, message, retry_msg| {
 }
 
 # The same empty and failed states for the lists that are card grids rather than tables.
-list_empty_state = |icon, title, description| {
+list_empty_state = |icon_name, title, description| {
 	div([class("rounded-lg border bg-card p-10 flex flex-col items-center gap-2 text-center"), data("empty-state", "")], [
-		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg")], [text(icon)]),
+		div([class("flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground")], [icon(icon_name, "h-5 w-5")]),
 		p([class("text-sm font-medium text-foreground")], [text(title)]),
 		p([class("text-xs text-muted-foreground")], [text(description)])
 	])
