@@ -49,7 +49,7 @@ const check = (name, ok, extra='') => { results.push(ok); console.log(`${ok?'PAS
   // 2. Teacher Assign dialog
   await page.goto(`${appUrl}/admin/users`, { waitUntil: 'load' });
   await page.waitForSelector('text=Add New User', { timeout: 45000 }).catch(() => {});
-  await page.click('text=👨‍🏫 Teachers');
+  await page.click('button:has-text("Teachers")');
   await page.waitForTimeout(1500);
   await page.locator('#app button:has-text("Assign")').first().click();
   await page.waitForSelector('text=Assign Classes', { timeout: 10000 }).catch(() => {});
