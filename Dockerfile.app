@@ -12,7 +12,7 @@
 # (the older roc-lang/roc nightly tag stopped at a build that predates this compiler, and its
 # `-latest` assets are not the new compiler). The asset name drops the tag's `nightly-` prefix.
 
-ARG ROC_TAG=nightly-2026-09-19-d025939
+ARG ROC_TAG=nightly-2026-09-29-7f11a82
 
 # --- build: compiler, frontend bundle, backend binary ---
 FROM node:22-bookworm-slim AS build
@@ -38,10 +38,11 @@ COPY roc-backend/ ./roc-backend/
 # dist.css first: Tailwind scans the sources. Then the WASM app (build.roc drops www/app.wasm up
 # front and fails if roc does not write it back), then the backend binary.
 RUN cd roc-frontend \
- && npm ci --omit=dev --no-audit --no-fund \
  && npx @tailwindcss/cli -i www/app.css -o www/dist.css --minify \
- && roc run build.roc
-RUN cd roc-backend && roc build main.roc
+ # The compiler exits 2 when it emitted warnings (the release-bundle platforms trigger many); both
+ # 0 and 2 mean the build itself succeeded.
+ && (roc run build.roc || [ $? -eq 2 ])
+RUN cd roc-backend && (roc build main.roc || [ $? -eq 2 ])
 
 # --- run: the binary and the bundle, nothing else ---
 FROM debian:bookworm-slim AS runtime

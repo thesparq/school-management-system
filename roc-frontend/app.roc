@@ -6,10 +6,10 @@ app [Model, Msg, init, update, render, subscriptions] {
         html: "https://github.com/niclas-ahden/joy-html/releases/download/0.17.0/AcmwFzyfbsf5RALWNdX6cXw1cuuDXt96YfcysNqgFqoG.tar.zst",
 }
 
-import html.Html exposing [Html, div, h1, p, text, a, span]
+import html.Html exposing [div, h1, p, text, a, span]
 import html.Attribute exposing [class]
 import pf.DOM
-import pf.Sub exposing [Sub]
+import pf.Sub
 
 import State exposing [Route, list_state]
 import UI

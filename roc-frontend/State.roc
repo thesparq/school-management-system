@@ -1,6 +1,6 @@
 module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state]
 
-import pf.Effect exposing [Effect]
+import pf.Effect
 import pf.Http
 import pf.Port
 import Auth

@@ -278,9 +278,21 @@ references in `docs/architecture.md` and the e2e README updated.
 **Verified** (`roc check app.roc` 0 errors; sandbox 8322, rebuilt wasm + runtime.js): `e2e_admin.cjs` 9/9
 (ports-heavy: generate-password and copy-to-clipboard ports, Http creates), `e2e_users_directory.cjs` 23/23,
 `e2e_loading.cjs` 20/20 (subscription/navigation paths), `e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96,
-`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56. The local compiler nightly is
-unchanged (2026-09-19, what `Dockerfile.app` pins); Joy 0.34.0 builds and runs cleanly on it — the recommended
-`nightly-2026-10-06-c34079d` is a follow-up option, not a requirement.
+`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+**Compiler pin — bumped to `nightly-2026-09-29-7f11a82` (2026-10-08).** Joy 0.34.0's recommended
+`nightly-2026-10-06-c34079d` is not usable for this repo yet, in two steps: the 10-02 nightly made
+`redundant expose` and `redundant open tag union` hard errors, which the shipped bundles of basic-cli 0.24.0
+(the build tool behind `build.roc`) and basic-webserver 0.14.0-rc1 (the backend) still trip (12 and 4
+errors); and 10-01 — the last nightly that still compiles both — segfaults in codegen when emitting the
+backend binary (`roc build main.roc` → SIGSEGV; `check` passes). 09-29 is the newest nightly that builds
+both sides: `roc build main.roc` 0 errors / 61 warnings (all from the platform bundles) and
+`roc run build.roc` 0 errors / 85 warnings, the binary runs the full suite set above, and all unit tests
+pass (Base64 9/9, AuthUrls 4/4, R2 20/20, Url 16/16, Hmac 7/7, Sha256 7/7). `Dockerfile.app` pins this
+nightly and tolerates the compiler's exit-2-on-warnings for both Roc builds (0 and 2 both mean success).
+The frontend's `exposing` clauses and `Base64`/`AuthUrls` signatures were made rule-compliant
+(`->` for pure functions, no redundant type re-exports) so a future jump to 10-02+ needs the platform
+bundles to catch up, not this repo.
 
 ### Build and tests — done
 

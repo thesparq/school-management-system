@@ -14,7 +14,7 @@ Base64 := [].{
     pad = 61
 
     ## Encode text as standard base64 with padding.
-    encode : Str => Str
+    encode : Str -> Str
     encode = |input| {
         encoded = encode_bytes(Str.to_utf8(input), [])
 

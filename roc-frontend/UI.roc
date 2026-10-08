@@ -1,6 +1,6 @@
 module [default_sidebar_nav_item, default_button, card, card_header, card_title, card_content, badge, button, table, table_header, table_body, table_row, table_head, table_cell, skeleton_bar, list_skeleton_cards, table_skeleton_rows, table_empty_state, table_error_state, list_empty_state, list_error_state, sidebar, sidebar_header, sidebar_nav, sidebar_nav_item, input, label]
 
-import html.Html exposing [Html, div, h3, p, aside, nav, a, input, label, text]
+import html.Html exposing [div, h3, p, aside, nav, a, input, label, text]
 import html.Attribute exposing [class, type, disabled, on_click, href, value, placeholder, on_input, attribute, data]
 
 # --- BUTTON ---
