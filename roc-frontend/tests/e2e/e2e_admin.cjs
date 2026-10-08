@@ -30,6 +30,8 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message.slice(0, 60)));
+  const hasText = (t) => page.evaluate((s) => document.body.innerText.includes(s), t);
+  const cardTitle = () => page.locator('#app h3').first().innerText();
   await page.route('**/api/**', route => route.continue({
     headers: { ...route.request().headers(), authorization: `Bearer ${process.env.AUTH_TOKEN || 'dev-skip'}` },
   }));
@@ -40,6 +42,12 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 
   const surname = `Nwosu${stamp % 10000}`;
   const fill = (placeholder, value) => page.locator(`input[placeholder="${placeholder}"]`).fill(value);
+  const openAddModal = async () => {
+    await page.click('#app button:has-text("Add New User")');
+    await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Add New User', null, { timeout: 10000 }).catch(() => {});
+  };
+  await openAddModal();
+  check('the form opens in a modal', (await page.locator('#app h3').first().innerText()) === 'Add New User');
   await fill('e.g. Adamu', 'Grace');
   await fill('e.g. Ibrahim', 'Chioma');
   await fill('e.g. Musa', surname);
@@ -55,6 +63,7 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.click('text=Create User');
   await page.waitForSelector('text=User created', { timeout: 20000 }).catch(() => {});
   check('form submit reports success', await page.evaluate(() => document.body.innerText.includes('User created')));
+  check('the modal closes after the write', (await page.locator('#app h3').count()) === 0);
   const panelText = await page.evaluate(() => {
     const els = [...document.querySelectorAll('#app div')];
     const panel = els.find(d => d.innerText && d.innerText.includes('copy the credentials to hand over') && d.querySelector('button'));
@@ -73,9 +82,28 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.waitForTimeout(2500);
   check('created student appears in the table', await page.evaluate((s) => document.body.innerText.includes(s), surname));
 
+  // The row's Reset password action: the modal switches to its password-only mode, the new value is
+  // handed over once through the same credentials panel, and Authentik's set-password answers 200.
+  await page.locator('#app table tbody tr', { hasText: surname }).locator('button', { hasText: 'Reset password' }).click();
+  await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Reset password', null, { timeout: 10000 }).catch(() => {});
+  check('Reset password opens the password-only modal', (await cardTitle()) === 'Reset password', await cardTitle());
+  await page.click('text=Generate');
+  const resetPw = await page.locator('#new-user-password-field input').inputValue();
+  check('Generate fills the reset field too', resetPw.length >= 12, `len=${resetPw.length}`);
+  // Exact match: a bare substring would hit every row's "Reset password" button instead.
+  await page.getByRole('button', { name: 'Set password', exact: true }).click();
+  await page.waitForSelector('text=Password updated', { timeout: 20000 }).catch(() => {});
+  check('the reset reports Password updated', await hasText('Password updated'));
+  check('and hands the new password over once', await page.evaluate((e) => {
+    const els = [...document.querySelectorAll('#app div')];
+    const panel = els.find(d => d.innerText && d.innerText.includes('copy the credentials to hand over'));
+    return !!(panel && panel.innerText.includes(e));
+  }, resetPw));
+
   // A form value that would corrupt the hand-written JSON (or the "|"-separated row format Edit
   // prefills from) is refused up front: a double quote in a name must surface as the form's own
   // message rather than a stored-silently-truncated value.
+  await openAddModal();
   await fill('e.g. Adamu', 'A"da');
   await fill('e.g. Musa', `Quote${stamp % 10000}`);
   await fill('e.g. adamu@johnethel.school', `quote${stamp}@example.com`);

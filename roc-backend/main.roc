@@ -2793,15 +2793,41 @@ respond! = |request, context| {
                                             }
                                             Ok(body) => {
                                                 _ = journal_mark!(row_id, "profile_hidden", context.surreal)
-                                                match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
-                                                    Ok(_) => {
-                                                        _ = journal_done!(row_id, "login_disabled", context.surreal)
-                                                        Ok(json_response(200, body))
-                                                    }
-                                                    Err(message) => {
-                                                        _ = journal_fail!(row_id, "login_disabled", message, context.surreal)
-                                                        Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}"))
-                                                    }
+                                                # A profile row can exist with no login behind it (a legacy or
+                                                # directory-mismatched account): for such a row the profile hide
+                                                # IS the whole delete, and the disable step below would answer a
+                                                # not-found from Authentik. Only disable when the directory names
+                                                # the pk; when the directory cannot even be read, the disable is
+                                                # attempted as before — a reachable login that stays live must
+                                                # keep answering 502.
+                                                match Authentik.listUsers!("200") {
+                                                    Ok(users_body) =>
+                                                        if Str.is_empty(matching_user!(split_json_elements(extract_json_array(users_body, "results")), bare_id(id_val))) {
+                                                            _ = journal_done!(row_id, "login_disabled", context.surreal)
+                                                            Ok(json_response(200, body))
+                                                        } else {
+                                                            match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
+                                                                Ok(_) => {
+                                                                    _ = journal_done!(row_id, "login_disabled", context.surreal)
+                                                                    Ok(json_response(200, body))
+                                                                }
+                                                                Err(message) => {
+                                                                    _ = journal_fail!(row_id, "login_disabled", message, context.surreal)
+                                                                    Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}"))
+                                                                }
+                                                            }
+                                                        }
+                                                    Err(_) =>
+                                                        match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
+                                                            Ok(_) => {
+                                                                _ = journal_done!(row_id, "login_disabled", context.surreal)
+                                                                Ok(json_response(200, body))
+                                                            }
+                                                            Err(message) => {
+                                                                _ = journal_fail!(row_id, "login_disabled", message, context.surreal)
+                                                                Ok(json_response(502, "{\"error\":\"The profile is hidden, but the login could not be disabled in Authentik; the user can still sign in\",\"detail\":\"${sanitize_json_text(message)}\"}"))
+                                                            }
+                                                        }
                                                 }
                                             }
                                         }

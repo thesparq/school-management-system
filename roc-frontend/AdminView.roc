@@ -19,32 +19,42 @@ view = |model| {
 # -------------------------------------------------------
 
 admin_users_view = |model| {
-    # One form, three modes: add (POST, empty), complete a login that has no profile yet (PUT,
-    # empty), and edit an existing profile (PUT, prefilled from the row). The last two are the same
-    # write; what differs is the labels and whether the school fields start filled.
+    # One form, four modes: add (POST, empty), complete a login that has no profile yet (PUT,
+    # empty), edit an existing profile (PUT, prefilled from the row), and reset a login's
+    # password (a separate write; the modal shows only the password field).
+    resetting = !Str.is_empty(model.resetPasswordId)
     form_mode =
-        if model.userEditing { EditingUser }
+        if resetting { ResetPassword }
+        else if model.userEditing { EditingUser }
         else if !Str.is_empty(model.completingProfileId) { CompletingProfile }
         else { AddingUser }
-    # Absent in add mode, present in both PUT modes: the write names the profile id, the login's own
-    # email is Authentik's and shown but not sent, and the role comes from the row's table.
-    completing = form_mode != AddingUser
+
+    # A write that names an existing login: the two PUT modes. The email is editable in every
+    # mode — the backend patches Authentik's address when a PUT carries one — and the role comes
+    # from the id's table, so neither a create-only role nor a completed one is sent by a PUT.
+    selected_count = U64.to_str(List.len(model.selectedUserIds))
     form_title = match form_mode {
         AddingUser => "Add New User"
         CompletingProfile => "Complete Profile"
         EditingUser => "Edit User"
+        ResetPassword => "Reset password"
     }
     form_description = match form_mode {
         AddingUser => "Create a new account and optionally upload a passport photograph."
-        CompletingProfile => "This login is already in the directory; the school data below is what makes it a full account. Its own name and address stay as Authentik has them."
-        EditingUser => "Change the school data for this account; its name and address stay as Authentik has them. Fields left blank are left unchanged."
+        CompletingProfile => "This login is already in the directory; the school data below is what makes it a full account. Its address is Authentik's and editable too — fixing a login's address is part of managing accounts."
+        EditingUser => "Change the school data for this account, or its address. Fields left blank are left unchanged."
+        ResetPassword => "Set a new password for this login. It replaces the current one in Authentik and is shown once on this page, with a Copy button."
     }
 
+
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
-        # Page header
-        Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
-            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage all user accounts across Students, Teachers, Parents, and Administrators.")])
+        # Page header with the entry action: Add opens the modal in create mode.
+        Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+            Html.div([], [
+                Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
+                Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage all user accounts across Students, Teachers, Parents, and Administrators.")])
+            ]),
+            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Add New User")])
         ]),
 
         # Submit feedback banner
@@ -60,142 +70,56 @@ admin_users_view = |model| {
             ])
         },
 
-        # Add New User / Complete Profile / Edit User card: the name parts together, then the contact
-        # address and the role, then the profile fields the chosen role's create uses, then the
-        # passport (and, while adding, the password) — with one primary action for the whole form.
-        UI.card({ classes: "" }, [
-            UI.card_header({ classes: "" }, [
-                Html.div([Attribute.class("flex items-start justify-between gap-4")], [
-                    Html.div([], [
-                        UI.card_title({ classes: "" }, [Html.text(form_title)]),
-                        Html.p([Attribute.class("text-sm text-muted-foreground")], [
-                            Html.text(form_description)
-                        ])
-                    ]),
-                    if completing {
-                        UI.button({ variant: Ghost, size: Sm, on_click: Click(CancelCompleteProfile), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Cancel")])
-                    } else {
-                        Html.div([], [])
-                    }
-                ])
-            ]),
-            UI.card_content({ classes: "space-y-6" }, [
-                # Name
-                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-                    user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
-                    user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
-                    user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
-                ]),
+        	# The user form (add / complete / edit / reset password) lives in a modal over the table now:
+        	# the page stays put, and the modal carries the four modes' fields. It opens from the header's
+        	# Add button, from a row's Complete profile / Edit / Reset password actions, and closes on
+        	# Cancel or when a write lands (the credentials panel then shows inline beneath the table).
+        	if model.userFormOpen {
+        	      Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 md:p-8")], [
+        	          Html.div([Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl")], [
+        	              UI.card_header({ classes: "" }, [
+        	                  Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+        	                      Html.div([], [
+        	                          UI.card_title({ classes: "" }, [Html.text(form_title)]),
+        	                          Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(form_description)])
+        	                      ]),
+        	                      UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseUserForm), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Cancel")])
+        	                  ])
+        	              ]),
+        	              UI.card_content({ classes: "space-y-6" }, [
+        	                  form_banner(model),
+        	                  if resetting {
+        	                      reset_password_body(model)
+        	                  } else {
+        	                      user_form_body(model, form_mode)
+        	                  }
+        	              ]),
+        	              # The modal's single action: create / complete / save / set password. Two
+        	              # explicit buttons rather than one with a conditional on_click: Joy's runtime
+        	              # attaches handlers per message, and a conditional expression as the handler
+        	              # value did not dispatch from every branch.
+        	              Html.div([Attribute.class("px-6 pb-6 pt-0")], [
+        	                  Html.div([Attribute.class("flex justify-end border-t pt-4")], [
+        	                      if resetting {
+        	                          UI.button(
+        	                              { variant: Primary, size: Default, on_click: Click(SubmitResetPassword), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+        	                              [Html.text(if model.isSubmitting { "Setting..." } else { "Set password" })]
+        	                          )
+        	                      } else {
+        	                          UI.button(
+        	                              { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+        	                              [Html.text(user_form_submit_label(model.isSubmitting, form_mode))]
+        	                          )
+        	                      }
+        	                  ])
+        	              ])
+        	          ])
+        	      ])
+	        } else {
+	              Html.div([], [])
+	        },
 
-                # Contact and role; the role reveals the profile fields below.
-                Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
-                    user_form_field("Email address (*)", UI.input({
-                        type: "email",
-                        value: model.newUserEmail,
-                        placeholder: "e.g. adamu@johnethel.school",
-                        on_input: Input(|s| UpdateNewUserEmail(s)),
-                        # The address is the login's, and Authentik owns it: completing a profile shows
-                        # it but does not send it.
-                        is_disabled: model.isSubmitting or completing,
-                        classes: ""
-                    })),
-                    user_form_field("Role", user_role_select(model))
-                ]),
-
-                # The chosen role's own profile fields.
-                user_role_fields(model),
-
-                # The password, for create mode only: the one thing the profile fields have no place
-                # for, and the one the admin hands over. Optional — a login without one is made and
-                # can get one later from the row's actions — and invisible while the form is a PUT
-                # (completing or editing), because those writes never carry it. Generated or typed,
-                # it leaves the page the moment the create lands: the credentials panel above is the
-                # only place the value shows again.
-                if form_mode == AddingUser {
-                    Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
-                        user_form_field("Password (optional)", Html.div([Attribute.class("space-y-2")], [
-                            Html.div([Attribute.id("new-user-password-field")], [
-                                UI.input({
-                                    type: "text",
-                                    value: model.newUserPassword,
-                                    placeholder: "Leave blank, or click Generate",
-                                    on_input: Input(|s| UpdateNewUserPassword(s)),
-                                    is_disabled: model.isSubmitting,
-                                    classes: "font-mono"
-                                })
-                            ]),
-                            Html.div([Attribute.class("flex items-center gap-2")], [
-                                UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
-                                Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once after the account is created, with a Copy button.")])
-                            ])
-                        ]))
-                    ])
-                } else {
-                    Html.div([], [])
-                },
-
-                # Passport upload row
-                Html.div([Attribute.class("border-t pt-6")], [
-                    Html.p([Attribute.class("text-sm font-medium mb-2")], [Html.text("Passport Photograph")]),
-                    Html.div([Attribute.class("flex items-center gap-4")], [
-                        Html.div([Attribute.id("passport-preview"), Attribute.class("w-16 h-16 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center text-2xl overflow-hidden")], [
-                            Html.text("📷")
-                        ]),
-                        Html.div([Attribute.class("flex-1 space-y-1")], [
-                            # The upload itself is the page's JavaScript: it asks the backend to
-                            # sign a PUT, sends the file, and writes the public URL into the field
-                            # below, which is what the form submits.
-                            Html.input([
-                                Attribute.type("file"),
-                                Attribute.id("passport-file-input"),
-                                Attribute.class("block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer")
-                            ]),
-                            Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("JPEG or PNG, max 5 MB. Choosing a file uploads it to R2 and fills the URL below; a photo that is already hosted can be pasted there instead.")]),
-                            Html.p([Attribute.id("passport-upload-status"), Attribute.class("text-xs text-muted-foreground")], [])
-                        ])
-                    ]),
-                    Html.div([Attribute.id("passport-url-field"), Attribute.class("space-y-2 pt-3")], [
-                        UI.label({ classes: "" }, [Html.text("Passport URL (required)")]),
-                        UI.input({
-                            type: "text",
-                            value: model.newUserPassportKey,
-                            placeholder: "https://...",
-                            on_input: Input(|s| SetPassportKey(s)),
-                            is_disabled: model.isSubmitting,
-                            classes: ""
-                        })
-                    ])
-                ]),
-
-                # The form's single primary action. A profile-less row carries the same label (that
-                # button loads this form), so a test or a script has to scope to the card; the form
-                # itself is the first of the two in the DOM.
-                Html.div([Attribute.class("flex justify-end border-t pt-6")], [
-                    UI.button(
-                        { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
-                        [
-                            Html.text(
-                                if model.isSubmitting {
-                                    match form_mode {
-                                        AddingUser => "Adding..."
-                                        CompletingProfile => "Completing..."
-                                        EditingUser => "Saving..."
-                                    }
-                                } else {
-                                    match form_mode {
-                                        AddingUser => "Create User"
-                                        CompletingProfile => "Complete profile"
-                                        EditingUser => "Save changes"
-                                    }
-                                }
-                            )
-                        ]
-                    )
-                ])
-            ])
-        ]),
-
-        # Hidden inputs for JS data binding
+	        # Hidden inputs for JS data binding
         Html.input([
             Attribute.type("hidden"),
             Attribute.value(model.usersStudentsData),
@@ -239,12 +163,28 @@ admin_users_view = |model| {
                 ])
             ]),
 
+            # Bulk delete bar: appears once rows are ticked. Every listed row is deletable — the
+            # backend treats a row with no login behind it as removed by the profile hide alone — so
+            # anything on the tab can be selected and removed together.
+            if !List.is_empty(model.selectedUserIds) {
+                Html.div([Attribute.class("flex items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-2")], [
+                    Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("${selected_count} selected")]),
+                    Html.div([Attribute.class("flex items-center gap-2")], [
+                        UI.button({ variant: Ghost, size: Sm, on_click: Click(ClearUserSelection), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Clear")]),
+                        UI.button({ variant: Destructive, size: Sm, on_click: Click(DeleteSelectedUsers), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Delete selected")])
+                    ])
+                ])
+            } else {
+                Html.div([], [])
+            },
+
             # Users table
             UI.card({ classes: "" }, [
                 UI.card_content({ classes: "p-0" }, [
                     UI.table({ classes: "" }, [
                         UI.table_header({ classes: "" }, [
                             UI.table_row({ classes: "" }, [
+                                UI.table_head({ classes: "w-8" }, [Html.text("")]),
                                 UI.table_head({ classes: "w-10" }, [Html.text("")]),
                                 UI.table_head({ classes: "" }, [Html.text("Name")]),
                                 UI.table_head({ classes: "" }, [Html.text("Email")]),
@@ -316,6 +256,147 @@ user_form_field = |label_text, field| {
         UI.label({ classes: "" }, [Html.text(label_text)]),
         field
     ])
+}
+
+# The banner inside the modal (and, after a write, on the page itself): the backend's own text for
+# a refusal, or the success line for a write that landed.
+form_banner = |model| {
+    match model.submitResult {
+        None => Html.div([], [])
+        Success(msg) => Html.div([Attribute.class("rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 flex items-center gap-2")], [
+            Html.span([Attribute.class("text-green-600 text-lg")], [Html.text("✓")]),
+            Html.p([Attribute.class("text-sm text-green-800 dark:text-green-200 font-medium")], [Html.text(msg)])
+        ])
+        Error(msg) => Html.div([Attribute.class("rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 flex items-center gap-2")], [
+            Html.span([Attribute.class("text-red-600 text-lg")], [Html.text("✕")]),
+            Html.p([Attribute.class("text-sm text-red-800 dark:text-red-200 font-medium")], [Html.text(msg)])
+        ])
+    }
+}
+
+# The modal's fields for the three writes that touch a profile (add, complete, edit): the name
+# parts, the contact and role, the profile fields the chosen role uses, the create-only password,
+# and the passport. The email input is enabled in every mode: a PUT that carries an email patches
+# Authentik's address (the login's own), so an account created without one — or with a typo — can
+# be fixed here.
+user_form_body = |model, form_mode| {
+    Html.div([Attribute.class("space-y-6")], [
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+            user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
+            user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
+            user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
+        ]),
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+            user_form_field("Email address", UI.input({
+                type: "email",
+                value: model.newUserEmail,
+                placeholder: "e.g. adamu@johnethel.school",
+                on_input: Input(|s| UpdateNewUserEmail(s)),
+                is_disabled: model.isSubmitting,
+                classes: ""
+            })),
+            user_form_field("Role", user_role_select(model))
+        ]),
+        user_role_fields(model),
+        # The password, for create mode only: the one thing the profile fields have no place for,
+        # and the one the admin hands over. Optional — a login without one is made and can get one
+        # later from the row's Reset password action.
+        if form_mode == AddingUser {
+            Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+                user_form_field("Password (optional)", Html.div([Attribute.class("space-y-2")], [
+                    Html.div([Attribute.id("new-user-password-field")], [
+                        UI.input({
+                            type: "text",
+                            value: model.newUserPassword,
+                            placeholder: "Leave blank, or click Generate",
+                            on_input: Input(|s| UpdateNewUserPassword(s)),
+                            is_disabled: model.isSubmitting,
+                            classes: "font-mono"
+                        })
+                    ]),
+                    Html.div([Attribute.class("flex items-center gap-2")], [
+                        UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
+                        Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once after the account is created, with a Copy button.")])
+                    ])
+                ]))
+            ])
+        } else {
+            Html.div([], [])
+        },
+        Html.div([Attribute.class("border-t pt-6")], [
+            Html.p([Attribute.class("text-sm font-medium mb-2")], [Html.text("Passport Photograph")]),
+            Html.div([Attribute.class("flex items-center gap-4")], [
+                Html.div([Attribute.id("passport-preview"), Attribute.class("w-16 h-16 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center text-2xl overflow-hidden")], [
+                    Html.text("📷")
+                ]),
+                Html.div([Attribute.class("flex-1 space-y-1")], [
+                    Html.input([
+                        Attribute.type("file"),
+                        Attribute.id("passport-file-input"),
+                        Attribute.class("block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer")
+                    ]),
+                    Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("JPEG or PNG, max 5 MB. Choosing a file uploads it to R2 and fills the URL below; a photo that is already hosted can be pasted there instead.")]),
+                    Html.p([Attribute.id("passport-upload-status"), Attribute.class("text-xs text-muted-foreground")], [])
+                ])
+            ]),
+            Html.div([Attribute.id("passport-url-field"), Attribute.class("space-y-2 pt-3")], [
+                UI.label({ classes: "" }, [Html.text("Passport URL (required)")]),
+                UI.input({
+                    type: "text",
+                    value: model.newUserPassportKey,
+                    placeholder: "https://...",
+                    on_input: Input(|s| SetPassportKey(s)),
+                    is_disabled: model.isSubmitting,
+                    classes: ""
+                })
+            ])
+        ])
+    ])
+}
+
+# The reset-password mode's fields: which login, and the new password with a generator.
+reset_password_body = |model| {
+    Html.div([Attribute.class("space-y-6")], [
+        Html.div([Attribute.class("space-y-2")], [
+            UI.label({ classes: "" }, [Html.text("Login")]),
+            Html.p([Attribute.class("text-sm font-mono text-muted-foreground")], [Html.text(model.resetPasswordEmail)])
+        ]),
+        user_form_field("New password", Html.div([Attribute.class("space-y-2")], [
+            Html.div([Attribute.id("new-user-password-field")], [
+                UI.input({
+                    type: "text",
+                    value: model.newUserPassword,
+                    placeholder: "Type one, or click Generate",
+                    on_input: Input(|s| UpdateNewUserPassword(s)),
+                    is_disabled: model.isSubmitting,
+                    classes: "font-mono"
+                })
+            ]),
+            Html.div([Attribute.class("flex items-center gap-2")], [
+                UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
+                Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("8-72 characters. Shown once on this page after it is set, with a Copy button.")])
+            ])
+        ]))
+    ])
+}
+
+# The modal's single action's label, per mode and per submitting state.
+user_form_submit_label = |busy, form_mode| {
+    if busy {
+        match form_mode {
+            AddingUser => "Adding..."
+            CompletingProfile => "Completing..."
+            EditingUser => "Saving..."
+            ResetPassword => "Setting..."
+        }
+    } else {
+        match form_mode {
+            AddingUser => "Create User"
+            CompletingProfile => "Complete profile"
+            EditingUser => "Save changes"
+            ResetPassword => "Set password"
+        }
+    }
 }
 
 user_form_text_input = |placeholder, value, is_disabled, to_msg| {
@@ -413,28 +494,29 @@ users_for_tab = |model| {
         Admins => (model.usersAdminsData, "/api/users?role=Admin", "No administrators yet", "Add an administrator above to get started.")
     }
 
-    # The table's six columns: avatar, name, email, school number, status, actions.
-    column_widths = ["w-8", "w-40", "w-56", "w-28", "w-20", "w-24"]
+    # The table's seven columns: selection, avatar, name, email, school number, status, actions.
+    column_widths = ["w-8", "w-8", "w-40", "w-56", "w-28", "w-20", "w-24"]
 
     match list_state(payload) {
         Pending => UI.table_skeleton_rows(column_widths)
-        Failed(message) => [UI.table_error_state(6, "Could not load this list", message, Click(RetryList(retry_url)))]
+        Failed(message) => [UI.table_error_state(7, "Could not load this list", message, Click(RetryList(retry_url)))]
         Ready(rows) =>
             if List.is_empty(rows) {
-                [UI.table_empty_state(6, "👥", empty_title, empty_description)]
+                [UI.table_empty_state(7, "👥", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
                     # One row per line, as the page's `formatUsers` writes it. The first six fields are
-                    # what the table renders; the last seven are what Edit loads into the form above
-                    # (only the form can change them — the backend's PUT patches the row).
+                    # what the table renders; the last seven are what Edit loads into the form in the
+                    # modal (only the form can change them — the backend's PUT patches the row).
                     # id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport.
-                    user_row(line, model.isSubmitting)
+                    user_row(model, line)
                 })
             }
     }
 }
 
-user_row = |line, busy| {
+user_row = |model, line| {
+    busy = model.isSubmitting
     parts = Str.split_on(line, "|")
     id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
     name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
@@ -442,6 +524,7 @@ user_row = |line, busy| {
     is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
     has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
     school_number = match List.get(parts, 5) { Ok(v) => v, Err(_) => "" }
+    selected = List.contains(model.selectedUserIds, id)
     initial =
         if Str.is_empty(name) { "?" }
         else {
@@ -451,6 +534,14 @@ user_row = |line, busy| {
             }
         }
     UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+        UI.table_cell({ classes: "" }, [
+            # The selection tick for the bulk delete above the table. A button rather than a real
+            # checkbox so the click is a Joy message like the row's other actions.
+            UI.button(
+                { variant: Ghost, size: Sm, on_click: Click(ToggleUserSelected(id)), is_disabled: busy, classes: "text-xs" },
+                [Html.text(if selected { "☑" } else { "☐" })]
+            )
+        ]),
         UI.table_cell({ classes: "" }, [
             Html.div([Attribute.class("w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-sm font-semibold text-primary")], [
                 Html.text(initial)
@@ -488,10 +579,11 @@ user_row = |line, busy| {
         ]),
         UI.table_cell({ classes: "text-right" }, [
             Html.div([Attribute.class("flex items-center justify-end gap-1")], [
-                # A profile-less login gets the one action it needs: while the login is on, the form
-                # above loaded with this login, so its school data can be filled in; once it is off (the
-                # soft delete that hid the profile also disabled the login), the action is Activate,
-                # which brings both back — there is no school data to fill in first.
+                # A profile-less login gets the one completion action: while the login is on, the
+                # modal opens with this login's school data to fill in; once it is off (the delete
+                # that hid the profile also disabled the login), the action is Activate, which
+                # brings both back. Every row also offers Reset password, which opens the modal in
+                # its password-only mode.
                 if has_profile {
                     Html.div([Attribute.class("flex items-center justify-end gap-1")], [
                         UI.button(
@@ -501,27 +593,37 @@ user_row = |line, busy| {
                         if is_active {
                             UI.button(
                                 { variant: Ghost, size: Sm, on_click: Click(SubmitDeactivateUser(id)), is_disabled: busy, classes: "text-xs text-destructive hover:text-destructive" },
-                                [Html.text("Deactivate")]
+                                [Html.text("Delete")]
                             )
                         } else {
                             UI.button(
                                 { variant: Ghost, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs text-primary" },
                                 [Html.text("Activate")]
                             )
-                        }
+                        },
+                        UI.button(
+                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Reset password")]
+                        )
                     ])
                 } else {
-                    if is_active {
+                    Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+                        if is_active {
+                            UI.button(
+                                { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
+                                [Html.text("Complete profile")]
+                            )
+                        } else {
+                            UI.button(
+                                { variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
+                                [Html.text("Activate")]
+                            )
+                        },
                         UI.button(
-                            { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
-                            [Html.text("Complete profile")]
+                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Reset password")]
                         )
-                    } else {
-                        UI.button(
-                            { variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
-                            [Html.text("Activate")]
-                        )
-                    }
+                    ])
                 }
             ])
         ])

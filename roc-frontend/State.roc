@@ -93,11 +93,22 @@ Model : {
 	# login that has no profile yet (PUT, empty). The two are the same write; this only picks the
 	# form's own labels and the success message.
 	userEditing : Bool,
-	# One create's handoff: the email and password, shown once with a copy button right after a
-	# create that carried a password, then cleared the moment the form starts another write. The
-	# password is never stored anywhere — not in the backend, not in this model beyond this.
-	lastCredentials : [None, Credentials(Str, Str)],
-	appOrigin : Str,
+	    # One create's handoff: the email and password, shown once with a copy button right after a
+	    # create that carried a password, then cleared the moment the form starts another write. The
+	    # password is never stored anywhere — not in the backend, not in this model beyond this.
+	    lastCredentials : [None, Credentials(Str, Str)],
+	    # The user form (add / complete / edit / reset password) lives in a modal; this flag plus the
+	    # two modes below say it is on screen. Closing it clears the modes.
+	    userFormOpen : Bool,
+	    # The id and address of the row whose login's password is being reset, empty otherwise: a
+	    # modal mode that shows only the password field and posts /api/users/set-password.
+	    resetPasswordId : Str,
+	    resetPasswordEmail : Str,
+	    # The rows ticked for a bulk delete, as their record ids. A delete works for every row now -
+	    # including one with no login behind it, which the backend treats as deletable by the profile
+	    # hide alone - and the Delete button above the table removes the whole selection.
+	    selectedUserIds : List(Str),
+	    appOrigin : Str,
 	usersStudentsData : Str,
 	usersTeachersData : Str,
 	usersParentsData : Str,
@@ -178,9 +189,24 @@ Msg : [
 	# is the row's own, so the form starts prefilled), and the two toggles, deactivate (DELETE
 	# /api/users) and activate (POST /api/users/activate) for a row whose login is off.
 	StartUserEdit(Str),
-	SubmitDeactivateUser(Str),
-	SubmitActivateUser(Str),
-	UserToggleCompleted(UserToggleAction, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	    SubmitDeactivateUser(Str),
+	    SubmitActivateUser(Str),
+	    UserToggleCompleted(UserToggleAction, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	    # The user form modal: open it for a fresh create (header's Add button) and close it (Cancel,
+	    # or any completed write). The row actions open it through their own modes.
+	    OpenUserForm,
+	    CloseUserForm,
+	    # Reset a login's password from its row: the modal switches to the password-only mode,
+	    # posts /api/users/set-password, and hands the new value over once through the credentials
+	    # panel — the backend sets it in Authentik and never returns it.
+	    OpenResetPassword(Str, Str),
+	    SubmitResetPassword,
+	    ResetPasswordCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	    # Bulk delete: tick rows and remove them all. The requests are the same DELETE /api/users as
+	    # the row's Delete action, one per selected id.
+	    ToggleUserSelected(Str),
+	    ClearUserSelection,
+	    DeleteSelectedUsers,
 	GotUsersData(Str),
 	GotTermsData(Str),
 	GotSubjectsData(Str),
@@ -306,11 +332,15 @@ init = |flags| {
 		newUserDateOfBirth: "",
 		newUserClassLevel: "",
 		newUserRoleTitle: "",
-		completingProfileId: "",
-		newUserPassword: "",
-		userEditing: Bool.False,
-		lastCredentials: None,
-		appOrigin: originStr,
+		            completingProfileId: "",
+		            newUserPassword: "",
+		            userEditing: Bool.False,
+		            lastCredentials: None,
+		            userFormOpen: Bool.False,
+		            resetPasswordId: "",
+		            resetPasswordEmail: "",
+		            selectedUserIds: [],
+		            appOrigin: originStr,
 		usersStudentsData: "",
 		usersTeachersData: "",
 		usersParentsData: "",
@@ -856,18 +886,19 @@ update = |model, msg|
 					[]
 				)
 			} else {
-				# One form, two writes. With no id the login does not exist yet, so POST creates the login and
-			# its profile together; with one, the login is already in the directory (the admin made it in
-			# Authentik) and PUT attaches the profile to that pk. A completing write carries no email: the
-			# login's own address is Authentik's and already right, and the role comes from the id's table
-			# on the backend, so neither is the form's to send.
-			completing = !Str.is_empty(model.completingProfileId)
-			identity_fields =
-				if completing {
-					"\"id\":\"${model.completingProfileId}\","
-				} else {
-					"\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\","
-				}
+			# One form, two writes. With no id the login does not exist yet, so POST creates the login and
+		# its profile together; with one, the login is already in the directory (the admin made it in
+		# Authentik) and PUT attaches the profile to that pk. The email is the login's own address and
+		# is editable in every mode — the backend patches Authentik (PUT) or makes the login with it
+		# (POST) — so an account that was created without one, or with a typo, can be fixed from the
+		# form. The role comes from the id's table on the backend, and is never sent by a PUT.
+		completing = !Str.is_empty(model.completingProfileId)
+		identity_fields =
+			if completing {
+				"\"id\":\"${model.completingProfileId}\",\"email\":\"${model.newUserEmail}\","
+			} else {
+				"\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\","
+			}
 			# The password rides the create only, and only when the admin gave one: the backend treats an
 			# absent field as a login without a password, which the row actions can set later.
 			password_clause =
@@ -906,6 +937,7 @@ update = |model, msg|
 		# shown, and are not the form's to edit), and the role comes from the tab the row was on.
 		CompleteProfile(id, email) => (
 			{ ..model,
+				userFormOpen: Bool.True,
 				completingProfileId: id,
 				newUserRole: user_tab_role(model.activeUserTab),
 				newUserFirstName: "",
@@ -923,7 +955,11 @@ update = |model, msg|
 			},
 			[]
 		)
-		CancelCompleteProfile => ({ ..model, completingProfileId: "", userEditing: Bool.False, lastCredentials: None, submitResult: None }, [])
+		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
+		# Open the form in add mode: the header's Add User button. Everything the completing and
+		# editing arms set is cleared, so the modal opens empty.
+		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
+		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
@@ -932,6 +968,7 @@ update = |model, msg|
 			part = |i| match List.get(parts, i) { Ok(v) => v, Err(_) => "" }
 			(
 				{ ..model,
+					userFormOpen: Bool.True,
 					completingProfileId: part(0),
 					newUserRole: user_tab_role(model.activeUserTab),
 					newUserFirstName: part(6),
@@ -1000,7 +1037,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
 		}
 		# --- A row's actions: deactivate and activate ---
 		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the
@@ -1039,7 +1076,7 @@ update = |model, msg|
 			)
 		}
 		UserToggleCompleted(action, res) => {
-			verb = match action { Deactivate => "deactivated" Activate => "activated" }
+			verb = match action { Deactivate => "deleted" Activate => "activated" }
 			newResult : [None, Success(Str), Error(Str)]
 			newResult = match res {
 				Ok(response) =>
@@ -1051,6 +1088,8 @@ update = |model, msg|
 				Err(HttpErr(Timeout)) => Error("The request timed out")
 				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
 			}
+			# A bulk delete cleared the selection up front; a single row's delete leaves whatever
+			# selection exists alone.
 			refresh = match newResult {
 				Success(_) => [
 					Port.send("fetch_data", "/api/users?role=Student"),
@@ -1061,6 +1100,99 @@ update = |model, msg|
 				_ => []
 			}
 			({ ..model, isSubmitting: Bool.False, submitResult: newResult }, refresh)
+		}
+		# --- Reset a login's password (the row's Reset password action) ---
+		OpenResetPassword(id, email) => (
+			{ ..model,
+				userFormOpen: Bool.True,
+				resetPasswordId: id,
+				resetPasswordEmail: email,
+				newUserPassword: "",
+				completingProfileId: "",
+				userEditing: Bool.False,
+				lastCredentials: None,
+				submitResult: None,
+			},
+			[]
+		)
+		SubmitResetPassword => {
+			if Str.is_empty(model.resetPasswordId) {
+				({ ..model, submitResult: Error("Choose the row's Reset password action first") }, [])
+			} else if Str.is_empty(model.newUserPassword) {
+				({ ..model, submitResult: Error("Password is required") }, [])
+			} else if !user_text_ok(model.newUserPassword) {
+				({ ..model, isSubmitting: Bool.False, submitResult: Error("Values may not contain double quotes, backslashes, pipes or line breaks") }, [])
+			} else {
+				req = {
+					method: POST,
+					uri: "${model.appOrigin}/api/users/set-password",
+					headers: [
+						{ name: "Authorization", value: "Bearer ${model.authToken}" },
+						{ name: "Content-Type", value: "application/json" }
+					],
+					body: Str.to_utf8("{\"id\":\"${model.resetPasswordId}\",\"password\":\"${model.newUserPassword}\"}"),
+					timeout_ms: NoTimeout,
+				}
+				(
+					{ ..model, isSubmitting: Bool.True, submitResult: None },
+					[Http.request(req, |res| ResetPasswordCompleted(res))]
+				)
+			}
+		}
+		ResetPasswordCompleted(res) => {
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("Password updated")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			# The new password is handed over once, in the credentials panel, then never shown again.
+			handoff : [None, Credentials(Str, Str)]
+			handoff = match newResult {
+				Success(_) =>
+					if Str.is_empty(model.newUserPassword) { None }
+					else { Credentials(model.resetPasswordEmail, model.newUserPassword) }
+				_ => None
+			}
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, resetPasswordId: "", resetPasswordEmail: "", newUserPassword: "", userFormOpen: Bool.False, lastCredentials: handoff }, [])
+		}
+		# --- Bulk delete: tick rows, then remove the selection ---
+		ToggleUserSelected(id) => {
+			selected =
+				if List.contains(model.selectedUserIds, id) {
+					List.keep_if(model.selectedUserIds, |sid| sid != id)
+				} else {
+					List.append(model.selectedUserIds, id)
+				}
+			({ ..model, selectedUserIds: selected }, [])
+		}
+		ClearUserSelection => ({ ..model, selectedUserIds: [] }, [])
+		DeleteSelectedUsers => {
+			# One DELETE per selected id — the same request the row's Delete action makes — and the
+			# selection is cleared up front so a row that answers 502 (a reachable login that could
+			# not be disabled) still falls out of the next click's way.
+			deletes = List.map(model.selectedUserIds, |id| {
+				req = {
+					method: DELETE,
+					uri: "${model.appOrigin}/api/users",
+					headers: [
+						{ name: "Authorization", value: "Bearer ${model.authToken}" },
+						{ name: "Content-Type", value: "application/json" }
+					],
+					body: Str.to_utf8("{\"id\":\"${id}\"}"),
+					timeout_ms: NoTimeout,
+				}
+				Http.request(req, |res| UserToggleCompleted(Deactivate, res))
+			})
+			(
+				{ ..model, selectedUserIds: [], isSubmitting: Bool.True, submitResult: None },
+				deletes
+			)
 		}
 		# Switching tabs fetches that tab's own list: the four lists are separate payloads, so a tab
 		# never stays on its skeleton waiting for a fetch the previous tab started.
