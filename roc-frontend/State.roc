@@ -427,6 +427,16 @@ user_tab_role = |tab| {
 	}
 }
 
+# Whether a user-form value may be sent. The create/update payload is hand-written JSON with no
+# escape handling (the backend reads each field as the text between its first two quotes), and the
+# directory rows are "|"-separated lines the Edit form splits back apart — so a double quote or
+# backslash would be stored silently truncated, and a pipe or line break would shift the row fields
+# under Edit. Refused up front with the form's own message, never silently corrupted.
+user_text_ok : Str -> Bool
+user_text_ok = |text| {
+	!Str.contains(text, "\"") and !Str.contains(text, "\\") and !Str.contains(text, "|") and !Str.contains(text, "\n")
+}
+
 # The endpoint and payload for one section's create form. An empty field is sent as-is: the
 # backend validates and answers 400 with the text the form then shows.
 config_create_call = |model, tab| {
@@ -824,7 +834,30 @@ update = |model, msg|
 			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
 		}
 		SubmitNewUser => {
-			# One form, two writes. With no id the login does not exist yet, so POST creates the login and
+			# The form's values travel as hand-written JSON in the payload (the backend reads between
+			# the first two quotes of each field, so nothing is escaped) and as "|"-separated directory
+			# lines the Edit form splits back apart. A double quote or backslash in a value would
+			# therefore be stored silently truncated, and a pipe or line break would shift the fields
+			# under Edit — so such values are refused up front, like the required-field checks. The
+			# input is rejected, never corrupted.
+			forbidden = List.keep_if([
+				model.newUserFirstName,
+				model.newUserMiddleName,
+				model.newUserSurname,
+				model.newUserEmail,
+				model.newUserDateOfBirth,
+				model.newUserClassLevel,
+				model.newUserRoleTitle,
+				model.newUserPassportKey,
+				model.newUserPassword,
+			], |field| !user_text_ok(field))
+			if !List.is_empty(forbidden) {
+				(
+					{ ..model, isSubmitting: Bool.False, submitResult: Error("Values may not contain double quotes, backslashes, pipes or line breaks") },
+					[]
+				)
+			} else {
+				# One form, two writes. With no id the login does not exist yet, so POST creates the login and
 			# its profile together; with one, the login is already in the directory (the admin made it in
 			# Authentik) and PUT attaches the profile to that pk. A completing write carries no email: the
 			# login's own address is Authentik's and already right, and the role comes from the id's table
@@ -864,10 +897,11 @@ update = |model, msg|
 				body: Str.to_utf8(payload),
 				timeout_ms: NoTimeout,
 			}
-			(
-				{ ..model, isSubmitting: Bool.True, submitResult: None, lastCredentials: None },
-				[Http.request(req, |res| SubmitCompleted(res))]
-			)
+				(
+					{ ..model, isSubmitting: Bool.True, submitResult: None, lastCredentials: None },
+					[Http.request(req, |res| SubmitCompleted(res))]
+				)
+			}
 		}
 		# A row the directory lists without a profile: the form loads that login (its name and address are
 		# shown, and are not the form's to edit), and the role comes from the tab the row was on.

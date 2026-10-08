@@ -14,7 +14,7 @@ here describes it as current. `docs/progress-tracker.md` holds the live state an
 | Database | SurrealDB 3.x | The school's data: curriculum, lessons, assessments, submissions, profiles. Prod is `db2.johnethel.school`, ns `main`, db `lessons` |
 | Object storage | Cloudflare R2 | Passport photos (public URL on the profile) |
 | Deployment | Dokploy + Traefik | `devops/docker-compose.yml`; the app is the `app` service, built by `Dockerfile.app`, published on `app.johnethel.school` |
-| Toolchain | Roc nightly | Pinned in `Dockerfile.app` from `roc-lang/nightlies`; the Joy platform is pinned by release-bundle URL in `roc-frontend/app.roc` (0.34.0, joy-html 0.17.0) |
+| Toolchain | Roc nightly | Pinned in `Dockerfile.app` from `roc-lang/nightlies` (currently `nightly-2026-09-29-7f11a82`); the Joy platform is pinned by release-bundle URL in `roc-frontend/app.roc` (0.34.0, joy-html 0.17.0) |
 
 ## Repository layout
 
@@ -168,8 +168,9 @@ file stale. What belongs here is the shape and the rules:
    arrays). Anything richer would need a parser this Roc version does not have.
 7. **Verify against something that behaves like production.** The e2e suites run against a sandbox built from
    `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` (which mirrors the prod schema) with a mock Authentik;
-   [REDACTED] data is never written to. `roc check main.roc` must end at 0 errors and 0 warnings (the three module-header deprecations were migrated to type modules), and a page
-   load belongs to any frontend rebuild.
+   [REDACTED] data is never written to. `roc check main.roc` must end at 0 errors; the pinned compiler
+   also reports warnings from the release-bundle platforms' own sources (61 today), which are accepted and
+   expected to shrink as those bundles upgrade. A page load belongs to any frontend rebuild.
 
 ## Retired: the MoonBit/Golem path
 

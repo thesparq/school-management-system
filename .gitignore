@@ -28,7 +28,8 @@ golem-server.log
 /fix_summary.md
 # The repo installs with pnpm; the npm lockfile is scratch.
 /package-lock.json
-# Scratch directories: a second Joy checkout (the real one is roc-frontend/joy/), generated docs, a
+# Scratch directories: a second Joy checkout (the Joy platform ships by release-bundle URL now),
+# generated docs, a
 # Golem temp dir, agent scratch, and a stale copy of the e2e suites (the live ones are
 # roc-frontend/tests/e2e/).
 /joy/

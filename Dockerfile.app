@@ -38,6 +38,7 @@ COPY roc-backend/ ./roc-backend/
 # dist.css first: Tailwind scans the sources. Then the WASM app (build.roc drops www/app.wasm up
 # front and fails if roc does not write it back), then the backend binary.
 RUN cd roc-frontend \
+ && npm ci --omit=dev --no-audit --no-fund \
  && npx @tailwindcss/cli -i www/app.css -o www/dist.css --minify \
  # The compiler exits 2 when it emitted warnings (the release-bundle platforms trigger many); both
  # 0 and 2 mean the build itself succeeded.

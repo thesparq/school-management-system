@@ -73,6 +73,17 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.waitForTimeout(2500);
   check('created student appears in the table', await page.evaluate((s) => document.body.innerText.includes(s), surname));
 
+  // A form value that would corrupt the hand-written JSON (or the "|"-separated row format Edit
+  // prefills from) is refused up front: a double quote in a name must surface as the form's own
+  // message rather than a stored-silently-truncated value.
+  await fill('e.g. Adamu', 'A"da');
+  await fill('e.g. Musa', `Quote${stamp % 10000}`);
+  await fill('e.g. adamu@johnethel.school', `quote${stamp}@example.com`);
+  await fill('https://...', 'https://example.com/quote.jpg');
+  await page.click('text=Create User');
+  await page.waitForSelector('text=may not contain double quotes', { timeout: 20000 }).catch(() => {});
+  check('a quoted value is refused before it is sent', await page.evaluate(() => document.body.innerText.includes('may not contain double quotes, backslashes, pipes or line breaks')));
+
   // Validation path: a second submit without a passport URL.
   await fill('e.g. Adamu', 'No');
   await fill('e.g. Musa', `Passport${stamp % 10000}`);

@@ -495,8 +495,8 @@ dies with SIGSEGV. Restart it; a fresh start runs the same sources fine.
   needs a fixture reload after ~9 runs — `general_assessment_flow.sh` no longer has that limit.
 - [ ] `docs/architecture.md` is written for the Roc stack now, but the retired path could still use a fuller
   account (the agent table, the RPC fan-out) if anyone needs it beyond git history.
-- [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
-  report).
+- [x] Closed 2026-10-07: the Joy host allocator bug is fixed upstream in Joy 0.34.0 (see the Joy 0.34.0
+  section) — nothing left to file.
 
 ### Three parallel workstreams — two done
 
@@ -974,12 +974,25 @@ actions the admin actually uses, plus the two small backend fixes the form expos
   now also carries first/middle/surname/date_of_birth/current_class/role_title/passport for Edit's prefill.
 
 **Verified** (`roc check main.roc` 0 errors; `roc check app.roc` 0 errors; sandbox 8322): `e2e_admin.cjs`
-9/9 (new: Generate fills a 16-char password; the panel hands over `email\npassword` and the clipboard holds
-it), `e2e_users_directory.cjs` 23/23 (new: activate re-enables and flips the toggle to Deactivate;
-Edit-prefill → Save changes → `User updated` and the row shows the edited surname), `e2e_loading.cjs` 20/20
-(retry check now keys on the login's address, so a users_api.sh run that leaves the seed parent completed
-cannot trip it), `e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96 (was 94; +2 parent-completing),
-`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+10/10 (new: Generate fills a 16-char password; the panel hands over `email\npassword` and the clipboard holds
+it; a value with a double quote is refused up front), `e2e_users_directory.cjs` 27/27, run twice (new: activate
+flips the toggle; **deactivate hides the profile and disables the login — the bare Inactive row then offers
+Activate as its only action, which restores both**; Edit-prefill → Save changes → `User updated` and the row
+shows the edited surname; suite re-runnable — its reset deletes the profile row directly from the sandbox
+database, like users_api.sh's, so the fixture's login is never mutated), `e2e_loading.cjs` 20/20 (retry check
+now keys on the login's address, so a users_api.sh run that leaves the seed parent completed cannot trip it),
+`e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96 (was 94; +2 parent-completing), `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+**Review fixes landed before the merge** (2026-10-08): a deactivated (bare) row now offers **Activate** — the
+previous code showed only Complete profile once the profile was hidden, making reactivation unreachable
+through the UI; form values are validated up front against `"`, `\`, `|` and line breaks, because the
+hand-written JSON payload is scanned (not parsed) by the backend and the directory rows are `|`-separated —
+so such values can no longer be stored silently truncated or shift the Edit prefill; the credentials panel
+moved to the end of the view to dodge a Joy 0.34.0 runtime bug (a conditional subtree whose size changes
+shifts the flat ref list the renderer patches attributes by, and a value-input patch could land on a text
+node — `node.setAttribute is not a function`); `Dockerfile.app` regained its `npm ci` step; and the doc
+references to the retired EventStore/joy-vendoring/old nightly were cleaned up.
 
 **Still open**: `e2e_admin_config.cjs`'s curriculum create is not re-runnable on one long-lived sandbox — the
 JSS 2 + Agricultural Science link it adds collides on the unique index with the link an earlier run left
@@ -990,9 +1003,11 @@ that leftover edge deleted, or the create stamped like the rest.
 
 ## Completed Work
 
-- [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc, EventStore.roc)
+- [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
+  EventStore.roc stub is gone — see the journal section)
 - [x] Roc Joy framework frontend (app.roc, State.roc, UI.roc, DashboardView, AdminView, TeacherView, StudentView)
-- [x] SurrealDB schema (schema.surrealql) with event sourcing tables
+- [x] SurrealDB schema lineage (db/schema-vN.surql; the old event-sourcing tables were never applied —
+  writes are journaled instead, and CQRS/event sourcing is deferred to the roc-golem design)
 - [x] CSS theme system with shadcn/Tailwind tokens (light + dark mode)
 - [x] **Phase 5: Security Hardening**
   - [x] Environment variables for all secrets/URLs (SURREAL_URL, SURREAL_AUTH, AUTHENTIK_*, GOLEM_URL, DEV_MODE)

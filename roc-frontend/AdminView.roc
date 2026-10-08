@@ -60,26 +60,6 @@ admin_users_view = |model| {
             ])
         },
 
-        # The one-time credentials handoff, shown only right after a create that carried a password:
-        # the form has been cleared by then (the password is never stored anywhere), so this panel is
-        # the single place the value exists on the page, and it disappears the moment the form starts
-        # another write.
-        match model.lastCredentials {
-            None => Html.div([], [])
-            Credentials(email, password) => Html.div([Attribute.class("rounded-md border border-primary bg-primary/10 p-4 space-y-2")], [
-                Html.p([Attribute.class("text-sm font-medium")], [Html.text("Account created — copy the credentials to hand over")]),
-                Html.div([Attribute.class("text-sm font-mono space-y-1")], [
-                    Html.p([], [Html.text(email)]),
-                    Html.p([], [Html.text(password)])
-                ]),
-                Html.div([Attribute.class("flex items-center gap-2")], [
-                    UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
-                    Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
-                ]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")])
-            ])
-        },
-
         # Add New User / Complete Profile / Edit User card: the name parts together, then the contact
         # address and the role, then the profile fields the chosen role's create uses, then the
         # passport (and, while adding, the password) — with one primary action for the whole form.
@@ -282,7 +262,31 @@ admin_users_view = |model| {
                     ])
                 ])
             ])
-        ])
+        ]),
+
+        # The one-time credentials handoff, shown only right after a create that carried a password:
+        # the form has been cleared by then (the password is never stored anywhere), so this panel is
+        # the single place the value exists on the page, and it clears the moment the form starts
+        # another write. It sits at the END of the view on purpose: its contents change count
+        # (hidden vs four rows) and Joy's renderer patches attributes against a flat ref list, so a
+        # subtree whose size changes shifts the refs of everything after it — keeping it after the
+        # form and the table means their refs never move and a value-input patch cannot land on a
+        # text node (`node.setAttribute is not a function`).
+        match model.lastCredentials {
+            None => Html.div([Attribute.class("hidden")], [])
+            Credentials(email, password) => Html.div([Attribute.class("rounded-md border border-primary bg-primary/10 p-4 space-y-2")], [
+                Html.p([Attribute.class("text-sm font-medium")], [Html.text("Account created — copy the credentials to hand over")]),
+                Html.div([Attribute.class("text-sm font-mono space-y-1")], [
+                    Html.p([], [Html.text(email)]),
+                    Html.p([], [Html.text(password)])
+                ]),
+                Html.div([Attribute.class("flex items-center gap-2")], [
+                    UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
+                    Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
+                ]),
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")])
+            ])
+        },
     ])
 }
 
@@ -484,9 +488,10 @@ user_row = |line, busy| {
         ]),
         UI.table_cell({ classes: "text-right" }, [
             Html.div([Attribute.class("flex items-center justify-end gap-1")], [
-                # A profile-less login gets the one action it needs: the form above, loaded with this
-                # login, so its school data can be filled in. A row with a profile keeps the actions
-                # every row has.
+                # A profile-less login gets the one action it needs: while the login is on, the form
+                # above loaded with this login, so its school data can be filled in; once it is off (the
+                # soft delete that hid the profile also disabled the login), the action is Activate,
+                # which brings both back — there is no school data to fill in first.
                 if has_profile {
                     Html.div([Attribute.class("flex items-center justify-end gap-1")], [
                         UI.button(
@@ -506,10 +511,17 @@ user_row = |line, busy| {
                         }
                     ])
                 } else {
-                    UI.button(
-                        { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
-                        [Html.text("Complete profile")]
-                    )
+                    if is_active {
+                        UI.button(
+                            { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Complete profile")]
+                        )
+                    } else {
+                        UI.button(
+                            { variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Activate")]
+                        )
+                    }
                 }
             ])
         ])
