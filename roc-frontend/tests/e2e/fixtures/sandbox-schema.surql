@@ -41,6 +41,9 @@ DEFINE INDEX idx_st_combo ON session_term COLUMNS session_name, term UNIQUE;
 DEFINE TABLE credentials SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON credentials TYPE string ASSERT $value != NONE;
 DEFINE FIELD active ON credentials TYPE bool DEFAULT true;
+# Prod's unique-name index (db/schema-v2.surql): the catalog can hold one row per qualification
+# name, like the other lookup tables' unique names.
+DEFINE INDEX idx_credentials_name ON credentials COLUMNS name UNIQUE;
 
 # The school-number counters (same statements as `db/schema-v8-ids.surql`): one row per series, and
 # the two rows are seeded with `UPSERT … SET type = …` rather than a bare `current_value = 0`, so
@@ -252,3 +255,24 @@ DEFINE FIELD IF NOT EXISTS message ON pending_ops TYPE option<string>;
 DEFINE FIELD IF NOT EXISTS created_at ON pending_ops TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS updated_at ON pending_ops TYPE option<datetime>;
 DEFINE INDEX IF NOT EXISTS idx_pending_state ON pending_ops COLUMNS state;
+
+-- --- Teacher class-subject assignments (db/schema-v2.surql, mirrored field-for-field) ---
+-- One row per (teacher, has_subject edge, session_term): the pairs an admin assigns a teacher,
+-- which is what gates the teacher's lesson access. Soft-deleted; the save endpoint hides the
+-- teacher's current rows and creates one per pair, scoped to the active session term.
+DEFINE TABLE IF NOT EXISTS teacher_assignment SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD IF NOT EXISTS teacher_id ON teacher_assignment TYPE record<teacher_profile>;
+DEFINE FIELD IF NOT EXISTS has_subject ON teacher_assignment TYPE record<has_subject>;
+DEFINE FIELD IF NOT EXISTS session_term ON teacher_assignment TYPE record<session_term>;
+DEFINE FIELD IF NOT EXISTS assigned_at ON teacher_assignment TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS deleted_at ON teacher_assignment TYPE none | datetime;
+DEFINE INDEX IF NOT EXISTS idx_ta_teacher_hs_st ON teacher_assignment FIELDS teacher_id, has_subject, session_term UNIQUE;
+
+-- v3's graph edge, which prod has (the whole v3 file was applied there). Kept only so the fixture
+-- matches prod table-for-table; the implementation reads and writes teacher_assignment alone, so
+-- nothing populates this one.
+DEFINE TABLE IF NOT EXISTS teaches TYPE RELATION IN teacher_profile OUT has_subject PERMISSIONS FULL;
+DEFINE FIELD IF NOT EXISTS session_term ON teaches TYPE record<session_term>;
+DEFINE FIELD IF NOT EXISTS assigned_at ON teaches TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS deleted_at ON teaches TYPE none | datetime;
+DEFINE INDEX IF NOT EXISTS idx_teaches_unique ON teaches COLUMNS in, out, session_term UNIQUE;

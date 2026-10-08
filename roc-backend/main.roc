@@ -910,11 +910,27 @@ create_profile_from_journal! = |pk, payload, config| {
     passport = journal_field(payload, "passport") |> sanitize
     display_name = if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
     number_clause = school_number_clause!(pk, role, config)
-    create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
-    match db_body!(create_sql, config) {
-        Ok(_) => Ok({})
-        # The row already exists (the create landed, the journal was behind): that is a settle.
-        Err(detail) => if Str.contains(detail, "already exists") { Ok({}) } else { Err(detail) }
+    # The journaled qualifications ride the payload as `credentials:<id>` tokens joined by commas
+    # (no comma or semicolon can appear in a record id), rebuilt into the array text the clause
+    # builder validates.
+    quals_journal = journal_field(payload, "qualifications") |> sanitize
+    quals_res =
+        if Str.is_empty(quals_journal) {
+            Ok("")
+        } else {
+            quals_elements = List.keep_if(Str.split_on(quals_journal, ","), |element| !Str.is_empty(element))
+            qualifications_clause!("[${Str.join_with(List.map(quals_elements, |element| "\"${element}\""), ",")}]")
+        }
+    match quals_res {
+        Err(msg) => Err(msg),
+        Ok(quals_clause) => {
+            create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, quals_clause)
+            match db_body!(create_sql, config) {
+                Ok(_) => Ok({})
+                # The row already exists (the create landed, the journal was behind): that is a settle.
+                Err(detail) => if Str.contains(detail, "already exists") { Ok({}) } else { Err(detail) }
+            }
+        }
     }
 }
 
@@ -1034,12 +1050,45 @@ display_name_from! = |payload_raw| {
     if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
 }
 
+# The `SET` entry for a teacher's qualifications array, from the request payload's array text
+# (`["credentials:<id>", …]`), or "" when the payload carried none. Each element must be a
+# `credentials:` record id — the catalog the admin UI's picker offers — so a value that cannot be a
+# link is refused with the caller's own 400 rather than a statement the database rejects wholesale.
+# The empty text and an explicit `[]` both produce `qualifications = []` (the empty list the payload's
+# own "no qualifications" means).
+qualifications_clause! : Str => [Ok(Str), Err(Str)]
+qualifications_clause! = |array_text| {
+    elements = List.map(split_json_elements(array_text), |element| json_string_text(element))
+    invalid = List.keep_if(elements, |element| !Str.starts_with(element, "credentials:"))
+
+    if Str.is_empty(array_text) or array_text == "[]" {
+        Ok("qualifications = []")
+    } else if !List.is_empty(invalid) {
+        Err("each qualification must be a credentials record id (credentials:<id>)")
+    } else {
+        links = qualification_links!(elements, [])
+        Ok("qualifications = [${Str.join_with(links, ",")}]")
+    }
+}
+
+# The record literals for one element each, read out of the (already validated) array text. A
+# recursive pass rather than List.map: the id is read through bare_id, which is effectful, and
+# List.map only takes a pure function.
+qualification_links! : List(Str), List(Str) => List(Str)
+qualification_links! = |elements, out| {
+    match elements {
+        [] => out
+        [element, .. as rest] => qualification_links!(rest, List.append(out, "type::record('credentials', '${bare_id(element)}')"))
+    }
+}
+
 # Build the profile INSERT for the chosen role. Field sets mirror the prod tables:
 # parents carry a single `name`, students carry date_of_birth plus their class links,
-# admins may carry a role_title, teachers nothing extra. The row's school number comes first: it is
+# admins may carry a role_title, teachers their qualifications (`qualifications_clause!`'s own
+# entry, empty for a teacher without any). The row's school number comes first: it is
 # `school_number_clause!`'s own `SET` entry, and every role that reaches this branch has one (only a
 # parent has no number, and a parent is built below).
-profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport| {
+profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, qualifications_clause| {
     if role == "Parent" {
         # parent_profile carries both `name` and `display_name` in the prod schema.
         "CREATE type::record('parent_profile', '${user_id}') SET name = '${display_name}', display_name = '${display_name}', passport = '${passport}', created_at = time::now();"
@@ -1051,6 +1100,7 @@ profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, su
                 if Str.is_empty(date_of_birth) { "" } else { "date_of_birth = <datetime> '${date_of_birth}'" },
                 if Str.is_empty(class_level) { "" } else { "current_class = ${record_ref!(class_level, "class_levels")}" },
                 if Str.is_empty(class_level) { "" } else { "class_enrolled = ${record_ref!(class_level, "class_levels")}" },
+                if Str.is_empty(qualifications_clause) { "" } else { qualifications_clause },
             ],
             |field| !Str.is_empty(field),
         )
@@ -1104,7 +1154,7 @@ profile_update_columns = |table|
     } else if table == "admin_profile" {
         ["display_name", "first_name", "middle_name", "surname", "passport", "role_title"]
     } else if table == "teacher_profile" {
-        ["display_name", "first_name", "middle_name", "surname", "passport"]
+        ["display_name", "first_name", "middle_name", "surname", "passport", "qualifications"]
     } else {
         ["display_name", "first_name", "middle_name", "surname", "passport", "date_of_birth", "class_level"]
     }
@@ -1118,7 +1168,7 @@ immutable_update_fields = ["class_enrolled", "admission_number", "staff_id"]
 # back to the caller. The immutable ones are in here to be refused; `admission_number` and `staff_id`
 # are in no table's `profile_update_columns`, which is what makes a payload that carries one a 400
 # instead of an ignored field.
-known_update_fields = List.concat(["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level"], immutable_update_fields)
+known_update_fields = List.concat(["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level", "qualifications"], immutable_update_fields)
 
 # The fields the payload carries that this table has no column for. `name` is the legacy table's
 # shape: parent_profile still has that column (it is that table's single name field), no other
@@ -1164,14 +1214,20 @@ carries_field = |payload_raw, field| {
 
     if quoted {
         Bool.True
-    } else if List.contains(immutable_update_fields, field) {
+    } else if List.contains(immutable_update_fields, field) or List.contains(array_update_fields, field) {
         # Whitespace after the colon is stripped first: a hand-written payload may carry it, and the
-        # app's own never does.
+        # app's own never does. An array field's value starts with `[`, which extract_field cannot
+        # read as a quoted value (and an empty array has no quotes at all), so its presence is the
+        # key's presence.
         Str.contains(Str.replace_each(payload_raw, " ", ""), "\"${field}\":")
     } else {
         Bool.False
     }
 }
+
+# The payload fields whose value is a JSON array rather than a quoted string; extract_field reads
+# between quotes, so an array's presence is decided by the key itself (see carries_field).
+array_update_fields = ["qualifications"]
 
 # `field = 'value'` for a value already read out of the payload, or "" when the value is empty — an
 # empty clause is dropped from a list of them, which is how an update writes only what it was given.
@@ -1265,22 +1321,40 @@ update_clauses! = |table, payload_raw, config| {
         }
 
     candidates = List.concat(name_clauses, List.concat([update_text_clause!("passport", payload_raw)], role_clauses))
-    clauses = List.keep_if(candidates, |clause| !Str.is_empty(clause))
 
-    if !Str.is_empty(email) and !looks_like_email(email) {
-        Err("email is not a valid address")
-    } else if !List.is_empty(misplaced) {
-        first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
-
-        Err(misplaced_message(first, table))
-    } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
-        Err("date_of_birth must look like YYYY-MM-DD")
-    } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
-        Err("class_level '${class_level}' does not exist")
-    } else if List.is_empty(clauses) and Str.is_empty(email) {
-        Err("no updatable fields: send an email or at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
+    # A teacher's qualifications replace the stored list wholesale, exactly like the assignments
+    # dialog replaces a teacher's pairs: the payload carries `qualifications`, the whole array is
+    # written (empty = "no qualifications"). Only the teacher profile declares the column, so the
+    # clause is built only for it; any other table carrying the field is already a misplaced field
+    # above.
+    quals_clause_res = if table == "teacher_profile" and carries_field(payload_raw, "qualifications") {
+        qualifications_clause!(extract_json_array(payload_raw, "qualifications"))
     } else {
-        Ok(clauses)
+        Ok("")
+    }
+
+    match quals_clause_res {
+        Err(msg) => Err(msg),
+        Ok(quals_clause) => {
+            all_candidates = List.concat(candidates, [quals_clause])
+            clauses = List.keep_if(all_candidates, |clause| !Str.is_empty(clause))
+
+            if !Str.is_empty(email) and !looks_like_email(email) {
+                Err("email is not a valid address")
+            } else if !List.is_empty(misplaced) {
+                first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
+
+                Err(misplaced_message(first, table))
+            } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
+                Err("date_of_birth must look like YYYY-MM-DD")
+            } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
+                Err("class_level '${class_level}' does not exist")
+            } else if List.is_empty(clauses) and Str.is_empty(email) {
+                Err("no updatable fields: send an email or at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
+            } else {
+                Ok(clauses)
+            }
+        }
     }
 }
 
@@ -1491,11 +1565,23 @@ user_row_with_identity! = |row, users, role| {
         "\"class_name\":\"${sanitize_json_text(extract_field(row, "class_name"))}\"",
         "\"created_at\":\"${sanitize_json_text(extract_field(row, "created_at"))}\"",
         "\"current_class\":\"${sanitize_json_text(extract_field(row, "current_class"))}\"",
+        # Only the teacher profile selects the column, so an absent field is an empty array rather
+        # than a guess: the page's teacher form reads this as the qualifications to prefill.
+        "\"qualifications\":${qualifications_json!(row)}",
         "\"school_number\":\"${sanitize_json_text(row_number!(row, role))}\"",
         "\"has_profile\":true",
     ]
 
     "{${Str.join_with(List.concat(fields, identity), ",")}}"
+}
+
+# The row's stored qualifications array as a JSON array literal (`["credentials:<id>", …]`), or
+# `[]` when the row has none (every non-teacher query never selects the column, so it reads empty).
+qualifications_json! : Str => Str
+qualifications_json! = |row| {
+    text = extract_json_array(row, "qualifications")
+
+    if Str.is_empty(text) { "[]" } else { text }
 }
 
 # The element-wise pass over the rows, effectful for the same reason as matching_user!.
@@ -1554,6 +1640,7 @@ profile_less_row! = |user, table| {
         "\"date_of_birth\":\"\"",
         "\"role_title\":\"\"",
         "\"class_name\":\"\"",
+        "\"qualifications\":[]",
         "\"school_number\":\"\"",
         "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
         "\"username\":\"${sanitize_json_text(extract_field(user, "username"))}\"",
@@ -1644,6 +1731,142 @@ config_toggle_response! = |table, payload_raw, config| {
         db_response!("UPDATE ${record_ref!(id_val, table)} SET active = ${active};", config)
     }
 }
+
+# --- Teacher class-subject assignments (the pairings that gate a teacher's access) ---
+#
+# `has_subject` (class_levels -> subjects) is the school's curriculum; `teacher_assignment` is one
+# row per (teacher, has_subject edge, session_term) — the pairs an admin assigns a teacher, which is
+# exactly what the teacher may teach. This is the retired MoonBit stack's design, ported with its
+# one real bug fixed: the old admin write used `teacher_assignment` while the teacher's own read
+# used v3's `teaches` edge, so a save never reached the teacher's view. Here both sides read and
+# write `teacher_assignment` alone.
+
+# The id of the sole active session term ("" when none is active). Assignments are scoped to it:
+# a teacher's teaching list is the pairs assigned for the term the school is in, so an assignment
+# save replaces the teacher's rows under that term only.
+active_session_term_id! : SurrealDB.Config => Str
+active_session_term_id! = |config| {
+    match SurrealDB.query_read!("SELECT id FROM session_term WHERE active = true LIMIT 1;", config) {
+        Ok(body) => bare_id(extract_field(body, "id"))
+        Err(_) => ""
+    }
+}
+
+# The subquery naming the has_subject edges the caller is assigned for the active term. The lesson
+# and assessment lists embed it as `has_subject IN (…)` / `lesson.has_subject IN (…)`, so the scope
+# lives in one text and the queries stay single statements.
+assigned_edges_subquery! : Str, Str => Str
+assigned_edges_subquery! = |teacher_pk, term_id| {
+    "SELECT VALUE has_subject FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE"
+}
+
+# The bare ids of the (already validated) edge list, read out one at a time: a recursive pass rather
+# than List.map, because bare_id is effectful and List.map only takes a pure function. The save
+# endpoint uses the bare form to build its CREATE statements.
+bare_edges! : List(Str), List(Str) => List(Str)
+bare_edges! = |edges, out| {
+    match edges {
+        [] => out
+        [edge, .. as rest] => bare_edges!(rest, List.append(out, bare_id(edge)))
+    }
+}
+
+# The same idea for subjects: the subjects the caller holds any pair in, which is the scope of the
+# general-assessments lists (they are subject-wide, not lesson-scoped).
+assigned_subjects_subquery! : Str, Str => Str
+assigned_subjects_subquery! = |teacher_pk, term_id| {
+    "SELECT VALUE has_subject.out FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE"
+}
+
+# Whether the caller is assigned one has_subject edge for the active term. A link whose record does
+# not exist is not granted — the same "record links are not existence-checked by the schema" rule
+# that class_level_exists! guards, applied to the grant itself.
+teacher_can_edge! : Str, Str, Str, SurrealDB.Config => Bool
+teacher_can_edge! = |teacher_pk, edge_id, term_id, config| {
+    if Str.is_empty(term_id) or Str.is_empty(edge_id) {
+        Bool.False
+    } else {
+        query = "SELECT id FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND has_subject = ${record_ref!(edge_id, "has_subject")} AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE LIMIT 1;"
+        match SurrealDB.query_read!(query, config) {
+            Ok(body) => Str.contains(body, "\"result\":[{")
+            Err(_) => Bool.False
+        }
+    }
+}
+
+# Whether the caller is assigned any pair for a subject (one class of it is enough). This is the
+# grant general assessments hang off: they are subject-wide rather than lesson-scoped.
+teacher_can_subject! : Str, Str, Str, SurrealDB.Config => Bool
+teacher_can_subject! = |teacher_pk, subject_id, term_id, config| {
+    if Str.is_empty(term_id) or Str.is_empty(subject_id) {
+        Bool.False
+    } else {
+        query = "SELECT id FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND has_subject.out = ${record_ref!(subject_id, "subjects")} AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE LIMIT 1;"
+        match SurrealDB.query_read!(query, config) {
+            Ok(body) => Str.contains(body, "\"result\":[{")
+            Err(_) => Bool.False
+        }
+    }
+}
+
+# Whether the caller may reach a lesson: its own has_subject edge must be among the caller's
+# assignments. The lessons row carries the edge in its own `has_subject` field (only a lesson
+# assessment nests it under `lesson.has_subject`).
+teacher_can_lesson! : Str, Str, Str, SurrealDB.Config => Bool
+teacher_can_lesson! = |teacher_pk, lesson_id, term_id, config| {
+    if Str.is_empty(term_id) {
+        Bool.False
+    } else {
+        lesson_body = match SurrealDB.query_read!("SELECT has_subject FROM lessons WHERE id = ${record_ref!(lesson_id, "lessons")} LIMIT 1;", config) {
+            Ok(body) => body
+            Err(_) => ""
+        }
+        teacher_can_edge!(teacher_pk, extract_field(lesson_body, "has_subject"), term_id, config)
+    }
+}
+
+# Whether the caller may reach an assessment: a lesson assessment counts if its lesson's edge is
+# assigned, a general one if the teacher holds any pair for its subject.
+teacher_can_assessment! : Str, Str, Str, Str, SurrealDB.Config => Bool
+teacher_can_assessment! = |teacher_pk, assessment_table, assessment_id, term_id, config| {
+    if Str.is_empty(term_id) or Str.is_empty(assessment_id) {
+        Bool.False
+    } else if assessment_table == "general_assessments" {
+        assessment_body = match SurrealDB.query_read!("SELECT subject FROM general_assessments WHERE id = ${record_ref!(assessment_id, "general_assessments")} LIMIT 1;", config) {
+            Ok(body) => body
+            Err(_) => ""
+        }
+        teacher_can_subject!(teacher_pk, extract_field(assessment_body, "subject"), term_id, config)
+    } else {
+        assessment_body = match SurrealDB.query_read!("SELECT lesson.has_subject FROM lesson_assessments WHERE id = ${record_ref!(assessment_id, "lesson_assessments")} LIMIT 1;", config) {
+            Ok(body) => body
+            Err(_) => ""
+        }
+        teacher_can_edge!(teacher_pk, extract_field(assessment_body, "lesson.has_subject"), term_id, config)
+    }
+}
+
+# Whether the caller may touch a submission: its assessment must be one of the caller's (a lesson
+# assessment of an assigned edge, or a general assessment of an assigned subject).
+teacher_can_submission! : Str, Str, Str, SurrealDB.Config => Bool
+teacher_can_submission! = |teacher_pk, submission_id, term_id, config| {
+    if Str.is_empty(term_id) or Str.is_empty(submission_id) {
+        Bool.False
+    } else {
+        sub_body = match SurrealDB.query_read!("SELECT assessment_type, assessment_id FROM submissions WHERE id = ${record_ref!(submission_id, "submissions")} LIMIT 1;", config) {
+            Ok(body) => body
+            Err(_) => ""
+        }
+        assessment_type = extract_field(sub_body, "assessment_type")
+        assessment_table = if assessment_type == "general" { "general_assessments" } else { "lesson_assessments" }
+        teacher_can_assessment!(teacher_pk, assessment_table, extract_field(sub_body, "assessment_id"), term_id, config)
+    }
+}
+
+# The 403 for a teacher who names something outside their assignments. The gate bites only for
+# teacher-role callers: an admin may call anywhere (may_call's rule again), which is what lets the
+# admin LMS and the suites' dev-skip token see every lesson.
+not_assigned_response = json_response(403, "{\"error\":\"Forbidden: this content is not among your teaching assignments\"}")
 
 # --- Input sanitization ---
 
@@ -1923,7 +2146,7 @@ signing_timestamp! = |pinned, dev_mode| {
 #
 # `may_call` then lets an admin through anywhere. That is the top of the hierarchy the page's own
 # navigation implies, and it is also what keeps one `dev-skip` token able to drive every suite.
-config_route_prefixes = ["/api/terms", "/api/subjects", "/api/class_levels", "/api/curriculum", "/api/session_terms", "/api/class_arms"]
+config_route_prefixes = ["/api/terms", "/api/subjects", "/api/class_levels", "/api/curriculum", "/api/session_terms", "/api/class_arms", "/api/credentials"]
 
 required_role : Method, Str -> Str
 required_role = |method, target| {
@@ -1946,6 +2169,10 @@ required_role = |method, target| {
     } else if target == "/api/enroll" {
         # The retired Golem enrollment prototype: unused by the page, but it writes someone's
         # enrolment, so it stays with the admin.
+        "admin"
+    } else if target == "/api/class-subjects" or Str.starts_with(target, "/api/teacher-assignments") {
+        # The assign dialog's pair list and a teacher's current assignments: one teacher's
+        # teaching data, seen by the admin who manages it.
         "admin"
     } else if target == "/api/upload-url" {
         # The passport signer behind the admin's create-user form.
@@ -2212,6 +2439,95 @@ respond! = |request, context| {
                     # counting as part of the active curriculum.
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("has_subject", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/credentials") {
+                    # The qualifications catalog: the teacher form's picker reads the active rows, the
+                    # admin's qualifications section passes ?all=true so a deactivated row can be
+                    # switched back on. A qualification is never hard-deleted — a teacher profile may
+                    # hold its record link, and the table's own `active` flag is the switch.
+                    scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
+                    res = SurrealDB.query_read!("SELECT id, name, active FROM credentials${scope} ORDER BY name;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(err) => Ok(db_read_error!(err))
+                    }
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/credentials" {
+                    payload_raw = read_body!(request)
+                    safe_payload = payload_raw |> sanitize
+                    cred_name = extract_field(payload_raw, "name")
+                    if Str.is_empty(cred_name) {
+                        Ok(json_response(400, "{\"error\":\"name is required\"}"))
+                    } else {
+                        Ok(db_response!("CREATE credentials CONTENT ${safe_payload};", context.surreal))
+                    }
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/credentials/toggle-active" {
+                    payload_raw = read_body!(request)
+                    Ok(config_toggle_response!("credentials", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/class-subjects" {
+                    # Every class-subject pair of the active curriculum, as the admin's Assign dialog
+                    # offers them: one row per has_subject edge, with the class and subject names.
+                    res = SurrealDB.query_read!("SELECT id AS edge_id, in.id AS class_level_id, in.name AS class_level_name, out.id AS subject_id, out.name AS subject_name, out.code AS subject_code FROM has_subject WHERE active = true ORDER BY in.name ASC, out.name ASC;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(err) => Ok(db_read_error!(err))
+                    }
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher-assignments") {
+                    # A teacher's current pairs, for the Assign dialog's badges.
+                    teacher_id = query_param(request_target_text(request), "teacher_id")
+                    if Str.is_empty(teacher_id) {
+                        Ok(json_response(400, "{\"error\":\"teacher_id is required\"}"))
+                    } else {
+                        query = "SELECT teacher_id, has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${bare_id(teacher_id)}') AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC;"
+                        res = SurrealDB.query_read!(query, context.surreal)
+                        match res {
+                            Ok(body) => Ok(json_response(200, body))
+                            Err(err) => Ok(db_read_error!(err))
+                        }
+                    }
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher-assignments" {
+                    # Replace a teacher's whole set of class-subject pairs: the dialog saves the full
+                    # list, never a diff. The replacement is scoped to the active session term (the
+                    # retired agent's own rule), so an absent active term refuses the save.
+                    payload_raw = read_body!(request)
+                    teacher_id = extract_field(payload_raw, "teacher_id") |> sanitize
+                    pairs_text = extract_json_array(payload_raw, "pairs")
+                    term_id = active_session_term_id!(context.surreal)
+                    if Str.is_empty(teacher_id) {
+                        Ok(json_response(400, "{\"error\":\"teacher_id is required\"}"))
+                    } else if Str.is_empty(term_id) {
+                        Ok(json_response(400, "{\"error\":\"No active session term. Set one in Configuration → Session Terms.\"}"))
+                    } else if Str.contains(pairs_text, ";") {
+                        Ok(json_response(400, "{\"error\":\"pairs must be a JSON array without statement separators\"}"))
+                    } else {
+                        edges = List.keep_if(List.map(split_json_elements(pairs_text), |element| extract_field(element, "edge_id")), |edge| !Str.is_empty(edge))
+                        invalid = List.keep_if(edges, |edge| !Str.starts_with(edge, "has_subject:"))
+                        if !List.is_empty(invalid) {
+                            Ok(json_response(400, "{\"error\":\"each pair must carry a has_subject edge id\"}"))
+                        } else {
+                            # Full replacement, scoped to the active term: hide the rows the new
+                            # set drops, then keep one row per kept pair — reviving a hidden row
+                            # rather than creating over it, because the (teacher, edge, term) unique
+                            # index counts soft-deleted rows too and would refuse the duplicate.
+                            # Each pair's revive-or-create is its own IF block in the one call.
+                            teacher_bare = bare_id(teacher_id)
+                            term_bare = bare_id(term_id)
+                            body =
+                                if List.is_empty(edges) {
+                                    # Nothing to keep: the empty list means "clear the teacher".
+                                    db_body!("UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND deleted_at IS NONE;", context.surreal)
+                                } else {
+                                    edge_literals = List.map(bare_edges!(edges, []), |edge_bare| "has_subject:${edge_bare}")
+                                    edge_list = Str.join_with(edge_literals, ", ")
+                                    revive_blocks = List.map(edge_literals, |edge_literal| "LET \$pair = (SELECT VALUE id FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}') LIMIT 1); IF array::len(\$pair) == 0 { CREATE teacher_assignment SET teacher_id = type::record('teacher_profile', '${teacher_bare}'), has_subject = ${edge_literal}, session_term = type::record('session_term', '${term_bare}'); } ELSE { UPDATE teacher_assignment SET deleted_at = NONE, assigned_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}'); };")
+                                    hide_statement = "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND session_term = type::record('session_term', '${term_bare}') AND deleted_at IS NONE AND has_subject NOT IN [${edge_list}]; "
+                                    statement = "${hide_statement}${Str.join_with(revive_blocks, " ")}"
+                                    db_body!(statement, context.surreal)
+                                }
+                            match body {
+                                Ok(_) => Ok(json_response(200, "{\"status\":\"OK\"}")),
+                                Err(detail) => Ok(json_response(500, "{\"error\":\"Could not save the assignments\",\"detail\":\"${sanitize_json_text(detail)}\"}"))
+                            }
+                        }
+                    }
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_arms" {
@@ -2239,9 +2555,26 @@ respond! = |request, context| {
                     password_val = extract_field(payload_raw, "password")
                     display_name = display_name_from!(payload_raw)
 
-                    match validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport) {
-                        Err(message) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
-                        Ok(_) =>
+                    # A teacher's qualifications are record links into the credentials catalog the
+                    # admin UI manages. Only the teacher profile declares the column, so any other
+                    # role carrying the field is a 400 naming the table — the update path's own
+                    # misplaced-field rule, applied to the create.
+                    quals_text = extract_json_array(payload_raw, "qualifications")
+                    carries_quals = Str.contains(Str.replace_each(payload_raw, " ", ""), "\"qualifications\":")
+                    quals_res =
+                        if carries_quals and role != "Teacher" {
+                            Err("'qualifications' is not a column of ${profile_table_for(role)}")
+                        } else if carries_quals {
+                            qualifications_clause!(quals_text)
+                        } else {
+                            Ok("")
+                        }
+                    quals_journal = if role != "Teacher" { "" } else { Str.join_with(List.map(split_json_elements(quals_text), |element| json_string_text(element)), ",") }
+
+                    match (quals_res, validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport)) {
+                        (Err(message), _) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
+                        (Ok(_), Err(message)) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
+                        (Ok(quals_clause), Ok(_)) =>
                             if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
@@ -2255,7 +2588,7 @@ respond! = |request, context| {
                                     # file read a value up to the first double quote, so a payload that
                                     # itself contains quotes could never be read back. One token per
                                     # field, none of the values may contain ";".
-                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};wants_password=${wants_pw}"
+                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};wants_password=${wants_pw}"
                                     journal_res = journal_begin!("create_user", email_val, payload_journal, context.surreal)
                                     match journal_res {
                                         Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
@@ -2280,7 +2613,7 @@ respond! = |request, context| {
                                                 Ok(_) => {
                                                     _ = journal_mark!(row_id, "password", context.surreal)
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
-                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport)
+                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, quals_clause)
                                                     created = db_body!(create_sql, context.surreal)
                                                     match created {
                                                         Ok(body) => {
@@ -2321,9 +2654,11 @@ respond! = |request, context| {
                     # The profile tables hold the app's own fields only, so no email or is_active here:
                     # both are identity attributes Authentik owns (see the merge below). The role's own
                     # number column is selected too — the row handed back carries it as the rendered
-                    # `school_number`.
+                    # `school_number` — and the teacher listing also selects `qualifications`, which the
+                    # page's teacher form reads back (no other role's query names the column).
                     number_select = number_select_for(role_param)
-                    query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    qualifications_select = if role_param == "Teacher" { ", qualifications" } else { "" }
+                    query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select}${qualifications_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body_read!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
@@ -2387,19 +2722,53 @@ respond! = |request, context| {
                      }
 
                 # --- Teacher Lesson/Assessment APIs ---
+                # Every one of these is gated by the caller's class-subject assignments: a teacher
+                # may only reach lessons (and the assessments on them) that hang off an assigned
+                # has_subject edge, and a teacher with no active session term has nothing at all.
+                # Admin callers pass the gate untouched (may_call's rule), which is what lets the
+                # admin LMS and the suites' dev-skip token read any lesson.
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/lessons") {
-                    # With a lesson id this is the viewer asking for one lesson; without it, the picker's list.
+                    # With a lesson id this is the viewer asking for one lesson; without it, the
+                    # picker's list. The list doubles as the LMS views' lesson browser: an admin may
+                    # pass class_id/subject_id/term_id to see exactly one class's curriculum.
                     lesson_id = query_param(request_target_text(request), "lesson_id")
-                    lessons_query =
-                        if Str.is_empty(lesson_id) {
-                            "SELECT id, topic_title, week, term, active FROM lessons WHERE active = true ORDER BY week LIMIT 50;"
+                    term_id = active_session_term_id!(context.surreal)
+                    teacher_id = caller_id!(user_json)
+                    if !Str.is_empty(lesson_id) {
+                        if caller.role == "teacher" and !teacher_can_lesson!(teacher_id, lesson_id, term_id, context.surreal) {
+                            Ok(not_assigned_response)
                         } else {
-                            "SELECT * FROM ${record_ref!(lesson_id, "lessons")};"
+                            res = SurrealDB.query_read!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
+                            match res {
+                                Ok(body) => Ok(json_response(200, body))
+                                Err(err) => Ok(db_read_error!(err))
+                            }
                         }
-                    res = SurrealDB.query_read!(lessons_query, context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(err) => Ok(db_read_error!(err))
+                    } else {
+                        subject_param = query_param(request_target_text(request), "subject_id")
+                        term_param = query_param(request_target_text(request), "term_id")
+                        class_param = query_param(request_target_text(request), "class_id")
+                        clauses = List.keep_if(
+                            [
+                                "active = true",
+                                if Str.is_empty(subject_param) { "" } else { "has_subject.out = ${record_ref!(subject_param, "subjects")}" },
+                                if Str.is_empty(term_param) { "" } else { "term = ${record_ref!(term_param, "terms")}" },
+                                if Str.is_empty(class_param) { "" } else { "has_subject.in = ${record_ref!(class_param, "class_levels")}" },
+                                if caller.role == "teacher" and !Str.is_empty(term_id) { "has_subject IN (${assigned_edges_subquery!(teacher_id, term_id)})" } else { "" },
+                            ],
+                            |clause| !Str.is_empty(clause),
+                        )
+                        if caller.role == "teacher" and Str.is_empty(term_id) {
+                            # No active session term, so no teaching list exists for this teacher.
+                            Ok(json_response(200, "{\"result\":[]}"))
+                        } else {
+                            lessons_query = "SELECT id, topic_title, week, term, active FROM lessons WHERE ${Str.join_with(clauses, " AND ")} ORDER BY week LIMIT 50;"
+                            res = SurrealDB.query_read!(lessons_query, context.surreal)
+                            match res {
+                                Ok(body) => Ok(json_response(200, body))
+                                Err(err) => Ok(db_read_error!(err))
+                            }
+                        }
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/assessments") {
                     # Students only see published (active) assessments.
@@ -2410,14 +2779,46 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/teacher/classes" {
+                    # The teacher's own My Classes list: the pairs assigned to the caller for the
+                    # active term, which is what the teacher's subject cards render.
+                    term_id = active_session_term_id!(context.surreal)
+                    if Str.is_empty(term_id) {
+                        Ok(json_response(200, "{\"result\":[]}"))
+                    } else {
+                        query = "SELECT has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${caller_id!(user_json)}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC;"
+                        res = SurrealDB.query_read!(query, context.surreal)
+                        match res {
+                            Ok(body) => Ok(json_response(200, body))
+                            Err(err) => Ok(db_read_error!(err))
+                        }
+                    }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/lesson-assessments") {
-                    # Teachers see their drafts too.
+                    # Teachers see their drafts too. A named lesson must be one of the caller's; the
+                    # list without one is scoped to the caller's assigned lessons.
                     lesson_id = query_param(request_target_text(request), "lesson_id")
-                    scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
-                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(err) => Ok(db_read_error!(err))
+                    term_id = active_session_term_id!(context.surreal)
+                    teacher_id = caller_id!(user_json)
+                    if !Str.is_empty(lesson_id) and lesson_id != "none" and caller.role == "teacher" and !teacher_can_lesson!(teacher_id, lesson_id, term_id, context.surreal) {
+                        Ok(not_assigned_response)
+                    } else {
+                        clauses = List.keep_if(
+                            [
+                                if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")}" },
+                                "deleted_at IS NONE",
+                                if caller.role == "teacher" and (Str.is_empty(lesson_id) or lesson_id == "none") and !Str.is_empty(term_id) { "lesson.has_subject IN (${assigned_edges_subquery!(teacher_id, term_id)})" } else { "" },
+                            ],
+                            |clause| !Str.is_empty(clause),
+                        )
+                        if caller.role == "teacher" and Str.is_empty(term_id) and (Str.is_empty(lesson_id) or lesson_id == "none") {
+                            Ok(json_response(200, "{\"result\":[]}"))
+                        } else {
+                            res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                            match res {
+                                Ok(body) => Ok(json_response(200, body))
+                                Err(err) => Ok(db_read_error!(err))
+                            }
+                        }
                     }
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/create-lesson-assessment" {
                     # New assessments start as drafts: the teacher publishes them when ready.
@@ -2430,6 +2831,8 @@ respond! = |request, context| {
                     questions = json_array_or_empty!(payload_raw, "questions")
                     if Str.is_empty(lesson_id) or lesson_id == "none" {
                         Ok(json_response(400, "{\"error\":\"lesson_id is required\"}"))
+                    } else if caller.role == "teacher" and !teacher_can_lesson!(caller_id!(user_json), lesson_id, active_session_term_id!(context.surreal), context.surreal) {
+                        Ok(not_assigned_response)
                     } else if Str.is_empty(title) {
                         Ok(json_response(400, "{\"error\":\"title is required\"}"))
                     } else if Str.contains(questions, ";") {
@@ -2468,21 +2871,34 @@ respond! = |request, context| {
                         Err(err) => Ok(db_read_error!(err))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/general-assessments") {
-                    # Teachers see their drafts too.
+                    # Teachers see their drafts too, but only for subjects they hold a pair in: a
+                    # named subject must be one of theirs, and the list without one is scoped to the
+                    # assigned subjects.
                     subject_param = query_param(request_target_text(request), "subject_id")
                     session_param = query_param(request_target_text(request), "session_term_id")
-                    clauses = List.keep_if(
-                        [
-                            if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
-                            if Str.is_empty(session_param) { "" } else { "session_term = ${record_ref!(session_param, "session_term")}" },
-                            "deleted_at IS NONE",
-                        ],
-                        |clause| !Str.is_empty(clause),
-                    )
-                    res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(err) => Ok(db_read_error!(err))
+                    term_id = active_session_term_id!(context.surreal)
+                    teacher_id = caller_id!(user_json)
+                    if !Str.is_empty(subject_param) and caller.role == "teacher" and !teacher_can_subject!(teacher_id, subject_param, term_id, context.surreal) {
+                        Ok(not_assigned_response)
+                    } else {
+                        clauses = List.keep_if(
+                            [
+                                if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
+                                if Str.is_empty(session_param) { "" } else { "session_term = ${record_ref!(session_param, "session_term")}" },
+                                "deleted_at IS NONE",
+                                if caller.role == "teacher" and Str.is_empty(subject_param) and !Str.is_empty(term_id) { "subject IN (${assigned_subjects_subquery!(teacher_id, term_id)})" } else { "" },
+                            ],
+                            |clause| !Str.is_empty(clause),
+                        )
+                        if caller.role == "teacher" and Str.is_empty(term_id) and Str.is_empty(subject_param) {
+                            Ok(json_response(200, "{\"result\":[]}"))
+                        } else {
+                            res = SurrealDB.query_read!("SELECT *, subject.name AS subject_name, session_term.session_name AS session_term_name FROM general_assessments WHERE ${Str.join_with(clauses, " AND ")} ORDER BY created_at DESC;", context.surreal)
+                            match res {
+                                Ok(body) => Ok(json_response(200, body))
+                                Err(err) => Ok(db_read_error!(err))
+                            }
+                        }
                     }
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/create-general-assessment" {
                     # A general assessment hangs off a subject and a session term instead of a lesson,
@@ -2499,6 +2915,8 @@ respond! = |request, context| {
                     questions = json_array_or_empty!(payload_raw, "questions")
                     if Str.is_empty(subject_id) or subject_id == "none" {
                         Ok(json_response(400, "{\"error\":\"subject_id is required\"}"))
+                    } else if caller.role == "teacher" and !teacher_can_subject!(caller_id!(user_json), subject_id, active_session_term_id!(context.surreal), context.surreal) {
+                        Ok(not_assigned_response)
                     } else if Str.is_empty(session_term_id) or session_term_id == "none" {
                         Ok(json_response(400, "{\"error\":\"session_term_id is required\"}"))
                     } else if Str.is_empty(title) {
@@ -2543,17 +2961,45 @@ respond! = |request, context| {
                     active = json_bool(payload_raw, "active")
                     if Str.is_empty(assessment_id) {
                         Ok(json_response(400, "{\"error\":\"assessment_id is required\"}"))
+                    } else if caller.role == "teacher" and !teacher_can_assessment!(caller_id!(user_json), assessment_table, assessment_id, active_session_term_id!(context.surreal), context.surreal) {
+                        Ok(not_assigned_response)
                     } else {
                         Ok(db_response!("UPDATE ${record_ref!(assessment_id, assessment_table)} SET active = ${active}, updated_at = time::now();", context.surreal))
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/submissions") {
+                    # The grading inbox. With an assessment id it is that assessment's rows (which must
+                    # be the caller's own); without one, the caller's whole inbox — submissions of the
+                    # caller's assessments only, whether lesson or general. Admin callers keep seeing
+                    # every submission.
                     assessment_id = query_param(request_target_text(request), "assessment_id")
-                    scope = if Str.is_empty(assessment_id) { "" } else { "WHERE assessment_id = '${bare_id(assessment_id)}' " }
-                    subs_query = "SELECT *, student.display_name AS student_name, student.id AS student_ref, (scored_mark IS NOT NONE) AS graded FROM submissions ${scope}ORDER BY submitted_at DESC;"
-                    res = SurrealDB.query_read!(subs_query, context.surreal)
-                    match res {
-                        Ok(body) => Ok(json_response(200, body))
-                        Err(err) => Ok(db_read_error!(err))
+                    term_id = active_session_term_id!(context.surreal)
+                    teacher_id = caller_id!(user_json)
+                    if !Str.is_empty(assessment_id) {
+                        if caller.role == "teacher" and !teacher_can_assessment!(teacher_id, "lesson_assessments", assessment_id, term_id, context.surreal) and !teacher_can_assessment!(teacher_id, "general_assessments", assessment_id, term_id, context.surreal) {
+                            Ok(not_assigned_response)
+                        } else {
+                            subs_query = "SELECT *, student.display_name AS student_name, student.id AS student_ref, (scored_mark IS NOT NONE) AS graded FROM submissions WHERE assessment_id = '${bare_id(assessment_id)}' ORDER BY submitted_at DESC;"
+                            res = SurrealDB.query_read!(subs_query, context.surreal)
+                            match res {
+                                Ok(body) => Ok(json_response(200, body))
+                                Err(err) => Ok(db_read_error!(err))
+                            }
+                        }
+                    } else if caller.role == "teacher" and Str.is_empty(term_id) {
+                        Ok(json_response(200, "{\"result\":[]}"))
+                    } else {
+                        scope_clause =
+                            if caller.role == "teacher" {
+                                " WHERE ((assessment_type = 'lesson' AND assessment_id IN (SELECT VALUE meta::id(id) FROM lesson_assessments WHERE deleted_at IS NONE AND lesson.has_subject IN (${assigned_edges_subquery!(teacher_id, term_id)}))) OR (assessment_type = 'general' AND assessment_id IN (SELECT VALUE meta::id(id) FROM general_assessments WHERE deleted_at IS NONE AND subject IN (${assigned_subjects_subquery!(teacher_id, term_id)}))))"
+                            } else {
+                                ""
+                            }
+                        subs_query = "SELECT *, student.display_name AS student_name, student.id AS student_ref, (scored_mark IS NOT NONE) AS graded FROM submissions${scope_clause} ORDER BY submitted_at DESC;"
+                        res = SurrealDB.query_read!(subs_query, context.surreal)
+                        match res {
+                            Ok(body) => Ok(json_response(200, body))
+                            Err(err) => Ok(db_read_error!(err))
+                        }
                     }
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/student/submit-assessment" {
                     # One submission per student and assessment; a resubmission bumps the iteration
@@ -2633,6 +3079,8 @@ respond! = |request, context| {
                         Ok(json_response(400, "{\"error\":\"submission_id is required\"}"))
                     } else if Str.is_empty(score) {
                         Ok(json_response(400, "{\"error\":\"scored_mark must be a number\"}"))
+                    } else if caller.role == "teacher" and !teacher_can_submission!(caller_id!(user_json), submission_id, active_session_term_id!(context.surreal), context.surreal) {
+                        Ok(not_assigned_response)
                     } else {
                         # submissions has no graded_at column; scored_mark is what marks it graded.
                         Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET scored_mark = ${score};", context.surreal))
@@ -2642,6 +3090,8 @@ respond! = |request, context| {
                     submission_id = extract_field(payload_raw, "submission_id") |> sanitize
                     if Str.is_empty(submission_id) {
                         Ok(json_response(400, "{\"error\":\"submission_id is required\"}"))
+                    } else if caller.role == "teacher" and !teacher_can_submission!(caller_id!(user_json), submission_id, active_session_term_id!(context.surreal), context.surreal) {
+                        Ok(not_assigned_response)
                     } else {
                         Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET grade_released_at = time::now(), status = 'graded';", context.surreal))
                     }

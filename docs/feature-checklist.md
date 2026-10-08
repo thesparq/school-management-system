@@ -80,6 +80,12 @@ Report which test number fails and we'll dig in.
 | 46 | AlertDialog delete | Click "Delete User" in edit dialog | AlertDialog opens with user name in title; danger description; Cancel/Action buttons |
 | 47 | Assign modal non-blocking | Click "Assign" on teacher row | Modal opens immediately; session term shows "Loading session term..." indicator until fetch completes |
 | 48 | Delete double-click guard | Rapidly click "Delete" twice | Only one DELETE request sent; second click silently ignored |
+| 56 | Assign save replaces the set | Assign teacher pairs, save, reopen the modal | Badges show the saved pairs; saving with none clears them (read-back via `GET /api/teacher-assignments`) |
+| 57 | Re-assign after clear | Assign a pair, clear, assign the same pair again | Second save succeeds (revive, not duplicate — the unique index must not block) |
+| 58 | Unassigned teacher is gated | Login as a teacher with no assignments | My Classes is empty; opening a lesson URL or its assessments is a 403; admin can still open it |
+| 59 | Create teacher with qualifications | Create a teacher with qualifications selected | Profile row carries the `credentials` links; edit dialog prefills them |
+| 60 | Category deactivation | Deactivate a qualification in the catalog | Gone from the teacher form's picker; existing teacher rows keep the link (no hard delete) |
+| 61 | Admin LMS browse | As admin, view any class's subjects → terms → lessons | Content renders read-only (no Create Assessment / Grading actions) |
 
 ---
 

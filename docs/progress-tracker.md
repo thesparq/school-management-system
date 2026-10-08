@@ -4,6 +4,40 @@
 
 **Status: backend + renderer aligned to prod (`db2.johnethel.school`, ns `main`, db `lessons`); one pre-existing frontend blocker open (see below).**
 
+### Teacher assignments and qualifications — backend migrated (2026-10-08)
+
+Two features from the retired SvelteKit/MoonBit stack are now served by the Roc backend, ported with
+the old stack's one real bug fixed:
+
+- **Class-subject pairs are `has_subject` edges; a teacher's access is `teacher_assignment`** — one row
+  per (teacher, edge, active session term), soft-deleted. The old agent *wrote* `teacher_assignment`
+  but the teacher's own read used v3's `teaches` edge, so a saved assignment never reached the
+  teacher's view; here both sides use `teacher_assignment` alone.
+- **New endpoints** (all role-gated via the matrix): `GET /api/credentials` (+ POST create, POST
+  toggle-active — no hard delete, a teacher profile may hold the record link); `GET
+  /api/class-subjects` (every active pair with class/subject names); `GET /api/teacher-assignments
+  ?teacher_id=` and `POST /api/teacher-assignments` (the replace-all save, scoped to the active
+  session term; empty list clears). A save hides the dropped pairs and revives-or-creates the kept
+  ones in one call — the (teacher, edge, term) unique index counts soft-deleted rows too, so a
+  plain delete-then-create refused the second save of the same pair.
+- **Teacher routes are now gated by the caller's assignments** (the developer's "hard 403" call):
+  lessons, lesson-assessments, create-lesson-assessment, toggle-assessment-active,
+  create-general-assessment and the general-assessments list (subject-scoped), and the submissions
+  list / grade / release-grades. Lists are scoped to the assigned edges (a teacher with no active
+  session term gets an empty list); naming a specific unassigned lesson/assessment/submission is a
+  403. Admin callers pass the gate (may_call's rule), so the admin LMS and the suites' dev-skip
+  token can read anything. `GET /api/teacher/classes` is the teacher's own assigned-pairs list.
+- **Teacher qualifications**: `POST/PUT /api/users` accept `qualifications` (an array of
+  `credentials:<id>` record ids; anything else is a 400 naming the rule, and any other role
+  carrying the field is a 400 naming its table); the create journals them so a reconciler replay
+  restores them; the teacher listing selects the column so the form can prefill. The catalog
+  (`credentials` table) keeps prod's record-link shape — no schema change.
+- **Verified on a fresh sandbox** (`roc check main.roc` 0/0; a 38-check curl suite covering the
+  credential lifecycle, the qualifications create/update/listing/validation, the assign/clear/
+  re-assign round trip and the 403s, plus admin bypass; `assessment_flow.sh` 41/41, `users_api.sh`
+  95/95, `authz.sh` 27/27, and all seven `*Test.roc` suites green). The sandbox fixture gained the
+  `teacher_assignment`/`teaches` mirror definitions and prod's unique credentials-name index.
+
 ### Completed — prod schema alignment (read-only against prod)
 - [x] `roc-backend/main.roc` — connection config comes from the environment only:
   `SURREAL_URL` (default `https://db2.johnethel.school/sql`), `SURREAL_DB_NS` (`main`),

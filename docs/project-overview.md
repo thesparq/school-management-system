@@ -79,6 +79,8 @@ A robust, multi-tenant school management platform with a built‑in Learning Man
 - Golem initialization creates durable agent; Authentik activation/deactivation controls login permission.
 - Reset passwords and manage group membership via Authentik API.
 - Manage teacher‑class‑subject assignments; updates rosters in real time.
+- Read-only LMS for admins: a copy of the teachers' LMS pages (class level → subjects → terms → lessons) covering every class level, with no assignment gating and no assessment creation/grading (the backend's teacher gates let an admin through anyway).
+- Qualifications: catalog CRUD plus a per-teacher multi-select (searchable, removable), stored as `credentials` record links on `teacher_profile.qualifications`.
 - Session term management: create and activate session terms (session + academic term pairs) via Configuration panel.
 - Term toggle: activate/deactivate curriculum terms with cascading cache invalidation.
 - (Future) AI content generation/regeneration.

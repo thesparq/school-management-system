@@ -82,7 +82,10 @@ file stale. What belongs here is the shape and the rules:
   more than prod, on unused tables): v3's `teaches` edge, and its `general_assessments.questions.*` sub-fields.
   *(Both were closed on 2026-10-05: the six `general_assessments.questions.*` statements were applied for the
   general-assessment feature, and applying v3 for them also brought in its `teaches` table and
-  `teacher_profile.qualifications` — empty and unread by the app.)*
+  `teacher_profile.qualifications` — both existed empty. The `teaches` edge stays dormant: the backend reads and
+  writes `teacher_assignment` alone (the retired stack wrote one and read the other, which is why a saved
+  assignment never reached the teacher's view there), and `teacher_profile.qualifications` is now written
+  (record links into `credentials`) and read back by the teacher listing.)*
 - **The third divergence is the one that is not harmless, and it is why the lineage is not a rebuild recipe.**
   v5 was never applied to prod: prod's `student_profile` has eleven fields and no `admission_number`, its
   `teacher_profile` and `admin_profile` have no `staff_id`, and there is no `id_sequences` table. The file
@@ -123,6 +126,18 @@ file stale. What belongs here is the shape and the rules:
   `school_number` field: the prefix is in no stored row and in no page. Once set it is immutable — a `PUT`
   payload carrying either field is a 400 naming it, the same refusal `class_enrolled` gets.
 - **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username.
+- **A teacher's reach is `teacher_assignment`** — one row per (teacher, `has_subject` edge, `session_term`),
+  soft-deleted, unique on the triple. The admin's `POST /api/teacher-assignments` replaces the whole set for
+  the active session term in one call (hiding dropped pairs, reviving or creating kept ones — the unique index
+  counts soft-deleted rows too); the teacher routes then scope every read and write to those edges. Lists are
+  scoped (a teacher with no active term sees empty lists), naming an unassigned lesson/assessment/submission
+  is a 403, and admins pass the gate entirely (may_call's rule). `teaches` (v3's edge) exists in prod but is
+  read by nobody.
+- **Credentials are the qualifications catalog and teacher qualifications are record links into it**
+  (prod's shape from v2; schema-v3's string-array plan never landed). `POST/PUT /api/users` accept
+  `qualifications` as an array of `credentials:<id>` ids for a teacher only; the catalog itself is
+  `GET/POST /api/credentials` + toggle-active — deactivated, never hard-deleted, because a teacher profile
+  may hold its link.
 - **Relations are edges**, created with `RELATE`; `has_subject` is the curriculum.
 - **Record links, not strings**: a filter on a link column must compare against a record literal
   (`record_ref!` / `type::record('<table>','<id>')`). A quoted string never matches — verified: quoted → 0 rows,
