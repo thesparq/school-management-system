@@ -294,6 +294,38 @@ The frontend's `exposing` clauses and `Base64`/`AuthUrls` signatures were made r
 (`->` for pure functions, no redundant type re-exports) so a future jump to 10-02+ needs the platform
 bundles to catch up, not this repo.
 
+### User management flow — the admin's feedback, implemented (2026-10-08)
+
+Tested the UI as an admin would and rebuilt the flow around what did not work:
+
+- **Reset password works from the row.** Every row now has a Reset password action that opens the modal
+  in a password-only mode (Generate fills it, Set password calls the existing `/api/users/set-password`),
+  and the new value appears once in the credentials panel with the Copy button.
+- **The form is a modal now.** Add (header button), Complete profile, Edit and Reset password all open
+  the same overlay; the table stays visible behind it. (A conditional `on_click` expression as the
+  handler value did not dispatch from one branch — Joy's runtime attaches handlers per message — so the
+  modal uses two explicit submit buttons, one per mode.)
+- **The email is editable in every mode.** The form used to disable the address on a PUT; now a PUT that
+  carries an email patches Authentik's login address, so an account created without one (or with a typo)
+  can be fixed. The completing write now sends the login's own address back with the PUT.
+- **Delete works for every row — including a profile-only row.** Rows whose pk the directory does not
+  list (never created in Authentik, or its login was removed) previously answered 502, so they could be
+  hidden but never removed. The backend now checks the directory: no login listed for the pk → the
+  profile hide IS the whole delete (200); the honest 502 survives for a reachable login whose own
+  disable fails or an unreachable directory. The ghost test in `users_api.sh` was updated to the new
+  contract.
+- **Bulk delete:** each row carries a selection tick; the bar above the table reports the count and
+  deletes the whole selection (one DELETE per id). Deactivate is called **Delete** everywhere.
+
+**Verified** (sandbox 8322, Joy-0.34 wasm rebuilt and `dist.css` regenerated): `e2e_admin.cjs` 16/16
+(new: reset-password round trip through the modal, exact-match selector — `has-text("Set password")` is a
+substring of every row's Reset password button), `e2e_users_directory.cjs` 27/27 (labels Delete/Reset
+password; completing PUT carries the address; modal open/close lifecycle), `e2e_loading.cjs` 20/20,
+`e2e_admin_config.cjs` 53/53, `users_api.sh` 95/95 (ghost is now a delete-200 check), `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+---
+
 ### Build and tests — done
 
 - Joy 0.34.0 is pinned by release-bundle URL in `app.roc` (joy-html 0.17.0), so `cd roc-frontend && roc run

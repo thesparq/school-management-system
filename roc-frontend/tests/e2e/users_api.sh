@@ -162,15 +162,15 @@ check "a teacher listing is not shown under students" "$(listing Student | prese
 curl -s -X DELETE "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"$T_ID\"}" > /dev/null
 check "deleting the teacher disables that login" "$(mock_user "$T_PK")" '"is_active":false'
 
-# --- 6. a login Authentik cannot disable is reported, not answered as success ---
-# A profile row whose pk has no login (as if the login had been removed by hand): the row is hidden,
-# but the reply says the login could not be disabled, because a live login is what still lets the
-# user in.
+# --- 6. a row with no login in Authentik is deletable, profile-hide only ---
+# A profile row whose pk the directory does not list (as if the login had been removed, or the
+# account was only ever in the database): there is nothing to disable, so the profile hide IS the
+# whole delete. The reply that 'the user can still sign in' now applies only when the directory
+# cannot be read or a listed login's own disable fails.
 GHOST="users_api_ghost_${STAMP}"
 db_query "CREATE student_profile:${GHOST} SET first_name = 'Ghost', surname = 'Login', display_name = 'Ghost Login', date_of_birth = <datetime> '2011-03-04', current_class = type::record('class_levels', 'jss_1'), class_enrolled = type::record('class_levels', 'jss_1'), passport = 'https://example.com/ghost.jpg', created_at = time::now();" > /dev/null
 GHOST_REPLY=$(curl -s -w ' HTTP %{http_code}' -X DELETE "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"student_profile:${GHOST}\"}")
-check "an undisableable login answers 502" "$GHOST_REPLY" "HTTP 502"
-check "and the message says the login is still live" "$GHOST_REPLY" "the user can still sign in"
+check "a row with no login in Authentik is deletable" "$GHOST_REPLY" "HTTP 200"
 check "the ghost's profile is hidden all the same" "$(db_query "SELECT id, deleted_at FROM student_profile:${GHOST};")" '"deleted_at":"'
 
 # --- 7. a row whose login is not in Authentik gets no invented identity columns ---

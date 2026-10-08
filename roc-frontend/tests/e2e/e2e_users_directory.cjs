@@ -129,9 +129,9 @@ const summary = () => {
   const hasText = (t) => page.evaluate((s) => document.body.innerText.includes(s), t);
   const cardTitle = () => page.locator('#app h3').first().innerText();
   const row = (t) => page.locator('#app table tbody tr', { hasText: t });
-  // A row's second cell is its name (the first is the avatar, and a profile-less row puts its badge
-  // in the name cell too, on a line of its own).
-  const rowName = async (r) => (await r.locator('td').nth(1).innerText()).split('\n')[0].trim();
+  // A row's fourth cell is its name (selection tick, avatar, name; a profile-less row puts its
+  // badge in the name cell too, on a line of its own).
+  const rowName = async (r) => (await r.locator('td').nth(2).innerText()).split('\n')[0].trim();
 
   // --- The profile-less row: the badge, and the one action that completes it ---
   await page.waitForSelector(`text=${LOGIN_EMAIL}`, { timeout: 20000 });
@@ -139,15 +139,17 @@ const summary = () => {
   check('the login is listed as a row of its tab', (await seededRow.count()) === 1);
   check('the row carries the No profile yet badge', (await seededRow.locator('text=No profile yet').count()) === 1);
   const rowActions = await seededRow.locator('button').allInnerTexts();
-  check('and offers Complete profile as its only action', rowActions.length === 1 && rowActions[0] === 'Complete profile', JSON.stringify(rowActions));
+  check('offers Complete profile and Reset password',
+    rowActions.length === 3 && rowActions[0] === '☐' && rowActions[1] === 'Complete profile' && rowActions[2] === 'Reset password',
+    JSON.stringify(rowActions));
 
   // --- That action loads the login into the form above, which switches to its completing mode ---
   await seededRow.locator('button', { hasText: 'Complete profile' }).click();
   await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Complete Profile', null, { timeout: 10000 }).catch(() => {});
   const title = await cardTitle();
   check('the form switches to Complete Profile', title === 'Complete Profile', title);
-  check('showing the login\'s address in a disabled email field',
-    await page.locator('input[type="email"]').evaluate((el, email) => el.disabled && el.value === email, LOGIN_EMAIL));
+  check('showing the login\'s address in an editable email field — a login without one can be fixed',
+    await page.locator('input[type="email"]').evaluate((el, email) => !el.disabled && el.value === email, LOGIN_EMAIL));
   check('with the role picker fixed to the row\'s own tab',
     await page.locator('#new-user-role-select').evaluate(el => el.disabled && el.value === 'Student'));
   // The form's submit and the rows' actions share the label; the card is above the table, so the
@@ -168,8 +170,8 @@ const summary = () => {
 
   await page.waitForSelector('text=Profile completed', { timeout: 20000 }).catch(() => {});
   check('the completing write reports Profile completed', await hasText('Profile completed'));
-  check('as a PUT that names that login and carries no email',
-    !!write && write.id === loginId && write.email === undefined, JSON.stringify(write));
+  check('as a PUT that names that login and carries the login\'s own address (editable now)',
+    !!write && write.id === loginId && write.email === LOGIN_EMAIL, JSON.stringify(write));
 
   // --- The row the write completed: a normal one, showing the profile's own name and the login's email ---
   // The write refreshes all four lists, so wait for that render rather than for a fixed time: the row
@@ -188,38 +190,36 @@ const summary = () => {
   check("it shows the profile's own name, not the directory's", completedName !== '' && completedName !== directoryName, completedName);
   check("and the login's address is still its email", (await completedRow.innerText()).includes(LOGIN_EMAIL));
   const completedActions = await completedRow.locator('button').allInnerTexts();
-  // The suite's own delete up top left the mock login off, so the completed row carries the login's
-  // true state: its second action is Activate (Deactivate would be the wrong offer for an account
-  // that is already off). The row a completely fresh sandbox would show lists Deactivate instead;
-  // either is correct, the toggle has to follow the login.
-  check('with Edit and the login\'s true toggle back',
-    completedActions.length === 2 && completedActions[0] === 'Edit' && ['Deactivate', 'Activate'].includes(completedActions[1]),
+  check('with Edit, the toggle and Reset password back',
+    completedActions.length === 4 && completedActions[0] === '☐' && completedActions[1] === 'Edit' && ['Delete', 'Activate'].includes(completedActions[2]) && completedActions[3] === 'Reset password',
     JSON.stringify(completedActions));
 
   // --- The completed row's own actions: the row is active (the setup re-enabled the login), so ---
-  // --- the toggle starts as Deactivate; the deactivate -> activate round trip comes next ---
+  // --- the toggle starts as Delete; the delete -> activate round trip comes next ---
+  const rowLabels = () => row(LOGIN_EMAIL).locator('button').allInnerTexts();
   await page.waitForFunction((email) => {
     const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
     if (!r) return false;
     const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
-    return labels.join(',') === 'Edit,Deactivate';
+    return labels.join(',') === '☐,Edit,Delete,Reset password';
   }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
-  check('the completed row offers Edit and Deactivate', (await row(LOGIN_EMAIL).locator('button').allInnerTexts()).join(',') === 'Edit,Deactivate');
+  check('the completed row offers Edit, Delete and Reset password', (await rowLabels()).join(',') === '☐,Edit,Delete,Reset password');
 
-  // --- Deactivate hides the profile and disables the login: the row is then a bare login ---
+  // --- Delete hides the profile and disables the login: the row is then a bare login ---
   // --- whose only action has to be Activate, bringing both back in one click ---
-  await row(LOGIN_EMAIL).locator('button', { hasText: 'Deactivate' }).click();
-  await page.waitForSelector('text=User deactivated', { timeout: 20000 }).catch(() => {});
-  check('deactivating reports User deactivated', await hasText('User deactivated'));
+  await row(LOGIN_EMAIL).locator('button', { hasText: 'Delete' }).click();
+  await page.waitForSelector('text=User deleted', { timeout: 20000 }).catch(() => {});
+  check('deleting reports User deleted', await hasText('User deleted'));
   await page.waitForFunction((email) => {
     const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
     if (!r) return false;
     return r.innerText.includes('No profile yet') && r.innerText.includes('Inactive');
   }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
   const deactivatedRow = row(LOGIN_EMAIL);
-  check('the deactivated row is a bare login again', (await deactivatedRow.locator('text=No profile yet').count()) === 1);
+  check('the deleted row is a bare login again', (await deactivatedRow.locator('text=No profile yet').count()) === 1);
   const bareActions = await deactivatedRow.locator('button').allInnerTexts();
-  check('whose only action is Activate — not Complete profile', bareActions.length === 1 && bareActions[0] === 'Activate', JSON.stringify(bareActions));
+  check('whose only actions are Activate and Reset password — not Complete profile',
+    bareActions.length === 3 && bareActions[0] === '☐' && bareActions[1] === 'Activate' && bareActions[2] === 'Reset password', JSON.stringify(bareActions));
   await deactivatedRow.locator('button', { hasText: 'Activate' }).click();
   await page.waitForSelector('text=User activated', { timeout: 20000 }).catch(() => {});
   check('activating the bare login restores it', await hasText('User activated'));
@@ -227,17 +227,17 @@ const summary = () => {
     const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
     if (!r) return false;
     const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
-    return labels.join(',') === 'Edit,Deactivate';
+    return labels.join(',') === '☐,Edit,Delete,Reset password';
   }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
-  check('the row is back with its profile and its actions', (await row(LOGIN_EMAIL).locator('button').allInnerTexts()).join(',') === 'Edit,Deactivate');
+  check('the row is back with its profile and its actions', (await rowLabels()).join(',') === '☐,Edit,Delete,Reset password');
 
-  // Edit loads the row into the form above — prefilled, the same PUT as completing — and Save
-  // changes patches it. The email stays the login's own and disabled; the school fields are editable.
+  // Edit loads the row into the modal — prefilled, the same PUT as completing — and Save changes
+  // patches it. The address is editable (the PUT patches Authentik), the school fields are editable.
   await row(LOGIN_EMAIL).locator('button', { hasText: 'Edit' }).click();
   await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Edit User', null, { timeout: 10000 }).catch(() => {});
-  check('Edit loads the form with its own labels', (await cardTitle()) === 'Edit User', await cardTitle());
-  check('with the login\'s address still disabled',
-    await page.locator('input[type="email"]').evaluate((el, email) => el.disabled && el.value === email, LOGIN_EMAIL));
+  check('Edit loads the modal with its own labels', (await cardTitle()) === 'Edit User', await cardTitle());
+  check('with the login\'s address shown and editable',
+    await page.locator('input[type="email"]').evaluate((el, email) => !el.disabled && el.value === email, LOGIN_EMAIL));
   const editedSurname = `Edited${stamp % 10000}`;
   await fill('e.g. Musa', editedSurname);
   await page.click('text=Save changes');
@@ -246,9 +246,8 @@ const summary = () => {
   await page.waitForFunction((name) => [...document.querySelectorAll('#app table tbody tr')].some(r => r.innerText.includes(name)), editedSurname, { timeout: 20000 }).catch(() => {});
   check('the row shows the edited surname', await hasText(editedSurname));
 
-  // --- The form is ready for the next account again ---
-  check('the form returns to Add New User',
-    (await cardTitle()) === 'Add New User' && await page.locator('input[type="email"]').evaluate(el => !el.disabled && el.value === ''));
+  // --- The modal closed on the edit's success; the page is back to the table ---
+  check('the modal is closed after a write', (await page.locator('#app h3').count()) === 0);
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 
   await browser.close();
