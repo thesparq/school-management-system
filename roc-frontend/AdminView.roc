@@ -10,6 +10,7 @@ view = |model| {
     match model.route {
         AdminUserManagement => admin_users_view(model)
         AdminConfigurationHub => admin_config_view(model)
+        AdminLMS => admin_lms_view(model)
         _ => Html.div([], [Html.h1([], [Html.text("Admin Dashboard")]), Html.p([], [Html.text("Welcome to Admin Dashboard")])])
     }
 }
@@ -122,6 +123,11 @@ admin_users_view = |model| {
 	              Html.div([], [])
 	        },
 
+	        # The teacher Assign dialog (rendered as a modal over the page, like the user form): the
+	        # teacher's current pairs as removable badges plus the catalog's searchable dropdown, and a
+	        # Save that replaces the whole set.
+	        assign_form(model),
+
 	        # Hidden inputs for JS data binding
         Html.input([
             Attribute.type("hidden"),
@@ -147,12 +153,36 @@ admin_users_view = |model| {
             Attribute.id("users_admins_data_input"),
             Attribute.on_input(|s| GotAdminsData(s))
         ]),
-        Html.input([
-            Attribute.type("hidden"),
-            Attribute.value(model.userClassLevelsData),
-            Attribute.id("user_class_levels_data_input"),
-            Attribute.on_input(|s| GotUserClassLevels(s))
-        ]),
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.value(model.userClassLevelsData),
+	            Attribute.id("user_class_levels_data_input"),
+	            Attribute.on_input(|s| GotUserClassLevels(s))
+	        ]),
+
+	        # The admin widgets' list payloads: the qualifications catalog, the full pair catalog, and
+	        # the teacher-assignments list the Assign dialog seeds its badges from. The inputs sit here
+	        # (only the users page uses them), and each fetch's answer is dispatched only into an input
+	        # that exists.
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.value(model.credentialsData),
+	            Attribute.id("credentials_data_input"),
+	            Attribute.on_input(|s| GotCredentialsData(s))
+	        ]),
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.value(model.subjectPairsData),
+	            Attribute.id("subject_pairs_data_input"),
+	            Attribute.on_input(|s| GotSubjectPairsData(s))
+	        ]),
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.value(model.teacherAssignmentsData),
+	            Attribute.id("teacher_assignments_data_input"),
+	            Attribute.on_input(|s| GotTeacherAssignmentsData(s))
+	        ]),
+
 
         # Role tabs + users table
         Html.div([Attribute.class("space-y-4")], [
@@ -301,6 +331,14 @@ user_form_body = |model, form_mode| {
             user_form_field("Role", user_role_select(model))
         ]),
         user_role_fields(model),
+        # The teacher form's qualifications picker: the credentials catalog's searchable
+        # multi-select, badge-with-removal like the retired app's CredentialsSelect. Only the
+        # teacher profile carries the column, so only the teacher role shows it.
+        if model.newUserRole == "Teacher" {
+            user_qualifications_field(model)
+        } else {
+            Html.div([], [])
+        },
         # The password, for create mode only: the one thing the profile fields have no place for,
         # and the one the admin hands over. Optional — a login without one is made and can get one
         # later from the row's Reset password action.
@@ -589,6 +627,16 @@ user_row = |model, line| {
                 # its password-only mode.
                 if has_profile {
                     Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+                        # Only a teacher row is assigned class-subject pairs; the other roles have no
+                        # teaching scope. The dialog replaces the whole set when it saves.
+                        if model.activeUserTab == Teachers {
+                            UI.button(
+                                { variant: Ghost, size: Sm, on_click: Click(OpenTeacherAssign(id)), is_disabled: busy, classes: "text-xs" },
+                                [Html.text("Assign")]
+                            )
+                        } else {
+                            Html.div([], [])
+                        },
                         UI.button(
                             { variant: Ghost, size: Sm, on_click: Click(StartUserEdit(line)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Edit")]
@@ -656,6 +704,7 @@ admin_config_view = |model| {
 		Html.input([Attribute.type("hidden"), Attribute.id("class_levels_data_input"), Attribute.value(model.classLevelsData), Attribute.on_input(|s| GotClassLevelsData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("curriculum_data_input"), Attribute.value(model.curriculumData), Attribute.on_input(|s| GotCurriculumData(s))]),
 		Html.input([Attribute.type("hidden"), Attribute.id("session_terms_data_input"), Attribute.value(model.sessionTermsData), Attribute.on_input(|s| GotSessionTermsData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("credentials_data_input"), Attribute.value(model.credentialsData), Attribute.on_input(|s| GotCredentialsData(s))]),
 
 		Html.div([Attribute.class("flex flex-col space-y-4")], [
 			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-fit")], [
@@ -664,6 +713,7 @@ admin_config_view = |model| {
 				config_tab(model.activeConfigTab, Curriculum, "Curriculum"),
 				config_tab(model.activeConfigTab, SessionTerms, "Session Terms"),
 				config_tab(model.activeConfigTab, Subjects, "Subjects"),
+				config_tab(model.activeConfigTab, Credentials, "Qualifications"),
 			]),
 			Html.div([Attribute.class("mt-4")], [
 				match model.activeConfigTab {
@@ -672,6 +722,7 @@ admin_config_view = |model| {
 					Curriculum => curriculum_config_view(model),
 					SessionTerms => session_terms_config_view(model),
 					Subjects => subjects_config_view(model),
+					Credentials => credentials_config_view(model),
 				}
 			])
 		])
@@ -879,6 +930,505 @@ config_edit_actions = |model, tab| {
 			{ variant: Outline, size: Sm, on_click: Click(CancelConfigEdit), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
 			[Html.text("Cancel")]
 		)
+	])
+}
+
+# -------------------------------------------------------
+# QUALIFICATIONS (the credentials catalog section)
+# -------------------------------------------------------
+
+credentials_config_view = |model| {
+	config_card("Qualifications", "The catalogue of teacher qualifications (e.g. B.Ed. Mathematics). A qualification an admin deactivates leaves the catalog but is no longer offered; teacher profiles keep their links either way — nothing here is hard-deleted.", [
+		config_form_row([
+			config_labeled_input("Qualification name", "e.g. B.Ed. Mathematics", "text", model.newCredentialName, model.isConfigSubmitting, |s| UpdateNewCredentialName(s)),
+		], config_submit_button(model, Credentials, "Create Qualification")),
+		config_create_banner(model),
+		config_table(["Qualification", "Status", "Actions"], credentials_rows(model))
+	])
+}
+
+credentials_rows = |model| {
+	match list_state(model.credentialsData) {
+		Pending => UI.table_skeleton_rows(["w-48", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(3, "Could not load the qualifications", message, Click(RetryList("/api/credentials")))]
+		Ready(rows) =>
+			if List.is_empty(rows) {
+				[UI.table_empty_state(3, "graduation-cap", "No qualifications yet", "Create the first one above.")]
+			} else {
+				List.map(rows, |line| credentials_row(model, line))
+			}
+	}
+}
+
+# One qualification: its name is editable in place (the name is what a teacher's record link
+# displays as, so renaming renames it everywhere); the flag flips without deleting.
+credentials_row = |model, line| {
+	parts = Str.split_on(line, "|")
+	id = config_field(parts, 0, "")
+	is_active = config_field(parts, 2, "true") == "true"
+
+	if !Str.is_empty(id) and model.editId == id {
+		UI.table_row({ classes: "bg-muted/40" }, [
+			config_edit_cell(config_edit_input("Qualification name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_actions(model, Credentials)
+		])
+	} else {
+		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Qualification"))]),
+			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_row_actions(model, Credentials, line, id, is_active)
+		])
+	}
+}
+
+# -------------------------------------------------------
+# TEACHER ASSIGN DIALOG and the qualifications picker
+# -------------------------------------------------------
+
+# One field of a class-subject pair row by its edge id, found by folding the fetched lines (the
+# same keep_if+List.first miscompile warning as config_record_name applies — fold only).
+pair_field_for = |pairs_data, edge_id, index| {
+	List.fold(Str.split_on(pairs_data, "\n"), "", |resolved, line| {
+		parts = Str.split_on(line, "|")
+		line_id = config_field(parts, 0, "")
+		if line_id == edge_id { config_field(parts, index, "") } else { resolved }
+	})
+}
+
+# The badge text of a pair: "JSS 1 / Agricultural Science".
+pair_badge_text = |pairs_data, edge_id| {
+	class_name = pair_field_for(pairs_data, edge_id, 2)
+	subject_name = pair_field_for(pairs_data, edge_id, 4)
+	if Str.is_empty(class_name) { subject_name } else if Str.is_empty(subject_name) { class_name } else { "${class_name} / ${subject_name}" }
+}
+
+# The catalog's display name for a selected credential id, "" while the list has not arrived.
+credential_name_for = |credentials_data, id| {
+	List.fold(Str.split_on(credentials_data, "\n"), "", |resolved, line| {
+		parts = Str.split_on(line, "|")
+		if config_field(parts, 0, "") == id { config_field(parts, 1, id) } else { resolved }
+	})
+}
+
+# ASCII lowercasing for the search filters (Roc has no case conversion; the retired SearchSelect
+# matched case-insensitively, and this is the same byte-level pass the backend's role matching
+# uses). Everything past ASCII is left alone — a byte of a multi-byte character is never a letter.
+ascii_lower = |text| {
+	lowered = List.map(Str.to_utf8(text), |byte| if byte >= 65 and byte <= 90 { byte + 32 } else { byte })
+
+	match Str.from_utf8(lowered) {
+		Ok(result) => result
+		Err(_) => text
+	}
+}
+
+# The nav bar's active session term, as text ("" while it is loading, failed, or absent).
+session_term_label = |model| {
+	match list_state(model.sessionTermData) {
+		Ready(rows) => match List.first(rows) { Ok(label) => label, Err(_) => "" }
+		_ => ""
+	}
+}
+
+# The teacher form's qualifications field: the selected badges with their removal, then a search
+# box whose dropdown offers the catalog's unselected matching rows — the retired app's
+# CredentialsSelect, rebuilt in the Roc page.
+user_qualifications_field = |model| {
+	selected = model.newUserQualifications
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text("Qualifications")]),
+		if List.is_empty(selected) {
+			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("None selected.")])
+		} else {
+			Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |id| {
+				Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
+					Html.text(credential_name_for(model.credentialsData, id)),
+					Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveQualification(id))], [Html.text("✕")])
+				])
+			}))
+		},
+		UI.input({
+			type: "text",
+			value: model.qualSearch,
+			placeholder: "Search qualifications...",
+			on_input: Input(|s| UpdateQualSearch(s)),
+			is_disabled: model.isSubmitting,
+			classes: "",
+		}),
+		if Str.is_empty(model.qualSearch) {
+			Html.div([], [])
+		} else {
+			Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+				List.map(List.keep_if(Str.split_on(model.credentialsData, "\n"), |line| {
+					parts = Str.split_on(line, "|")
+					config_field(parts, 2, "true") == "true"
+						and !Str.is_empty(config_field(parts, 0, ""))
+						and !List.contains(selected, config_field(parts, 0, ""))
+						and Str.contains(ascii_lower(config_field(parts, 1, "")), ascii_lower(model.qualSearch))
+				}), |line| {
+					parts = Str.split_on(line, "|")
+					id = config_field(parts, 0, "")
+					Html.div([
+						Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
+						Attribute.on_click(AddQualification(id))
+					], [Html.text(config_field(parts, 1, "Qualification"))])
+				})
+			)
+		}
+	])
+}
+
+# The modal for assigning class-subject pairs to one teacher: the current pairs as removable
+# badges, the catalog's searchable dropdown (offering only pairs not already picked), and a Save
+# that replaces the whole set — the retired TeacherUserTable dialog, rebuilt.
+assign_form = |model| {
+	if model.assignDialogOpen {
+		Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 md:p-8")], [
+			Html.div([Attribute.class("w-full max-w-lg mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl")], [
+				UI.card_header({ classes: "" }, [
+					Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+						Html.div([], [
+							UI.card_title({ classes: "" }, [Html.text("Assign Classes")]),
+							Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Choose the class-subject pairs this teacher teaches. Saving replaces the current set.")])
+						]),
+						UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Cancel")])
+					])
+				]),
+				UI.card_content({ classes: "space-y-4" }, [
+					# The assignment is scoped to the active session term, so the dialog says which term
+					# the save will write into (the backend refuses the save when there is none).
+					if Str.is_empty(session_term_label(model)) {
+						Html.p([Attribute.class("text-sm text-amber-600")], [Html.text("No active session term. Set one in Configuration → Session Terms.")])
+					} else {
+						Html.p([Attribute.class("text-sm text-muted-foreground")], [
+							Html.text("Active session: "),
+							Html.span([Attribute.class("font-medium")], [Html.text(session_term_label(model))])
+						])
+					},
+					if List.is_empty(model.assignSelectedEdges) {
+						Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("No pairs assigned yet.")])
+					} else {
+						Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(model.assignSelectedEdges, |edge| {
+							Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
+								Html.text(pair_badge_text(model.subjectPairsData, edge)),
+								Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveAssignPair(edge))], [Html.text("✕")])
+							])
+						}))
+					},
+					UI.input({
+						type: "text",
+						value: model.assignSearch,
+						placeholder: "Search class subjects...",
+						on_input: Input(|s| UpdateAssignSearch(s)),
+						is_disabled: model.isSubmitting,
+						classes: "",
+					}),
+					if Str.is_empty(model.assignSearch) {
+						Html.div([], [])
+					} else {
+						assign_pair_options(model)
+					},
+					assign_save_banner(model),
+				]),
+				Html.div([Attribute.class("px-6 pb-6 pt-0")], [
+					Html.div([Attribute.class("flex justify-end border-t pt-4 gap-2")], [
+						UI.button({ variant: Outline, size: Default, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Cancel")]),
+						UI.button({ variant: Primary, size: Default, on_click: Click(SubmitTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text(if model.isSubmitting { "Saving..." } else { "Save Assignments" })])
+					])
+				])
+			])
+		])
+	} else {
+		Html.div([], [])
+	}
+}
+
+# The dropdown's matching rows while the admin types, hiding the pairs already picked — the
+# addedSet filter of the retired SearchSelect.
+assign_pair_options = |model| {
+	selected = model.assignSelectedEdges
+	query = model.assignSearch
+	Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+		List.map(List.keep_if(Str.split_on(model.subjectPairsData, "\n"), |line| {
+			parts = Str.split_on(line, "|")
+			edge = config_field(parts, 0, "")
+			haystack = Str.join_with([config_field(parts, 2, ""), config_field(parts, 4, "")], " / ")
+			!Str.is_empty(edge) and !List.contains(selected, edge) and Str.contains(ascii_lower(haystack), ascii_lower(query))
+		}), |line| {
+			parts = Str.split_on(line, "|")
+			edge = config_field(parts, 0, "")
+			haystack = Str.join_with([config_field(parts, 2, ""), config_field(parts, 4, "")], " / ")
+			Html.div([
+				Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
+				Attribute.on_click(AddAssignPair(edge))
+			], [Html.text(haystack)])
+		})
+	)
+}
+
+assign_save_banner = |model| {
+	match model.assignSaveResult {
+		None => Html.div([], [])
+		Success(msg) => Html.div([Attribute.class("rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 flex items-center gap-2")], [
+			Html.span([Attribute.class("text-green-600 text-lg")], [Html.text("✓")]),
+			Html.p([Attribute.class("text-sm text-green-800 dark:text-green-200 font-medium")], [Html.text(msg)])
+		])
+		Error(msg) => Html.div([Attribute.class("rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 flex items-center gap-2")], [
+			Html.span([Attribute.class("text-red-600 text-lg")], [Html.text("✕")]),
+			Html.p([Attribute.class("text-sm text-red-800 dark:text-red-200 font-medium")], [Html.text(msg)])
+		])
+	}
+}
+
+# -------------------------------------------------------
+# ADMIN LMS (the teachers' pages for every class level)
+# -------------------------------------------------------
+
+# The class-level picker: every active class, as cards. Choosing one shows its subjects.
+admin_class_picker = |model| {
+	Html.div([Attribute.class("space-y-6")], [
+		Html.div([], [
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
+			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Browse any class level's curriculum, exactly as a teacher sees it — without gating.")])
+		]),
+		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_classes_data_input"), Attribute.value(model.adminLmsClassesData), Attribute.on_input(|s| GotAdminLmsClassesData(s))]),
+		match list_state(model.adminLmsClassesData) {
+			Pending => Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [admin_lms_skeleton(""), admin_lms_skeleton(""), admin_lms_skeleton("")])
+			Failed(message) => UI.list_error_state("Could not load the class levels", message, Click(RetryList("/api/class_levels?admin_lms=1")))
+			Ready(rows) =>
+				if List.is_empty(rows) {
+					UI.list_empty_state("presentation", "No class levels yet", "Class levels appear here once an administrator adds them.")
+				} else {
+					Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")],
+						List.map(rows, |line| {
+							parts = Str.split_on(line, "|")
+							id = config_field(parts, 0, "")
+							name = config_field(parts, 1, "Class")
+							Html.div([
+								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+								Attribute.data("nav", ""),
+								Attribute.on_click(SelectAdminClass(id, name))
+							], [
+								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("🏫")]),
+								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
+								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view its subjects")])
+							])
+						})
+					)
+				}
+		}
+	])
+}
+
+# The subjects of the picked class: the pairs list filtered to that class, one card per subject.
+admin_subjects_view = |model| {
+	Html.div([Attribute.class("space-y-6")], [
+		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsClassName)])
+		]),
+		Html.div([], [
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsClassName)]),
+			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a subject to see its terms and lessons.")])
+		]),
+		match list_state(model.subjectPairsData) {
+			Pending => Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [admin_lms_skeleton(""), admin_lms_skeleton("")])
+			Failed(message) => UI.list_error_state("Could not load the subjects", message, Click(RetryList("/api/class-subjects")))
+			Ready(rows) =>
+				if List.is_empty(rows) {
+					UI.list_empty_state("book-open", "No subjects for this class yet", "Subjects appear here once a class-subject pair is added in the Configuration Hub.")
+				} else {
+					Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")],
+						List.map(List.keep_if(rows, |line| {
+							parts = Str.split_on(line, "|")
+							config_field(parts, 1, "") == model.adminLmsClassId
+						}), |line| {
+							parts = Str.split_on(line, "|")
+							subject_id = config_field(parts, 3, "")
+							subject_name = config_field(parts, 4, "Subject")
+							Html.div([
+								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+								Attribute.data("nav", ""),
+								Attribute.on_click(SelectAdminSubject(subject_id, subject_name))
+							], [
+								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
+								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(subject_name)]),
+								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view terms")])
+							])
+						})
+					)
+				}
+		}
+	])
+}
+
+# The terms step: school-wide terms, chosen after a subject.
+admin_terms_view = |model| {
+	Html.div([Attribute.class("space-y-6")], [
+		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsSubjectName)])
+		]),
+		Html.div([], [
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsSubjectName)]),
+			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
+		]),
+		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_terms_data_input"), Attribute.value(model.adminLmsTermsData), Attribute.on_input(|s| GotAdminLmsTermsData(s))]),
+		match list_state(model.adminLmsTermsData) {
+			Pending => Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [admin_lms_skeleton(""), admin_lms_skeleton(""), admin_lms_skeleton("")])
+			Failed(message) => UI.list_error_state("Could not load the terms", message, Click(RetryList("/api/student/terms?admin_lms=1")))
+			Ready(rows) =>
+				if List.is_empty(rows) {
+					UI.list_empty_state("calendar", "No terms yet", "The school's terms appear here once they are published.")
+				} else {
+					Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")],
+						List.map(rows, |line| {
+							parts = Str.split_on(line, "|")
+							id = config_field(parts, 0, "")
+							name = config_field(parts, 1, "Term")
+							Html.div([
+								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+								Attribute.data("nav", ""),
+								Attribute.on_click(SelectAdminTerm(id, name))
+							], [
+								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📅")]),
+								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
+								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view lessons")])
+							])
+						})
+					)
+				}
+		}
+	])
+}
+
+# The lessons step: this class's subject's lessons for the picked term.
+admin_lessons_view = |model| {
+	Html.div([Attribute.class("space-y-6")], [
+		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminLessons)], [Html.text(model.adminLmsSubjectName)]),
+			Html.span([Attribute.class("text-border")], [Html.text("›")]),
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsTermName)])
+		]),
+		Html.div([], [
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsTermName)]),
+			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text(model.adminLmsSubjectName)])
+		]),
+		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_lessons_data_input"), Attribute.value(model.adminLmsLessonsData), Attribute.on_input(|s| GotAdminLmsLessonsData(s))]),
+		match list_state(model.adminLmsLessonsData) {
+			Pending => Html.div([Attribute.class("space-y-3")], [admin_lms_skeleton(""), admin_lms_skeleton("")])
+			Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/teacher/lessons?class_id=${model.adminLmsClassId}&subject_id=${model.adminLmsSubjectId}&term_id=${model.adminLmsTermId}&admin_lms=1")))
+			Ready(rows) =>
+				if List.is_empty(rows) {
+					UI.list_empty_state("book-open", "No lessons yet", "Lessons for this term appear here once they are published.")
+				} else {
+					Html.div([Attribute.class("space-y-3")],
+						List.map(rows, |line| {
+							parts = Str.split_on(line, "|")
+							id = config_field(parts, 0, "")
+							title = config_field(parts, 1, "Lesson")
+							week = config_field(parts, 2, "")
+							Html.div([
+								Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
+								Attribute.data("nav", ""),
+								Attribute.on_click(OpenAdminLesson(id))
+							], [
+								Html.div([Attribute.class("flex-1 min-w-0")], [
+									Html.h3([Attribute.class("font-medium text-foreground group-hover:text-primary transition-colors truncate")], [Html.text(title)]),
+									Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(if Str.is_empty(week) { "Lesson" } else { "Week ${week}" })])
+								]),
+								Html.span([Attribute.class("text-muted-foreground text-sm group-hover:text-primary transition-colors")], [Html.text("→")])
+							])
+						})
+					)
+				}
+		}
+	])
+}
+
+# The lesson content step: the same panel the students see, read-only (no tabs, no assessment
+# actions — the page's renderLesson fills lesson-header and lesson-panel from the fetched row).
+admin_lesson_view = |model| {
+	Html.div([Attribute.class("relative")], [
+		Html.div([Attribute.class("flex min-h-screen")], [
+			Html.div([Attribute.class("flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
+				Html.input([
+					Attribute.type("hidden"),
+					Attribute.id("lesson_content_data_input"),
+					Attribute.value(model.currentLessonContent),
+					Attribute.on_input(|s| GotLessonContent(s))
+				]),
+				Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
+					Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminLessons)], [Html.text("← Back to lessons")]),
+					Html.span([Attribute.class("text-border")], [Html.text("›")]),
+					Html.span([Attribute.class("text-foreground font-medium")], [Html.text("Lesson")])
+				]),
+				Html.div([Attribute.id("lesson-header"), Attribute.class("space-y-3")], [
+					Html.div([Attribute.class("flex items-start justify-between gap-6")], [
+						Html.div([Attribute.class("space-y-2")], [
+							Html.div([Attribute.id("lesson-title"), Attribute.class("text-3xl font-bold text-primary leading-tight")], [Html.text("Lesson")]),
+							Html.div([Attribute.id("lesson-meta"), Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")], [Html.text("")])
+						]),
+						Html.div([Attribute.id("lesson-week-badge"), Attribute.class("hidden")], [])
+					])
+				]),
+				Html.div([Attribute.id("lesson-panel"), Attribute.class("space-y-8 pb-16")], [
+					admin_lesson_panel(model)
+				])
+			])
+		])
+	])
+}
+
+# The lesson panel before the page's JavaScript has rendered the lesson into it: skeleton while
+# the content is on its way, and the backend's message with a retry when it failed.
+admin_lesson_panel = |model| {
+	match list_state(model.currentLessonContent) {
+		Pending => Html.div([Attribute.class("space-y-8")], [
+			Html.div([Attribute.class("space-y-3")], [UI.skeleton_bar("h-5 w-40"), UI.skeleton_bar("h-4 w-full"), UI.skeleton_bar("h-4 w-5/6"), UI.skeleton_bar("h-4 w-2/3")]),
+			Html.div([Attribute.class("space-y-3")], [UI.skeleton_bar("h-5 w-48"), UI.skeleton_bar("h-4 w-3/4"), UI.skeleton_bar("h-4 w-1/2")])
+		])
+		Failed(message) => UI.list_error_state("Could not load the lesson", message, Click(RetryList("/api/student/lesson?lesson_id=${model.selectedLessonId}")))
+		Ready(_) => Html.div([Attribute.class("text-sm text-muted-foreground")], [Html.text("Rendering content...")])
+	}
+}
+
+admin_lms_skeleton = |_| {
+	Html.div([Attribute.class("rounded-lg border bg-card p-6 space-y-3 animate-pulse")], [
+		Html.div([Attribute.class("h-12 w-12 rounded-xl bg-muted")], []),
+		Html.div([Attribute.class("h-4 w-32 rounded bg-muted")], []),
+		Html.div([Attribute.class("h-8 w-24 rounded bg-muted")], [])
+	])
+}
+
+# The admin LMS drill-down: class -> subjects -> terms -> lessons -> lesson content. One step is on
+# screen at a time; the fetch URLs behind each step carry the picked ids, and the class filter is
+# what makes the lesson list exactly one class level.
+admin_lms_view = |model| {
+	Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+		# The pair catalog the subjects step reads; hidden, and only present on this page (the JS
+		# dispatches /api/class-subjects into it).
+		Html.input([Attribute.type("hidden"), Attribute.id("subject_pairs_data_input"), Attribute.value(model.subjectPairsData), Attribute.on_input(|s| GotSubjectPairsData(s))]),
+		if !Str.is_empty(model.selectedLessonId) {
+			admin_lesson_view(model)
+		} else if !Str.is_empty(model.adminLmsTermId) {
+			admin_lessons_view(model)
+		} else if !Str.is_empty(model.adminLmsSubjectId) {
+			admin_terms_view(model)
+		} else if !Str.is_empty(model.adminLmsClassId) {
+			admin_subjects_view(model)
+		} else {
+			admin_class_picker(model)
+		}
 	])
 }
 

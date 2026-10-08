@@ -4,7 +4,7 @@ import pf.Effect
 import pf.Http
 import pf.Port
 
-AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects]
+AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects, Credentials]
 
 AdminUserTab : [Students, Teachers, Parents, Admins]
 
@@ -16,6 +16,7 @@ Route : [
 	Dashboard,
 	AdminUserManagement,
 	AdminConfigurationHub,
+	AdminLMS,
 	TeacherLessonViewer,
 	TeacherAssessments,
 	StudentLessonViewer,
@@ -142,6 +143,7 @@ Model : {
 	newSessionTermTerm : Str,
 	newCurriculumClassLevel : Str,
 	newCurriculumSubject : Str,
+	newCredentialName : Str,
 	isConfigSubmitting : Bool,
 	configSubmitResult : [None, Success(Str), Error(Str)],
 	# The row the hub has open for editing, and its editable columns. Only one row is edited at a
@@ -152,6 +154,36 @@ Model : {
 	editField1 : Str,
 	editField2 : Str,
 	editField3 : Str,
+	# The teacher's own class-subject pairs (My Classes cards), the full catalog fed to the Assign
+	# dialog and the admin LMS, and one teacher's current pairs (the dialog's badges).
+	teacherClassesData : Str,
+	subjectPairsData : Str,
+	teacherAssignmentsData : Str,
+	# The qualifications catalog and the teacher form's selection of it.
+	credentialsData : Str,
+	newUserQualifications : List(Str),
+	qualSearch : Str,
+	# The teacher-row Assign dialog: which teacher it is open for, the working set of edges, the
+	# dropdown's search text, and the last save's outcome.
+	assignDialogOpen : Bool,
+	assignTeacherId : Str,
+	assignSelectedEdges : List(Str),
+	assignSearch : Str,
+	assignSaveResult : [None, Success(Str), Error(Str)],
+	# Whether the dialog's badge list has been seeded from the fetched teacher-assignments payload
+	# (the fetch answers after the dialog opens). Once seeded it is the admin's working set — a
+	# refetch after a save must not overwrite edits.
+	assignSeeded : Bool,
+	# The admin LMS drill-down: the picked class, subject and term, and the fetched lists.
+	adminLmsClassId : Str,
+	adminLmsClassName : Str,
+	adminLmsSubjectId : Str,
+	adminLmsSubjectName : Str,
+	adminLmsTermId : Str,
+	adminLmsTermName : Str,
+	adminLmsTermsData : Str,
+	adminLmsLessonsData : Str,
+	adminLmsClassesData : Str,
 }
 
 Msg : [
@@ -233,6 +265,9 @@ Msg : [
 	GotStudentTermsData(Str),
 	GotTeacherLessonsData(Str),
 	OpenTeacherLesson(Str),
+	# A My Classes card: open the lesson picker scoped to that subject (its lessons are the
+	# teacher's own, filtered by the subject the card carried).
+	OpenTeacherSubject(Str, Str),
 	GotStudentLessonsData(Str),
 	GotLessonContent(Str),
 	BackToSubjects,
@@ -263,12 +298,42 @@ Msg : [
 	ConfigUpdateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	ToggleConfigActive(AdminConfigTab, Str, Bool),
 	ConfigToggleCompleted(AdminConfigTab, Bool, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	GotTeacherClassesData(Str),
+	GotSubjectPairsData(Str),
+	GotTeacherAssignmentsData(Str),
+	GotCredentialsData(Str),
+	UpdateNewCredentialName(Str),
+	# The teacher-row Assign action: open the dialog (and load the pairs it shows), work the
+	# dropdown, save the whole replacement list.
+	OpenTeacherAssign(Str),
+	CloseTeacherAssign,
+	AddAssignPair(Str),
+	RemoveAssignPair(Str),
+	UpdateAssignSearch(Str),
+	SubmitTeacherAssign,
+	TeacherAssignCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
+	# The teacher form's qualifications picker.
+	AddQualification(Str),
+	RemoveQualification(Str),
+	UpdateQualSearch(Str),
+	# The admin LMS drill-down: class -> subject -> term -> lessons -> lesson content.
+	SelectAdminClass(Str, Str),
+	BackAdminSubjects,
+	SelectAdminSubject(Str, Str),
+	BackAdminTerms,
+	SelectAdminTerm(Str, Str),
+	OpenAdminLesson(Str),
+	BackAdminLessons,
+	GotAdminLmsTermsData(Str),
+	GotAdminLmsLessonsData(Str),
+	GotAdminLmsClassesData(Str),
 ]
 
-parse_route = |url| {
+	parse_route = |url| {
 	match url {
 		"/admin/users" => AdminUserManagement
 		"/admin/config" => AdminConfigurationHub
+		"/admin/lms" => AdminLMS
 		"/teacher/lessons" => TeacherLessonViewer
 		"/teacher/assessments" => TeacherAssessments
 		"/student/lessons" => StudentLessonViewer
@@ -369,12 +434,34 @@ init = |flags| {
 		newSessionTermTerm: "",
 		newCurriculumClassLevel: "",
 		newCurriculumSubject: "",
+		newCredentialName: "",
 		isConfigSubmitting: Bool.False,
 		configSubmitResult: None,
 		editId: "",
 		editField1: "",
 		editField2: "",
 		editField3: "",
+		teacherClassesData: "",
+		subjectPairsData: "",
+		teacherAssignmentsData: "",
+		credentialsData: "",
+		newUserQualifications: [],
+		qualSearch: "",
+		assignDialogOpen: Bool.False,
+		assignTeacherId: "",
+		assignSelectedEdges: [],
+		assignSearch: "",
+		assignSaveResult: None,
+		assignSeeded: Bool.False,
+		adminLmsClassId: "",
+		adminLmsClassName: "",
+		adminLmsSubjectId: "",
+		adminLmsSubjectName: "",
+		adminLmsTermId: "",
+		adminLmsTermName: "",
+		adminLmsTermsData: "",
+		adminLmsLessonsData: "",
+		adminLmsClassesData: "",
 	}
 
 	# Boot fetches. Note for the next editor: keep every effect list inline inside its branch. This Roc
@@ -394,17 +481,26 @@ init = |flags| {
 			Port.send("fetch_data", "/api/curriculum?all=true"),
 			Port.send("fetch_data", "/api/session_terms"),
 			Port.send("fetch_data", "/api/subjects?all=true"),
+			Port.send("fetch_data", "/api/credentials"),
 		]
-		                _ => [
+			                _ => [
 		                        Port.send("fetch_data", "/api/users?role=Student"),
 		                        Port.send("fetch_data", "/api/users?role=Teacher"),
 		                        Port.send("fetch_data", "/api/users?role=Parent"),
 		                        Port.send("fetch_data", "/api/users?role=Admin"),
 		                        Port.send("fetch_data", "/api/subjects"),
 		                        Port.send("fetch_data", "/api/teacher/lessons"),
+		                        Port.send("fetch_data", "/api/teacher/classes"),
 		                        # The AdminUserManagement view's create form needs the active class levels for
 		                        # its picker even when the page is reached by a direct load (init, not NavigateTo).
 		                        Port.send("fetch_data", "/api/class_levels"),
+		                        # The catalog and the pairs the admin widgets read. Fetched everywhere so a
+		                        # direct load of any page has them ready; a role that cannot read either gets
+		                        # a 403 the dispatcher drops (the inputs only exist on the admin pages).
+		                        Port.send("fetch_data", "/api/credentials"),
+		                        Port.send("fetch_data", "/api/class-subjects"),
+		                        Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+		                        Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
 		                ]
 	})
 }
@@ -421,6 +517,7 @@ config_refresh_effects = |tab| {
 		ClassLevels => [Port.send("fetch_data", "/api/class_levels?all=true")]
 		Curriculum => [Port.send("fetch_data", "/api/curriculum?all=true")]
 		SessionTerms => [Port.send("fetch_data", "/api/session_terms")]
+		Credentials => [Port.send("fetch_data", "/api/credentials")]
 	}
 }
 
@@ -431,6 +528,7 @@ config_section_label = |tab| {
 		ClassLevels => "Class level"
 		Curriculum => "Curriculum link"
 		SessionTerms => "Session term"
+		Credentials => "Qualification"
 	}
 }
 
@@ -442,6 +540,7 @@ config_endpoint = |tab| {
 		ClassLevels => "class_levels"
 		Curriculum => "curriculum"
 		SessionTerms => "session_terms"
+		Credentials => "credentials"
 	}
 }
 
@@ -478,6 +577,7 @@ config_create_call = |model, tab| {
 		ClassLevels => "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"}"
 		SessionTerms => "{\"session_name\":\"${model.newSessionTermName}\",\"term\":\"${model.newSessionTermTerm}\"}"
 		Curriculum => "{\"class_level\":\"${model.newCurriculumClassLevel}\",\"subject\":\"${model.newCurriculumSubject}\"}"
+		Credentials => "{\"name\":\"${model.newCredentialName}\"}"
 	}
 
 	{ endpoint: config_endpoint(tab), payload }
@@ -516,6 +616,8 @@ config_update_call = |model, tab| {
 		# A curriculum link has no editable column — it is linked or not — so the views only ever
 		# offer its toggle; this branch keeps the match exhaustive.
 		Curriculum => "${id_field}}"
+		# A qualification's only editable column is its name.
+		Credentials => "${id_field}${json_text_field("name", model.editField1)}}"
 	}
 
 	{ endpoint: config_endpoint(tab), payload }
@@ -534,6 +636,7 @@ config_form_cleared = |model, tab| {
 		ClassLevels => { ..model, newClassLevelName: "", newClassLevelCode: "" }
 		SessionTerms => { ..model, newSessionTermName: "", newSessionTermTerm: "" }
 		Curriculum => { ..model, newCurriculumClassLevel: "", newCurriculumSubject: "" }
+		Credentials => { ..model, newCredentialName: "" }
 	}
 }
 
@@ -574,6 +677,12 @@ update = |model, msg|
 					Port.send("fetch_data", "/api/class_levels?all=true"),
 					Port.send("fetch_data", "/api/curriculum?all=true"),
 					Port.send("fetch_data", "/api/session_terms"),
+					Port.send("fetch_data", "/api/credentials"),
+				]
+				AdminLMS => [
+					Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+					Port.send("fetch_data", "/api/class-subjects"),
+					Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
 				]
 				_ => []
 			}
@@ -591,15 +700,27 @@ update = |model, msg|
 			}
 			(
 				{ ..model, route: AdminUserManagement, mobileMenuOpen: Bool.False },
-				                        [
-				                                Port.send("push_state", "/admin/users"),
-				                                Port.send("fetch_data", active_tab_url),
-				                                # The create form's class-level picker needs the active levels, and
-				                                # fetching them here means the dropdown is ready before a first submit.
-				                                Port.send("fetch_data", "/api/class_levels"),
-				                        ]
+			                        [
+			                                Port.send("push_state", "/admin/users"),
+			                                Port.send("fetch_data", active_tab_url),
+			                                # The create form's class-level picker needs the active levels, and
+			                                # fetching them here means the dropdown is ready before a first submit.
+			                                Port.send("fetch_data", "/api/class_levels"),
+			                                # The teacher form's qualifications picker and the Assign dialog's pairs.
+			                                Port.send("fetch_data", "/api/credentials"),
+			                                Port.send("fetch_data", "/api/class-subjects"),
+			                        ]
 			)
 		}
+		NavigateTo(AdminLMS) => (
+			{ ..model, route: AdminLMS, mobileMenuOpen: Bool.False, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/admin/lms"),
+				Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+				Port.send("fetch_data", "/api/class-subjects"),
+				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+			]
+		)
 		NavigateTo(AdminConfigurationHub) => (
 			{ ..model, route: AdminConfigurationHub, mobileMenuOpen: Bool.False },
 			[
@@ -610,6 +731,7 @@ update = |model, msg|
 				Port.send("fetch_data", "/api/class_levels?all=true"),
 				Port.send("fetch_data", "/api/curriculum?all=true"),
 				Port.send("fetch_data", "/api/session_terms"),
+				Port.send("fetch_data", "/api/credentials"),
 			]
 		)
 		NavigateTo(route) => {
@@ -617,6 +739,7 @@ update = |model, msg|
 				Dashboard => "/"
 				AdminUserManagement => "/admin/users"
 				AdminConfigurationHub => "/admin/config"
+				AdminLMS => "/admin/lms"
 				TeacherLessonViewer => "/teacher/lessons"
 				TeacherAssessments => "/teacher/assessments"
 				StudentLessonViewer => "/student/lessons"
@@ -712,6 +835,115 @@ update = |model, msg|
 		GotCurriculumData(str) => ({ ..model, curriculumData: str }, [])
 		GotSessionTermsData(str) => ({ ..model, sessionTermsData: str }, [])
 		GotConfigSubjectsData(str) => ({ ..model, configSubjectsData: str }, [])
+		UpdateNewCredentialName(s) => ({ ..model, newCredentialName: s }, [])
+		GotTeacherClassesData(s) => ({ ..model, teacherClassesData: s }, [])
+		GotSubjectPairsData(s) => ({ ..model, subjectPairsData: s }, [])
+		GotCredentialsData(s) => ({ ..model, credentialsData: s }, [])
+		GotAdminLmsTermsData(s) => ({ ..model, adminLmsTermsData: s }, [])
+		GotAdminLmsLessonsData(s) => ({ ..model, adminLmsLessonsData: s }, [])
+		GotAdminLmsClassesData(s) => ({ ..model, adminLmsClassesData: s }, [])
+		# --- The teacher-row Assign dialog ---
+		OpenTeacherAssign(id) => (
+			{ ..model, assignDialogOpen: Bool.True, assignTeacherId: id, assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None },
+			[
+				Port.send("fetch_data", "/api/class-subjects"),
+				Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${id}"),
+			]
+		)
+		CloseTeacherAssign => ({ ..model, assignDialogOpen: Bool.False, assignTeacherId: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, [])
+		GotTeacherAssignmentsData(s) => {
+			# The fetch answers after the dialog opened, so the current pairs seed the badge list once
+			# — never again, or a post-save refetch would undo the admin's edits.
+			(after, effects) =
+				if model.assignDialogOpen and !model.assignSeeded {
+					seeded = match list_state(s) {
+						Ready(rows) => List.keep_if(List.map(rows, |line| config_part(Str.split_on(line, "|"), 0)), |edge| !Str.is_empty(edge))
+						_ => []
+					}
+					({ ..model, teacherAssignmentsData: s, assignSelectedEdges: seeded, assignSeeded: Bool.True }, [])
+				} else {
+					({ ..model, teacherAssignmentsData: s }, [])
+				}
+			(after, effects)
+		}
+		AddAssignPair(edge) => (
+			{ ..model, assignSelectedEdges: List.append(model.assignSelectedEdges, edge), assignSearch: "", assignSaveResult: None },
+			[]
+		)
+		RemoveAssignPair(edge) => ({ ..model, assignSelectedEdges: List.keep_if(model.assignSelectedEdges, |e| e != edge) }, [])
+		UpdateAssignSearch(s) => ({ ..model, assignSearch: s }, [])
+		SubmitTeacherAssign => {
+			# The whole replacement list, like the retired agent's save: what the dialog shows is what
+			# the teacher ends up with (the backend hides the dropped rows and revives or creates the
+			# kept ones, scoped to the active session term). An empty list means "clear the teacher".
+			pairs_json = "[${Str.join_with(List.map(model.assignSelectedEdges, |edge| "{\"edge_id\":\"${edge}\"}"), ",")}]"
+			req = {
+				method: POST,
+				uri: "${model.appOrigin}/api/teacher-assignments",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8("{\"teacher_id\":\"${model.assignTeacherId}\",\"pairs\":${pairs_json}}"),
+				timeout_ms: NoTimeout,
+			}
+			({ ..model, assignSaveResult: None }, [Http.request(req, |res| TeacherAssignCompleted(res))])
+		}
+		TeacherAssignCompleted(res) => {
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("Assignments saved")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			# The badges and the next open of the dialog should match what the save wrote.
+			refreshes = match newResult {
+				Success(_) => [
+					Port.send("fetch_data", "/api/class-subjects"),
+					Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${model.assignTeacherId}"),
+				]
+				_ => []
+			}
+			({ ..model, assignSaveResult: newResult }, refreshes)
+		}
+		# --- The teacher form's qualifications picker ---
+		AddQualification(id) => ({ ..model, newUserQualifications: List.append(model.newUserQualifications, id), qualSearch: "" }, [])
+		RemoveQualification(id) => ({ ..model, newUserQualifications: List.keep_if(model.newUserQualifications, |q| q != id) }, [])
+		UpdateQualSearch(s) => ({ ..model, qualSearch: s }, [])
+		# --- The admin LMS drill-down ---
+		SelectAdminClass(id, name) => (
+			{ ..model, adminLmsClassId: id, adminLmsClassName: name, adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
+			[]
+		)
+		BackAdminSubjects => (
+			{ ..model, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
+			[]
+		)
+		SelectAdminSubject(id, name) => (
+			{ ..model, adminLmsSubjectId: id, adminLmsSubjectName: name, adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
+			[Port.send("fetch_data", "/api/student/terms?admin_lms=1")]
+		)
+		BackAdminTerms => (
+			{ ..model, adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
+			[]
+		)
+		SelectAdminTerm(id, name) => (
+			{ ..model, adminLmsTermId: id, adminLmsTermName: name, adminLmsLessonsData: "", currentLessonContent: "" },
+			[Port.send("fetch_data", "/api/teacher/lessons?class_id=${model.adminLmsClassId}&subject_id=${model.adminLmsSubjectId}&term_id=${id}&admin_lms=1")]
+		)
+		OpenAdminLesson(id) => (
+			{ ..model, selectedLessonId: id, currentLessonContent: "" },
+			[Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}")]
+		)
+		BackAdminLessons => (
+			{ ..model, adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
+			[]
+		)
 		UpdateNewTermName(s) => ({ ..model, newTermName: s }, [])
 		UpdateNewTermSortOrder(s) => ({ ..model, newTermSortOrder: s }, [])
 		UpdateNewSubjectName(s) => ({ ..model, newSubjectName: s }, [])
@@ -916,7 +1148,18 @@ update = |model, msg|
 				} else {
 					""
 				}
-			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${password_clause}}"
+			# A teacher's qualifications are the credentials record ids the picker selected: the
+			# backend stores them as record links. Only the teacher profile declares the column, so
+			# the clause mirrors the form's own visibility like role_title above (an empty selection
+			# is sent as an empty array, which is how an edit clears the row's qualifications).
+			qual_clause =
+				if model.newUserRole == "Teacher" {
+					ids_json = Str.join_with(model.newUserQualifications, "\",\"")
+					if Str.is_empty(ids_json) { ",\"qualifications\":[]" } else { ",\"qualifications\":[\"${ids_json}\"]" }
+				} else {
+					""
+				}
+			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${password_clause}}"
 			req = {
 				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
@@ -949,23 +1192,28 @@ update = |model, msg|
 				newUserRoleTitle: "",
 				newUserPassportKey: "",
 				newUserPassword: "",
+				newUserQualifications: [],
+				qualSearch: "",
 				userEditing: Bool.False,
 				lastCredentials: None,
 				submitResult: None,
 			},
 			[]
 		)
-		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
+		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
 		# Open the form in add mode: the header's Add User button. Everything the completing and
 		# editing arms set is cleared, so the modal opens empty.
-		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
-		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None }, [])
+		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
+		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
 		StartUserEdit(line) => {
 			parts = Str.split_on(line, "|")
 			part = |i| match List.get(parts, i) { Ok(v) => v, Err(_) => "" }
+			# A teacher row's last field is its qualification ids, comma-joined by the page's formatter;
+			# the edit form starts with exactly those selected. Any other role carries none.
+			quals = List.keep_if(Str.split_on(part(13), ","), |q| !Str.is_empty(q))
 			(
 				{ ..model,
 					userFormOpen: Bool.True,
@@ -983,6 +1231,8 @@ update = |model, msg|
 					newUserRoleTitle: if user_tab_role(model.activeUserTab) == "Admin" { part(11) } else { "" },
 					newUserPassportKey: part(12),
 					newUserPassword: "",
+					newUserQualifications: if user_tab_role(model.activeUserTab) == "Teacher" { quals } else { [] },
+					qualSearch: "",
 					userEditing: Bool.True,
 					lastCredentials: None,
 					submitResult: None,
@@ -1037,7 +1287,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "", newUserQualifications: [], qualSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, refresh)
 		}
 		# --- A row's actions: deactivate and activate ---
 		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the
@@ -1257,6 +1507,13 @@ update = |model, msg|
 				{ ..model, selectedLessonId: id },
 				[Port.send("push_state", "/teacher/lessons?id=${id}")]
 			)
+		OpenTeacherSubject(id, name) => (
+			{ ..model, selectedSubjectId: id, selectedSubjectName: name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/teacher/lessons"),
+				Port.send("fetch_data", "/api/teacher/lessons?subject_id=${id}"),
+			]
+		)
 		GotLessonContent(s) => ({ ..model, currentLessonContent: s }, [])
 		BackToSubjects => (
 			{ ..model,

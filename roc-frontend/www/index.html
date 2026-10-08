@@ -424,6 +424,13 @@
     // body has executed.
     function fetchRouteFor(url) {
         const routes = [
+            { match: (u) => u.includes("/api/credentials"), input: "credentials_data_input", format: formatCredentials },
+            { match: (u) => u === "/api/class-subjects", input: "subject_pairs_data_input", format: formatSubjectPairs },
+            { match: (u) => u.includes("/api/teacher-assignments"), input: "teacher_assignments_data_input", format: formatSubjectPairs },
+            { match: (u) => u === "/api/teacher/classes", input: "teacher_classes_data_input", format: formatSubjectPairs },
+            { match: (u) => u.includes("/api/class_levels") && u.includes("admin_lms=1"), input: "admin_lms_classes_data_input", format: formatClassLevels },
+            { match: (u) => u.includes("/api/student/terms") && u.includes("admin_lms=1"), input: "admin_lms_terms_data_input", format: formatTerms },
+            { match: (u) => u.includes("/api/teacher/lessons") && u.includes("admin_lms=1"), input: "admin_lms_lessons_data_input", format: formatLessons },
             { match: (u) => u.includes("/api/users?role=Student"), input: "users_students_data_input", format: formatUsers },
             { match: (u) => u.includes("/api/users?role=Teacher"), input: "users_teachers_data_input", format: formatUsers },
             { match: (u) => u.includes("/api/users?role=Parent"), input: "users_parents_data_input", format: formatUsers },
@@ -462,8 +469,8 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport.
-    // The first six fields are what the table renders today; the last seven are what the row's Edit
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications.
+    // The first six fields are what the table renders today; the next seven are what the row's Edit
     // action loads into the form above (the backend's PUT patches the row, so the form has to start
     // with the values that are there). date_of_birth arrives with a time on it, but the form's date
     // input wants the bare day, so only the YYYY-MM-DD part is carried. The id is what "Complete
@@ -473,13 +480,15 @@
     // login created with nothing but a username has no name at all, and without the fallback two such
     // rows read "Unknown". school_number is the backend's rendered form (`JES-000123`, `EMP-000045`),
     // or "" for a row without one (a parent, a login with no profile yet): the page shows it and
-    // never builds it, so the prefix lives in one place.
+    // never builds it, so the prefix lives in one place. The last field is a teacher's qualification
+    // ids, comma-joined (a record id has no comma), which the Edit form splits back into its picker.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
             return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "")
                 + "|" + (u.first_name || "") + "|" + (u.middle_name || "") + "|" + (u.surname || "")
-                + "|" + String(u.date_of_birth || "").slice(0, 10) + "|" + (u.current_class || "") + "|" + (u.role_title || "") + "|" + (u.passport || "");
+                + "|" + String(u.date_of_birth || "").slice(0, 10) + "|" + (u.current_class || "") + "|" + (u.role_title || "") + "|" + (u.passport || "")
+                + "|" + String((u.qualifications || []).join(","));
         });
     }
 
@@ -503,6 +512,18 @@
 
     function formatCurriculum(data) {
         return unwrapRows(data).map(e => (e.id || "") + "|" + (e.in || "") + "|" + (e.out || "") + "|" + (e.active !== false));
+    }
+
+    // A class-subject pair as the Assign dialog and the LMS pages use it (the backend's
+    // /api/class-subjects, /api/teacher-assignments and /api/teacher/classes all return this shape):
+    // edge_id|class_level_id|class_level_name|subject_id|subject_name.
+    function formatSubjectPairs(data) {
+        return unwrapRows(data).map(p => (p.edge_id || "") + "|" + (p.class_level_id || "") + "|" + (p.class_level_name || "") + "|" + (p.subject_id || "") + "|" + (p.subject_name || "Unknown"));
+    }
+
+    // The qualifications catalog: id|name|active.
+    function formatCredentials(data) {
+        return unwrapRows(data).map(c => (c.id || "") + "|" + (c.name || "Qualification") + "|" + (c.active !== false));
     }
 
     function formatSessionTerms(data) {
@@ -691,6 +712,14 @@
                 // Reads ?id= and loads that lesson; also wires the tabs.
                 setupLessonViewer(true);
             }
+        }
+
+        // --- LMS for administrators: the same lesson content the students see, without the tabs ---
+        if (path === "/admin/lms") {
+            const contentInput = document.getElementById("lesson_content_data_input");
+            const readyLesson = contentInput ? lessonFromPayload(contentInput.value) : null;
+            if (readyLesson) renderLesson(readyLesson);
+            setupLessonContentObserver();
         }
 
         // --- Messaging ---

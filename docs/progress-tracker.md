@@ -38,6 +38,30 @@ the old stack's one real bug fixed:
   95/95, `authz.sh` 27/27, and all seven `*Test.roc` suites green). The sandbox fixture gained the
   `teacher_assignment`/`teaches` mirror definitions and prod's unique credentials-name index.
 
+### Teacher assignments, qualifications and the admin LMS — frontend wired (2026-10-08)
+
+The Roc SPA now drives everything above, mirroring the retired SvelteKit screens:
+
+- **Teachers tab**: an Assign action on each teacher row opens the dialog — the teacher's current
+  pairs as removable "Class / Subject ✕" badges, a search box whose dropdown offers the pair
+  catalog minus the already-picked rows (case-insensitive, like the old SearchSelect), and a Save
+  that replaces the whole set. The teacher's own My Classes page now lists the assigned pairs
+  (`GET /api/teacher/classes`) and opens the lesson picker scoped to the clicked subject.
+- **Qualifications**: a Qualifications tab in the Configuration hub lists/creates/reanames/
+  deactivates the catalog; the teacher add/edit form carries the searchable multi-select, prefilled
+  from the row and sent back as `credentials` record links.
+- **Admin LMS (`/admin/lms`, sidebar "LMS")**: class level → subjects → terms → lessons → lesson
+  content, read-only (no tabs, no assessment actions), reusing the student lesson renderer. The
+  class/subject/term filters on the lessons endpoint make the lists exactly one class level.
+- **Verified in Chromium against the sandbox**: a new `smoke_assignments_lms.cjs` (17 checks)
+  plus the repo suites — `e2e_admin` 16/16, `e2e_admin_config` 53/53, `e2e_loading` 20/20,
+  `e2e_assessments` 17/17, `e2e_general_assessments` 25/25, `e2e_users_directory` 27/27,
+  `e2e_student` 7/7 — and `roc check app.roc` 0 errors. Two suite-ordering notes: `users_api.sh`
+  restores the seed-student profile it completes (re-run `e2e_users_directory` after it by
+  dropping that profile row), and `e2e_admin_config`'s curriculum-create check needs the
+  jss_2/agricultural-science edge absent (a second run on the same sandbox sees the unique-index
+  refusal, which the suite's own duplicate check then expects).
+
 ### Completed — prod schema alignment (read-only against prod)
 - [x] `roc-backend/main.roc` — connection config comes from the environment only:
   `SURREAL_URL` (default `https://db2.johnethel.school/sql`), `SURREAL_DB_NS` (`main`),

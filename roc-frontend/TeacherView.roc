@@ -23,41 +23,65 @@ teacher_classes_view = |model| {
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
         Html.div([], [
             Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("My Classes")]),
-            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("View your teaching assignments and manage lesson content.")])
+            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Your teaching assignments for the active session term.")])
         ]),
 
-        # Hidden input for subjects data
+        # Hidden input for the pairs data (edge|class_id|class_name|subject_id|subject_name)
         Html.input([
             Attribute.type("hidden"),
-            Attribute.id("subjects_data_input"),
-            Attribute.value(model.subjectsData),
-            Attribute.on_input(|s| GotSubjectsData(s))
+            Attribute.id("teacher_classes_data_input"),
+            Attribute.value(model.teacherClassesData),
+            Attribute.on_input(|s| GotTeacherClassesData(s))
         ]),
 
-        # The subjects list in its three states: skeleton placeholders while it has not been
-        # answered, the backend's own message with a retry when it failed, and the cards once it
-        # loaded (or a real empty state when it holds no rows).
-        match list_state(model.subjectsData) {
+        # The assigned pairs in their three states, like every other list fed by fetch_data. A
+        # teacher without assignments (or with no active session term) sees the empty state, not a
+        # list of every subject in the school.
+        match list_state(model.teacherClassesData) {
             Pending =>
                 Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
                     teacher_subject_skeleton(""),
                     teacher_subject_skeleton("")
                 ])
-            Failed(message) => UI.list_error_state("Could not load your classes", message, Click(RetryList("/api/subjects")))
+            Failed(message) => UI.list_error_state("Could not load your classes", message, Click(RetryList("/api/teacher/classes")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("book-open", "No subjects yet", "Subjects appear here once an administrator adds them.")
+                    UI.list_empty_state("book-open", "No classes assigned yet", "Your teaching assignments appear here once an administrator assigns you class-subject pairs.")
                 } else {
                     Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")],
                         List.map(rows, |line| {
                             parts = Str.split_on(line, "|")
-                            id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                            name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown Subject" }
-                            teacher_subject_card(id, name)
+                            subject_id = match List.get(parts, 3) { Ok(v) => v, Err(_) => "" }
+                            subject_name = match List.get(parts, 4) { Ok(v) => v, Err(_) => "Unknown Subject" }
+                            class_name = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+                            teacher_pair_card(subject_id, subject_name, class_name)
                         })
                     )
                 }
         }
+    ])
+}
+
+# One assigned pair as a card: the subject is what the teacher picks next, with its class level
+# underneath — the retired app's class -> subject drill, reached in one click.
+teacher_pair_card = |subject_id, subject_name, class_name| {
+    Html.div([
+        Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
+        # A view change, so the page starts its top border progress bar for the click.
+        Attribute.data("nav", ""),
+        Attribute.on_click(OpenTeacherSubject(subject_id, subject_name))
+    ], [
+        Html.div([Attribute.class("flex items-center gap-4")], [
+            Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
+            Html.div([Attribute.class("flex-1 space-y-0.5")], [
+                Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(subject_name)]),
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(if Str.is_empty(class_name) { " " } else { class_name })])
+            ])
+        ]),
+        Html.div([Attribute.class("flex gap-2")], [
+            Html.span([Attribute.class("inline-flex items-center gap-1 text-xs rounded-md px-2 py-1 bg-muted text-muted-foreground")], [Html.text("📝 Manage Lessons")]),
+            Html.span([Attribute.class("inline-flex items-center gap-1 text-xs rounded-md px-2 py-1 bg-muted text-muted-foreground")], [Html.text("📊 Assessments")])
+        ])
     ])
 }
 
@@ -71,27 +95,6 @@ teacher_subject_skeleton = |_| {
             ])
         ]),
         Html.div([Attribute.class("h-8 w-32 rounded bg-muted")], [])
-    ])
-}
-
-teacher_subject_card = |id, name| {
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-        # A view change, so the page starts its top border progress bar for the click.
-        Attribute.data("nav", ""),
-        Attribute.on_click(NavigateTo(TeacherLessonViewer))
-    ], [
-        Html.div([Attribute.class("flex items-center gap-4")], [
-            Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
-            Html.div([Attribute.class("flex-1 space-y-0.5")], [
-                Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("ID: ${id}")])
-            ])
-        ]),
-        Html.div([Attribute.class("flex gap-2")], [
-            Html.span([Attribute.class("inline-flex items-center gap-1 text-xs rounded-md px-2 py-1 bg-muted text-muted-foreground")], [Html.text("📝 Manage Lessons")]),
-            Html.span([Attribute.class("inline-flex items-center gap-1 text-xs rounded-md px-2 py-1 bg-muted text-muted-foreground")], [Html.text("📊 Assessments")])
-        ])
     ])
 }
 

@@ -50,6 +50,7 @@ render = |model| {
 				Admin => [
 					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminUserManagement, on_click: Click(NavigateTo(AdminUserManagement)) }, [text("User Management")]),
 					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminConfigurationHub, on_click: Click(NavigateTo(AdminConfigurationHub)) }, [text("Configuration Hub")]),
+					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminLMS, on_click: Click(NavigateTo(AdminLMS)) }, [text("LMS")]),
 					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
 				]
 				Teacher => [
@@ -273,7 +274,7 @@ render = |model| {
 	content =
 		match model.route {
 			Dashboard => DashboardView.view(model)
-			AdminUserManagement | AdminConfigurationHub => AdminView.view(model)
+			AdminUserManagement | AdminConfigurationHub | AdminLMS => AdminView.view(model)
 			TeacherLessonViewer | TeacherAssessments => TeacherView.view(model)
 			StudentLessonViewer | StudentAssignments => StudentView.view(model)
 			StudentSubjects | StudentLesson => StudentView.view(model)
