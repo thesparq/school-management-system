@@ -300,6 +300,31 @@ bundles to catch up, not this repo.
   build.roc` builds a working app on any machine with just the compiler. The vendored patched 0.33.0 checkout
   (`roc-frontend/joy/`, `host-bump-span.patch`, `JOY_HOST_PATCH.md`) was deleted when 0.34.0 shipped the fix
   upstream.
+
+### Zero-warning sweep — our code clean (2026-10-08)
+
+- **Frontend**: the seven `module [...]` headers (UI, AdminView, DashboardView, MessagingView, StudentView,
+  TeacherView, Auth) are gone — UI and the views are now type modules (their defs moved into the matching
+  `X := [].{{...}}` block; callers already used the `X.`-prefixed style, so nothing else changed), and the
+  dead `Auth.roc` (its two exports were referenced nowhere) was deleted. `roc check app.roc`: 0 errors, 0
+  warnings — except `State.roc`, which keeps its header on purpose: it exports seven types plus functions
+  (Model, Msg, Route, Role, the two tab unions, ListState, list_state); a type module can expose only its
+  own type and extension-block aliases are opaque, so the migration is a file-per-type split (like
+  `http.Response`/`http.Method`) — proportionate only when a compiler actually refuses headers.
+- **Backend**: moved to **basic-webserver 0.17.0** (the current release), which dropped the old raw
+  `request.target` and `pf.Utc`. The router now reconstructs the target text (`path?query`) from `Target`;
+  the R2 signing timestamp comes from `pf.UnixTime` + the new pure `Time8601.roc` (Howard Hinnant's
+  civil-from-days; vectors checked against `date -u`, 6/6). This retired all 61 bundle-bundle warnings:
+  `roc check main.roc`: 0 errors, 0 warnings; unit tests Base64 9/9, AuthUrls 4/4, R2 20/20, Url 16/16,
+  Hmac 7/7, Sha256 7/7, Time8601 6/6.
+- **npm**: the root `.npmrc` (`pnpm.onlyBuiltDependencies=[]`) confused npm under the npm-based build and
+  is deleted; the pnpm config in the retired SvelteKit `frontend/` and root `package.json` is left as
+  legacy.
+- **What remains**: the 77 warnings `build.roc` reports are all inside the basic-cli 0.24.0 release bundle
+  (the build tool's own sources), not this repo — they clear when a rule-compliant basic-cli ships or we
+  replace the build path. Verified on the sandbox after the sweep: e2e_admin 10/10, e2e_users_directory
+  27/27, e2e_loading 20/20, e2e_admin_config 53/53, users_api 96/96, authz 27/27, assessment_flow 41/41,
+  general_assessment_flow 56/56.
 - `roc-frontend/tests/e2e/` holds the checks used during this migration: `e2e_student.cjs` (student drill-down
   against the backend), `e2e_admin.cjs` (user creation in a sandbox), `render_lesson_check.cjs` (the lesson
   renderer, no browser), plus `fixtures/sandbox-schema.surql` and `fixtures/mock_authentik_unique.py`.

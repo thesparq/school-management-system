@@ -3,7 +3,6 @@ module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, Lis
 import pf.Effect
 import pf.Http
 import pf.Port
-import Auth
 
 AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects]
 

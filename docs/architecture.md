@@ -168,9 +168,10 @@ file stale. What belongs here is the shape and the rules:
    arrays). Anything richer would need a parser this Roc version does not have.
 7. **Verify against something that behaves like production.** The e2e suites run against a sandbox built from
    `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` (which mirrors the prod schema) with a mock Authentik;
-   [REDACTED] data is never written to. `roc check main.roc` must end at 0 errors; the pinned compiler
-   also reports warnings from the release-bundle platforms' own sources (61 today), which are accepted and
-   expected to shrink as those bundles upgrade. A page load belongs to any frontend rebuild.
+   [REDACTED] data is never written to. `roc check main.roc` and `roc check app.roc` must end at 0 errors
+   and 0 warnings of our own; the only warnings the pinned toolchain still reports are inside the
+   basic-cli release bundle's own sources (77, seen when `build.roc` compiles) — they disappear when a
+   rule-compliant bundle ships. A page load belongs to any frontend rebuild.
 
 ## Retired: the MoonBit/Golem path
 

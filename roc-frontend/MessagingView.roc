@@ -1,9 +1,9 @@
-module [view]
 
 import html.Html
 import html.Attribute
 import UI
 import State exposing [Model, Msg]
+MessagingView := [].{
 
 view = |_model| {
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
@@ -39,4 +39,6 @@ view = |_model| {
             ])
         ])
     ])
+}
+
 }

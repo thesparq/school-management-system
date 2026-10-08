@@ -1,5 +1,5 @@
 app [Context, program] {
-    pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.14.0-rc1/GfM5qZLcKYGA9XD4V7u1S4RjWrdfws29Uz2m86C7bmUC.tar.zst",
+    pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.17.0/AC9goxhsjJJdrQtnc2ga3eTiESyh6ZLraZJsCVdEfeZT.tar.zst",
     http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 }
 
@@ -8,7 +8,8 @@ import pf.Env
 import pf.OsStr
 import pf.Path
 import pf.Stdout
-import pf.Utc
+import pf.UnixTime
+import Time8601
 import http.Response
 import http.Method
 import SurrealDB
@@ -1878,7 +1879,9 @@ signing_timestamp! = |pinned, dev_mode| {
     if dev_mode and looks_like_amz_date(pinned) {
         pinned
     } else {
-        R2.amz_date_of(Utc.to_iso_8601(Utc.now!()))
+        # basic-webserver 0.17 dropped pf.Utc; UnixTime hands out seconds since the epoch and
+        # Time8601 does the calendar arithmetic (see Time8601.roc).
+        R2.amz_date_of(Time8601.from_unix_seconds(UnixTime.Timestamp.seconds_since_epoch(UnixTime.now!())))
     }
 }
 
@@ -1954,6 +1957,19 @@ forbidden_response = |role, required| {
 
 # --- Main request handler ---
 
+# The request target as the handlers match on it: the resource path plus its query string
+# (`/api/users?role=Teacher`). basic-webserver 0.17 splits a target into `raw_path` and
+# `raw_query`; the route branches' string matching reads the pair back together, so the
+# `?all=true` / `?role=` / `?lesson_id=` parsing below behaves exactly as it did against the old
+# raw target. A target that is not a resource (CONNECT authority-form, `*`) reads as an empty
+# string, which matches nothing.
+request_target_text : Server.Request -> Str
+request_target_text = |request| match Server.Request.target(request) {
+    Server.Target.Resource({ raw_path, raw_query }) =>
+        "${raw_path}${match raw_query { Absent => "" Present(query) => "?${query}" }}"
+    _ => ""
+}
+
 respond! : Server.Request, Context => [Ok(Server.Outcome), Err([ServerErr(Str)])]
 respond! = |request, context| {
     # OPTIONS preflight
@@ -1964,7 +1980,7 @@ respond! = |request, context| {
                     |> Response.with_headers(cors_headers)
             )
         )
-    } else if request.target == "/health" {
+    } else if request_target_text(request) == "/health" {
         # The container's HEALTHCHECK curls this path, so the status code — not only the body — has
         # to carry the outcome: a 200 with "surreal db is down" inside it reported a database outage
         # as a healthy container. `db_body!` is the file's own rule for "did the query really
@@ -1975,7 +1991,7 @@ respond! = |request, context| {
         }
 
     # --- API routes (require auth) ---
-    } else if Str.starts_with(request.target, "/api/") {
+    } else if Str.starts_with(request_target_text(request), "/api/") {
         token_res = get_token(request.headers)
 
         # The caller's identity and role together: a DEV_MODE token names both directly, a real
@@ -1994,7 +2010,7 @@ respond! = |request, context| {
                 Err(e) => Err(e)
             }
 
-        required = required_role(request.method, request.target)
+        required = required_role(request.method, request_target_text(request))
 
         match auth {
             Err(e) => 
@@ -2003,16 +2019,16 @@ respond! = |request, context| {
                 Ok(forbidden_response(caller.role, required))
             Ok(caller) => {
                 user_json = caller.body
-                if Method.is_eq(request.method, GET) and request.target == "/api/students" {
+                if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/students" {
                     res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at, current_class FROM student_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/students" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/students" {
                     # Superseded by POST /api/users, which writes a student_profile record.
                     Ok(json_response(400, "{\"error\":\"Use POST /api/users with role=Student\"}"))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/enroll" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/enroll" {
                     payload_raw = read_body!(request)
                     
                     student_id = extract_field(payload_raw, "student_id") |> sanitize
@@ -2025,26 +2041,26 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(_) => Ok(json_response(500, "{\"error\":\"Golem error\"}"))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/teachers" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/teachers" {
                     res = SurrealDB.query_read!("SELECT id, display_name, first_name, surname, passport, created_at FROM teacher_profile WHERE deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teachers" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teachers" {
                     # Superseded by POST /api/users, which writes a teacher_profile record.
                     Ok(json_response(400, "{\"error\":\"Use POST /api/users with role=Teacher\"}"))
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/subjects") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/subjects") {
                     # The hub asks with ?all=true so a deactivated subject stays manageable; the
                     # default list (the student's subject cards, the curriculum picker) is the
                     # active rows only, which is what deactivating a subject takes it out of.
-                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
                     res = SurrealDB.query_read!("SELECT id, name, code, active FROM subjects${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/subjects" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/subjects" {
                     payload_raw = read_body!(request)
                     
                     name_val = extract_field(payload_raw, "name") |> sanitize
@@ -2058,7 +2074,7 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE subjects CONTENT ${payload_str};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, PUT) and request.target == "/api/subjects" {
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/subjects" {
                     # A patch: only the fields the payload carries are written, and an empty one
                     # means "leave it" rather than "blank it out".
                     payload_raw = read_body!(request)
@@ -2067,17 +2083,17 @@ respond! = |request, context| {
                         |clause| !Str.is_empty(clause),
                     )
                     Ok(config_update_response!("subjects", clauses, extract_field(payload_raw, "id") |> sanitize, "name or code", context.surreal))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/subjects/toggle-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/subjects/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("subjects", payload_raw, context.surreal))
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/terms" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/terms" {
                     # Admin config hub: every term, ordered. Students get the active subset below.
                     res = SurrealDB.query_read!("SELECT id, name, sort_order, active FROM terms ORDER BY sort_order;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/terms" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/terms" {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
 
@@ -2090,7 +2106,7 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE terms CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, PUT) and request.target == "/api/terms" {
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/terms" {
                     # A term keeps its name and its place in the school year. An absent sort_order
                     # leaves the stored one alone — requiring it is the create handler's job.
                     payload_raw = read_body!(request)
@@ -2101,19 +2117,19 @@ respond! = |request, context| {
                         |clause| !Str.is_empty(clause),
                     )
                     Ok(config_update_response!("terms", clauses, extract_field(payload_raw, "id") |> sanitize, "name or sort_order", context.surreal))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/terms/toggle-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/terms/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("terms", payload_raw, context.surreal))
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/class_levels") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/class_levels") {
                     # ?all=true is the hub's view: a deactivated level stays listed so it can be
                     # edited or switched back on. Everyone else gets the active levels only.
-                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
                     res = SurrealDB.query_read!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_levels" {
                     payload_raw = read_body!(request)
                     safe_payload = payload_raw |> sanitize
 
@@ -2126,7 +2142,7 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, PUT) and request.target == "/api/class_levels" {
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/class_levels" {
                     payload_raw = read_body!(request)
                     clauses = List.keep_if(
                         [
@@ -2137,20 +2153,20 @@ respond! = |request, context| {
                         |clause| !Str.is_empty(clause),
                     )
                     Ok(config_update_response!("class_levels", clauses, extract_field(payload_raw, "id") |> sanitize, "name, code or age_range", context.surreal))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/class_levels/toggle-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_levels/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("class_levels", payload_raw, context.surreal))
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/curriculum") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/curriculum") {
                     # The curriculum is the class_levels -> subjects edge in the prod schema. The hub
                     # asks with ?all=true so a link that has been switched off stays listed (and can
                     # be switched back on); the default is the active curriculum only.
-                    scope = if query_param(request.target, "all") == "true" { "" } else { " WHERE active = true" }
+                    scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
                     res = SurrealDB.query_read!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/curriculum" {
                     # Link one class level to one subject: the has_subject edge is the curriculum.
                     # A repeated pair is refused by the edge's unique (in, out) index, whose own
                     # message comes back through db_response!.
@@ -2164,16 +2180,16 @@ respond! = |request, context| {
                         subject_link = record_literal!("subjects", subject)
                         Ok(db_response!("RELATE ${class_link} -> has_subject -> ${subject_link} SET active = true;", context.surreal))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/curriculum/toggle-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/curriculum/toggle-active" {
                     # Unlinking without losing the row: the edge keeps its lessons, it just stops
                     # counting as part of the active curriculum.
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("has_subject", payload_raw, context.surreal))
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/class_arms" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/class_arms" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_arms" {
                     Ok(json_response(410, "{\"error\":\"Class arms are not part of the current schema; use class_levels and class_terms\"}"))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/users" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/users" {
                     # Create the login in Authentik, then (optionally set its password, then) write
                     # the role's profile record. The intent is journaled before any side effect and
                     # every completed side advances the journal, so a crash mid-way leaves the
@@ -2266,14 +2282,14 @@ respond! = |request, context| {
                                 }
                             }
                         }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/users") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/users") {
                     # Support ?role=Student|Teacher|Parent|Admin for tab filtering. The role picks the
                     # profile table and is what the directory's own logins are filtered by, so both
                     # sides of the listing are read from the one parameter.
                     role_param =
-                        if Str.contains(request.target, "role=Teacher") { "Teacher" }
-                        else if Str.contains(request.target, "role=Parent") { "Parent" }
-                        else if Str.contains(request.target, "role=Admin") { "Admin" }
+                        if Str.contains(request_target_text(request), "role=Teacher") { "Teacher" }
+                        else if Str.contains(request_target_text(request), "role=Parent") { "Parent" }
+                        else if Str.contains(request_target_text(request), "role=Admin") { "Admin" }
                         else { "Student" }
                     # The profile tables hold the app's own fields only, so no email or is_active here:
                     # both are identity attributes Authentik owns (see the merge below). The role's own
@@ -2297,25 +2313,25 @@ respond! = |request, context| {
                     }
 
                 # --- Student Lesson APIs ---
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/student/subjects" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/student/subjects" {
                     res = SurrealDB.query_read!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/terms") {
+                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/terms") {
                      # Prod: terms are school-wide (Noel/Calvary/Summer)
                      res = SurrealDB.query_read!("SELECT id, name, sort_order FROM terms WHERE active = true ORDER BY sort_order;", context.surreal)
                      match res {
                          Ok(body) => Ok(json_response(200, body))
                          Err(err) => Ok(db_read_error!(err))  
                      }
-                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/lessons") {
+                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/lessons") {
                      # Prod: a lesson hangs off the has_subject edge (class_levels -> subjects) and one
                      # terms record. The class-level filter is skipped until students are enrolled
                      # (student_profile is empty), so a subject matches every class level.
-                     subject_param = query_param(request.target, "subject_id")
-                     term_param = query_param(request.target, "term_id")
+                     subject_param = query_param(request_target_text(request), "subject_id")
+                     term_param = query_param(request_target_text(request), "term_id")
                      clauses = List.keep_if(
                          [
                              if Str.is_empty(subject_param) { "" } else { "has_subject.out = ${record_ref!(subject_param, "subjects")}" },
@@ -2330,8 +2346,8 @@ respond! = |request, context| {
                          Ok(body) => Ok(json_response(200, body))
                          Err(err) => Ok(db_read_error!(err))
                      }
-                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/lesson") {
-                     lesson_id = query_param(request.target, "lesson_id")
+                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/lesson") {
+                     lesson_id = query_param(request_target_text(request), "lesson_id")
                      if Str.is_empty(lesson_id) {
                          Ok(json_response(400, "{\"error\":\"Missing lesson_id\"}"))
                      } else {
@@ -2344,9 +2360,9 @@ respond! = |request, context| {
                      }
 
                 # --- Teacher Lesson/Assessment APIs ---
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/lessons") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/lessons") {
                     # With a lesson id this is the viewer asking for one lesson; without it, the picker's list.
-                    lesson_id = query_param(request.target, "lesson_id")
+                    lesson_id = query_param(request_target_text(request), "lesson_id")
                     lessons_query =
                         if Str.is_empty(lesson_id) {
                             "SELECT id, topic_title, week, term, active FROM lessons WHERE active = true ORDER BY week LIMIT 50;"
@@ -2358,25 +2374,25 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/assessments") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/assessments") {
                     # Students only see published (active) assessments.
-                    lesson_id = query_param(request.target, "lesson_id")
+                    lesson_id = query_param(request_target_text(request), "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
                     res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/lesson-assessments") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/lesson-assessments") {
                     # Teachers see their drafts too.
-                    lesson_id = query_param(request.target, "lesson_id")
+                    lesson_id = query_param(request_target_text(request), "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
                     res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/create-lesson-assessment" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/create-lesson-assessment" {
                     # New assessments start as drafts: the teacher publishes them when ready.
                     payload_raw = read_body!(request)
                     lesson_id = extract_field(payload_raw, "lesson_id") |> sanitize
@@ -2405,11 +2421,11 @@ respond! = |request, context| {
                         create_query = "CREATE lesson_assessments SET lesson = ${record_ref!(lesson_id, "lessons")}, title = '${surreal_literal(title)}'${description_clause}, questions = ${questions}, total_mark = ${total_mark_clause}${max_resubmissions_clause}, active = false, created_by = ${record_ref!(caller_id!(user_json), "teacher_profile")}, created_at = time::now()${deadline_clause}${scheduled_at_clause};"
                         Ok(db_response!(create_query, context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/student/general-assessments") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/general-assessments") {
                     # Students only see published (active) general assessments. The subject and
                     # session term filters are optional, like the lesson filter above.
-                    subject_param = query_param(request.target, "subject_id")
-                    session_param = query_param(request.target, "session_term_id")
+                    subject_param = query_param(request_target_text(request), "subject_id")
+                    session_param = query_param(request_target_text(request), "session_term_id")
                     clauses = List.keep_if(
                         [
                             if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
@@ -2424,10 +2440,10 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/general-assessments") {
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/general-assessments") {
                     # Teachers see their drafts too.
-                    subject_param = query_param(request.target, "subject_id")
-                    session_param = query_param(request.target, "session_term_id")
+                    subject_param = query_param(request_target_text(request), "subject_id")
+                    session_param = query_param(request_target_text(request), "session_term_id")
                     clauses = List.keep_if(
                         [
                             if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
@@ -2441,7 +2457,7 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/create-general-assessment" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/create-general-assessment" {
                     # A general assessment hangs off a subject and a session term instead of a lesson,
                     # and carries a percentage weight for the term result. Like a lesson assessment it
                     # starts as a draft and the teacher publishes it from the list.
@@ -2489,7 +2505,7 @@ respond! = |request, context| {
                             Ok(db_response!(create_query, context.surreal))
                         }
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/toggle-assessment-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/toggle-assessment-active" {
                     # Publishing and unpublishing: students only see active assessments. The type
                     # picks the table; absent means a lesson assessment, so the lesson UI and its
                     # callers keep working unchanged.
@@ -2503,8 +2519,8 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("UPDATE ${record_ref!(assessment_id, assessment_table)} SET active = ${active}, updated_at = time::now();", context.surreal))
                     }
-                } else if Method.is_eq(request.method, GET) and Str.starts_with(request.target, "/api/teacher/submissions") {
-                    assessment_id = query_param(request.target, "assessment_id")
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/teacher/submissions") {
+                    assessment_id = query_param(request_target_text(request), "assessment_id")
                     scope = if Str.is_empty(assessment_id) { "" } else { "WHERE assessment_id = '${bare_id(assessment_id)}' " }
                     subs_query = "SELECT *, student.display_name AS student_name, student.id AS student_ref, (scored_mark IS NOT NONE) AS graded FROM submissions ${scope}ORDER BY submitted_at DESC;"
                     res = SurrealDB.query_read!(subs_query, context.surreal)
@@ -2512,7 +2528,7 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/student/submit-assessment" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/student/submit-assessment" {
                     # One submission per student and assessment; a resubmission bumps the iteration
                     # in place so the teacher's grading list stays one row per student. The deadline
                     # and the resubmission limit are enforced here — the page's disabled button is
@@ -2582,7 +2598,7 @@ respond! = |request, context| {
                             }
                         }
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/grade-submission" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/grade-submission" {
                     payload_raw = read_body!(request)
                     submission_id = extract_field(payload_raw, "submission_id") |> sanitize
                     score = extract_number_field(payload_raw, "scored_mark")
@@ -2594,7 +2610,7 @@ respond! = |request, context| {
                         # submissions has no graded_at column; scored_mark is what marks it graded.
                         Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET scored_mark = ${score};", context.surreal))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/teacher/release-grades" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/teacher/release-grades" {
                     payload_raw = read_body!(request)
                     submission_id = extract_field(payload_raw, "submission_id") |> sanitize
                     if Str.is_empty(submission_id) {
@@ -2604,7 +2620,7 @@ respond! = |request, context| {
                     }
 
                 # --- Passport photo upload URL ---
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/upload-url" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/upload-url" {
                     payload_raw = read_body!(request)
                     user_id_val = extract_field(payload_raw, "userId") |> sanitize
                     profile_type_val = extract_field(payload_raw, "profileType") |> sanitize
@@ -2659,7 +2675,7 @@ respond! = |request, context| {
                 # A token the page already holds (sent back as `X-Matrix-Token`) is validated
                 # against the homeserver and reused when it still works; a fresh token — and with
                 # it a fresh Synapse device — is minted only when the old one is gone or invalid.
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/matrix/token" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/matrix/token" {
                     # The env values are trimmed: a stray trailing space or carriage return in a
                     # pasted value looks identical in logs but makes the homeserver URL unparsable
                     # (and the error below would name no cause).
@@ -2707,7 +2723,7 @@ respond! = |request, context| {
                         }
                     }
 
-                } else if Method.is_eq(request.method, PUT) and request.target == "/api/users" {
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/users" {
                     # Update the profile row the id names. The table comes from the id's own prefix
                     # (`student_profile:<uuid>`, as the listings return it). A row that is not there
                     # yet is attached to the login that id names instead — the state an admin is in
@@ -2749,7 +2765,7 @@ respond! = |request, context| {
                             }
                         }
                     }
-                } else if Method.is_eq(request.method, DELETE) and request.target == "/api/users" {
+                } else if Method.is_eq(request.method, DELETE) and request_target_text(request) == "/api/users" {
                     # Soft delete the profile row, then switch the login off. The listings filter on
                     # `deleted_at IS NONE`, so the row (and its history) stays in the database and
                     # simply stops appearing; the live login is what still lets the user in, so it is
@@ -2793,7 +2809,7 @@ respond! = |request, context| {
                             }
                         }
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/set-password" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/users/set-password" {
                     # The admin's Reset-password action: set a new password on a login (Authentik owns
                     # it; nothing school-side changes). The page shows the value once and never stores it.
                     payload_raw = read_body!(request)
@@ -2811,7 +2827,7 @@ respond! = |request, context| {
                             Ok(_) => Ok(json_response(200, "{\"ok\":true}")),
                         }
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/activate" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/users/activate" {
                     # Bring a soft-deleted profile back and re-enable its login: the mirror of
                     # DELETE /api/users. Either side failing is reported, not papered over.
                     payload_raw = read_body!(request)
@@ -2832,18 +2848,18 @@ respond! = |request, context| {
                                 }
                         }
                     }
-                                } else if Method.is_eq(request.method, POST) and request.target == "/api/users/reconcile" {
+                                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/users/reconcile" {
                     # The reconciler: settle anything a crash left mid-operation. Also runs at boot;
                     # this is the on-demand trigger, mostly for tests and for after a redeploy.
                     Ok(json_response(200, "{\"reconcile\":\"${sanitize_json_text(reconcile_pending!(context.surreal))}\"}"))
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/users/pending" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/users/pending" {
                     # The ops that are not finished: running ones plus failed ones with their
                     # message, so an admin can see exactly what needs a human.
                     match SurrealDB.query_read!("SELECT * FROM pending_ops WHERE state != 'done' ORDER BY created_at DESC LIMIT 50;", context.surreal) {
                         Ok(body) => Ok(json_response(200, body)),
                         Err(err) => Ok(db_read_error!(err)),
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms/active" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/session_terms/active" {
                     # The nav bar's badge: the one active session term, with its term's own name joined
                     # in (`term.name` follows the record link). The page refetches it on every
                     # navigation. Under /api/session_terms, so every authenticated role may read it.
@@ -2852,14 +2868,14 @@ respond! = |request, context| {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, GET) and request.target == "/api/session_terms" {
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/session_terms" {
                     # Prod names this table in the singular.
                     res = SurrealDB.query_read!("SELECT id, session_name, term, active FROM session_term WHERE deleted_at IS NONE ORDER BY session_name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
                     }
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/session_terms" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/session_terms" {
                     payload_raw = read_body!(request)
                     session_name = extract_field(payload_raw, "session_name") |> sanitize
                     term_id = extract_field(payload_raw, "term") |> sanitize
@@ -2868,7 +2884,7 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE session_term SET session_name = '${session_name}', term = ${record_ref!(term_id, "terms")}, active = false, created_at = time::now();", context.surreal))
                     }
-                } else if Method.is_eq(request.method, PUT) and request.target == "/api/session_terms" {
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/session_terms" {
                     # A session term is a name plus the term it belongs to, so both are updatable.
                     payload_raw = read_body!(request)
                     term_id = extract_field(payload_raw, "term") |> sanitize
@@ -2878,7 +2894,7 @@ respond! = |request, context| {
                         |clause| !Str.is_empty(clause),
                     )
                     Ok(config_update_response!("session_term", clauses, extract_field(payload_raw, "id") |> sanitize, "session_name or term", context.surreal))
-                } else if Method.is_eq(request.method, POST) and request.target == "/api/session_terms/toggle-active" {
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/session_terms/toggle-active" {
                     # New session terms are created inactive, so this is what makes one usable.
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("session_term", payload_raw, context.surreal))
@@ -2890,7 +2906,7 @@ respond! = |request, context| {
 
     # --- Static file serving (SPA with fallback to index.html) ---
     } else {
-        Ok(serve_static!(request.target, context.static_dir))
+        Ok(serve_static!(request_target_text(request), context.static_dir))
     }
 }
 
