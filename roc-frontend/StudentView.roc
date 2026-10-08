@@ -1,10 +1,10 @@
-module [view]
 
 import html.Html
 import html.Attribute
 
 import UI
 import State exposing [Model, Msg, list_state]
+StudentView := [].{
 
 view = |model| {
     match model.route {
@@ -584,4 +584,6 @@ student_dashboard_shortcuts = |model| {
             ])
         ])
     ])
+}
+
 }

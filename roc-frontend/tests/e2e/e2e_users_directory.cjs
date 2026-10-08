@@ -78,6 +78,19 @@ const summary = () => {
       if (!db.ok) throw new Error(`sandbox db answered ${db.status}`);
       login = (await studentsListing()).find(r => r.email === LOGIN_EMAIL);
     }
+    // users_api.sh exercises the seed login through the API, which leaves its login disabled (a
+    // delete also switches the mock login off). The profile is now permanently gone (the hard delete
+    // above), so re-enabling the login is safe — activate only restores the soft-deleted row, and
+    // there is none. The suite starts from a bare login that is on.
+    if (login && login.is_active === false) {
+      const res = await fetch(`${appUrl}/api/users/activate`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${authToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ id: login.id }),
+      });
+      if (!res.ok) throw new Error(`POST /api/users/activate answered ${res.status}`);
+      login = (await studentsListing()).find(r => r.email === LOGIN_EMAIL);
+    }
   } catch (err) {
     console.error(`FAIL  the sandbox could not be prepared — ${err.message}`);
     process.exit(1);

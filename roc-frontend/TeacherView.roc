@@ -1,10 +1,10 @@
-module [view]
 
 import html.Html
 import html.Attribute
 
 import UI
 import State exposing [Model, Msg, list_state]
+TeacherView := [].{
 
 view = |model| {
     match model.route {
@@ -583,4 +583,6 @@ teacher_dashboard_shortcuts = |model| {
             ])
         ])
     ])
+}
+
 }

@@ -1,10 +1,10 @@
-module [view]
 
 import html.Html
 import html.Attribute
 
 import UI
 import State exposing [Model, Msg, AdminConfigTab, AdminUserTab, list_state]
+AdminView := [].{
 
 view = |model| {
     match model.route {
@@ -1052,4 +1052,6 @@ subjects_row = |model, line| {
 			config_row_actions(model, Subjects, line, id, is_active)
 		])
 	}
+}
+
 }
