@@ -206,9 +206,9 @@ Two independent causes, both found and fixed:
    `host/host.rs` assumes the host is the only code that grows linear memory, but the boxy runtime's
    `std.heap.page_allocator` grows it too, so `END` goes stale and the host hands out spans that overlap the
    runtime's pages — the trap surfaced in `roc_boxy_register_erased_proc` on the second host entry. Fixed with a
-   host patch (re-read `memory_size(0)`, use `memory_grow`'s return value); see `roc-frontend/JOY_HOST_PATCH.md`
-   and `roc-frontend/joy-host-bump-span.patch`. `www/app.wasm` is built against the patched host. Upstream
-   report text is in the same note.
+   local host patch (re-read `memory_size(0)`, use `memory_grow`'s return value; the note and patch were in
+   `roc-frontend/JOY_HOST_PATCH.md` / `joy/host-bump-span.patch`; **retired 2026-10-07**, see the Joy 0.34.0
+   section below — Joy ships this fix upstream).
 2. **`www/index.html` never unwrapped SurrealDB's response envelope.** `Array.isArray(data) ? data : (data[0]?.result || [])`
    treats the one-element envelope `[{ result: [...], status: "OK" }]` as the rows, so every list rendered a
    single fieldless row (`|Unknown|`, `Unknown||true`) and no data ever appeared. Replaced by the shared
@@ -218,8 +218,9 @@ Verified in Chromium against the live prod DB (read-only, `DEV_MODE` backend): 9
 prod, terms, lessons filtered by subject+term, full lesson content (introduction, objectives as text, sections,
 sub-points, key points, conclusion), scroll-spy sections, and no page errors.
 
-Caveat: rebuilding `www/app.wasm` from the unmodified `app.roc` (which names the remote platform URL) reproduces
-the host crash. Build against the patched local platform as described in `JOY_HOST_PATCH.md`.
+Caveat: rebuilding `www/app.wasm` from the unmodified `app.roc` (which names the remote platform URL) reproduced
+the host crash against 0.33.0. **Retired 2026-10-07**: `app.roc` now pins Joy 0.34.0, whose release ships the
+fix upstream, and builds clean from the URL alone — the vendored patched platform is deleted.
 
 ### User creation (T7) — done
 
@@ -265,13 +266,28 @@ Verified read-only against prod: students/teachers `[]`, curriculum returns the 
 `session_term` returns the 2026/2027 sessions, `class_arms` returns 410, and the retired POSTs return 400
 without writing.
 
+### Joy 0.34.0 — the host fix ships upstream; vendored patch retired (2026-10-07)
+
+Joy 0.34.0's release fixed the exact crash this app carried a local host patch for:
+"fix random crashes in apps with subscriptions or callbacks … once their model grew" (apps passing flags and
+using `Http`, ports, or debounce) — the boxy runtime growing wasm linear memory behind the host allocator's
+stale `END`. `app.roc` now pins the 0.34.0 release bundle (+ joy-html 0.17.0) instead of the patched local
+checkout; the vendored `joy/` directory, `host-bump-span.patch`, and `JOY_HOST_PATCH.md` are deleted, and the
+references in `docs/architecture.md` and the e2e README updated.
+
+**Verified** (`roc check app.roc` 0 errors; sandbox 8322, rebuilt wasm + runtime.js): `e2e_admin.cjs` 9/9
+(ports-heavy: generate-password and copy-to-clipboard ports, Http creates), `e2e_users_directory.cjs` 23/23,
+`e2e_loading.cjs` 20/20 (subscription/navigation paths), `e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96,
+`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56. The local compiler nightly is
+unchanged (2026-09-19, what `Dockerfile.app` pins); Joy 0.34.0 builds and runs cleanly on it — the recommended
+`nightly-2026-10-06-c34079d` is a follow-up option, not a requirement.
+
 ### Build and tests — done
 
-- Joy 0.33.0 is vendored at `roc-frontend/joy/` with the host allocator patch applied
-  (`joy/host-bump-span.patch`), and `app.roc` points at it, so `cd roc-frontend && roc run build.roc` builds
-  a working app on any machine. The layout mirrors a Joy checkout (`platform/…` plus `www/runtime.js`) so the
-  template's own `build.roc` copies the runtime unchanged. Swap `app.roc` back to the release URL once the fix
-  ships upstream.
+- Joy 0.34.0 is pinned by release-bundle URL in `app.roc` (joy-html 0.17.0), so `cd roc-frontend && roc run
+  build.roc` builds a working app on any machine with just the compiler. The vendored patched 0.33.0 checkout
+  (`roc-frontend/joy/`, `host-bump-span.patch`, `JOY_HOST_PATCH.md`) was deleted when 0.34.0 shipped the fix
+  upstream.
 - `roc-frontend/tests/e2e/` holds the checks used during this migration: `e2e_student.cjs` (student drill-down
   against the backend), `e2e_admin.cjs` (user creation in a sandbox), `render_lesson_check.cjs` (the lesson
   renderer, no browser), plus `fixtures/sandbox-schema.surql` and `fixtures/mock_authentik_unique.py`.

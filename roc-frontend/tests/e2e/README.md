@@ -8,8 +8,8 @@ this app.)
 
 ## Prerequisites
 
-- A build: `cd ../.. && roc run build.roc` (uses the vendored platform in `../../joy`; see
-  `../../JOY_HOST_PATCH.md`).
+- A build: `cd ../.. && roc run build.roc` (the Joy platform is pinned by release-bundle URL in
+  `app.roc`'s header, so Roc downloads it on the first build — nothing to vendor).
 - A running backend serving that build:
   `cd ../../../roc-backend && DEV_MODE=true infisical run --env=dev -- roc run main.roc`.
   `DEV_MODE` is what lets these scripts use the `dev-skip` bearer token instead of a real Authentik login.
