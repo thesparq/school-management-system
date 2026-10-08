@@ -1,5 +1,9 @@
 # Spec 22: Production Architecture Redesign (CQRS, Caching & Security)
 
+> **Status: deferred (2026-10-07).** The Roc stack does not use CQRS/event sourcing; two-system writes are
+> journaled instead (`pending_ops`, see `docs/architecture.md`) and the decision is deferred to the roc-golem
+> design. This spec is the earlier SvelteKit/MoonBit-era proposal, kept for the record.
+
 ## 1. Executive Summary & Goals
 This document outlines the architectural shift from a "Per-User Durable Agent" model to a strict **CQRS (Command Query Responsibility Segregation)** model. 
 The goal is to eliminate database bottlenecking, remove the "fan-out cache invalidation" anti-pattern, and massively increase read performance, while reserving Golem's durable execution exclusively for active workflows and state mutations.

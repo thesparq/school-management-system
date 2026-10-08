@@ -14,7 +14,7 @@ here describes it as current. `docs/progress-tracker.md` holds the live state an
 | Database | SurrealDB 3.x | The school's data: curriculum, lessons, assessments, submissions, profiles. Prod is `db2.johnethel.school`, ns `main`, db `lessons` |
 | Object storage | Cloudflare R2 | Passport photos (public URL on the profile) |
 | Deployment | Dokploy + Traefik | `devops/docker-compose.yml`; the app is the `app` service, built by `Dockerfile.app`, published on `app.johnethel.school` |
-| Toolchain | Roc nightly | Pinned in `Dockerfile.app` from `roc-lang/nightlies`; the Joy platform is vendored in `roc-frontend/joy/` with a host patch (`roc-frontend/JOY_HOST_PATCH.md`) |
+| Toolchain | Roc nightly | Pinned in `Dockerfile.app` from `roc-lang/nightlies` (currently `nightly-2026-09-29-7f11a82`); the Joy platform is pinned by release-bundle URL in `roc-frontend/app.roc` (0.34.0, joy-html 0.17.0) |
 
 ## Repository layout
 
@@ -23,7 +23,8 @@ roc-backend/            the API: main.roc (routes), Authentik.roc, SurrealDB.roc
                         Base64.roc … and *Test.roc files beside them (roc test)
 roc-frontend/           app.roc (the SPA), State.roc (model/messages), *View.roc (views), UI.roc,
                         www/index.html (the page's own JS: routing, forms, chat, assessments),
-                        www/app.css → dist.css (Tailwind), joy/ (vendored platform), build.roc
+                        www/app.css → dist.css (Tailwind), build.roc (the Joy platform itself
+                        comes by release-bundle URL from app.roc's header)
 db/schema-v2..v8.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
                         prod and is superseded by v8 (not replayable as it stands, see Storage model),
                         and v7 is the latest applied
@@ -106,7 +107,10 @@ file stale. What belongs here is the shape and the rules:
   twice), a create that never set its password is rolled back (the value is gone by design), and a
   delete finishes the half that was left. Anything that cannot be settled stays visible as a
   `failed` row with its message (`GET /api/users/pending`). The password itself is never journaled,
-  stored or logged — only a `wants_password` flag.
+  stored or logged — only a `wants_password` flag. This journal is the write-side record a future
+  event stream would be built from; **CQRS/event sourcing is deliberately not in use** — the
+  retired stack's `EventStore.roc` stub was removed — and the decision is deferred to the roc-golem
+  design.
 - **School numbers are the person's school identity, and what is stored is the integer alone.**
   `student_profile.admission_number` and `staff_id` on `teacher_profile` and `admin_profile` hold an
   `option<int>` — no prefix, no padding — drawn from one counter per class of member in `id_sequences`
@@ -164,9 +168,9 @@ file stale. What belongs here is the shape and the rules:
    arrays). Anything richer would need a parser this Roc version does not have.
 7. **Verify against something that behaves like production.** The e2e suites run against a sandbox built from
    `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` (which mirrors the prod schema) with a mock Authentik;
-   production data is never written to. `roc check main.roc` must end at 0 errors and 0 warnings (the three module-header deprecations were migrated to type modules), and a page
-   load belongs to any frontend rebuild — two Roc shapes compile cleanly into a wasm that renders nothing
-   (`roc-frontend/JOY_HOST_PATCH.md`).
+   [REDACTED] data is never written to. `roc check main.roc` must end at 0 errors; the pinned compiler
+   also reports warnings from the release-bundle platforms' own sources (61 today), which are accepted and
+   expected to shrink as those bundles upgrade. A page load belongs to any frontend rebuild.
 
 ## Retired: the MoonBit/Golem path
 

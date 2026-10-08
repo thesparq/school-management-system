@@ -206,9 +206,9 @@ Two independent causes, both found and fixed:
    `host/host.rs` assumes the host is the only code that grows linear memory, but the boxy runtime's
    `std.heap.page_allocator` grows it too, so `END` goes stale and the host hands out spans that overlap the
    runtime's pages — the trap surfaced in `roc_boxy_register_erased_proc` on the second host entry. Fixed with a
-   host patch (re-read `memory_size(0)`, use `memory_grow`'s return value); see `roc-frontend/JOY_HOST_PATCH.md`
-   and `roc-frontend/joy-host-bump-span.patch`. `www/app.wasm` is built against the patched host. Upstream
-   report text is in the same note.
+   local host patch (re-read `memory_size(0)`, use `memory_grow`'s return value; the note and patch were in
+   `roc-frontend/JOY_HOST_PATCH.md` / `joy/host-bump-span.patch`; **retired 2026-10-07**, see the Joy 0.34.0
+   section below — Joy ships this fix upstream).
 2. **`www/index.html` never unwrapped SurrealDB's response envelope.** `Array.isArray(data) ? data : (data[0]?.result || [])`
    treats the one-element envelope `[{ result: [...], status: "OK" }]` as the rows, so every list rendered a
    single fieldless row (`|Unknown|`, `Unknown||true`) and no data ever appeared. Replaced by the shared
@@ -218,8 +218,9 @@ Verified in Chromium against the live prod DB (read-only, `DEV_MODE` backend): 9
 prod, terms, lessons filtered by subject+term, full lesson content (introduction, objectives as text, sections,
 sub-points, key points, conclusion), scroll-spy sections, and no page errors.
 
-Caveat: rebuilding `www/app.wasm` from the unmodified `app.roc` (which names the remote platform URL) reproduces
-the host crash. Build against the patched local platform as described in `JOY_HOST_PATCH.md`.
+Caveat: rebuilding `www/app.wasm` from the unmodified `app.roc` (which names the remote platform URL) reproduced
+the host crash against 0.33.0. **Retired 2026-10-07**: `app.roc` now pins Joy 0.34.0, whose release ships the
+fix upstream, and builds clean from the URL alone — the vendored patched platform is deleted.
 
 ### User creation (T7) — done
 
@@ -265,13 +266,40 @@ Verified read-only against prod: students/teachers `[]`, curriculum returns the 
 `session_term` returns the 2026/2027 sessions, `class_arms` returns 410, and the retired POSTs return 400
 without writing.
 
+### Joy 0.34.0 — the host fix ships upstream; vendored patch retired (2026-10-07)
+
+Joy 0.34.0's release fixed the exact crash this app carried a local host patch for:
+"fix random crashes in apps with subscriptions or callbacks … once their model grew" (apps passing flags and
+using `Http`, ports, or debounce) — the boxy runtime growing wasm linear memory behind the host allocator's
+stale `END`. `app.roc` now pins the 0.34.0 release bundle (+ joy-html 0.17.0) instead of the patched local
+checkout; the vendored `joy/` directory, `host-bump-span.patch`, and `JOY_HOST_PATCH.md` are deleted, and the
+references in `docs/architecture.md` and the e2e README updated.
+
+**Verified** (`roc check app.roc` 0 errors; sandbox 8322, rebuilt wasm + runtime.js): `e2e_admin.cjs` 9/9
+(ports-heavy: generate-password and copy-to-clipboard ports, Http creates), `e2e_users_directory.cjs` 23/23,
+`e2e_loading.cjs` 20/20 (subscription/navigation paths), `e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96,
+`authz.sh` 27/27, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+**Compiler pin — bumped to `nightly-2026-09-29-7f11a82` (2026-10-08).** Joy 0.34.0's recommended
+`nightly-2026-10-06-c34079d` is not usable for this repo yet, in two steps: the 10-02 nightly made
+`redundant expose` and `redundant open tag union` hard errors, which the shipped bundles of basic-cli 0.24.0
+(the build tool behind `build.roc`) and basic-webserver 0.14.0-rc1 (the backend) still trip (12 and 4
+errors); and 10-01 — the last nightly that still compiles both — segfaults in codegen when emitting the
+backend binary (`roc build main.roc` → SIGSEGV; `check` passes). 09-29 is the newest nightly that builds
+both sides: `roc build main.roc` 0 errors / 61 warnings (all from the platform bundles) and
+`roc run build.roc` 0 errors / 85 warnings, the binary runs the full suite set above, and all unit tests
+pass (Base64 9/9, AuthUrls 4/4, R2 20/20, Url 16/16, Hmac 7/7, Sha256 7/7). `Dockerfile.app` pins this
+nightly and tolerates the compiler's exit-2-on-warnings for both Roc builds (0 and 2 both mean success).
+The frontend's `exposing` clauses and `Base64`/`AuthUrls` signatures were made rule-compliant
+(`->` for pure functions, no redundant type re-exports) so a future jump to 10-02+ needs the platform
+bundles to catch up, not this repo.
+
 ### Build and tests — done
 
-- Joy 0.33.0 is vendored at `roc-frontend/joy/` with the host allocator patch applied
-  (`joy/host-bump-span.patch`), and `app.roc` points at it, so `cd roc-frontend && roc run build.roc` builds
-  a working app on any machine. The layout mirrors a Joy checkout (`platform/…` plus `www/runtime.js`) so the
-  template's own `build.roc` copies the runtime unchanged. Swap `app.roc` back to the release URL once the fix
-  ships upstream.
+- Joy 0.34.0 is pinned by release-bundle URL in `app.roc` (joy-html 0.17.0), so `cd roc-frontend && roc run
+  build.roc` builds a working app on any machine with just the compiler. The vendored patched 0.33.0 checkout
+  (`roc-frontend/joy/`, `host-bump-span.patch`, `JOY_HOST_PATCH.md`) was deleted when 0.34.0 shipped the fix
+  upstream.
 - `roc-frontend/tests/e2e/` holds the checks used during this migration: `e2e_student.cjs` (student drill-down
   against the backend), `e2e_admin.cjs` (user creation in a sandbox), `render_lesson_check.cjs` (the lesson
   renderer, no browser), plus `fixtures/sandbox-schema.surql` and `fixtures/mock_authentik_unique.py`.
@@ -467,8 +495,8 @@ dies with SIGSEGV. Restart it; a fresh start runs the same sources fine.
   needs a fixture reload after ~9 runs — `general_assessment_flow.sh` no longer has that limit.
 - [ ] `docs/architecture.md` is written for the Roc stack now, but the retired path could still use a fuller
   account (the agent table, the RPC fan-out) if anyone needs it beyond git history.
-- [ ] Optional: file the Joy host allocator bug upstream (`roc-frontend/JOY_HOST_PATCH.md` has a ready-to-post
-  report).
+- [x] Closed 2026-10-07: the Joy host allocator bug is fixed upstream in Joy 0.34.0 (see the Joy 0.34.0
+  section) — nothing left to file.
 
 ### Three parallel workstreams — two done
 
@@ -917,15 +945,69 @@ the password replays the profile from the journal (new school number, `done`, ro
 delete interrupted between the two sides is finished by the reconciler; `pending`/`reconcile` are
 403 for non-admin; `users_api.sh` 94/94 (was 87), `authz.sh` 27/27, `assessment_flow.sh` 41/41.
 The frontend half (password field + Generate + Copy credentials, working row actions, richer
-columns) follows as the next unit.
+columns) is done — the section below.
+
+### User management's frontend half — done (2026-10-07)
+
+The backend half (passwords, activate, the journal) shipped above; this is the form and the row
+actions the admin actually uses, plus the two small backend fixes the form exposed.
+
+- **The create form carries an optional password**, with a Generate button (the page's own generator — Roc has
+  no random source — answers through the rendered input's input event, exactly like typing). A create that
+  carried one comes back as a **one-time credentials panel**: the email and the password, shown once with a
+  Copy button (`copy_to_clipboard` port; plain-http origins fall back to execCommand) and cleared the moment
+  the form starts another write. The password is never stored anywhere (the backend journal marks only its
+  presence) and bad ones stay refused (8-72 chars, no line breaks).
+- **The row actions work.** Edit loads the row into the form above (prefilled from the row's own listing
+  line; the submit is the same PUT, patching), Deactivate soft-deletes the profile and disables the login
+  (DELETE /api/users), and the toggle follows the login's true state — a row whose login is off offers
+  Activate (POST /api/users/activate) instead. A profile-less row still offers exactly Complete profile (its
+  one action).
+- **The payload mirrors what the form shows.** `role_title` rides only an Admin write — it is a column of
+  `admin_profile` alone, and a carried non-column field is a 400 on the backend, which the first Edit of a
+  student row hit because fixture rows carry a stray flex `role_title`. And the parent completing path was
+  unblocked on the backend: `misplaced_update_fields` refused first/middle/surname for `parent_profile` even
+  though its own attach validation demands them and `update_clauses!` derives the parent's single `name`
+  from them. A parent attached through the form now lands with the derived name ("Ada Okeke"), locked by two
+  new `users_api.sh` checks.
+- The richer listing columns (school number, status) were already in from the backend half; the row line
+  now also carries first/middle/surname/date_of_birth/current_class/role_title/passport for Edit's prefill.
+
+**Verified** (`roc check main.roc` 0 errors; `roc check app.roc` 0 errors; sandbox 8322): `e2e_admin.cjs`
+10/10 (new: Generate fills a 16-char password; the panel hands over `email\npassword` and the clipboard holds
+it; a value with a double quote is refused up front), `e2e_users_directory.cjs` 27/27, run twice (new: activate
+flips the toggle; **deactivate hides the profile and disables the login — the bare Inactive row then offers
+Activate as its only action, which restores both**; Edit-prefill → Save changes → `User updated` and the row
+shows the edited surname; suite re-runnable — its reset deletes the profile row directly from the sandbox
+database, like users_api.sh's, so the fixture's login is never mutated), `e2e_loading.cjs` 20/20 (retry check
+now keys on the login's address, so a users_api.sh run that leaves the seed parent completed cannot trip it),
+`e2e_admin_config.cjs` 53/53, `users_api.sh` 96/96 (was 94; +2 parent-completing), `authz.sh` 27/27,
+`assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
+
+**Review fixes landed before the merge** (2026-10-08): a deactivated (bare) row now offers **Activate** — the
+previous code showed only Complete profile once the profile was hidden, making reactivation unreachable
+through the UI; form values are validated up front against `"`, `\`, `|` and line breaks, because the
+hand-written JSON payload is scanned (not parsed) by the backend and the directory rows are `|`-separated —
+so such values can no longer be stored silently truncated or shift the Edit prefill; the credentials panel
+moved to the end of the view to dodge a Joy 0.34.0 runtime bug (a conditional subtree whose size changes
+shifts the flat ref list the renderer patches attributes by, and a value-input patch could land on a text
+node — `node.setAttribute is not a function`); `Dockerfile.app` regained its `npm ci` step; and the doc
+references to the retired EventStore/joy-vendoring/old nightly were cleaned up.
+
+**Still open**: `e2e_admin_config.cjs`'s curriculum create is not re-runnable on one long-lived sandbox — the
+JSS 2 + Agricultural Science link it adds collides on the unique index with the link an earlier run left
+behind (every other create in the suite stamps its name). It passes on a fresh fixture; re-running needs
+that leftover edge deleted, or the create stamped like the rest.
 
 ---
 
 ## Completed Work
 
-- [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc, EventStore.roc)
+- [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
+  EventStore.roc stub is gone — see the journal section)
 - [x] Roc Joy framework frontend (app.roc, State.roc, UI.roc, DashboardView, AdminView, TeacherView, StudentView)
-- [x] SurrealDB schema (schema.surrealql) with event sourcing tables
+- [x] SurrealDB schema lineage (db/schema-vN.surql; the old event-sourcing tables were never applied —
+  writes are journaled instead, and CQRS/event sourcing is deferred to the roc-golem design)
 - [x] CSS theme system with shadcn/Tailwind tokens (light + dark mode)
 - [x] **Phase 5: Security Hardening**
   - [x] Environment variables for all secrets/URLs (SURREAL_URL, SURREAL_AUTH, AUTHENTIK_*, GOLEM_URL, DEV_MODE)

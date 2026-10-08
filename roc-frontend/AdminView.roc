@@ -19,9 +19,26 @@ view = |model| {
 # -------------------------------------------------------
 
 admin_users_view = |model| {
-    # The one form serves both writes: with a profile id it completes that login's school data, without
-    # one it adds a user. Everything the two modes share is written once, below.
-    completing = !Str.is_empty(model.completingProfileId)
+    # One form, three modes: add (POST, empty), complete a login that has no profile yet (PUT,
+    # empty), and edit an existing profile (PUT, prefilled from the row). The last two are the same
+    # write; what differs is the labels and whether the school fields start filled.
+    form_mode =
+        if model.userEditing { EditingUser }
+        else if !Str.is_empty(model.completingProfileId) { CompletingProfile }
+        else { AddingUser }
+    # Absent in add mode, present in both PUT modes: the write names the profile id, the login's own
+    # email is Authentik's and shown but not sent, and the role comes from the row's table.
+    completing = form_mode != AddingUser
+    form_title = match form_mode {
+        AddingUser => "Add New User"
+        CompletingProfile => "Complete Profile"
+        EditingUser => "Edit User"
+    }
+    form_description = match form_mode {
+        AddingUser => "Create a new account and optionally upload a passport photograph."
+        CompletingProfile => "This login is already in the directory; the school data below is what makes it a full account. Its own name and address stay as Authentik has them."
+        EditingUser => "Change the school data for this account; its name and address stay as Authentik has them. Fields left blank are left unchanged."
+    }
 
     Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
         # Page header
@@ -43,22 +60,16 @@ admin_users_view = |model| {
             ])
         },
 
-        # Add New User / Complete Profile card: the name parts together, then the contact address and
-        # the role, then the profile fields the chosen role's create uses, then the passport — with one
-        # primary action for the whole form.
+        # Add New User / Complete Profile / Edit User card: the name parts together, then the contact
+        # address and the role, then the profile fields the chosen role's create uses, then the
+        # passport (and, while adding, the password) — with one primary action for the whole form.
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [
                 Html.div([Attribute.class("flex items-start justify-between gap-4")], [
                     Html.div([], [
-                        UI.card_title({ classes: "" }, [Html.text(if completing { "Complete Profile" } else { "Add New User" })]),
+                        UI.card_title({ classes: "" }, [Html.text(form_title)]),
                         Html.p([Attribute.class("text-sm text-muted-foreground")], [
-                            Html.text(
-                                if completing {
-                                    "This login is already in the directory; the school data below is what makes it a full account. Its own name and address stay as Authentik has them."
-                                } else {
-                                    "Create a new account and optionally upload a passport photograph."
-                                }
-                            )
+                            Html.text(form_description)
                         ])
                     ]),
                     if completing {
@@ -93,6 +104,35 @@ admin_users_view = |model| {
 
                 # The chosen role's own profile fields.
                 user_role_fields(model),
+
+                # The password, for create mode only: the one thing the profile fields have no place
+                # for, and the one the admin hands over. Optional — a login without one is made and
+                # can get one later from the row's actions — and invisible while the form is a PUT
+                # (completing or editing), because those writes never carry it. Generated or typed,
+                # it leaves the page the moment the create lands: the credentials panel above is the
+                # only place the value shows again.
+                if form_mode == AddingUser {
+                    Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+                        user_form_field("Password (optional)", Html.div([Attribute.class("space-y-2")], [
+                            Html.div([Attribute.id("new-user-password-field")], [
+                                UI.input({
+                                    type: "text",
+                                    value: model.newUserPassword,
+                                    placeholder: "Leave blank, or click Generate",
+                                    on_input: Input(|s| UpdateNewUserPassword(s)),
+                                    is_disabled: model.isSubmitting,
+                                    classes: "font-mono"
+                                })
+                            ]),
+                            Html.div([Attribute.class("flex items-center gap-2")], [
+                                UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
+                                Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once after the account is created, with a Copy button.")])
+                            ])
+                        ]))
+                    ])
+                } else {
+                    Html.div([], [])
+                },
 
                 # Passport upload row
                 Html.div([Attribute.class("border-t pt-6")], [
@@ -136,8 +176,18 @@ admin_users_view = |model| {
                         [
                             Html.text(
                                 if model.isSubmitting {
-                                    if completing { "Completing..." } else { "Adding..." }
-                                } else if completing { "Complete profile" } else { "Create User" }
+                                    match form_mode {
+                                        AddingUser => "Adding..."
+                                        CompletingProfile => "Completing..."
+                                        EditingUser => "Saving..."
+                                    }
+                                } else {
+                                    match form_mode {
+                                        AddingUser => "Create User"
+                                        CompletingProfile => "Complete profile"
+                                        EditingUser => "Save changes"
+                                    }
+                                }
                             )
                         ]
                     )
@@ -212,7 +262,31 @@ admin_users_view = |model| {
                     ])
                 ])
             ])
-        ])
+        ]),
+
+        # The one-time credentials handoff, shown only right after a create that carried a password:
+        # the form has been cleared by then (the password is never stored anywhere), so this panel is
+        # the single place the value exists on the page, and it clears the moment the form starts
+        # another write. It sits at the END of the view on purpose: its contents change count
+        # (hidden vs four rows) and Joy's renderer patches attributes against a flat ref list, so a
+        # subtree whose size changes shifts the refs of everything after it — keeping it after the
+        # form and the table means their refs never move and a value-input patch cannot land on a
+        # text node (`node.setAttribute is not a function`).
+        match model.lastCredentials {
+            None => Html.div([Attribute.class("hidden")], [])
+            Credentials(email, password) => Html.div([Attribute.class("rounded-md border border-primary bg-primary/10 p-4 space-y-2")], [
+                Html.p([Attribute.class("text-sm font-medium")], [Html.text("Account created — copy the credentials to hand over")]),
+                Html.div([Attribute.class("text-sm font-mono space-y-1")], [
+                    Html.p([], [Html.text(email)]),
+                    Html.p([], [Html.text(password)])
+                ]),
+                Html.div([Attribute.class("flex items-center gap-2")], [
+                    UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
+                    Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
+                ]),
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")])
+            ])
+        },
     ])
 }
 
@@ -350,22 +424,24 @@ users_for_tab = |model| {
                 [UI.table_empty_state(6, "👥", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
-                    # One row per line, as the page's `formatUsers` writes it:
-                    # id|name|email|is_active|has_profile|school_number.
-                    parts = Str.split_on(line, "|")
-                    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
-                    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
-                    email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                    is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
-                    has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
-                    school_number = match List.get(parts, 5) { Ok(v) => v, Err(_) => "" }
-                    user_row(id, name, email, is_active, has_profile, school_number)
+                    # One row per line, as the page's `formatUsers` writes it. The first six fields are
+                    # what the table renders; the last seven are what Edit loads into the form above
+                    # (only the form can change them — the backend's PUT patches the row).
+                    # id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport.
+                    user_row(line, model.isSubmitting)
                 })
             }
     }
 }
 
-user_row = |id, name, email, is_active, has_profile, school_number| {
+user_row = |line, busy| {
+    parts = Str.split_on(line, "|")
+    id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+    name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
+    email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+    is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
+    has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
+    school_number = match List.get(parts, 5) { Ok(v) => v, Err(_) => "" }
     initial =
         if Str.is_empty(name) { "?" }
         else {
@@ -412,25 +488,40 @@ user_row = |id, name, email, is_active, has_profile, school_number| {
         ]),
         UI.table_cell({ classes: "text-right" }, [
             Html.div([Attribute.class("flex items-center justify-end gap-1")], [
-                # A profile-less login gets the one action it needs: the form above, loaded with this
-                # login, so its school data can be filled in. A row with a profile keeps the actions
-                # every row has.
+                # A profile-less login gets the one action it needs: while the login is on, the form
+                # above loaded with this login, so its school data can be filled in; once it is off (the
+                # soft delete that hid the profile also disabled the login), the action is Activate,
+                # which brings both back — there is no school data to fill in first.
                 if has_profile {
                     Html.div([Attribute.class("flex items-center justify-end gap-1")], [
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs" },
+                            { variant: Ghost, size: Sm, on_click: Click(StartUserEdit(line)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Edit")]
                         ),
-                        UI.button(
-                            { variant: Ghost, size: Sm, on_click: None, is_disabled: Bool.False, classes: "text-xs text-destructive hover:text-destructive" },
-                            [Html.text("Deactivate")]
-                        )
+                        if is_active {
+                            UI.button(
+                                { variant: Ghost, size: Sm, on_click: Click(SubmitDeactivateUser(id)), is_disabled: busy, classes: "text-xs text-destructive hover:text-destructive" },
+                                [Html.text("Deactivate")]
+                            )
+                        } else {
+                            UI.button(
+                                { variant: Ghost, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs text-primary" },
+                                [Html.text("Activate")]
+                            )
+                        }
                     ])
                 } else {
-                    UI.button(
-                        { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: Bool.False, classes: "text-xs" },
-                        [Html.text("Complete profile")]
-                    )
+                    if is_active {
+                        UI.button(
+                            { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Complete profile")]
+                        )
+                    } else {
+                        UI.button(
+                            { variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
+                            [Html.text("Activate")]
+                        )
+                    }
                 }
             ])
         ])

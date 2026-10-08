@@ -4,10 +4,14 @@
 // makes attaches the profile — the row then renders like any account the app made itself.
 //
 // The login this drives is one the fixture's Authentik starts with, and the fixture's database seeds
-// no profile row for it. A previous run (or users_api.sh) leaves one behind, so a profile is deleted
-// first: the tab then lists the bare login again, which is the state this suite covers. That delete
-// switches the mock login off, the way a delete does — nothing here reads the enabled state, so the
-// suite runs again and again against the same sandbox.
+// no profile row for it. A previous run (or users_api.sh) leaves one behind, so the profile row is
+// deleted directly from the sandbox database first — the same reset users_api.sh uses — rather than
+// through the API: the API delete would also disable the login (and an activate would bring the
+// soft-deleted row back), while a direct delete leaves Authentik's login untouched and enabled. The
+// tab then lists the bare login again, which is the state this suite covers. The row's actions then
+// follow the login's true state throughout: a bare login offers exactly Complete profile while on;
+// deactivating a completed row hides the profile and disables the login, leaving a bare Inactive row
+// whose only action is Activate; and a profile-bearing row carries Edit plus the toggle.
 //
 //   node tests/e2e/e2e_users_directory.cjs
 
@@ -55,12 +59,23 @@ const summary = () => {
     const listed = await studentsListing();
     login = listed.find(r => r.email === LOGIN_EMAIL);
     if (login && login.has_profile) {
-      const res = await fetch(`${appUrl}/api/users`, {
-        method: 'DELETE',
-        headers: { authorization: `Bearer ${authToken}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ id: login.id }),
+      // The reset: drop the profile row directly from the sandbox database (the same reset
+      // users_api.sh uses), so no API side effect touches Authentik — the login stays exactly
+      // what the fixture made it, enabled. The API delete would also disable the login, and an
+      // activate would then bring the soft-deleted row back; a direct delete leaves only the
+      // profile gone.
+      const [tablePrefix, pk] = login.id.split(':');
+      const db = await fetch(process.env.SURREAL_URL || 'http://127.0.0.1:8222/sql', {
+        method: 'POST',
+        headers: {
+          authorization: 'Basic ' + Buffer.from(`${process.env.SURREAL_USER || 'root'}:${process.env.SURREAL_PASS || 'root'}`).toString('base64'),
+          'surreal-ns': process.env.SURREAL_DB_NS || 'main',
+          'surreal-db': process.env.SURREAL_DB || 'lessons',
+          'content-type': 'application/json',
+        },
+        body: `DELETE type::record('${tablePrefix}', '${pk}');`,
       });
-      if (!res.ok) throw new Error(`DELETE /api/users answered ${res.status}`);
+      if (!db.ok) throw new Error(`sandbox db answered ${db.status}`);
       login = (await studentsListing()).find(r => r.email === LOGIN_EMAIL);
     }
   } catch (err) {
@@ -160,12 +175,67 @@ const summary = () => {
   check("it shows the profile's own name, not the directory's", completedName !== '' && completedName !== directoryName, completedName);
   check("and the login's address is still its email", (await completedRow.innerText()).includes(LOGIN_EMAIL));
   const completedActions = await completedRow.locator('button').allInnerTexts();
-  check('with Edit and Deactivate back', completedActions.join(',') === 'Edit,Deactivate', JSON.stringify(completedActions));
+  // The suite's own delete up top left the mock login off, so the completed row carries the login's
+  // true state: its second action is Activate (Deactivate would be the wrong offer for an account
+  // that is already off). The row a completely fresh sandbox would show lists Deactivate instead;
+  // either is correct, the toggle has to follow the login.
+  check('with Edit and the login\'s true toggle back',
+    completedActions.length === 2 && completedActions[0] === 'Edit' && ['Deactivate', 'Activate'].includes(completedActions[1]),
+    JSON.stringify(completedActions));
+
+  // --- The completed row's own actions: the row is active (the setup re-enabled the login), so ---
+  // --- the toggle starts as Deactivate; the deactivate -> activate round trip comes next ---
+  await page.waitForFunction((email) => {
+    const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+    if (!r) return false;
+    const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
+    return labels.join(',') === 'Edit,Deactivate';
+  }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
+  check('the completed row offers Edit and Deactivate', (await row(LOGIN_EMAIL).locator('button').allInnerTexts()).join(',') === 'Edit,Deactivate');
+
+  // --- Deactivate hides the profile and disables the login: the row is then a bare login ---
+  // --- whose only action has to be Activate, bringing both back in one click ---
+  await row(LOGIN_EMAIL).locator('button', { hasText: 'Deactivate' }).click();
+  await page.waitForSelector('text=User deactivated', { timeout: 20000 }).catch(() => {});
+  check('deactivating reports User deactivated', await hasText('User deactivated'));
+  await page.waitForFunction((email) => {
+    const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+    if (!r) return false;
+    return r.innerText.includes('No profile yet') && r.innerText.includes('Inactive');
+  }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
+  const deactivatedRow = row(LOGIN_EMAIL);
+  check('the deactivated row is a bare login again', (await deactivatedRow.locator('text=No profile yet').count()) === 1);
+  const bareActions = await deactivatedRow.locator('button').allInnerTexts();
+  check('whose only action is Activate — not Complete profile', bareActions.length === 1 && bareActions[0] === 'Activate', JSON.stringify(bareActions));
+  await deactivatedRow.locator('button', { hasText: 'Activate' }).click();
+  await page.waitForSelector('text=User activated', { timeout: 20000 }).catch(() => {});
+  check('activating the bare login restores it', await hasText('User activated'));
+  await page.waitForFunction((email) => {
+    const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+    if (!r) return false;
+    const labels = [...r.querySelectorAll('button')].map(b => b.textContent.trim());
+    return labels.join(',') === 'Edit,Deactivate';
+  }, LOGIN_EMAIL, { timeout: 20000 }).catch(() => {});
+  check('the row is back with its profile and its actions', (await row(LOGIN_EMAIL).locator('button').allInnerTexts()).join(',') === 'Edit,Deactivate');
+
+  // Edit loads the row into the form above — prefilled, the same PUT as completing — and Save
+  // changes patches it. The email stays the login's own and disabled; the school fields are editable.
+  await row(LOGIN_EMAIL).locator('button', { hasText: 'Edit' }).click();
+  await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Edit User', null, { timeout: 10000 }).catch(() => {});
+  check('Edit loads the form with its own labels', (await cardTitle()) === 'Edit User', await cardTitle());
+  check('with the login\'s address still disabled',
+    await page.locator('input[type="email"]').evaluate((el, email) => el.disabled && el.value === email, LOGIN_EMAIL));
+  const editedSurname = `Edited${stamp % 10000}`;
+  await fill('e.g. Musa', editedSurname);
+  await page.click('text=Save changes');
+  await page.waitForSelector('text=User updated', { timeout: 20000 }).catch(() => {});
+  check('the edit reports User updated', await hasText('User updated'));
+  await page.waitForFunction((name) => [...document.querySelectorAll('#app table tbody tr')].some(r => r.innerText.includes(name)), editedSurname, { timeout: 20000 }).catch(() => {});
+  check('the row shows the edited surname', await hasText(editedSurname));
 
   // --- The form is ready for the next account again ---
   check('the form returns to Add New User',
     (await cardTitle()) === 'Add New User' && await page.locator('input[type="email"]').evaluate(el => !el.disabled && el.value === ''));
-
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 
   await browser.close();

@@ -1,14 +1,15 @@
 app [Model, Msg, init, update, render, subscriptions] {
-	# Joy 0.33.0 with the host allocator patch vendored in joy-platform/ — see JOY_HOST_PATCH.md.
-	# Swap back to the release URL once the fix ships upstream.
-	pf: platform "joy/platform/main.roc",
-	html: "https://github.com/niclas-ahden/joy-html/releases/download/0.16.0/56NBT6VkQ5xm87Wjzcv9mRuNT4RACiAmuAmPbXwc8cuk.tar.zst",
+        # Joy 0.34.0 (release bundle): fixes the host allocator bug that used to crash this app
+        # once its model grew (the boxy runtime grows memory behind the host's back; see the
+        # retired JOY_HOST_PATCH.md). The vendored patched 0.33.0 checkout in joy/ is gone.
+        pf: platform "https://github.com/niclas-ahden/joy/releases/download/0.34.0/2B3sC6U2dWkVUK2VY2gJS5Wej9YCDo3ZYq2e7tMWUCNp.tar.zst",
+        html: "https://github.com/niclas-ahden/joy-html/releases/download/0.17.0/AcmwFzyfbsf5RALWNdX6cXw1cuuDXt96YfcysNqgFqoG.tar.zst",
 }
 
-import html.Html exposing [Html, div, h1, p, text, a, span]
+import html.Html exposing [div, h1, p, text, a, span]
 import html.Attribute exposing [class]
 import pf.DOM
-import pf.Sub exposing [Sub]
+import pf.Sub
 
 import State exposing [Route, list_state]
 import UI

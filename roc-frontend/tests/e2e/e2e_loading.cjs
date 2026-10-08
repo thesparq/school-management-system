@@ -151,10 +151,12 @@ const waitFor = (fn, timeout = 5000) => fn().then(() => true).catch(() => false)
   // --- The retry, with the endpoint healthy again, loads the list ---
   // The user-management tab the error was seen on is still the active one (Parents), and its empty
   // payload was only the route interception above, so the retry has to show the seeded parent row.
+  // The row is matched by the login's address rather than its directory name: a run of users_api.sh
+  // may have completed that login's profile, and the row then renders the profile's own name.
   usersFail = false;
   await page.click('#app button:has-text("Retry")');
-  await page.waitForSelector('text=Seed Parent', { timeout: 20000 }).catch(() => {});
-  check('the retry loads the list', (await hasText('Seed Parent')) && !(await hasText('the users query failed')));
+  await page.waitForSelector('text=seed-parent@example.com', { timeout: 20000 }).catch(() => {});
+  check('the retry loads the list', (await hasText('seed-parent@example.com')) && !(await hasText('the users query failed')));
 
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 

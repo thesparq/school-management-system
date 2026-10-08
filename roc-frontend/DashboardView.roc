@@ -1,6 +1,6 @@
 module [view]
 
-import html.Html exposing [Html, div, text, h1, h2, p, span]
+import html.Html exposing [div, text, h1, h2, p, span]
 import html.Attribute exposing [class]
 import UI
 import State exposing [Model, Role]

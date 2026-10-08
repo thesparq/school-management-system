@@ -11,7 +11,7 @@
 
 AuthUrls := [].{
     ## The userinfo endpoint to validate tokens against, given AUTHENTIK_ISSUER_URL.
-    userinfo_url : Str => Str
+    userinfo_url : Str -> Str
     userinfo_url = |issuer| {
         if Str.contains(issuer, "/application/o/") {
             match Str.split_on(issuer, "/application/o/") |> List.first {

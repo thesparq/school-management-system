@@ -1,6 +1,6 @@
 module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state]
 
-import pf.Effect exposing [Effect]
+import pf.Effect
 import pf.Http
 import pf.Port
 import Auth
@@ -8,6 +8,10 @@ import Auth
 AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects]
 
 AdminUserTab : [Students, Teachers, Parents, Admins]
+
+# What a row action did: the message a deactivate/activate completion carries, so the banner can
+# say which one landed (or which one failed).
+UserToggleAction : [Deactivate, Activate]
 
 Route : [
 	Dashboard,
@@ -82,6 +86,18 @@ Model : {
 	# login. One form serves both: with an id it is a PUT that attaches the profile to that login,
 	# without one a POST that creates the login and its profile together.
 	completingProfileId : Str,
+	# The password the create form is typing or has generated. Optional, sent with the create only,
+	# and cleared the moment the create is done: the backend sets it in Authentik and never returns
+	# it, so the one-time credentials panel below is the only place the value shows again.
+	newUserPassword : Str,
+	# Whether the form is editing an existing profile (PUT, prefilled) rather than completing a
+	# login that has no profile yet (PUT, empty). The two are the same write; this only picks the
+	# form's own labels and the success message.
+	userEditing : Bool,
+	# One create's handoff: the email and password, shown once with a copy button right after a
+	# create that carried a password, then cleared the moment the form starts another write. The
+	# password is never stored anywhere — not in the backend, not in this model beyond this.
+	lastCredentials : [None, Credentials(Str, Str)],
 	appOrigin : Str,
 	usersStudentsData : Str,
 	usersTeachersData : Str,
@@ -146,12 +162,26 @@ Msg : [
 	UpdateNewUserClassLevel(Str),
 	UpdateNewUserRoleTitle(Str),
 	UpdateNewUserEmail(Str),
+	UpdateNewUserPassword(Str),
+	# Fill the password field with a generated one. The page's own generator answers through the
+	# input event, exactly like typing, so the value lands in the model the same way a typed one
+	# does.
+	GenerateUserPassword,
+	# The one-time credentials panel's copy button: copies `email\npassword` to the clipboard.
+	CopyLastCredentials,
 	SubmitNewUser,
 	# A user row the directory lists without a profile: load that login into the form so the admin can
 	# fill in the school data and attach it (PUT /api/users). The id is what the write names the row
 	# by; the email is shown so the form says which login it is completing.
 	CompleteProfile(Str, Str),
 	CancelCompleteProfile,
+	# A row's working actions: load an existing profile into the form for patching (PUT — the line
+	# is the row's own, so the form starts prefilled), and the two toggles, deactivate (DELETE
+	# /api/users) and activate (POST /api/users/activate) for a row whose login is off.
+	StartUserEdit(Str),
+	SubmitDeactivateUser(Str),
+	SubmitActivateUser(Str),
+	UserToggleCompleted(UserToggleAction, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	GotUsersData(Str),
 	GotTermsData(Str),
 	GotSubjectsData(Str),
@@ -278,6 +308,9 @@ init = |flags| {
 		newUserClassLevel: "",
 		newUserRoleTitle: "",
 		completingProfileId: "",
+		newUserPassword: "",
+		userEditing: Bool.False,
+		lastCredentials: None,
 		appOrigin: originStr,
 		usersStudentsData: "",
 		usersTeachersData: "",
@@ -392,6 +425,16 @@ user_tab_role = |tab| {
 		Parents => "Parent"
 		Admins => "Admin"
 	}
+}
+
+# Whether a user-form value may be sent. The create/update payload is hand-written JSON with no
+# escape handling (the backend reads each field as the text between its first two quotes), and the
+# directory rows are "|"-separated lines the Edit form splits back apart — so a double quote or
+# backslash would be stored silently truncated, and a pipe or line break would shift the row fields
+# under Edit. Refused up front with the form's own message, never silently corrupted.
+user_text_ok : Str -> Bool
+user_text_ok = |text| {
+	!Str.contains(text, "\"") and !Str.contains(text, "\\") and !Str.contains(text, "|") and !Str.contains(text, "\n")
 }
 
 # The endpoint and payload for one section's create form. An empty field is sent as-is: the
@@ -619,6 +662,19 @@ update = |model, msg|
 			({ ..model, activeConfigTab: tab, configSubmitResult: None }, [])
 		UpdateNewUserEmail(s) =>
 			({ ..model, newUserEmail: s }, [])
+		UpdateNewUserPassword(s) =>
+			({ ..model, newUserPassword: s }, [])
+		GenerateUserPassword =>
+			(model, [Port.send("generate_password", "")])
+		CopyLastCredentials =>
+			match model.lastCredentials {
+				None => (model, [])
+				Credentials(email, password) =>
+					(
+						model,
+						[Port.send("copy_to_clipboard", if Str.is_empty(email) { password } else { "${email}\n${password}" })]
+					)
+			}
 		GotUsersData(str) => ({ ..model, usersData: str }, [])
 		GotTermsData(str) => ({ ..model, termsData: str }, [])
 		GotSubjectsData(str) => ({ ..model, subjectsData: str }, [])
@@ -778,7 +834,30 @@ update = |model, msg|
 			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
 		}
 		SubmitNewUser => {
-			# One form, two writes. With no id the login does not exist yet, so POST creates the login and
+			# The form's values travel as hand-written JSON in the payload (the backend reads between
+			# the first two quotes of each field, so nothing is escaped) and as "|"-separated directory
+			# lines the Edit form splits back apart. A double quote or backslash in a value would
+			# therefore be stored silently truncated, and a pipe or line break would shift the fields
+			# under Edit — so such values are refused up front, like the required-field checks. The
+			# input is rejected, never corrupted.
+			forbidden = List.keep_if([
+				model.newUserFirstName,
+				model.newUserMiddleName,
+				model.newUserSurname,
+				model.newUserEmail,
+				model.newUserDateOfBirth,
+				model.newUserClassLevel,
+				model.newUserRoleTitle,
+				model.newUserPassportKey,
+				model.newUserPassword,
+			], |field| !user_text_ok(field))
+			if !List.is_empty(forbidden) {
+				(
+					{ ..model, isSubmitting: Bool.False, submitResult: Error("Values may not contain double quotes, backslashes, pipes or line breaks") },
+					[]
+				)
+			} else {
+				# One form, two writes. With no id the login does not exist yet, so POST creates the login and
 			# its profile together; with one, the login is already in the directory (the admin made it in
 			# Authentik) and PUT attaches the profile to that pk. A completing write carries no email: the
 			# login's own address is Authentik's and already right, and the role comes from the id's table
@@ -790,7 +869,24 @@ update = |model, msg|
 				} else {
 					"\"role\":\"${model.newUserRole}\",\"email\":\"${model.newUserEmail}\","
 				}
-			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"role_title\":\"${model.newUserRoleTitle}\",\"passport\":\"${model.newUserPassportKey}\"}"
+			# The password rides the create only, and only when the admin gave one: the backend treats an
+			# absent field as a login without a password, which the row actions can set later.
+			password_clause =
+				if completing or Str.is_empty(model.newUserPassword) {
+					""
+				} else {
+					",\"password\":\"${model.newUserPassword}\""
+				}
+			# role_title is a column of admin_profile only, and the form shows it only for the Admin
+			# role — a carried-but-unwritable field is a 400 on the backend ("'role_title' is not a
+			# column of student_profile"), so the payload has to mirror the form's own visibility.
+			role_title_clause =
+				if model.newUserRole == "Admin" {
+					",\"role_title\":\"${model.newUserRoleTitle}\""
+				} else {
+					""
+				}
+			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${password_clause}}"
 			req = {
 				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
@@ -801,10 +897,11 @@ update = |model, msg|
 				body: Str.to_utf8(payload),
 				timeout_ms: NoTimeout,
 			}
-			(
-				{ ..model, isSubmitting: Bool.True, submitResult: None },
-				[Http.request(req, |res| SubmitCompleted(res))]
-			)
+				(
+					{ ..model, isSubmitting: Bool.True, submitResult: None, lastCredentials: None },
+					[Http.request(req, |res| SubmitCompleted(res))]
+				)
+			}
 		}
 		# A row the directory lists without a profile: the form loads that login (its name and address are
 		# shown, and are not the form's to edit), and the role comes from the tab the row was on.
@@ -820,19 +917,56 @@ update = |model, msg|
 				newUserClassLevel: "",
 				newUserRoleTitle: "",
 				newUserPassportKey: "",
+				newUserPassword: "",
+				userEditing: Bool.False,
+				lastCredentials: None,
 				submitResult: None,
 			},
 			[]
 		)
-		CancelCompleteProfile => ({ ..model, completingProfileId: "", submitResult: None }, [])
+		CancelCompleteProfile => ({ ..model, completingProfileId: "", userEditing: Bool.False, lastCredentials: None, submitResult: None }, [])
+		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
+		# so an admin can change the school data of an account that already has it — a mis-typed name,
+		# the wrong class level, a new passport.
+		StartUserEdit(line) => {
+			parts = Str.split_on(line, "|")
+			part = |i| match List.get(parts, i) { Ok(v) => v, Err(_) => "" }
+			(
+				{ ..model,
+					completingProfileId: part(0),
+					newUserRole: user_tab_role(model.activeUserTab),
+					newUserFirstName: part(6),
+					newUserMiddleName: part(7),
+					newUserSurname: part(8),
+					newUserEmail: part(2),
+					newUserDateOfBirth: part(9),
+					newUserClassLevel: part(10),
+					# role_title is a column of admin_profile only, so only an admin row can carry one; the
+					# other tables' fixture rows can hold a stray flex value, which the form must not
+					# prefill (a carried field the table cannot write is a 400 on the backend).
+					newUserRoleTitle: if user_tab_role(model.activeUserTab) == "Admin" { part(11) } else { "" },
+					newUserPassportKey: part(12),
+					newUserPassword: "",
+					userEditing: Bool.True,
+					lastCredentials: None,
+					submitResult: None,
+				},
+				[]
+			)
+		}
 		SubmitCompleted(res) => {
-			# The same form, two outcomes: the message says which write it was.
+			# The same form, three outcomes: the message says which write it was.
 			was_completing = !Str.is_empty(model.completingProfileId)
+			was_editing = model.userEditing
 			newResult : [None, Success(Str), Error(Str)]
 			newResult = match res {
 				Ok(response) => {
 					if response.status == 200 {
-						Success(if was_completing { "Profile completed" } else { "User created" })
+						Success(
+							if was_editing { "User updated" }
+						else if was_completing { "Profile completed" }
+						else { "User created" }
+						)
 					} else {
 						# Failures answer {"error":"..."} with the validation text, or a write's own
 						# {"error":"Database error","detail":"..."}; show what the backend said.
@@ -842,6 +976,20 @@ update = |model, msg|
 				Err(HttpErr(Timeout)) => Error("The request timed out")
 				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
 			}
+			# A create that carried a password hands it over once: the form is cleared right below (the
+			# value is never stored anywhere), so capture the credentials here, before the clear.
+			handoff : [None, Credentials(Str, Str)]
+			handoff =
+				if was_editing or was_completing {
+					None
+				} else {
+					match newResult {
+						Success(_) =>
+							if Str.is_empty(model.newUserPassword) { None }
+							else { Credentials(model.newUserEmail, model.newUserPassword) }
+						_ => None
+					}
+				}
 			# Refresh the role lists so the new account shows up without a manual reload — and, after a
 			# completed profile, as a normal row rather than one waiting for its school data.
 			refresh = match newResult {
@@ -853,7 +1001,67 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "" }, refresh)
+		}
+		# --- A row's actions: deactivate and activate ---
+		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the
+		# row's new state (an Inactive badge and No profile yet for a deactivate; the profile back and
+		# the login enabled for an activate) shows without a reload.
+		SubmitDeactivateUser(id) => {
+			req = {
+				method: DELETE,
+				uri: "${model.appOrigin}/api/users",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8("{\"id\":\"${id}\"}"),
+				timeout_ms: NoTimeout,
+			}
+			(
+				{ ..model, isSubmitting: Bool.True, submitResult: None },
+				[Http.request(req, |res| UserToggleCompleted(Deactivate, res))]
+			)
+		}
+		SubmitActivateUser(id) => {
+			req = {
+				method: POST,
+				uri: "${model.appOrigin}/api/users/activate",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8("{\"id\":\"${id}\"}"),
+				timeout_ms: NoTimeout,
+			}
+			(
+				{ ..model, isSubmitting: Bool.True, submitResult: None },
+				[Http.request(req, |res| UserToggleCompleted(Activate, res))]
+			)
+		}
+		UserToggleCompleted(action, res) => {
+			verb = match action { Deactivate => "deactivated" Activate => "activated" }
+			newResult : [None, Success(Str), Error(Str)]
+			newResult = match res {
+				Ok(response) =>
+					if response.status == 200 {
+						Success("User ${verb}")
+					} else {
+						Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+					}
+				Err(HttpErr(Timeout)) => Error("The request timed out")
+				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+			}
+			refresh = match newResult {
+				Success(_) => [
+					Port.send("fetch_data", "/api/users?role=Student"),
+					Port.send("fetch_data", "/api/users?role=Teacher"),
+					Port.send("fetch_data", "/api/users?role=Parent"),
+					Port.send("fetch_data", "/api/users?role=Admin"),
+				]
+				_ => []
+			}
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult }, refresh)
 		}
 		# Switching tabs fetches that tab's own list: the four lists are separate payloads, so a tab
 		# never stays on its skeleton waiting for a fetch the previous tab started.
