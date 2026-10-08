@@ -324,6 +324,24 @@ password; completing PUT carries the address; modal open/close lifecycle), `e2e_
 `e2e_admin_config.cjs` 53/53, `users_api.sh` 95/95 (ghost is now a delete-200 check), `authz.sh` 27/27,
 `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 56/56.
 
+### Manual Authentik users, and the new icon set (2026-10-08)
+
+**A user created directly in Authentik (with the student group) vanished once other users existed.**
+Root cause: `Authentik.listUsers` fetched exactly one directory page (`page_size=200`, ordered by pk
+ascending), so a directory past 200 users silently dropped the newest login — the manual user lived on
+page 2. `directory_users!` now pages to a short page and merges the pages into one envelope
+(verified against a 214-user directory: the manual student lists with `has_profile:false` alongside
+everyone else; 56-user tab behaves the same), and the role mapping falls back to the bare `groups`
+list when `groups_obj` is absent.
+
+**Icons + modal polish.** Emojis are gone from user management: the Students/Teachers/Parents/Admins
+tabs, the empty states, the passport preview, the Add button and the close control are now inline
+**Lucide** SVGs (MIT, stroke style, `currentColor`, rendered from a small `UI.icon` helper over
+joy-html's generic `element tag). The modal's Cancel text button is a × icon, the overlay gets
+`backdrop-blur`, the card is `rounded-2xl shadow-2xl`, required-field asterisks are gone and the
+labels read like labels. Verified by the browser suites (16/16, 27/27, 20/20, 53/53) and a clean
+screenshot pass.
+
 ---
 
 ### Build and tests — done

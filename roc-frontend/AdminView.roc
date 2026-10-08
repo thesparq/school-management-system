@@ -54,7 +54,7 @@ admin_users_view = |model| {
                 Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
                 Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage all user accounts across Students, Teachers, Parents, and Administrators.")])
             ]),
-            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Add New User")])
+            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "gap-2" }, [UI.icon("plus", "w-4 h-4"), Html.text("Add New User")])
         ]),
 
         # Submit feedback banner
@@ -70,23 +70,26 @@ admin_users_view = |model| {
             ])
         },
 
-        	# The user form (add / complete / edit / reset password) lives in a modal over the table now:
-        	# the page stays put, and the modal carries the four modes' fields. It opens from the header's
-        	# Add button, from a row's Complete profile / Edit / Reset password actions, and closes on
-        	# Cancel or when a write lands (the credentials panel then shows inline beneath the table).
-        	if model.userFormOpen {
-        	      Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 md:p-8")], [
-        	          Html.div([Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl")], [
-        	              UI.card_header({ classes: "" }, [
-        	                  Html.div([Attribute.class("flex items-start justify-between gap-4")], [
-        	                      Html.div([], [
-        	                          UI.card_title({ classes: "" }, [Html.text(form_title)]),
-        	                          Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(form_description)])
-        	                      ]),
-        	                      UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseUserForm), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Cancel")])
-        	                  ])
-        	              ]),
-        	              UI.card_content({ classes: "space-y-6" }, [
+        # The user form (add / complete / edit / reset password) lives in a modal over the table now:
+        # the page stays put, and the modal carries the four modes' fields. It opens from the header's
+        # Add button, from a row's Complete profile / Edit / Reset password actions, and closes on
+        # the x or when a write lands (the credentials panel then shows inline beneath the table).
+        if model.userFormOpen {
+              Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4 md:p-8 backdrop-blur-sm")], [
+                  Html.div([Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-2xl border border-border bg-card text-card-foreground shadow-2xl")], [
+                      UI.card_header({ classes: "" }, [
+                          Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+                              Html.div([], [
+                                  UI.card_title({ classes: "" }, [Html.text(form_title)]),
+                                  Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(form_description)])
+                              ]),
+                              Html.div([Attribute.title("Close")], [
+                                  UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseUserForm), is_disabled: model.isSubmitting, classes: "text-muted-foreground" }, [UI.icon("x", "w-4 h-4")])
+                              ])
+                          ])
+                      ]),
+
+	              UI.card_content({ classes: "space-y-6" }, [
         	                  form_banner(model),
         	                  if resetting {
         	                      reset_password_body(model)
@@ -156,10 +159,10 @@ admin_users_view = |model| {
             # Tab bar
             Html.div([Attribute.class("border-b border-border")], [
                 Html.nav([Attribute.class("-mb-px flex space-x-6 overflow-x-auto")], [
-                    user_tab(model.activeUserTab, Students, "👩‍🎓 Students"),
-                    user_tab(model.activeUserTab, Teachers, "👨‍🏫 Teachers"),
-                    user_tab(model.activeUserTab, Parents, "👨‍👩‍👧 Parents"),
-                    user_tab(model.activeUserTab, Admins, "⚙️ Admins"),
+                    user_tab(model.activeUserTab, Students, "Students", "graduation-cap"),
+                    user_tab(model.activeUserTab, Teachers, "Teachers", "presentation"),
+                    user_tab(model.activeUserTab, Parents, "Parents", "users"),
+                    user_tab(model.activeUserTab, Admins, "Administrators", "shield"),
                 ])
             ]),
 
@@ -230,7 +233,7 @@ admin_users_view = |model| {
     ])
 }
 
-user_tab = |active_tab, this_tab, label| {
+user_tab = |active_tab, this_tab, label, icon_name| {
     is_active = active_tab == this_tab
     classes =
         if is_active {
@@ -239,13 +242,13 @@ user_tab = |active_tab, this_tab, label| {
             "whitespace-nowrap border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border py-4 px-1 text-sm font-medium cursor-pointer transition-colors"
         }
     Html.button([
-        Attribute.class(classes),
+        Attribute.class("${classes} inline-flex items-center gap-1.5"),
         Attribute.type("button"),
         # A tab switch is a view change of its own: data-nav is what starts the top border
         # progress bar for one (see www/index.html).
         Attribute.data("nav", ""),
         Attribute.on_click(SetUserTab(this_tab))
-    ], [Html.text(label)])
+    ], [UI.icon(icon_name, "w-4 h-4"), Html.text(label)])
 }
 
 # --- Add New User form pieces ---
@@ -282,9 +285,9 @@ form_banner = |model| {
 user_form_body = |model, form_mode| {
     Html.div([Attribute.class("space-y-6")], [
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
+            user_form_field("First name", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
             user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
-            user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
+            user_form_field("Surname", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
         ]),
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
             user_form_field("Email address", UI.input({
@@ -326,8 +329,8 @@ user_form_body = |model, form_mode| {
         Html.div([Attribute.class("border-t pt-6")], [
             Html.p([Attribute.class("text-sm font-medium mb-2")], [Html.text("Passport Photograph")]),
             Html.div([Attribute.class("flex items-center gap-4")], [
-                Html.div([Attribute.id("passport-preview"), Attribute.class("w-16 h-16 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center text-2xl overflow-hidden")], [
-                    Html.text("📷")
+                Html.div([Attribute.id("passport-preview"), Attribute.class("w-16 h-16 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center text-muted-foreground overflow-hidden")], [
+                    UI.icon("camera", "w-7 h-7")
                 ]),
                 Html.div([Attribute.class("flex-1 space-y-1")], [
                     Html.input([
@@ -502,7 +505,7 @@ users_for_tab = |model| {
         Failed(message) => [UI.table_error_state(7, "Could not load this list", message, Click(RetryList(retry_url)))]
         Ready(rows) =>
             if List.is_empty(rows) {
-                [UI.table_empty_state(7, "👥", empty_title, empty_description)]
+                [UI.table_empty_state(7, "users", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
                     # One row per line, as the page's `formatUsers` writes it. The first six fields are
@@ -936,7 +939,7 @@ terms_rows = |model| {
 		Failed(message) => [UI.table_error_state(4, "Could not load the terms", message, Click(RetryList("/api/terms")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(4, "🗂️", "No terms yet", "Create the first one above.")]
+				[UI.table_empty_state(4, "folder", "No terms yet", "Create the first one above.")]
 			} else {
 				List.map(rows, |line| terms_row(model, line))
 			}
@@ -987,7 +990,7 @@ class_levels_rows = |model| {
 		Failed(message) => [UI.table_error_state(5, "Could not load the class levels", message, Click(RetryList("/api/class_levels?all=true")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(5, "🗂️", "No class levels yet", "Create the first one above.")]
+				[UI.table_empty_state(5, "folder", "No class levels yet", "Create the first one above.")]
 			} else {
 				List.map(rows, |line| class_levels_row(model, line))
 			}
@@ -1037,7 +1040,7 @@ curriculum_rows = |model| {
 		Failed(message) => [UI.table_error_state(4, "Could not load the curriculum", message, Click(RetryList("/api/curriculum?all=true")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(4, "🗂️", "No subject is linked to a class level yet", "Link one above to define what a class level studies.")]
+				[UI.table_empty_state(4, "folder", "No subject is linked to a class level yet", "Link one above to define what a class level studies.")]
 			} else {
 				List.map(rows, |line| curriculum_row(model, line))
 			}
@@ -1077,7 +1080,7 @@ session_terms_rows = |model| {
 		Failed(message) => [UI.table_error_state(4, "Could not load the session terms", message, Click(RetryList("/api/session_terms")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(4, "🗂️", "No session terms yet", "Create the first one above.")]
+				[UI.table_empty_state(4, "folder", "No session terms yet", "Create the first one above.")]
 			} else {
 				List.map(rows, |line| session_terms_row(model, line))
 			}
@@ -1127,7 +1130,7 @@ subjects_rows = |model| {
 		Failed(message) => [UI.table_error_state(4, "Could not load the subjects", message, Click(RetryList("/api/subjects?all=true")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(4, "🗂️", "No subjects yet", "Create the first one above.")]
+				[UI.table_empty_state(4, "folder", "No subjects yet", "Create the first one above.")]
 			} else {
 				List.map(rows, |line| subjects_row(model, line))
 			}

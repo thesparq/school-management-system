@@ -47,7 +47,7 @@ student_subjects_view = |model| {
             Failed(message) => UI.list_error_state("Could not load your subjects", message, Click(RetryList("/api/student/subjects")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("📚", "No subjects yet", "Your subjects appear here once your class is set up.")
+                    UI.list_empty_state("book-open", "No subjects yet", "Your subjects appear here once your class is set up.")
                 } else {
                     Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")],
                         List.map(rows, |line| {
@@ -169,7 +169,7 @@ student_terms_view = |model| {
             Failed(message) => UI.list_error_state("Could not load the terms", message, Click(RetryList("/api/student/terms")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("📅", "No terms yet", "Your school's terms appear here once they are published.")
+                    UI.list_empty_state("calendar", "No terms yet", "Your school's terms appear here once they are published.")
                 } else {
                     Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")],
                         List.map(rows, |line| {
@@ -264,7 +264,7 @@ student_lessons_list_view = |model| {
             Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/student/lessons?subject_id=${model.selectedSubjectId}&term_id=${model.selectedTermId}")))
             Ready(rows) =>
                 if List.is_empty(rows) {
-                    UI.list_empty_state("📖", "No lessons yet", "Lessons for this term appear here once they are published.")
+                    UI.list_empty_state("book-open", "No lessons yet", "Lessons for this term appear here once they are published.")
                 } else {
                     Html.div([Attribute.class("space-y-3")],
                         List.map_with_index(rows, |line, idx| {
