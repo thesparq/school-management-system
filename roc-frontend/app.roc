@@ -156,6 +156,11 @@ render = |model| {
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Configuration Hub")])
 			]
+			AdminLMS => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("LMS")])
+			]
 			TeacherLessonViewer => [
 				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
 				span([class("mx-2")], [text("/")]),

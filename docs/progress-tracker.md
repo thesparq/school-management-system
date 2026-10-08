@@ -38,6 +38,27 @@ the old stack's one real bug fixed:
   95/95, `authz.sh` 27/27, and all seven `*Test.roc` suites green). The sandbox fixture gained the
   `teacher_assignment`/`teaches` mirror definitions and prod's unique credentials-name index.
 
+### Post-deploy polish — icons, tabs, week badge, token refresh (2026-10-08)
+
+Four live-reports fixed and browser-verified against the sandbox:
+
+- **Lucide icons were blank** because Joy's runtime creates every element in the HTML namespace,
+  so plain `document.createElement("svg")` never paints. `www/index.html` now routes the SVG tag
+  names to `createElementNS` up front, and every `UI.icon` use draws. (Verified: the tab icons are
+  SVG-namespace elements and render.)
+- **User-management tabs** now use the same segmented pill control as the Configuration hub — one
+  tab switcher across the app instead of two styling languages.
+- **The lesson week badge** no longer wraps: `whitespace-nowrap` on the badge and `shrink-0` on its
+  header container (renderLesson).
+- **Access-token refresh**: the page now stores the OAuth2 refresh token and, on any `/api` 401
+  (an access token that expired mid-session), silently exchanges it once and retries the request;
+  a failed refresh redirects back through Authentik instead of leaving error states on page
+  (`window.fetch` is wrapped at the top of the page module, so both the JS-driven fetches and the
+  runtime's HTTP effects are covered; sign-out clears the refresh token too).
+- **Breadcrumb**: the admin LMS page shows "LMS" instead of the catch-all "Page".
+- New `e2e_icons_refresh.cjs` (10 checks) covers all of it; `smoke_assignments_lms` 17/17,
+  `smoke_teacher_role` 6/6, `e2e_admin` 16/16, `e2e_loading` 20/20 after the changes.
+
 ### Teacher assignments, qualifications and the admin LMS — frontend wired (2026-10-08)
 
 The Roc SPA now drives everything above, mirroring the retired SvelteKit screens:

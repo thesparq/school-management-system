@@ -26,6 +26,69 @@
   <script type="module">
     import { mount } from '/runtime.js';
 
+    // ─── Two page-level fixes the runtime cannot do itself ─────────────────
+    // 1. Joy's runtime builds every element with document.createElement (HTML namespace). An <svg>
+    //    built that way never paints — the app's Lucide icons rendered as empty boxes. Routing the
+    //    SVG tag names to the SVG namespace makes them draw, for every icon() use at once.
+    // 2. Any /api/ call that answers 401 (an access token that expired mid-session) triggers one
+    //    silent refresh and a retry; a refresh that fails sends the user back through Authentik
+    //    instead of leaving error states on the page.
+    const __origCreateElement = document.createElement.bind(document);
+    document.createElement = (tagName, options) => {
+      const tag = String(tagName).toLowerCase();
+      if (['svg', 'path', 'g', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'symbol'].indexOf(tag) !== -1) {
+        return document.createElementNS('http://www.w3.org/2000/svg', tag);
+      }
+      return __origCreateElement(tagName, options);
+    };
+
+    let _refreshInFlight = null;
+    function currentToken() { return localStorage.getItem("auth_token") || ""; }
+
+    // One silent refresh: exchange the stored refresh token for a fresh access token. Concurrent
+    // 401s share one in-flight refresh. Returns whether the token was replaced.
+    async function tryRefreshToken() {
+      const refresh = localStorage.getItem("auth_refresh_token");
+      if (!refresh) return false;
+      if (_refreshInFlight) return _refreshInFlight;
+      _refreshInFlight = (async () => {
+        try {
+          const res = await __origFetch(TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: CLIENT_ID }).toString(),
+          });
+          if (!res.ok) return false;
+          const data = await res.json();
+          const fresh = data.access_token || data.id_token || '';
+          if (!fresh) return false;
+          localStorage.setItem("auth_token", fresh);
+          if (data.refresh_token) localStorage.setItem("auth_refresh_token", data.refresh_token);
+          return true;
+        } catch (e) { return false; }
+        finally { _refreshInFlight = null; }
+      })();
+      return _refreshInFlight;
+    }
+
+    // The app's own fetch, wrapped: the runtime's HTTP effects and the page's fetch_data port both
+    // reach global fetch at call time, so one wrapper covers every request. Only /api/ calls are
+    // revalidated; Authentik's own endpoints (token, end-session) pass straight through.
+    const __origFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.indexOf('/api/') === -1 || url.indexOf('auth.johnethel.school') !== -1) return __origFetch(input, init);
+      const headers = new Headers(init && init.headers);
+      if (!headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + currentToken());
+      const first = await __origFetch(input, { ...init, headers });
+      if (first.status !== 401) return first;
+      const refreshed = await tryRefreshToken();
+      if (!refreshed) { startAuthFlow(); return first; }
+      const retryHeaders = new Headers(init && init.headers);
+      retryHeaders.set('Authorization', 'Bearer ' + currentToken());
+      return __origFetch(input, { ...init, headers: retryHeaders });
+    };
+
     // ─── OAuth2 PKCE helpers ─────────────────────────────────────────────
     const CLIENT_ID = 'ZMZS84aG53o8USUYqH2lX1muDbH3GSZ4Q03KFhSu';
     const AUTH_HOST = 'https://auth.johnethel.school';
@@ -134,6 +197,10 @@
             }
 
             const data = await response.json();
+            // The refresh token the page exchanges for a new access token when one expires mid-
+            // session (see tryRefreshToken below). Stored next to the access token; a sign-out
+            // clears both.
+            if (data.refresh_token) localStorage.setItem('auth_refresh_token', data.refresh_token);
             return data.access_token || data.id_token || null;
         } catch (e) {
             console.error('Token exchange error:', e);
@@ -317,12 +384,14 @@
             setTimeout(() => { window.location.href = url; }, 0);
         });
 
-        // Port: save_token — persist auth token
+        // Port: save_token — persist auth token. Signing out (an empty value) clears the refresh
+        // token too, so a signed-out browser cannot silently re-enter.
         app.onPort("save_token", (value) => {
             if (value) {
                 localStorage.setItem("auth_token", value);
             } else {
                 localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_refresh_token");
             }
         });
 
@@ -1041,7 +1110,10 @@
         if (metaEl) metaEl.textContent = `${lesson.subject_name || "Subject"} · ${lesson.term_name || "Term"}`;
         if (weekEl && lesson.week) {
             weekEl.classList.remove("hidden");
-            weekEl.innerHTML = `<span class="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-semibold">Week ${lesson.week}</span>`;
+            weekEl.classList.add("shrink-0");
+            // whitespace-nowrap: with a long lesson title the header flex squeezes the badge, and
+            // "Week 1" was wrapping onto two lines.
+            weekEl.innerHTML = `<span class="inline-flex items-center whitespace-nowrap rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-semibold">Week ${lesson.week}</span>`;
         }
 
         const panel = document.getElementById("lesson-panel");
