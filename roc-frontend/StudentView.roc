@@ -421,14 +421,17 @@ student_lesson_content_view = |model| {
                 ])
             ]),
 
-            # Right-side sticky dot section navigator (populated by JS)
+            # Right-side sticky dot section navigator (populated by JS). The panel sits IN FLOW
+            # beside the dots — not absolutely positioned outside the hover group — so moving the
+            # pointer from the dots into the box (across the mr-3 gap) never leaves the group and
+            # the box cannot vanish mid-way.
             Html.div([
                 Attribute.id("section-nav"),
-                Attribute.class("hidden md:block fixed right-6 top-1/2 -translate-y-1/2 z-50 group")
+                Attribute.class("hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center")
             ], [
                 Html.div([
                     Attribute.id("section-nav-panel"),
-                    Attribute.class("absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-x-2 group-hover:translate-x-0")
+                    Attribute.class("mr-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-x-2 group-hover:translate-x-0")
                 ], [
                     Html.div([Attribute.class("bg-card border border-border rounded-lg shadow-lg p-3 space-y-1 w-52")], [
                         Html.div([Attribute.id("section-nav-labels")], [])

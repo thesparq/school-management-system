@@ -321,14 +321,16 @@ teacher_lesson_view = |model| {
                 ])
             ]),
 
-            # Right-side sticky section navigator (same as student view)
+            # Right-side sticky section navigator (same as student view, and the same in-flow
+            # panel fix: the box is part of the hover group, so it cannot vanish while the pointer
+            # moves from the dots into it).
             Html.div([
                 Attribute.id("section-nav"),
-                Attribute.class("hidden md:block fixed right-6 top-1/2 -translate-y-1/2 z-50 group")
+                Attribute.class("hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center")
             ], [
                 Html.div([
                     Attribute.id("section-nav-panel"),
-                    Attribute.class("absolute right-full top-1/2 -translate-y-1/2 mr-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-x-2 group-hover:translate-x-0")
+                    Attribute.class("mr-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-x-2 group-hover:translate-x-0")
                 ], [
                     Html.div([Attribute.class("bg-card border border-border rounded-lg shadow-lg p-3 space-y-1 w-52")], [
                         Html.div([Attribute.id("section-nav-labels")], [])

@@ -38,6 +38,31 @@ the old stack's one real bug fixed:
   95/95, `authz.sh` 27/27, and all seven `*Test.roc` suites green). The sandbox fixture gained the
   `teacher_assignment`/`teaches` mirror definitions and prod's unique credentials-name index.
 
+### Live round 2 — student first-navigation, role-scoped boot fetches, real silent refresh, section nav (2026-10-09)
+
+Five live reports fixed and browser-verified on the sandbox:
+
+- **A student's subject list stranded on its skeleton on first in-app navigation** (it worked on
+  reload): the boot-time fetch's payload can be dropped when the page that owns the hidden input is
+  not rendered yet, and navigating into the page did not refetch. `NavigateTo(StudentSubjects)` (and
+  `UrlChanged`) now refetch the list, like the admin pages already did.
+- **403 console noise for every role**: boot fetches were role-blind (students fetched teacher and
+  admin endpoints). `init` now scopes the boot fetches by role — students fetch only their subjects,
+  teachers their classes/lessons, admins the full set — so a student session makes zero 403s.
+- **Silent refresh never engaged**: the authorize request lacked `offline_access`, so Authentik never
+  issued a refresh token (the retired SvelteKit app requested it; the SPA did not). The scope now
+  includes it, the refresh token is stored at login, and a new per-minute sweep refreshes the access
+  token proactively when it is within two minutes of expiring — a 401-driven refresh also still
+  works as the catch-all, with a redirect to Authentik only when refreshing is impossible.
+- **The lesson section navigator's box closed when the pointer moved into it**: the panel was
+  positioned outside the hover group. It now sits in flow inside the group (student, teacher and the
+  admin LMS lesson views), so the box stays open and clickable; the admin LMS lesson view also gains
+  the navigator and the mobile table-of-contents (renderLesson wires them; the teacher's view
+  already had it).
+- New `e2e_nav_fixes.cjs` (6 checks) covers the navigation, no-403, offline_access and nav-box
+  behavior; `e2e_icons_refresh` 10/10, `smoke_assignments_lms` 17/17, `smoke_teacher_role` 6/6,
+  `e2e_loading` 20/20, `e2e_student` 7/7 stay green.
+
 ### Post-deploy polish — icons, tabs, week badge, token refresh (2026-10-08)
 
 Four live-reports fixed and browser-verified against the sandbox:

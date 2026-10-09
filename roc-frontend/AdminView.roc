@@ -1381,12 +1381,43 @@ admin_lesson_view = |model| {
 						Html.div([Attribute.id("lesson-week-badge"), Attribute.class("hidden")], [])
 					])
 				]),
-				Html.div([Attribute.id("lesson-panel"), Attribute.class("space-y-8 pb-16")], [
+				Html.div([
+					Attribute.id("lesson-panel"),
+					Attribute.class("space-y-8 pb-16"),
+				], [
 					admin_lesson_panel(model)
 				])
 			])
+		]),
+
+		# The same right-side section navigator the student and teacher lesson views have: the
+		# panel sits in flow inside the hover group, so moving the pointer into the box keeps it
+		# open (the renderLesson JS fills the dots and labels).
+		Html.div([
+			Attribute.id("section-nav"),
+			Attribute.class("hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center")
+		], [
+			Html.div([
+				Attribute.id("section-nav-panel"),
+				Attribute.class("mr-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-x-2 group-hover:translate-x-0")
+			], [
+				Html.div([Attribute.class("bg-card border border-border rounded-lg shadow-lg p-3 space-y-1 w-52")], [
+					Html.div([Attribute.id("section-nav-labels")], [])
+				])
+			]),
+			Html.div([Attribute.id("section-nav-dots"), Attribute.class("flex flex-col items-center gap-2.5 py-3")], [])
+		]),
+
+		# Mobile TOC button
+		Html.div([Attribute.id("mobile-toc-fab"), Attribute.class("fixed bottom-6 right-6 z-50 md:hidden")], [
+			Html.button([
+				Attribute.id("mobile-toc-btn"),
+				Attribute.class("h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition"),
+				Attribute.type("button")
+			], [Html.text("≡")]),
+			Html.div([Attribute.id("mobile-toc-menu"), Attribute.class("hidden absolute bottom-16 right-0 bg-card border border-border rounded-lg shadow-xl p-3 space-y-1 min-w-44")], [])
 		])
-	])
+])
 }
 
 # The lesson panel before the page's JavaScript has rendered the lesson into it: skeleton while

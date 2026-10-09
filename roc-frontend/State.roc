@@ -483,25 +483,31 @@ init = |flags| {
 			Port.send("fetch_data", "/api/subjects?all=true"),
 			Port.send("fetch_data", "/api/credentials"),
 		]
-			                _ => [
-		                        Port.send("fetch_data", "/api/users?role=Student"),
-		                        Port.send("fetch_data", "/api/users?role=Teacher"),
-		                        Port.send("fetch_data", "/api/users?role=Parent"),
-		                        Port.send("fetch_data", "/api/users?role=Admin"),
-		                        Port.send("fetch_data", "/api/subjects"),
-		                        Port.send("fetch_data", "/api/teacher/lessons"),
-		                        Port.send("fetch_data", "/api/teacher/classes"),
-		                        # The AdminUserManagement view's create form needs the active class levels for
-		                        # its picker even when the page is reached by a direct load (init, not NavigateTo).
-		                        Port.send("fetch_data", "/api/class_levels"),
-		                        # The catalog and the pairs the admin widgets read. Fetched everywhere so a
-		                        # direct load of any page has them ready; a role that cannot read either gets
-		                        # a 403 the dispatcher drops (the inputs only exist on the admin pages).
-		                        Port.send("fetch_data", "/api/credentials"),
-		                        Port.send("fetch_data", "/api/class-subjects"),
-		                        Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
-		                        Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
-		                ]
+			                _ => match initialRole {
+		                        Admin => [
+		                                Port.send("fetch_data", "/api/users?role=Student"),
+		                                Port.send("fetch_data", "/api/users?role=Teacher"),
+		                                Port.send("fetch_data", "/api/users?role=Parent"),
+		                                Port.send("fetch_data", "/api/users?role=Admin"),
+		                                Port.send("fetch_data", "/api/subjects"),
+		                                Port.send("fetch_data", "/api/teacher/lessons"),
+		                                Port.send("fetch_data", "/api/teacher/classes"),
+		                                Port.send("fetch_data", "/api/class_levels"),
+		                                Port.send("fetch_data", "/api/credentials"),
+		                                Port.send("fetch_data", "/api/class-subjects"),
+		                                Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+		                                Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+		                        ]
+		                        Teacher => [
+		                                Port.send("fetch_data", "/api/subjects"),
+		                                Port.send("fetch_data", "/api/teacher/lessons"),
+		                                Port.send("fetch_data", "/api/teacher/classes"),
+		                        ]
+		                        Student => [
+		                                Port.send("fetch_data", "/api/subjects"),
+		                        ]
+		                        _ => []
+		                }
 	})
 }
 
@@ -679,6 +685,9 @@ update = |model, msg|
 					Port.send("fetch_data", "/api/session_terms"),
 					Port.send("fetch_data", "/api/credentials"),
 				]
+				StudentSubjects => [
+					Port.send("fetch_data", "/api/subjects"),
+				]
 				AdminLMS => [
 					Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
 					Port.send("fetch_data", "/api/class-subjects"),
@@ -719,6 +728,16 @@ update = |model, msg|
 				Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
 				Port.send("fetch_data", "/api/class-subjects"),
 				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+			]
+		)
+		NavigateTo(StudentSubjects) => (
+			{ ..model, route: StudentSubjects, mobileMenuOpen: Bool.False, selectedSubjectId: "", selectedSubjectName: "", selectedTermId: "", selectedTermName: "", selectedLessonId: "", studentTermsData: "", studentLessonsData: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/student/subjects"),
+				# The list's payload can be dropped when the boot fetch answered before this page's
+				# hidden input existed — refetch on entry, like the admin pages do, so a first
+				# navigation after a login never strands the list on its skeleton.
+				Port.send("fetch_data", "/api/subjects"),
 			]
 		)
 		NavigateTo(AdminConfigurationHub) => (
