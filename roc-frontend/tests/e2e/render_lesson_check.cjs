@@ -42,6 +42,9 @@ const realFetch = global.fetch;
 const realSetTimeout = global.setTimeout;
 global.fetch = async () => ({ ok: true, json: async () => [] });
 global.setTimeout = () => 0;
+// The page's 401-refresh wrapper reads `window.fetch` (it rebinds it), so the stub has to be on the
+// window object too — a bare global is not enough.
+window.fetch = global.fetch;
 
 (async () => {
   const html = fs.readFileSync(path.join(root, 'www', 'index.html'), 'utf8');

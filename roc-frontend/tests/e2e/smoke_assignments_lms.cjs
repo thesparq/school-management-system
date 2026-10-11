@@ -46,11 +46,23 @@ const check = (name, ok, extra='') => { results.push(ok); console.log(`${ok?'PAS
   check('lesson content renders (read-only)', await hasText('Packaging protects farm produce.'));
   check('no student answers UI on the admin lesson', await page.locator('#lesson-panel input').count() === 0);
 
-  // 2. Teacher Assign dialog
+  // 2. Teacher Assign dialog. The Assign action belongs to a teacher row that has a profile, so
+  // one is created here rather than leaning on a row some earlier suite happened to leave behind.
   await page.goto(`${appUrl}/admin/users`, { waitUntil: 'load' });
   await page.waitForSelector('text=Add New User', { timeout: 45000 }).catch(() => {});
+  const madeTeacher = await page.evaluate(async (s) => {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'Teacher', email: `smoke-teacher-${s}@example.com`, first_name: 'Smoke', middle_name: '', surname: `Teacher${s}`, passport: 'https://example.com/t.jpg' }),
+    });
+    return res.ok;
+  }, stamp);
+  check('a teacher with a profile exists to assign to', madeTeacher === true);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('text=Add New User', { timeout: 45000 }).catch(() => {});
   await page.click('button:has-text("Teachers")');
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1800);
   await page.locator('#app button:has-text("Assign")').first().click();
   await page.waitForSelector('text=Assign Classes', { timeout: 10000 }).catch(() => {});
   check('Assign opens the dialog', await hasText('Assign Classes'));

@@ -7,6 +7,13 @@
 // `503` mode runs the same form against a backend started *without* the R2 variables and checks
 // that the form shows the backend's own message instead of pretending the upload worked.
 //
+// The form is a modal (opened from the page header), and it is the student role's fields this
+// suite fills. Needs a backend on the target port started with the R2 variables pointing at
+// `https://cdn.example.com` for the public URL and the `test` bucket, because that is what the
+// checks below read back:
+//
+//   R2_ENDPOINT_URL=https://example.r2.cloudflarestorage.com R2_BUCKET_NAME=test \
+//   R2_ACCESS_KEY_ID=fake R2_SECRET_ACCESS_KEY=fake R2_PUBLIC_URL=https://cdn.example.com \
 //   APP_URL=http://127.0.0.1:8308 node tests/e2e/e2e_passport_upload.cjs
 //   APP_URL=http://127.0.0.1:8308 node tests/e2e/e2e_passport_upload.cjs 503
 
@@ -78,10 +85,13 @@ const PNG = Buffer.from(
 
   const surname = `Upload${stamp % 10000}`;
   const fill = (placeholder, value) => page.locator(`input[placeholder="${placeholder}"]`).fill(value);
+  // The form lives in a modal, opened from the page header.
+  await page.click('#app button:has-text("Add New User")');
+  await page.waitForFunction(() => (document.querySelector('#app h3') || {}).textContent === 'Add New User', null, { timeout: 10000 }).catch(() => {});
   await fill('e.g. Adamu', 'Grace');
   await fill('e.g. Musa', surname);
   await fill('e.g. adamu@johnethel.school', `upload${stamp}@example.com`);
-  await fill('jss_1, jss_2, jss_3, year_1 ...', 'jss_2');
+  await page.selectOption('#new-user-class-level', 'class_levels:jss_2');
   await page.locator('input[type="date"]').fill('2011-09-14');
 
   await page.setInputFiles('#passport-file-input', { name: 'passport.png', mimeType: 'image/png', buffer: PNG });
@@ -120,7 +130,7 @@ const PNG = Buffer.from(
   check('the form reports the upload', status.includes('Photo uploaded'), status.slice(0, 120));
 
   // The field is what the create path submits, so the profile stores the uploaded photo's URL.
-  await page.click('text=Add User');
+  await page.click('text=Create User');
   await page.waitForSelector('text=User created', { timeout: 20000 }).catch(() => {});
   check('form submit reports success', await page.evaluate(() => document.body.innerText.includes('User created')));
   const created = creates.length === 1 ? creates[0] : '';
