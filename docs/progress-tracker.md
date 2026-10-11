@@ -1278,21 +1278,27 @@ mode), `render_lesson_check.cjs` all checks, `users_api.sh` 95/95, `authz.sh` 27
   active = true)`), with the full list kept for a student whose profile names no class — the same fallback rule
   the lesson list uses, for the same reason.
 
-**Indexes.** `db/schema-v10-lesson-indexes.surql` adds the one composite index these lists needed:
-`(has_subject, term, week)` on `lessons`. `lessons` carries both links but nothing ever indexed them — v2's
-only lessons index is `idx_lessons_topic` on a `topic` column the current shape does not have — so every lesson
-list scanned the table, and `has_subject` filtering (the class scope, the teacher's assignment subquery, the
-student's subjects subquery) had no index to stand on either. The edge lookups were already covered
-(`idx_hs_in`, `idx_hs_unique (in, out)`), `topics` already had its `(has_subject, term, week)` unique index, and
-`teacher_assignment` already had its `(teacher, edge, session_term)` one; the file also records the stale
-`idx_lessons_topic` to verify-and-drop and the **UNIQUE** swap that would make "one lesson per edge, term and
-week" a database rule, which is the only thing that stops a seeding re-run from re-creating duplicates.
+**Indexes — and a correction.** I said `lessons` was unindexed on `has_subject`/`term`; that was true of this lineage
+and **wrong about prod**. Prod carries `idx_lessons_unique` on `(has_subject, term, week)` UNIQUE and
+`idx_lessons_slug` on `slug`, both applied outside `db/*.surql`. So the rule I was about to recommend as a
+future safeguard has been in place all along — which is also why prod came back with **zero** duplicate groups
+over 3413 lessons, and why the "20+ lessons" could only ever have been the query scoping. `db/schema-v10-
+lesson-indexes.surql` now records those two indexes (no-ops on prod, and the rule the sandbox fixture was
+missing), and notes that v2's `idx_lessons_topic` is not in prod at all. `db/apply-v10-and-verify.sh` applies it
+and reports the duplicate count; its earlier `--swap` path is gone, since there is nothing to swap once the file
+defines the rule directly. **Prod ended this work exactly as it started it** — the index added there was a second
+copy of the one it already had, and was removed again.
+
+**The lesson for next time**: derive a database's shape from the database, not from the schema directory that is
+supposed to describe it. One `INFO FOR TABLE lessons` — thirty seconds, read-only — would have replaced the whole
+index argument with "already indexed, already unique".
 
 **Verified again after both** (`roc check main.roc` 0 errors): teacher picker on one edge holding a Noel lesson
 and a Calvary probe **2 rows → 1**; JSS 2 student's subjects **Yoruba Language (JSS 1 only) excluded**, full list
 back with no profile; and the sweep: `smoke_teacher_role` 9/9, `e2e_student` 7/7, `e2e_loading` 20/20,
 `e2e_assessments` 17/17, `e2e_admin_config` 52/53 (its documented leftover-edge caveat), `e2e_users_directory`
-27/27, `users_api.sh` 95/95, `authz.sh` 27/27.
+27/27, `users_api.sh` 95/95, `authz.sh` 27/27. Against **prod**, read-only: 3413 lessons, **0 duplicate groups**,
+and `smoke_assignments_lms` 18/18 on the sandbox after its fixture gained prod's two indexes.
 
 ---
 
