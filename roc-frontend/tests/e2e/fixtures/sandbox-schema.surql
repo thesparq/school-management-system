@@ -125,6 +125,11 @@ DEFINE FIELD slug ON lessons TYPE string;
 DEFINE FIELD term ON lessons TYPE record<terms>;
 DEFINE FIELD topic_title ON lessons TYPE string;
 DEFINE FIELD week ON lessons TYPE int;
+-- Prod's own lessons indexes (see db/schema-v10-lesson-indexes.surql): without these a sandbox would
+-- enforce neither the slug nor the one-lesson-per-edge-term-week rule that prod enforces, so a bug
+-- that duplicates a week would look fine here.
+DEFINE INDEX idx_lessons_unique ON lessons COLUMNS has_subject, term, week UNIQUE;
+DEFINE INDEX idx_lessons_slug ON lessons COLUMNS slug UNIQUE;
 
 DEFINE TABLE lesson_assessments SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD active ON lesson_assessments TYPE bool DEFAULT false;

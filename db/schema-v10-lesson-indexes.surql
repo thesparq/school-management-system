@@ -1,50 +1,28 @@
--- v10 — the indexes the lesson lists look things up by.
+-- v10 — the lesson indexes prod actually runs, so a fresh database matches it.
 --
--- Every lesson list the app shows asks one question: the lessons of one class-subject edge
--- (`has_subject`) in one term (`term`), ordered by week. `lessons` carries both as links — the e2e
--- fixture mirrors prod's actual shape — but nothing has ever indexed them. v2's only lessons index is
--- `idx_lessons_topic` on a `topic` column that the current shape does not have, so each of these
--- lists scans the table and the class level is filtered in memory.
+-- These two were applied to prod outside this lineage (there is no statement for either in v2-v9),
+-- which made a first read of the schema misleading: `lessons` looked unindexed on `has_subject` and
+-- `term` when prod in fact enforces one lesson per edge, term and week as a database rule. Recorded
+-- here so the next reader — and every sandbox built from the fixture — sees prod's real shape.
 --
--- One composite index serves all of them: the full `(has_subject, term, week)` list is an index range
--- scan, and the `(has_subject)` and `(has_subject, term)` prefixes the picker queries filter on are
--- covered by the same index. `has_subject` already has `idx_hs_in`/`idx_hs_unique (in, out)` for the
--- edge lookups, so nothing is added there.
-DEFINE INDEX IF NOT EXISTS idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week;
+-- Both are no-ops where they already exist (prod), and on a new database they install the rule that
+-- keeps a re-run of the seeding from adding a second lesson to a week.
+DEFINE INDEX IF NOT EXISTS idx_lessons_unique ON lessons COLUMNS has_subject, term, week UNIQUE;
+DEFINE INDEX IF NOT EXISTS idx_lessons_slug ON lessons COLUMNS slug UNIQUE;
 
--- The stale one. `idx_lessons_topic` indexes `topic`, a column the lessons the app reads no longer
--- carry (they carry `has_subject`, `term`, `week` instead). Check before removing it: if prod's rows
--- still set `topic`, the index is load-bearing and dropping it changes nothing about the queries
--- above but does lose the one-lesson-per-topic guard.
+-- v2's `idx_lessons_topic` (on a `topic` column the lessons the app reads do not carry) is not in
+-- prod — prod's lessons indexes are the two above and nothing else. A database carried over from the
+-- v2 era might still hold it; this is how to tell, and how to drop it:
 --
 --   SELECT count() FROM lessons WHERE topic != NONE GROUP ALL;
---
--- A 0 means it can go:
--- REMOVE INDEX idx_lessons_topic ON lessons;
+--   -- 0 means it can go:
+--   REMOVE INDEX idx_lessons_topic ON lessons;
 
--- The line the data model wants is one lesson per edge, term and week — exactly what
--- `idx_topics_unique` enforces on `topics`, one level up. An index is not data, so nothing here can
--- destroy anything: a definition either takes or is refused, with the offending row named. What the
--- refusal *does* cost you is time — see the swap note below, which is why the dry run comes first.
+-- Applying the UNIQUE statements above to a database that already holds duplicates is refused, with
+-- the offending record named — nothing is deleted. Find them first with the HAVING-free form (this
+-- SurrealDB build does not accept `HAVING`):
 --
 --   SELECT * FROM (SELECT count() AS n, has_subject, term, week FROM lessons
 --     GROUP BY has_subject, term, week) WHERE n > 1;
 --
--- Rows back means duplicates exist; de-duplicate them first (each names the record to keep or drop),
--- then apply the UNIQUE form of the statement above instead of the plain one.
---
--- Rows back is not the only way to be dirty, so dry-run the rule before swapping the index: defining
--- it under a throwaway name either takes (the data is clean, and you drop the throwaway again) or is
--- refused naming the duplicate, leaving the working index in place. Verified on a sandbox holding a
--- deliberate duplicate: the dry run was refused and `idx_lessons_edge_term_week` was untouched.
---
---   DEFINE INDEX idx_lessons_edge_term_week_unique_probe ON lessons COLUMNS has_subject, term, week UNIQUE;
---   REMOVE INDEX idx_lessons_edge_term_week_unique_probe ON lessons;
---
--- Then the swap itself. It is two statements and they are not atomic: a refused DEFINE after a
--- successful REMOVE leaves the table with no index on these columns — no data lost, and every list
--- still answers correctly, just on a scan again until the index is re-added. That is the whole reason
--- for the dry run above.
---
---   REMOVE INDEX idx_lessons_edge_term_week ON lessons;
---   DEFINE INDEX idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week UNIQUE;
+-- db/apply-v10-and-verify.sh runs both of those for you, and reports what the indexes are afterwards.
