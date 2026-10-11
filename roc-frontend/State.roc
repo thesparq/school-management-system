@@ -122,6 +122,11 @@ Model : {
 	usersAdminsData : Str,
 	selectedSubjectId : Str,
 	selectedSubjectName : Str,
+	# The class level of the pair a teacher is browsing (My Classes carries it on the card). It is
+	# what scopes the lesson picker to one class's curriculum: the list is filtered by the
+	# class-subject edge, not by the subject alone, which would match that subject in every class
+	# level and show one "Week N" row per class.
+	teacherClassId : Str,
 	selectedTermId : Str,
 	selectedTermName : Str,
 	selectedLessonId : Str,
@@ -282,9 +287,10 @@ Msg : [
 	GotStudentTermsData(Str),
 	GotTeacherLessonsData(Str),
 	OpenTeacherLesson(Str),
-	# A My Classes card: open the lesson picker scoped to that subject (its lessons are the
-	# teacher's own, filtered by the subject the card carried).
-	OpenTeacherSubject(Str, Str),
+	        # A My Classes card: open the lesson picker scoped to that class-subject pair (its lessons are
+	        # the teacher's own, filtered by the edge the card carried — the subject alone would match the
+	        # same subject in every class level).
+	        OpenTeacherSubject(Str, Str, Str),
 	GotStudentLessonsData(Str),
 	GotLessonContent(Str),
 	BackToSubjects,
@@ -490,6 +496,7 @@ init = |flags| {
 		usersAdminsData: "",
 		selectedSubjectId: "",
 		selectedSubjectName: "",
+		teacherClassId: "",
 		selectedTermId: "",
 		selectedTermName: "",
 		selectedLessonId: initialLmsState.lesson_id,
@@ -1699,11 +1706,11 @@ update = |model, msg|
 				{ ..model, selectedLessonId: id },
 				[Port.send("push_state", "/teacher/lessons?id=${id}")]
 			)
-		OpenTeacherSubject(id, name) => (
-			{ ..model, selectedSubjectId: id, selectedSubjectName: name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
+		OpenTeacherSubject(class_id, subject_id, subject_name) => (
+			{ ..model, route: TeacherLessonViewer, teacherClassId: class_id, selectedSubjectId: subject_id, selectedSubjectName: subject_name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
 			[
 				Port.send("push_state", "/teacher/lessons"),
-				Port.send("fetch_data", "/api/teacher/lessons?subject_id=${id}"),
+				Port.send("fetch_data", "/api/teacher/lessons?class_id=${class_id}&subject_id=${subject_id}"),
 			]
 		)
 		GotLessonContent(s) => ({ ..model, currentLessonContent: s }, [])

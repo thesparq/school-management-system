@@ -53,8 +53,9 @@ teacher_classes_view = |model| {
                             parts = Str.split_on(line, "|")
                             subject_id = match List.get(parts, 3) { Ok(v) => v, Err(_) => "" }
                             subject_name = match List.get(parts, 4) { Ok(v) => v, Err(_) => "Unknown Subject" }
+                            class_id = match List.get(parts, 1) { Ok(v) => v, Err(_) => "" }
                             class_name = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
-                            teacher_pair_card(subject_id, subject_name, class_name)
+                            teacher_pair_card(class_id, subject_id, subject_name, class_name)
                         })
                     )
                 }
@@ -63,13 +64,15 @@ teacher_classes_view = |model| {
 }
 
 # One assigned pair as a card: the subject is what the teacher picks next, with its class level
-# underneath — the retired app's class -> subject drill, reached in one click.
-teacher_pair_card = |subject_id, subject_name, class_name| {
+# underneath — the retired app's class -> subject drill, reached in one click. The card carries the
+# class id as well as the subject, so the picker it opens lists one class's lessons rather than that
+# subject's lessons across every class level.
+teacher_pair_card = |class_id, subject_id, subject_name, class_name| {
     Html.div([
         Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
         # A view change, so the page starts its top border progress bar for the click.
         Attribute.data("nav", ""),
-        Attribute.on_click(OpenTeacherSubject(subject_id, subject_name))
+        Attribute.on_click(OpenTeacherSubject(class_id, subject_id, subject_name))
     ], [
         Html.div([Attribute.class("flex items-center gap-4")], [
             Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
@@ -122,7 +125,7 @@ teacher_lesson_picker = |model| {
                     teacher_lesson_skeleton(""),
                     teacher_lesson_skeleton("")
                 ])
-            Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/teacher/lessons")))
+            Failed(message) => UI.list_error_state("Could not load the lessons", message, Click(RetryList("/api/teacher/lessons?class_id=${model.teacherClassId}&subject_id=${model.selectedSubjectId}")))
             Ready(rows) =>
                 if List.is_empty(rows) {
                     UI.list_empty_state("book-open", "No lessons yet", "Lessons appear here once they are added to a subject.")

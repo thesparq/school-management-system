@@ -1852,6 +1852,21 @@ assigned_edges_subquery! = |teacher_pk, term_id| {
     "SELECT VALUE has_subject FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE"
 }
 
+# The class level a student is enrolled in, as the bare pk their lesson list is scoped by. "" when
+# the profile carries none (or the caller has no profile row yet), which leaves that list unscoped:
+# a student who is not enrolled anywhere still reads a subject's lessons rather than nothing.
+student_class_pk! : Str, SurrealDB.Config => Str
+student_class_pk! = |student_pk, config| {
+    match SurrealDB.query_read!("SELECT current_class FROM type::record('student_profile', '${student_pk}') LIMIT 1;", config) {
+        Ok(body) => {
+            raw = extract_field(body, "current_class")
+            # A profile with no class answers `null` (or `NONE`), which is not an id to filter by.
+            if Str.is_empty(raw) or raw == "null" or raw == "NONE" { "" } else { bare_id(raw) }
+        }
+        Err(_) => ""
+    }
+}
+
 # The bare ids of the (already validated) edge list, read out one at a time: a recursive pass rather
 # than List.map, because bare_id is effectful and List.map only takes a pure function. The save
 # endpoint uses the bare form to build its CREATE statements.
@@ -2785,14 +2800,18 @@ respond! = |request, context| {
                      }
                  } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/lessons") {
                      # Prod: a lesson hangs off the has_subject edge (class_levels -> subjects) and one
-                     # terms record. The class-level filter is skipped until students are enrolled
-                     # (student_profile is empty), so a subject matches every class level.
+                     # terms record. A student's list is scoped to the class level their own profile
+                     # names: the same subject is taught in every class level, so a subject-only filter
+                     # lists each week once per class — the "20+ lessons, duplicate Week 1" report. A
+                     # student whose profile names no class keeps the unscoped list.
                      subject_param = query_param(request_target_text(request), "subject_id")
                      term_param = query_param(request_target_text(request), "term_id")
+                     class_pk = if caller.role == "student" { student_class_pk!(caller_id!(user_json), context.surreal) } else { "" }
                      clauses = List.keep_if(
                          [
                              if Str.is_empty(subject_param) { "" } else { "has_subject.out = ${record_ref!(subject_param, "subjects")}" },
                              if Str.is_empty(term_param) { "" } else { "term = ${record_ref!(term_param, "terms")}" },
+                             if Str.is_empty(class_pk) { "" } else { "has_subject.in = ${record_ref!(class_pk, "class_levels")}" },
                              "active = true",
                          ],
                          |clause| !Str.is_empty(clause),
