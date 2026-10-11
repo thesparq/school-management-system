@@ -1264,13 +1264,49 @@ at a time, detached, and wait for it.
 mode), `render_lesson_check.cjs` all checks, `users_api.sh` 95/95, `authz.sh` 27/27, `assessment_flow.sh`
 41/41, `general_assessment_flow.sh` 56/56, `matrix_token.sh` 26/26.
 
-**Still open — the "20+ lessons for one subject/term with duplicate Week 1 subtitles" report.** The seed CSV
-(`csv/chunks/topics_chunk_01.csv`) holds one topic per week, so the seed data is not the source, and the sandbox
-fixture cannot reproduce it either way. This needs one read-only fact from prod to tell a data problem from a
-query problem: the per-term lesson count and the duplicate `(subject, term, week)` rows, e.g.
-`SELECT term, subject, week, count() FROM lessons WHERE ... GROUP BY term, subject, week HAVING count() > 1` — if
-that returns rows, prod has duplicate lessons and the fix is a cleanup; if it returns nothing, the listing query
-is over-broad and that is the bug to chase.
+**Still open — the term dimension of the same lesson list.** The teacher's picker is now scoped to the class
+and subject the card carries, but not to a term: it has no term step, so a teacher sees that class's subject
+across every term. With one term of data that is invisible; with three it is another kind of "duplicate Week 1".
+Deciding it means either adding the retired app's term step to the teacher's picker, or scoping it to the active
+session term the assignment itself is scoped to — a product choice, not a bug fix.
+
+---
+
+### The duplicate "Week 1" lessons — diagnosed and fixed (2026-10-11)
+
+**It was the query, not the data.** A lesson hangs off one `has_subject` edge (`class_level -> subject`) and one
+term, and `topics` is unique on `(has_subject, term, week)` — so duplicate weeks cannot come from the seed, and
+nothing needed prod access after all. The lists that filtered by **subject alone** matched that subject in *every*
+class level, so one class's curriculum listed its weeks once per class: JSS 1's and JSS 2's Agricultural Science
+lessons both answered a reader asking for JSS 2's.
+
+Reproduced in the sandbox by putting a second week-1 lesson on JSS 2's Agricultural Science edge: the subject-only
+question came back with **two rows, both "Week 1"**, and the class-scoped one with a single row. That is the
+reported symptom exactly, and three class levels are what turn it into "20+ lessons".
+
+**Fixed on both surfaces that had it** (the admin LMS already passed `class_id` and was never affected):
+
+- **Teacher.** The My Classes card carries the pair's `class_id`, and the picker now asks for `class_id` +
+  `subject_id` (its retry asks for the same). Opening a card also had to start choosing the lesson view: the
+  action sent the fetch and pushed the URL but never set the route, so a teacher clicking a class saw nothing
+  happen and the picker was reachable only by URL.
+- **Student.** The profile's own `current_class` scopes the list, read once per request. A student whose profile
+  names no class keeps the unscoped list — someone not enrolled anywhere still reads a subject's lessons rather
+  than nothing, which is the failure mode that made this worth guarding (the same reason the clause is left out
+  when the lookup answers `null`/`NONE`).
+
+**Verified**: JSS 2 student **1 row (was 2)**; teacher picker **1 row** of the 2 the same subject returns; a
+student with no profile unchanged at 2; `smoke_teacher_role.cjs` **9/9** with two new checks that stub both
+endpoints so a page that stops sending `class_id` fails the suite (the request must name the pair's class, and
+the JSS 2 lesson must not appear under the JSS 1 pair). Full sweep after the change: `e2e_student` 7/7,
+`e2e_assessments` 17/17, `e2e_general_assessments` 25/25, `smoke_assignments_lms` 18/18,
+`e2e_notifications_lms` 26/26, `e2e_admin` 16/16, `e2e_user_roles` 18/18, `e2e_users_directory` 27/27,
+`e2e_loading` 20/20, `e2e_nav_fixes` 6/6, `e2e_icons_refresh` 10/10, `users_api.sh` 95/95, `authz.sh` 27/27.
+
+**Build note, corrected**: `roc run build.roc` takes **~9 minutes** here and the compiler is fine — an earlier note
+blamed concurrency, but the real trap is cutting it short. Run it in the **foreground** with a socket long enough
+for it (a 900s timeout works); a detached or timed-out run dies with no summary line and no `www/app.wasm`,
+which looks exactly like a compile failure. `roc build` exits 2 merely because the module has a warning.
 
 ---
 
