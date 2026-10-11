@@ -22,16 +22,29 @@ DEFINE INDEX IF NOT EXISTS idx_lessons_edge_term_week ON lessons COLUMNS has_sub
 -- A 0 means it can go:
 -- REMOVE INDEX idx_lessons_topic ON lessons;
 
--- Hand-off note for whoever applies this: the index above is deliberately not UNIQUE, so it can be
--- applied to a database that already holds duplicates. The line the data model wants is one lesson
--- per edge, term and week — exactly what `idx_topics_unique` enforces on `topics` — and making this
--- index UNIQUE is what would enforce it here and stop a re-run of the seeding from adding a second
--- lesson to a week. That step only lands on clean data, so: check, then de-duplicate, then swap the
--- index.
+-- The line the data model wants is one lesson per edge, term and week — exactly what
+-- `idx_topics_unique` enforces on `topics`, one level up. An index is not data, so nothing here can
+-- destroy anything: a definition either takes or is refused, with the offending row named. What the
+-- refusal *does* cost you is time — see the swap note below, which is why the dry run comes first.
 --
 --   SELECT * FROM (SELECT count() AS n, has_subject, term, week FROM lessons
 --     GROUP BY has_subject, term, week) WHERE n > 1;
 --
--- No rows back means the swap is safe:
--- REMOVE INDEX idx_lessons_edge_term_week ON lessons;
--- DEFINE INDEX idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week UNIQUE;
+-- Rows back means duplicates exist; de-duplicate them first (each names the record to keep or drop),
+-- then apply the UNIQUE form of the statement above instead of the plain one.
+--
+-- Rows back is not the only way to be dirty, so dry-run the rule before swapping the index: defining
+-- it under a throwaway name either takes (the data is clean, and you drop the throwaway again) or is
+-- refused naming the duplicate, leaving the working index in place. Verified on a sandbox holding a
+-- deliberate duplicate: the dry run was refused and `idx_lessons_edge_term_week` was untouched.
+--
+--   DEFINE INDEX idx_lessons_edge_term_week_unique_probe ON lessons COLUMNS has_subject, term, week UNIQUE;
+--   REMOVE INDEX idx_lessons_edge_term_week_unique_probe ON lessons;
+--
+-- Then the swap itself. It is two statements and they are not atomic: a refused DEFINE after a
+-- successful REMOVE leaves the table with no index on these columns — no data lost, and every list
+-- still answers correctly, just on a scan again until the index is re-added. That is the whole reason
+-- for the dry run above.
+--
+--   REMOVE INDEX idx_lessons_edge_term_week ON lessons;
+--   DEFINE INDEX idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week UNIQUE;
