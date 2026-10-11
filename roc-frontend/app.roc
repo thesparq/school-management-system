@@ -32,6 +32,50 @@ subscriptions = |_model| [
 
 update = State.update
 
+# --- The notifications bell's dropdown content ---
+# The page's JS keeps the toast history and serializes it here one "kind|title|message" line at a
+# time (see formatNotifications in www/index.html) — the same bridge every other fetched list uses,
+# so the badge and the panel are rendered by the vdom like everything else instead of being poked
+# into this subtree directly (that bypassed the vdom's own tracking of it and corrupted later
+# patches elsewhere on the page).
+notification_lines = |data| List.drop_if(Str.split_on(data, "\n"), Str.is_empty)
+
+notification_badge = |data| {
+	n = List.len(notification_lines(data))
+	count_text = if n > 99 { "99+" } else { U64.to_str(n) }
+	span(
+		[class(if n > 0 { "absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center" } else { "hidden" })],
+		[text(count_text)]
+	)
+}
+
+notification_entry = |line| {
+	parts = Str.split_on(line, "|")
+	title = match List.get(parts, 1) { Ok(v) => v, Err(_) => "" }
+	message = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+	div([class("px-3 py-2 border-b border-border/50")], List.concat(
+		[p([class("text-sm font-medium")], [text(title)])],
+		if Str.is_empty(message) { [] } else { [p([class("text-xs text-muted-foreground")], [text(message)])] }
+	))
+}
+
+notifications_panel_body = |model| {
+	lines = notification_lines(model.notificationsData)
+	if List.is_empty(lines) {
+		[div([class("p-3 text-sm text-muted-foreground")], [text("No notifications yet.")])]
+	} else {
+		List.concat(
+			[
+				div([class("p-2 border-b flex items-center justify-between")], [
+					span([class("text-xs font-medium")], [text("Notifications")]),
+					UI.button({ ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(ClearNotifications), classes: "text-xs text-destructive h-auto py-0" }, [text("Clear all")])
+				])
+			],
+			List.map(lines, notification_entry)
+		)
+	}
+}
+
 render : Model -> Html(Msg)
 render = |model| {
 	theme_class =
@@ -248,8 +292,20 @@ render = |model| {
 					UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleTheme) }, [
 						text(match model.theme { Light => "🌙", Dark => "☀️" })
 					]),
-					UI.button({ ..UI.default_button, variant: Ghost, size: Icon }, [
-						text("🔔")
+					# The notifications bell: open state and content are the app's, the same "app owns it,
+					# the page only reports an outside click" pattern as the avatar menu below (writing the
+					# toast history straight into this node's DOM bypassed the vdom's own tracking of this
+					# subtree and corrupted later patches). The page serializes its toast history into
+					# notificationsData through the usual hidden-input bridge (see www/index.html).
+					div([Attribute.id("notifications-bell-wrap"), class("relative")], [
+						UI.button({ ..UI.default_button, variant: Ghost, size: Icon, on_click: Click(ToggleNotifications) }, [
+							text("🔔")
+						]),
+						notification_badge(model.notificationsData),
+						div([
+							Attribute.id("notifications-panel"),
+							class(if model.notificationsOpen { "absolute right-0 mt-2 w-72 max-h-96 overflow-y-auto bg-card border border-border rounded-md shadow-lg z-50" } else { "hidden" }),
+						], notifications_panel_body(model))
 					]),
 					                                        div([class("relative")], [
 					                                                div([Attribute.id("user-menu-button")], [
@@ -304,6 +360,20 @@ render = |model| {
 		Attribute.id("user_menu_close_input"),
 		Attribute.value(""),
 		Attribute.on_input(|_s| CloseUserMenu)
+	]),
+	# The notifications bell's own pair: the page's toast history, serialized the same way every
+	# other fetched list arrives, and the same outside-click-closes bridge as the avatar menu.
+	Html.input([
+		Attribute.type("hidden"),
+		Attribute.id("notifications_data_input"),
+		Attribute.value(model.notificationsData),
+		Attribute.on_input(|s| GotNotificationsData(s))
+	]),
+	Html.input([
+		Attribute.type("hidden"),
+		Attribute.id("notifications_close_input"),
+		Attribute.value(""),
+		Attribute.on_input(|_s| CloseNotifications)
 	]),
 		mobile_sidebar,
 		sidebar,

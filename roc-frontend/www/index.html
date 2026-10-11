@@ -318,7 +318,7 @@
             role = "Parent";
         }
 
-        const currentPath = window.location.pathname || '/';
+        const currentPath = (window.location.pathname + window.location.search) || '/';
         const flags = `${savedTheme2}|${finalToken}|${role}|${email}|${name}|${currentPath}|${window.location.origin}`;
         
         window.app = await mount({
@@ -336,9 +336,10 @@
         refreshActiveSessionTerm();
         armTokenPreRefresh();
 
-        // Browser back/forward support
+        // Browser back/forward support. The admin LMS drill-down lives in the query string, so the
+        // full URL (path + search) is what the app restores from.
         window.addEventListener('popstate', () => {
-            const path = window.location.pathname || '/';
+            const path = (window.location.pathname + window.location.search) || '/';
             if (window.app && window.app.sendUrl) {
                 window.app.sendUrl(path);
             }
@@ -355,6 +356,32 @@
         // before the form does.
         bindPassportUpload();
         setupNavFeedback();
+
+        // The modals' click-outside close: one document listener, so the app's re-renders cannot
+        // drop it. A modal's dark overlay: clicking the backdrop (not the dialog) cancels the
+        // modal. The bridge is a hidden input the view owns (data-close-input), the same
+        // JS-to-app channel the list payloads use.
+        document.addEventListener("click", (event) => {
+            if (event.target && event.target.classList && event.target.classList.contains("modal-backdrop")) {
+                const close = event.target.getAttribute("data-close-input");
+                if (close) {
+                    const input = document.getElementById(close);
+                    if (input) { input.value = "x"; input.dispatchEvent(new Event("input", { bubbles: true })); }
+                }
+            }
+        });
+
+        // The notifications dropdown closes on a click anywhere outside it — the app owns whether
+        // it is open (`notificationsOpen`), the page only reports the outside click, the same
+        // pattern as the avatar menu below.
+        document.addEventListener("click", (e) => {
+            const wrap = document.getElementById("notifications-bell-wrap");
+            const panel = document.getElementById("notifications-panel");
+            if (!panel || panel.classList.contains("hidden")) return;
+            if (wrap && wrap.contains(e.target)) return;
+            const input = document.getElementById("notifications_close_input");
+            if (input) input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
 
         // Port: push_state — update browser URL on navigation
         app.onPort("push_state", (url) => {
@@ -400,6 +427,16 @@
             setTimeout(() => { window.location.href = url; }, 0);
         });
 
+        // Port: notify — one notification from the app (a finished operation, success or failure):
+        // pushed as a top-right toast with a countdown, and kept in the bell dropdown's history.
+        app.onPort("notify", (payload) => {
+            const lines = String(payload || "").split("\n");
+            const kind = lines[0] || "info";
+            const title = lines[1] || "";
+            const message = lines.slice(2).join("\n");
+            pushNotification(kind, title, message);
+        });
+
         // Port: save_token — persist auth token. Signing out (an empty value) clears the refresh
         // token too, so a signed-out browser cannot silently re-enter.
         app.onPort("save_token", (value) => {
@@ -434,6 +471,14 @@
         // it up.
         app.onPort("generate_password", () => {
             setUserPassword(generatePassword());
+        });
+
+        // Port: clear_notifications — the bell panel's Clear all button asked the app to clear, and
+        // the app asked the page to actually drop the history it owns; synced straight back so the
+        // app sees the (now empty) list the normal way.
+        app.onPort("clear_notifications", () => {
+            _notificationHistory.length = 0;
+            syncNotificationsData();
         });
 
         // Port: copy_to_clipboard — the one-time credentials panel's Copy button (and anything else
@@ -554,7 +599,7 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications.
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name.
     // The first six fields are what the table renders today; the next seven are what the row's Edit
     // action loads into the form above (the backend's PUT patches the row, so the form has to start
     // with the values that are there). date_of_birth arrives with a time on it, but the form's date
@@ -565,15 +610,19 @@
     // login created with nothing but a username has no name at all, and without the fallback two such
     // rows read "Unknown". school_number is the backend's rendered form (`JES-000123`, `EMP-000045`),
     // or "" for a row without one (a parent, a login with no profile yet): the page shows it and
-    // never builds it, so the prefix lives in one place. The last field is a teacher's qualification
-    // ids, comma-joined (a record id has no comma), which the Edit form splits back into its picker.
+    // never builds it, so the prefix lives in one place. The trailing fields are the role-specific
+    // ones the lists and the edit form call: a teacher's qualification ids (comma-joined — a record
+    // id has no comma) and date employed, a parent's linked-student ids (comma-joined), and the
+    // student's class name.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
             return (u.id || "") + "|" + name + "|" + (u.email || "") + "|" + String(u.is_active !== false) + "|" + String(u.has_profile === true) + "|" + (u.school_number || "")
                 + "|" + (u.first_name || "") + "|" + (u.middle_name || "") + "|" + (u.surname || "")
                 + "|" + String(u.date_of_birth || "").slice(0, 10) + "|" + (u.current_class || "") + "|" + (u.role_title || "") + "|" + (u.passport || "")
-                + "|" + String((u.qualifications || []).join(","));
+                + "|" + String((u.qualifications || []).join(","))
+                + "|" + String(u.date_employed || "").slice(0, 10) + "|" + String((u.students || []).join(","))
+                + "|" + (u.class_name || "");
         });
     }
 
@@ -629,6 +678,74 @@
     function lessonFromPayload(value) {
         if (!value || value.indexOf("ok\n") !== 0) return null;
         try { return JSON.parse(value.slice(3)); } catch (e) { return null; }
+    }
+
+    // ========================================================
+    // Notifications: top-right toasts with a pausable countdown, and the navbar bell's history
+    // ========================================================
+    const NOTIFICATION_MS = 5000;
+    const _notificationHistory = [];
+    let _toastContainer = null;
+    function ensureToastContainer() {
+        if (_toastContainer && document.body.contains(_toastContainer)) return _toastContainer;
+        _toastContainer = document.createElement("div");
+        _toastContainer.id = "toast-container";
+        _toastContainer.className = "fixed top-16 right-4 z-[60] flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)]";
+        document.body.appendChild(_toastContainer);
+        return _toastContainer;
+    }
+
+    // One notification: a top-right toast with a countdown that pauses on hover, plus an entry in
+    // the bell dropdown's history. Kind drives the colour: success/error/warning/info.
+    function pushNotification(kind, title, message) {
+        const colors = { success: "border-green-300 bg-green-50 text-green-900", error: "border-red-300 bg-red-50 text-red-900", warning: "border-amber-300 bg-amber-50 text-amber-900", info: "border-primary/30 bg-background text-foreground" };
+        const icons = { success: "✓", error: "✕", warning: "!", info: "ℹ" };
+        const bars = { success: "bg-green-500", error: "bg-red-500", warning: "bg-amber-500", info: "bg-primary" };
+        const kindKey = colors[kind] ? kind : "info";
+        _notificationHistory.unshift({ kind: kindKey, title: title || "", message: message || "", at: Date.now() });
+        if (_notificationHistory.length > 50) _notificationHistory.pop();
+        syncNotificationsData();
+
+        const container = ensureToastContainer();
+        const el = document.createElement("div");
+        el.className = `relative rounded-lg border shadow-lg p-3 pr-8 overflow-hidden cursor-pointer ${colors[kindKey]}`;
+        el.innerHTML = `
+            <div class="flex items-start gap-2">
+                <span class="font-medium">${icons[kindKey]} ${escHtml(title || "")}</span>
+                <button type="button" class="ml-auto text-xs opacity-60 hover:opacity-100" title="Dismiss">✕</button>
+            </div>
+            ${message ? `<p class="text-sm text-foreground/80 mt-0.5">${escHtml(message)}</p>` : ""}
+            <div class="notification-bar absolute bottom-0 left-0 right-0 h-0.5 ${bars[kindKey]}" style="width:100%"></div>`;
+        const barEl = el.querySelector(".notification-bar");
+        let remaining = NOTIFICATION_MS, startedAt = Date.now(), paused = false, timer = null;
+        const dismiss = () => { if (timer) clearTimeout(timer); el.remove(); if (container.children.length === 0) container.remove(); };
+        const tick = () => {
+            if (paused) return;
+            const left = remaining - (Date.now() - startedAt);
+            if (left <= 0) { dismiss(); return; }
+            barEl.style.width = (left / NOTIFICATION_MS * 100) + "%";
+            timer = setTimeout(tick, 100);
+        };
+        el.addEventListener("mouseenter", () => { paused = true; if (timer) clearTimeout(timer); });
+        el.addEventListener("mouseleave", () => { paused = false; remaining -= Date.now() - startedAt; startedAt = Date.now(); tick(); });
+        el.querySelector("button").addEventListener("click", (e) => { e.stopPropagation(); dismiss(); });
+        el.addEventListener("click", dismiss);
+        container.appendChild(el);
+        tick();
+    }
+
+    // Hands the history to the app the same way every fetched list arrives: a hidden input the
+    // view owns, one line per entry (`kind|title|message`, pipes and newlines stripped so the
+    // format stays unambiguous — titles and messages are short English sentences, so this never
+    // loses anything real). The app renders the badge and the panel from this; the page never
+    // writes into that subtree's DOM directly (that bypassed the vdom's own tracking of it and
+    // corrupted later patches elsewhere on the page).
+    function syncNotificationsData() {
+        const input = document.getElementById("notifications_data_input");
+        if (!input) return;
+        const flatten = (s) => String(s || "").replace(/[|\n]/g, " ");
+        input.value = _notificationHistory.map(n => `${flatten(n.kind)}|${flatten(n.title)}|${flatten(n.message)}`).join("\n");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
     // ========================================================
@@ -1058,8 +1175,16 @@
                 if (!el) return;
                 el.classList.toggle("hidden", name !== which);
             });
+            // The section navigator belongs to the lesson tab alone. Its markup carries `md:flex`,
+            // which beats a bare `hidden` class at desktop widths — so toggling `hidden` left it on
+            // screen as an invisible strip that swallowed clicks along the right edge of the
+            // assessments and grading tabs. Swapping the whole class list (the way the tabs above
+            // are switched) drops `md:flex` when it is not the lesson tab, so `hidden` really hides.
             const sectionNav = document.getElementById("section-nav");
-            if (sectionNav) sectionNav.classList.toggle("hidden", which !== "lesson");
+            if (sectionNav) {
+                const navBaseCls = "fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center";
+                sectionNav.className = which === "lesson" ? `md:flex ${navBaseCls}` : `hidden ${navBaseCls}`;
+            }
         }
 
         // The app re-renders its DOM on every state change, which drops listeners attached to the

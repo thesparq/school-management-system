@@ -76,7 +76,7 @@ admin_users_view = |model| {
         # Add button, from a row's Complete profile / Edit / Reset password actions, and closes on
         # the x or when a write lands (the credentials panel then shows inline beneath the table).
         if model.userFormOpen {
-              Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4 md:p-8 backdrop-blur-sm")], [
+              Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4 md:p-8 backdrop-blur-sm modal-backdrop"), Attribute.data("close-input", "user_form_close_input")], [
                   Html.div([Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-2xl border border-border bg-card text-card-foreground shadow-2xl")], [
                       UI.card_header({ classes: "" }, [
                           Html.div([Attribute.class("flex items-start justify-between gap-4")], [
@@ -182,6 +182,19 @@ admin_users_view = |model| {
 	            Attribute.id("teacher_assignments_data_input"),
 	            Attribute.on_input(|s| GotTeacherAssignmentsData(s))
 	        ]),
+	        # The click-outside close bridge: the page's JS writes to this input when either modal's dark
+	        # backdrop is clicked, which drives the same close message the Cancel button (or the x) sends.
+	        # Each modal has its own, so the backdrop closes the dialog it belongs to.
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.id("user_form_close_input"),
+	            Attribute.on_input(|_| CloseUserForm)
+	        ]),
+	        Html.input([
+	            Attribute.type("hidden"),
+	            Attribute.id("assign_close_input"),
+	            Attribute.on_input(|_| CloseTeacherAssign)
+	        ]),
 
 
         # Role tabs + users table
@@ -215,18 +228,19 @@ admin_users_view = |model| {
                 UI.card_content({ classes: "p-0" }, [
                     UI.table({ classes: "" }, [
                         UI.table_header({ classes: "" }, [
-                            UI.table_row({ classes: "" }, [
+                            UI.table_row({ classes: "" }, List.concat([
                                 UI.table_head({ classes: "w-8" }, [Html.text("")]),
                                 UI.table_head({ classes: "w-10" }, [Html.text("")]),
                                 UI.table_head({ classes: "" }, [Html.text("Name")]),
                                 UI.table_head({ classes: "" }, [Html.text("Email")]),
+                            ], List.concat(users_extra_headers(model.activeUserTab), [
                                 # The school number is the backend's rendered form and read-only here: it
                                 # is handed out by the write that makes the row (JES-… for a student,
                                 # EMP-… for staff), and no form of this page changes it.
                                 UI.table_head({ classes: "" }, [Html.text("School number")]),
                                 UI.table_head({ classes: "" }, [Html.text("Status")]),
                                 UI.table_head({ classes: "text-right" }, [Html.text("Actions")])
-                            ])
+                            ])))
                         ]),
                         UI.table_body({ classes: "" },
                             users_for_tab(model)
@@ -281,6 +295,61 @@ user_tab = |active_tab, this_tab, label, icon_name| {
     ], [UI.icon(icon_name, "w-4 h-4"), Html.text(label)])
 }
 
+# The parent form's linked students: badges of the selected students plus a search box over the
+# student listing (the same badge-and-search pattern as the teacher's qualifications picker, and
+# the same one the retired app's parent modal used).
+user_linked_students_field = |model| {
+	selected = model.newUserLinkedStudents
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text("Linked students")]),
+		if List.is_empty(selected) {
+			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("None linked yet.")])
+		} else {
+			Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |id| {
+				Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
+					Html.text(student_name_for(model.usersStudentsData, id)),
+					Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveLinkedStudent(id))], [Html.text("✕")])
+				])
+			}))
+		},
+		UI.input({
+			type: "text",
+			value: model.linkedSearch,
+			placeholder: "Search students...",
+			on_input: Input(|s| UpdateLinkedSearch(s)),
+			is_disabled: model.isSubmitting,
+			classes: "",
+		}),
+		if Str.is_empty(model.linkedSearch) {
+			Html.div([], [])
+		} else {
+			Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+				List.map(List.keep_if(Str.split_on(model.usersStudentsData, "\n"), |line| {
+					parts = Str.split_on(line, "|")
+					!Str.is_empty(config_field(parts, 0, ""))
+						and !List.contains(selected, config_field(parts, 0, ""))
+						and Str.contains(ascii_lower(config_field(parts, 1, "")), ascii_lower(model.linkedSearch))
+				}), |line| {
+					parts = Str.split_on(line, "|")
+					id = config_field(parts, 0, "")
+					Html.div([
+						Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
+						Attribute.on_click(AddLinkedStudent(id))
+					], [Html.text(config_field(parts, 1, "Student"))])
+				})
+			)
+		}
+	])
+}
+
+# A student's display name from the student listing ("id|name|…"), for the parent picker's badges.
+student_name_for = |students_data, id| {
+	List.fold(Str.split_on(students_data, "\n"), "", |resolved, line| {
+		parts = Str.split_on(line, "|")
+		if config_field(parts, 0, "") == id { config_field(parts, 1, id) } else { resolved }
+	})
+}
+
 # --- Add New User form pieces ---
 
 # One labelled field of the create form.
@@ -314,11 +383,15 @@ form_banner = |model| {
 # be fixed here.
 user_form_body = |model, form_mode| {
     Html.div([Attribute.class("space-y-6")], [
+        # Name row: the three parts sit evenly in one row, with a hint that only first and surname
+        # are required (the same fields every role's profile carries).
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            user_form_field("First name", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
+            user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
             user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
-            user_form_field("Surname", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
+            user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
         ]),
+        # Contact row: the address and the role sit together; the fields that follow change with
+        # the role.
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
             user_form_field("Email address", UI.input({
                 type: "email",
@@ -330,12 +403,33 @@ user_form_body = |model, form_mode| {
             })),
             user_form_field("Role", user_role_select(model))
         ]),
-        user_role_fields(model),
-        # The teacher form's qualifications picker: the credentials catalog's searchable
-        # multi-select, badge-with-removal like the retired app's CredentialsSelect. Only the
-        # teacher profile carries the column, so only the teacher role shows it.
+        # The role's own fields. Each role's block fills the row it gets, so nothing sits
+        # half-empty beside a field from another role.
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
+            if model.newUserRole == "Student" {
+                Html.div([Attribute.class("space-y-2")], [
+                    user_form_field("Date of birth (*)", user_form_date_input(model.newUserDateOfBirth, model.isSubmitting, |s| UpdateNewUserDateOfBirth(s))),
+                    user_form_field("Class level (*)", user_class_level_select(model, model.userClassLevelsData))
+                ])
+            } else if model.newUserRole == "Admin" {
+                user_form_field("Role title", user_form_text_input("e.g. Bursar", model.newUserRoleTitle, model.isSubmitting, |s| UpdateNewUserRoleTitle(s)))
+            } else if model.newUserRole == "Teacher" {
+                Html.div([Attribute.class("space-y-2")], [
+                    user_form_field("Date employed", user_form_date_input(model.newUserDateEmployed, model.isSubmitting, |s| UpdateNewUserDateEmployed(s))),
+                    Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Qualifications can be added below.")])
+                ])
+            } else if model.newUserRole == "Parent" {
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Link the students this parent looks after below.")])
+            } else {
+                Html.div([], [])
+            }
+        ]),
+        # The teacher's qualifications picker and the parent's linked students sit in their own
+        # full-width blocks, so they are never squeezed beside another field.
         if model.newUserRole == "Teacher" {
             user_qualifications_field(model)
+        } else if model.newUserRole == "Parent" {
+            user_linked_students_field(model)
         } else {
             Html.div([], [])
         },
@@ -451,6 +545,19 @@ user_form_text_input = |placeholder, value, is_disabled, to_msg| {
     })
 }
 
+# A native date picker, the same input the old app used for every date field: the browser's own
+# calendar and validation, rather than a plain text box hoping for "YYYY-MM-DD".
+user_form_date_input = |value, is_disabled, to_msg| {
+    UI.input({
+        type: "date",
+        value,
+        placeholder: "",
+        on_input: Input(to_msg),
+        is_disabled,
+        classes: ""
+    })
+}
+
 # The role picker: its value is the model's, so the selection survives the re-render a role
 # change causes. Completing a profile fixes the role — the row was on a role's tab and the backend
 # takes the table from the id — so the picker is shown but not editable there.
@@ -535,15 +642,18 @@ users_for_tab = |model| {
         Admins => (model.usersAdminsData, "/api/users?role=Admin", "No administrators yet", "Add an administrator above to get started.")
     }
 
-    # The table's seven columns: selection, avatar, name, email, school number, status, actions.
-    column_widths = ["w-8", "w-8", "w-40", "w-56", "w-28", "w-20", "w-24"]
+    # The table's seven columns (selection, avatar, name, email, school number, status, actions),
+    # plus one more for a tab whose role carries an extra column (see `users_extra_headers`).
+    extra_widths = List.map(users_extra_headers(model.activeUserTab), |_| "w-32")
+    column_count = 7 + List.len(extra_widths)
+    column_widths = List.concat(["w-8", "w-8", "w-40", "w-56"], List.concat(extra_widths, ["w-28", "w-20", "w-24"]))
 
     match list_state(payload) {
         Pending => UI.table_skeleton_rows(column_widths)
-        Failed(message) => [UI.table_error_state(7, "Could not load this list", message, Click(RetryList(retry_url)))]
+        Failed(message) => [UI.table_error_state(column_count, "Could not load this list", message, Click(RetryList(retry_url)))]
         Ready(rows) =>
             if List.is_empty(rows) {
-                [UI.table_empty_state(7, "users", empty_title, empty_description)]
+                [UI.table_empty_state(column_count, "users", empty_title, empty_description)]
             } else {
                 List.map(rows, |line| {
                     # One row per line, as the page's `formatUsers` writes it. The first six fields are
@@ -553,6 +663,37 @@ users_for_tab = |model| {
                     user_row(model, line)
                 })
             }
+    }
+}
+
+# The header cell(s) a role's tab inserts between Email and School number — the one extra column
+# each old per-role table carried (a student's class, a parent's linked students, an admin's role
+# title). Teachers have nothing to add here: their one extra action (Assign) already lives in the
+# row's Actions cell, so their tab contributes no header.
+users_extra_headers = |tab| {
+    match tab {
+        Students => [UI.table_head({ classes: "" }, [Html.text("Class")])]
+        Parents => [UI.table_head({ classes: "" }, [Html.text("Students")])]
+        Admins => [UI.table_head({ classes: "" }, [Html.text("Role title")])]
+        Teachers => []
+    }
+}
+
+# The row's own value for that column, read from the fields `user_row` already split out of the
+# line (see its header comment for the index of each field). A parent's linked students are stored
+# as comma-joined profile ids; resolving them to names reuses the same lookup the config pickers
+# use, against the already-fetched student list.
+user_role_cells = |model, parts| {
+    match model.activeUserTab {
+        Students => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(config_field(parts, 16, "—"))])]
+        Parents => {
+            ids = List.drop_if(Str.split_on(config_field(parts, 15, ""), ","), Str.is_empty)
+            names = List.map(ids, |id| config_record_name(model.usersStudentsData, id))
+            text = if List.is_empty(names) { "—" } else { Str.join_with(names, ", ") }
+            [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(text)])]
+        }
+        Admins => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(config_field(parts, 11, "—"))])]
+        Teachers => []
     }
 }
 
@@ -574,7 +715,7 @@ user_row = |model, line| {
                 Err(_) => "?"
             }
         }
-    UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
+    UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, List.concat([
         UI.table_cell({ classes: "" }, [
             # The selection tick for the bulk delete above the table. A button rather than a real
             # checkbox so the click is a Joy message like the row's other actions.
@@ -601,6 +742,7 @@ user_row = |model, line| {
             ])
         ]),
         UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(email)]),
+    ], List.concat(user_role_cells(model, parts), [
         # Read-only, and a dash when the row has no number (a parent, or a login with no profile yet):
         # the form above cannot set it and no action here changes it. Monospaced and unbroken, because a
         # number is read character by character.
@@ -679,6 +821,7 @@ user_row = |model, line| {
             ])
         ])
     ])
+    ))
 }
 
 # -------------------------------------------------------
@@ -1084,7 +1227,7 @@ user_qualifications_field = |model| {
 # that replaces the whole set — the retired TeacherUserTable dialog, rebuilt.
 assign_form = |model| {
 	if model.assignDialogOpen {
-		Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 md:p-8")], [
+	        	      Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8 modal-backdrop"), Attribute.data("close-input", "assign_close_input")], [
 			Html.div([Attribute.class("w-full max-w-lg mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl")], [
 				UI.card_header({ classes: "" }, [
 					Html.div([Attribute.class("flex items-start justify-between gap-4")], [
@@ -1225,7 +1368,7 @@ admin_class_picker = |model| {
 admin_subjects_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsClassName)])
 		]),
@@ -1268,9 +1411,9 @@ admin_subjects_view = |model| {
 admin_terms_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(model.adminLmsClassName)]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsSubjectName)])
 		]),
@@ -1311,11 +1454,11 @@ admin_terms_view = |model| {
 admin_lessons_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text("← All classes")]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(model.adminLmsClassName)]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminLessons)], [Html.text(model.adminLmsSubjectName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsSubjectName)]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsTermName)])
 		]),

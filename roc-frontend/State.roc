@@ -68,6 +68,12 @@ Model : {
 	    # The nav bar's avatar menu. It is a click-toggled menu rather than a hover one: a hover menu
 	    # cannot be opened on a touch screen, and it closes the moment the pointer leaves it.
 	    userMenuOpen : Bool,
+	    # The navbar bell's dropdown: open state the same way the avatar menu's is, and the page's
+	    # JS-serialized toast history ("kind|title|message" per line) rendered from here rather than
+	    # written into this node's DOM directly — that bypassed the vdom's own tracking of this
+	    # subtree and corrupted later patches (see www/index.html's formatNotifications).
+	    notificationsOpen : Bool,
+	    notificationsData : Str,
 	usersData : Str,
 	termsData : Str,
 	subjectsData : Str,
@@ -163,6 +169,11 @@ Model : {
 	credentialsData : Str,
 	newUserQualifications : List(Str),
 	qualSearch : Str,
+	# The teacher form's date of employment, and the parent form's linked students (with the
+	# students search box).
+	newUserDateEmployed : Str,
+	newUserLinkedStudents : List(Str),
+	linkedSearch : Str,
 	# The teacher-row Assign dialog: which teacher it is open for, the working set of edges, the
 	# dropdown's search text, and the last save's outcome.
 	assignDialogOpen : Bool,
@@ -195,6 +206,12 @@ Msg : [
 	    # own listener sends CloseUserMenu) so it never stays open behind a navigation.
 	    ToggleUserMenu,
 	    CloseUserMenu,
+	    # The notifications bell: the same toggle/outside-click-close pair as the avatar menu, plus
+	    # the page's serialized toast history arriving through the usual data bridge, and Clear all.
+	    ToggleNotifications,
+	    CloseNotifications,
+	    GotNotificationsData(Str),
+	    ClearNotifications,
 	TestConnectionClicked,
 	PingCompleted([Success(Str), Error(Str)]),
 	UpdateNewUserFirstName(Str),
@@ -316,13 +333,22 @@ Msg : [
 	AddQualification(Str),
 	RemoveQualification(Str),
 	UpdateQualSearch(Str),
-	# The admin LMS drill-down: class -> subject -> term -> lessons -> lesson content.
+	UpdateNewUserDateEmployed(Str),
+	AddLinkedStudent(Str),
+	RemoveLinkedStudent(Str),
+	UpdateLinkedSearch(Str),
+	# The admin LMS drill-down: class -> subject -> term -> lessons -> lesson content. Every step is
+	# its own URL (?class=…, then &subject=…, &term=…, &lesson=…), so the browser's back/forward walks
+	# the drill and a reload at depth comes back to the same step. The breadcrumb's links name the
+	# step they land on (the crumb for a level is that level's message), so each one goes to its own
+	# level rather than just one step up.
 	SelectAdminClass(Str, Str),
-	BackAdminSubjects,
+	BackAdminClasses,
 	SelectAdminSubject(Str, Str),
-	BackAdminTerms,
+	BackAdminSubjects,
 	SelectAdminTerm(Str, Str),
 	OpenAdminLesson(Str),
+	BackAdminTerms,
 	BackAdminLessons,
 	GotAdminLmsTermsData(Str),
 	GotAdminLmsLessonsData(Str),
@@ -330,22 +356,69 @@ Msg : [
 ]
 
 	parse_route = |url| {
-	match url {
-		"/admin/users" => AdminUserManagement
-		"/admin/config" => AdminConfigurationHub
-		"/admin/lms" => AdminLMS
-		"/teacher/lessons" => TeacherLessonViewer
-		"/teacher/assessments" => TeacherAssessments
-		"/student/lessons" => StudentLessonViewer
-		"/student/assignments" => StudentAssignments
-		"/student/subjects" => StudentSubjects
-		"/student/lesson" => StudentLesson
-		"/teacher/classes" => TeacherMyClasses
-		"/messaging" => Messaging
-		"/" => Dashboard
-		_ => NotFound
+		match url {
+			"/admin/users" => AdminUserManagement
+			"/admin/config" => AdminConfigurationHub
+			"/teacher/lessons" => TeacherLessonViewer
+			"/teacher/assessments" => TeacherAssessments
+			"/student/lessons" => StudentLessonViewer
+			"/student/assignments" => StudentAssignments
+			"/student/subjects" => StudentSubjects
+			"/student/lesson" => StudentLesson
+			"/teacher/classes" => TeacherMyClasses
+			"/messaging" => Messaging
+			"/" => Dashboard
+				# The admin LMS drill-down lives in the query string (the browser's back/forward restores
+				# it), so any /admin/lms URL — bare or with ?class=… — is the same route.
+				other if Str.starts_with(other, "/admin/lms") => AdminLMS
+				_ => NotFound
+		}
 	}
-}
+
+	# One query parameter of a URL target ("?class=A&subject=B" -> "A"), the same reading the
+	# backend's query_param uses (values carry no percent-encoding here — the app builds them).
+	query_value = |url, name| {
+		match List.get(Str.split_on(url, "${name}="), 1) {
+			Ok(rest) => match List.first(Str.split_on(rest, "&")) { Ok(value) => value, Err(_) => "" }
+			Err(_) => ""
+		}
+	}
+
+	# The admin LMS state stored in the URL's query string, read back on a direct load or a
+	# back/forward: class -> subject -> term -> lesson, each optional and each deeper than the last.
+	lms_from_query = |url| {
+		{
+			class_id: query_value(url, "class"),
+			subject_id: query_value(url, "subject"),
+			term_id: query_value(url, "term"),
+			lesson_id: query_value(url, "lesson"),
+		}
+	}
+
+	# The fetches a restored drill-down step needs: the deeper steps drop the shallower loaded lists,
+	# so each step refetches exactly what it shows (the lessons for a term, the content for a lesson).
+	lms_history_effects = |state| {
+		if !Str.is_empty(state.lesson_id) {
+			[Port.send("fetch_data", "/api/student/lesson?lesson_id=${state.lesson_id}")]
+		} else if !Str.is_empty(state.term_id) {
+			[Port.send("fetch_data", "/api/teacher/lessons?class_id=${state.class_id}&subject_id=${state.subject_id}&term_id=${state.term_id}&admin_lms=1")]
+		} else if !Str.is_empty(state.subject_id) {
+			[Port.send("fetch_data", "/api/student/terms?admin_lms=1")]
+		} else {
+			[]
+		}
+	}
+
+	# The model half of the same restore.
+	lms_model_from_query = |model, state| {
+		{ ..model,
+			adminLmsClassId: state.class_id,
+			adminLmsSubjectId: state.subject_id,
+			adminLmsTermId: state.term_id,
+			selectedLessonId: state.lesson_id,
+			currentLessonContent: "",
+		}
+	}
 
 init : Str -> (Model, List(Effect(Msg)))
 init = |flags| {
@@ -368,6 +441,9 @@ init = |flags| {
 		else { Student }
 
 	initialRoute = parse_route(pathStr)
+	# A direct load (or reload) of the admin LMS drill-down restores its depth from the URL's query
+	# string; for every other route this reads empty query params and comes back all blank.
+	initialLmsState = lms_from_query(pathStr)
 
 	model = {
 		route: initialRoute,
@@ -385,6 +461,8 @@ init = |flags| {
 		isSubmitting: Bool.False,
 		            mobileMenuOpen: Bool.False,
 		            userMenuOpen: Bool.False,
+		            notificationsOpen: Bool.False,
+		            notificationsData: "",
 		sessionTermData: "",
 		usersData: "",
 		termsData: "",
@@ -414,7 +492,7 @@ init = |flags| {
 		selectedSubjectName: "",
 		selectedTermId: "",
 		selectedTermName: "",
-		selectedLessonId: "",
+		selectedLessonId: initialLmsState.lesson_id,
 		studentTermsData: "",
 		studentLessonsData: "",
 		teacherLessonsData: "",
@@ -447,17 +525,20 @@ init = |flags| {
 		credentialsData: "",
 		newUserQualifications: [],
 		qualSearch: "",
+		newUserDateEmployed: "",
+		newUserLinkedStudents: [],
+		linkedSearch: "",
 		assignDialogOpen: Bool.False,
 		assignTeacherId: "",
 		assignSelectedEdges: [],
 		assignSearch: "",
 		assignSaveResult: None,
 		assignSeeded: Bool.False,
-		adminLmsClassId: "",
+		adminLmsClassId: initialLmsState.class_id,
 		adminLmsClassName: "",
-		adminLmsSubjectId: "",
+		adminLmsSubjectId: initialLmsState.subject_id,
 		adminLmsSubjectName: "",
-		adminLmsTermId: "",
+		adminLmsTermId: initialLmsState.term_id,
 		adminLmsTermName: "",
 		adminLmsTermsData: "",
 		adminLmsLessonsData: "",
@@ -483,6 +564,13 @@ init = |flags| {
 			Port.send("fetch_data", "/api/subjects?all=true"),
 			Port.send("fetch_data", "/api/credentials"),
 		]
+		# A direct load (or reload) of the drill-down at depth restores its state from the URL (the
+		# model fields above already carry the ids; this just adds the fetches that depth needs).
+		AdminLMS => List.concat(lms_history_effects(initialLmsState), [
+			Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+			Port.send("fetch_data", "/api/class-subjects"),
+			Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+		])
 			                _ => match initialRole {
 		                        Admin => [
 		                                Port.send("fetch_data", "/api/users?role=Student"),
@@ -668,34 +756,51 @@ backend_error_message = |body| {
 	}
 }
 
+# One notification for the page's toast/bell system: kind, title and message, as a
+# newline-delimited port value (".\n"). The page never rebuilds messages from these parts.
+notify : Str, Str, Str -> Effect(Msg)
+notify = |kind, title, message| {
+	Port.send("notify", "${kind}\n${title}\n${message}")
+}
+
+# The success/error notification pair for a finished write, to be added to the arm's effects.
+notification_for : [None, Success(Str), Error(Str)], Str -> List(Effect(Msg))
+notification_for = |result, title| {
+	match result {
+		Success(msg) => [notify("success", title, msg)]
+		Error(msg) => [notify("error", title, msg)]
+		None => []
+	}
+}
+
 update : Model, Msg -> (Model, List(Effect(Msg)))
 update = |model, msg|
 	match msg {
 		UrlChanged(url) => {
 			newRoute = parse_route(url)
-			# Browser back/forward into the hub: the page is reloaded from scratch by the runtime, so
-			# its lists are fetched again. Lists stay inline here too — see the note in init.
-			fetches = match newRoute {
-				AdminConfigurationHub => [
-					Port.send("fetch_data", "/api/terms"),
-					Port.send("fetch_data", "/api/subjects"),
-					Port.send("fetch_data", "/api/subjects?all=true"),
-					Port.send("fetch_data", "/api/class_levels?all=true"),
-					Port.send("fetch_data", "/api/curriculum?all=true"),
-					Port.send("fetch_data", "/api/session_terms"),
-					Port.send("fetch_data", "/api/credentials"),
-				]
-				StudentSubjects => [
-					Port.send("fetch_data", "/api/subjects"),
-				]
-				AdminLMS => [
-					Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
-					Port.send("fetch_data", "/api/class-subjects"),
-					Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
-				]
-				_ => []
+			# Back/forward through the admin LMS drill: the URL carries the step, restore it and
+			# refetch what that step shows.
+			if newRoute == AdminLMS {
+				lms_state = lms_from_query(url)
+				(lms_model_from_query({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, lms_state), lms_history_effects(lms_state))
+			} else {
+				fetches = match newRoute {
+					AdminConfigurationHub => [
+						Port.send("fetch_data", "/api/terms"),
+						Port.send("fetch_data", "/api/subjects"),
+						Port.send("fetch_data", "/api/subjects?all=true"),
+						Port.send("fetch_data", "/api/class_levels?all=true"),
+						Port.send("fetch_data", "/api/curriculum?all=true"),
+						Port.send("fetch_data", "/api/session_terms"),
+						Port.send("fetch_data", "/api/credentials"),
+					]
+					StudentSubjects => [
+						Port.send("fetch_data", "/api/subjects"),
+					]
+					_ => []
+				}
+				({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, fetches)
 			}
-			({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, fetches)
 		}
 		# Entering a page fetches what it cannot show without: the hub its five lists (its hidden
 		# inputs only exist there), and user management the list of the tab it opens on, so it shows
@@ -788,6 +893,10 @@ update = |model, msg|
 		            CloseUserMenu => {
 			                    ({ ..model, userMenuOpen: Bool.False }, [])
 		}
+		            ToggleNotifications => ({ ..model, notificationsOpen: !(model.notificationsOpen) }, [])
+		            CloseNotifications => ({ ..model, notificationsOpen: Bool.False }, [])
+		            GotNotificationsData(s) => ({ ..model, notificationsData: s }, [])
+		            ClearNotifications => ({ ..model, notificationsData: "", notificationsOpen: Bool.False }, [Port.send("clear_notifications", "")])
 		                SignOut => {
 		                        ({ ..model, route: Dashboard, role: Unauthenticated, authToken: "", userMenuOpen: Bool.False }, [
 		                                Port.send("save_token", ""),
@@ -928,40 +1037,74 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, assignSaveResult: newResult }, refreshes)
+			({ ..model, assignSaveResult: newResult }, List.concat(notification_for(newResult, "Teacher assignments"), refreshes))
 		}
 		# --- The teacher form's qualifications picker ---
 		AddQualification(id) => ({ ..model, newUserQualifications: List.append(model.newUserQualifications, id), qualSearch: "" }, [])
 		RemoveQualification(id) => ({ ..model, newUserQualifications: List.keep_if(model.newUserQualifications, |q| q != id) }, [])
 		UpdateQualSearch(s) => ({ ..model, qualSearch: s }, [])
-		# --- The admin LMS drill-down ---
+		UpdateNewUserDateEmployed(s) => ({ ..model, newUserDateEmployed: s }, [])
+		AddLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.append(model.newUserLinkedStudents, id), linkedSearch: "" }, [])
+		RemoveLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.keep_if(model.newUserLinkedStudents, |s| s != id) }, [])
+		UpdateLinkedSearch(s) => ({ ..model, linkedSearch: s }, [])
+		# --- The admin LMS drill-down: each step is a history entry (?class/?subject/?term/?lesson),
+		# so the browser's back/forward walks the drill instead of leaving the page. Each crumb's
+		# message navigates to its own level and drops the deeper state, so the crumb labelled with a
+		# level lands on that level (and browser back, restoring from the URL, walks up one at a time).
 		SelectAdminClass(id, name) => (
 			{ ..model, adminLmsClassId: id, adminLmsClassName: name, adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
-			[]
+			[Port.send("push_state", "/admin/lms?class=${id}")]
+		)
+		BackAdminClasses => (
+			{ ..model, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/admin/lms"),
+				Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+				Port.send("fetch_data", "/api/class-subjects"),
+				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+			]
 		)
 		BackAdminSubjects => (
-			{ ..model, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
-			[]
+			{ ..model, adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}"),
+				Port.send("fetch_data", "/api/class-subjects"),
+			]
 		)
 		SelectAdminSubject(id, name) => (
 			{ ..model, adminLmsSubjectId: id, adminLmsSubjectName: name, adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
-			[Port.send("fetch_data", "/api/student/terms?admin_lms=1")]
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}&subject=${id}"),
+				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+			]
 		)
 		BackAdminTerms => (
-			{ ..model, adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
-			[]
+			{ ..model, adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}&subject=${model.adminLmsSubjectId}"),
+				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+			]
 		)
 		SelectAdminTerm(id, name) => (
 			{ ..model, adminLmsTermId: id, adminLmsTermName: name, adminLmsLessonsData: "", currentLessonContent: "" },
-			[Port.send("fetch_data", "/api/teacher/lessons?class_id=${model.adminLmsClassId}&subject_id=${model.adminLmsSubjectId}&term_id=${id}&admin_lms=1")]
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}&subject=${model.adminLmsSubjectId}&term=${id}"),
+				Port.send("fetch_data", "/api/teacher/lessons?class_id=${model.adminLmsClassId}&subject_id=${model.adminLmsSubjectId}&term_id=${id}&admin_lms=1"),
+			]
 		)
 		OpenAdminLesson(id) => (
 			{ ..model, selectedLessonId: id, currentLessonContent: "" },
-			[Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}")]
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}&subject=${model.adminLmsSubjectId}&term=${model.adminLmsTermId}&lesson=${id}"),
+				Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}"),
+			]
 		)
 		BackAdminLessons => (
-			{ ..model, adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
-			[]
+			{ ..model, selectedLessonId: "", currentLessonContent: "" },
+			[
+				Port.send("push_state", "/admin/lms?class=${model.adminLmsClassId}&subject=${model.adminLmsSubjectId}&term=${model.adminLmsTermId}"),
+				Port.send("fetch_data", "/api/teacher/lessons?class_id=${model.adminLmsClassId}&subject_id=${model.adminLmsSubjectId}&term_id=${model.adminLmsTermId}&admin_lms=1"),
+			]
 		)
 		UpdateNewTermName(s) => ({ ..model, newTermName: s }, [])
 		UpdateNewTermSortOrder(s) => ({ ..model, newTermSortOrder: s }, [])
@@ -1011,7 +1154,7 @@ update = |model, msg|
 				Success(_) => config_refresh_effects(tab)
 				_ => []
 			}
-			({ ..cleared, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+			({ ..cleared, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, List.concat(notification_for(newResult, config_section_label(tab)), refreshes))
 		}
 		# A retry re-runs exactly the fetch the failed list's control names.
 		RetryList(url) => (model, [Port.send("fetch_data", url)])
@@ -1074,7 +1217,7 @@ update = |model, msg|
 				Success(_) => config_refresh_effects(tab)
 				_ => []
 			}
-			({ ..closed, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+			({ ..closed, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, List.concat(notification_for(newResult, config_section_label(tab)), refreshes))
 		}
 		ToggleConfigActive(tab, id, active) => {
 			active_str = if active { "true" } else { "false" }
@@ -1111,7 +1254,7 @@ update = |model, msg|
 				Success(_) => config_refresh_effects(tab)
 				_ => []
 			}
-			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, refreshes)
+			({ ..model, isConfigSubmitting: Bool.False, configSubmitResult: newResult }, List.concat(notification_for(newResult, config_section_label(tab)), refreshes))
 		}
 		SubmitNewUser => {
 			# The form's values travel as hand-written JSON in the payload (the backend reads between
@@ -1178,7 +1321,22 @@ update = |model, msg|
 				} else {
 					""
 				}
-			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${password_clause}}"
+			# The teacher's date of employment (YYYY-MM-DD) and a parent's linked students, each
+			# only when the form's role can carry the column.
+			date_clause =
+				if model.newUserRole == "Teacher" and !Str.is_empty(model.newUserDateEmployed) {
+					",\"date_employed\":\"${model.newUserDateEmployed}\""
+				} else {
+					""
+				}
+			students_clause =
+				if model.newUserRole == "Parent" {
+					ids_json = Str.join_with(model.newUserLinkedStudents, "\",\"")
+					if Str.is_empty(ids_json) { ",\"students\":[]" } else { ",\"students\":[\"${ids_json}\"]" }
+				} else {
+					""
+				}
+			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${date_clause}${students_clause}${password_clause}}"
 			req = {
 				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
@@ -1213,17 +1371,22 @@ update = |model, msg|
 				newUserPassword: "",
 				newUserQualifications: [],
 				qualSearch: "",
+				newUserDateEmployed: "",
+				newUserLinkedStudents: [],
+				linkedSearch: "",
 				userEditing: Bool.False,
 				lastCredentials: None,
 				submitResult: None,
 			},
-			[]
+			# The parent form's linked-students picker reads the student listing, so it is fetched
+			# whenever a form can show it.
+			[Port.send("fetch_data", "/api/users?role=Student")]
 		)
-		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
+		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Open the form in add mode: the header's Add User button. Everything the completing and
-		# editing arms set is cleared, so the modal opens empty.
-		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
-		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "" }, [])
+		# editing modes set is cleared, so the modal opens empty.
+		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
+		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
@@ -1252,11 +1415,21 @@ update = |model, msg|
 					newUserPassword: "",
 					newUserQualifications: if user_tab_role(model.activeUserTab) == "Teacher" { quals } else { [] },
 					qualSearch: "",
+					# The last two role-specific fields: a teacher's date of employment, a parent's
+					# linked student ids (comma-joined by the page's formatter).
+					newUserDateEmployed: if user_tab_role(model.activeUserTab) == "Teacher" { part(14) } else { "" },
+					newUserLinkedStudents: if user_tab_role(model.activeUserTab) == "Parent" { List.keep_if(Str.split_on(part(15), ","), |s| !Str.is_empty(s)) } else { [] },
+					linkedSearch: "",
 					userEditing: Bool.True,
 					lastCredentials: None,
 					submitResult: None,
 				},
-				[]
+				# The edit form's pickers read their catalogs: the student listing for a parent's
+				# linked students, the credentials catalog for a teacher's qualifications.
+				[
+					Port.send("fetch_data", "/api/users?role=Student"),
+					Port.send("fetch_data", "/api/credentials"),
+				]
 			)
 		}
 		SubmitCompleted(res) => {
@@ -1306,7 +1479,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "", newUserQualifications: [], qualSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "", newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, List.concat(notification_for(newResult, "User management"), refresh))
 		}
 		# --- A row's actions: deactivate and activate ---
 		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the
@@ -1368,7 +1541,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult }, refresh)
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult }, List.concat(notification_for(newResult, "User management"), refresh))
 		}
 		# --- Reset a login's password (the row's Reset password action) ---
 		OpenResetPassword(id, email) => (
@@ -1428,7 +1601,7 @@ update = |model, msg|
 					else { Credentials(model.resetPasswordEmail, model.newUserPassword) }
 				_ => None
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, resetPasswordId: "", resetPasswordEmail: "", newUserPassword: "", userFormOpen: Bool.False, lastCredentials: handoff }, [])
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, resetPasswordId: "", resetPasswordEmail: "", newUserPassword: "", userFormOpen: Bool.False, lastCredentials: handoff }, List.concat(notification_for(newResult, "Password"), []))
 		}
 		# --- Bulk delete: tick rows, then remove the selection ---
 		ToggleUserSelected(id) => {
