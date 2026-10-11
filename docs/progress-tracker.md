@@ -1180,6 +1180,100 @@ that leftover edge deleted, or the create stamped like the rest.
 
 ---
 
+### Feedback pass — notifications, role-tailored forms, the LMS drill's history (2026-10-11)
+
+**The tree did not compile when this pass started.** The previous session was cut off mid-edit and left two
+stray braces behind: a duplicated `}` after `SubmitCompleted`'s arm in `State.roc` (which closed the `match msg`
+early, so everything after it parsed as statements — ~264 errors, most of them nonsense) and a duplicated
+`ConfigUpdateCompleted(tab, res) => {` header in the same file with `RetryList`/`StartEdit`'s arms grafted under
+it. `AdminView.roc`'s `user_row` was also missing the two parens that close its `List.concat`/`table_row`, and
+`init`'s `AdminLMS` boot arm returned a whole tuple where its siblings return an effect list. Both files check
+clean again.
+
+**Notifications — toasts with a pausable countdown, and a bell that keeps the history.** A finished write now
+raises a top-right toast (success/error/warning/info) whose countdown bar shrinks, pauses on hover and resumes
+when the pointer leaves, and dismisses itself at zero; every notification also lands in the navbar bell's
+dropdown, which shows a count badge. Two bugs surfaced while wiring it, both worth remembering:
+
+- The countdown bar was looked up with `querySelector(".h-0.5")` — an invalid selector (a class name is not a
+  selector when it contains a dot), so *every* notification threw mid-render. That exception aborted the paint
+  after the state change, which is why a created student stopped appearing in the table. The bar carries its own
+  `notification-bar` class now.
+- The bell's badge and dropdown were written into their DOM nodes directly (`appendChild`, `innerHTML`). That
+  makes the vdom's own view of the subtree lie: the next patch walked its refs out of step and set a `value`
+  attribute on an unrelated **text node** (`node.setAttribute is not a function`), after which clicking "Reset
+  password" navigated to the Configuration Hub — the same Joy 0.34.0 runtime hazard the retired credentials-panel
+  comment already described. The bell is app state now: `notificationsOpen` + `notificationsData`, a
+  `ToggleNotifications`/`CloseNotifications`/`ClearNotifications`/`GotNotificationsData` set, and the page's
+  toast history arriving through the usual hidden-input bridge (`formatNotifications` serializes
+  `kind|title|message` per line). The page never writes into that subtree. The toast container itself is still
+  the page's own DOM, appended to `<body>` outside `#app`, which is why it is safe there.
+
+**The user form and list are role-tailored.** The one modal's fields now follow the picked role — a student's
+date of birth and class level (native date inputs, as the retired app used, rather than a text box hoping for
+`YYYY-MM-DD`), a teacher's date employed plus the qualifications picker, a parent's linked-students picker
+(badges + search, the same pattern the parent modal used before), an administrator's role title — and the role's
+fields sit in their own full-width block so nothing shares a row with another role's half-empty field. The
+table's extra column is the tab's own: **Class** for students, **Students** for parents, **Role title** for
+administrators, none for teachers (their one extra action, Assign, already lives in the actions cell). The
+backend gained the fields the form sends: a teacher's `date_employed` and a parent's `students` (linked
+`student_profile` ids) ride create, update, journal replay and the listing, alongside `qualifications`.
+
+**Clicking outside a modal cancels it — both modals.** The user form's overlay had no backdrop hook at all, and
+the teacher Assign dialog's overlay pointed at the *user form*'s close input, so its backdrop closed the wrong
+dialog. Each overlay now carries `modal-backdrop` + its own `data-close-input` (`user_form_close_input` →
+`CloseUserForm`, `assign_close_input` → `CloseTeacherAssign`), which is the bridge the page's document listener
+already spoke. The modal also sits on a blurred backdrop.
+
+**The admin LMS drill-down is a URL per step.** `?class=`, then `&subject=`, `&term=`, `&lesson=` — so the
+browser's back/forward walks the drill (the reported bug: from the lessons list, back landed on the subjects
+step), a reload at depth restores that step, and each breadcrumb lands on the level it names rather than one step
+up: the subject crumb on the lessons list reaches the terms step, "← All classes" reaches the class picker, and
+the class name reaches that class's subjects. That needed four distinct messages (`BackAdminClasses`,
+`BackAdminSubjects`, `BackAdminTerms`, `BackAdminLessons`) where the previous pass had three names all doing
+`history.back()`, and it retired the now-unused `history_back` port.
+
+**The section navigator was swallowing clicks.** `showTab` toggled `hidden` on `#section-nav`, but the element's
+own markup carries `md:flex`, which beats a bare `hidden` at desktop widths — so on the assessments and grading
+tabs the navigator stayed on screen as an invisible fixed strip along the right edge, over whatever was behind
+it (in the sandbox: the grading list's "Grade" button, which is how `e2e_assessments.cjs` caught it). The tab
+switch now swaps the whole class list, the way the tabs themselves are switched, so `hidden` really hides.
+
+**Test suites.** New: `e2e_notifications_lms.cjs` (toasts, countdown, hover pause, auto-dismiss, bell badge,
+dropdown, Clear all, outside-click close; then the LMS drill's URLs, crumbs, back/forward and deep-load
+restore) and `e2e_user_roles.cjs` (per-role modal fields, per-role table columns, blurred backdrop,
+backdrop-click cancels without a write). Repaired: `e2e_passport_upload.cjs` still drove the *pre-modal* form
+(a bare `e.g. Adamu` fill with no click to open, and a class-level text input where the form has had a
+`<select>` since the modal landed) — it opens the modal and selects the class now, and both its modes pass;
+`smoke_assignments_lms.cjs` leaned on a teacher row some earlier suite happened to leave behind (its Assign
+action needs a *profiled* teacher) and now creates its own; `render_lesson_check.cjs`'s DOM stub needed
+`window.fetch` because the page's 401-refresh wrapper rebinds it; the README's check table gained the three new
+suites and the two smoke tests.
+
+**Build note for the next person**: `roc-frontend/build.roc` runs `roc build --no-cache`, so a full build takes
+minutes (7 on this machine), and **two builds at once clobber each other** — they write the same `www/app.wasm`
+and the same `build.log`, which is what made a run look like "compiler produced no summary and no wasm". Run one
+at a time, detached, and wait for it.
+
+**Verified** (sandbox on the `~/.cache/sms-sandbox` fixture; `roc check main.roc` 0 errors; `roc check app.roc`
+0 errors): `e2e_admin.cjs` 16/16, `e2e_admin_config.cjs` 53/53 (on a fresh fixture), `e2e_users_directory.cjs`
+27/27, `e2e_user_roles.cjs` 18/18, `e2e_notifications_lms.cjs` 26/26 (three runs in a row), `e2e_loading.cjs`
+20/20, `e2e_icons_refresh.cjs` 10/10, `e2e_nav_fixes.cjs` 6/6, `e2e_student.cjs` 7/7, `e2e_assessments.cjs`
+17/17, `e2e_general_assessments.cjs` 25/25, `e2e_signout.cjs` 9/9, `e2e_auth_callback.cjs` 12/12,
+`smoke_assignments_lms.cjs` 18/18, `smoke_teacher_role.cjs` 6/6, `e2e_passport_upload.cjs` 9/9 and 5/5 (its 503
+mode), `render_lesson_check.cjs` all checks, `users_api.sh` 95/95, `authz.sh` 27/27, `assessment_flow.sh`
+41/41, `general_assessment_flow.sh` 56/56, `matrix_token.sh` 26/26.
+
+**Still open — the "20+ lessons for one subject/term with duplicate Week 1 subtitles" report.** The seed CSV
+(`csv/chunks/topics_chunk_01.csv`) holds one topic per week, so the seed data is not the source, and the sandbox
+fixture cannot reproduce it either way. This needs one read-only fact from prod to tell a data problem from a
+query problem: the per-term lesson count and the duplicate `(subject, term, week)` rows, e.g.
+`SELECT term, subject, week, count() FROM lessons WHERE ... GROUP BY term, subject, week HAVING count() > 1` — if
+that returns rows, prod has duplicate lessons and the fix is a cleanup; if it returns nothing, the listing query
+is over-broad and that is the bug to chase.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
@@ -1305,14 +1399,14 @@ that leftover edge deleted, or the create stamped like the rest.
 | GET | /* (SPA) | SPA fallback to index.html | ✅ |
 
 ## Remaining Work (Backlog)
+- [x] Subject → Term → Lesson navigation drill-down (multi-level routing; each drill step is its own URL)
+- [x] Real passport photo upload (presigned PUT to R2 from browser)
+- [x] Edit user dialog/form
+- [x] Config tab forms CRUD (Terms, Class Levels, Curriculum, Class Arms, Subjects)
+- [x] Toast/notification system (top-right toasts with a pausable countdown + the navbar bell's history)
 - [ ] Wire lesson viewer URL param to actual lesson ID (currently shows placeholder on navigation)
-- [ ] Subject → Term → Lesson navigation drill-down (multi-level routing)
-- [ ] Real passport photo upload (presigned PUT to R2 from browser)
-- [ ] Edit user dialog/form
-- [ ] Config tab forms CRUD (Terms, Class Levels, Curriculum, Class Arms, Subjects)
 - [ ] Parent portal (linked students view)
 - [ ] Dashboard stat cards wired to real API data
-- [ ] Toast/notification system
 - [ ] Cloud deployment configuration
 - [ ] Rate limiting on backend
 
