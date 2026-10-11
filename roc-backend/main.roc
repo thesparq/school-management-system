@@ -1844,6 +1844,20 @@ active_session_term_id! = |config| {
     }
 }
 
+# The `terms` record the active session term sits in ("" when none is active). Lessons hang off a
+# term, so a caller with no term step of its own — a teacher's lesson picker — reads the term the
+# school is in, which is the same term their assignments are scoped to.
+active_term_id! : SurrealDB.Config => Str
+active_term_id! = |config| {
+    match SurrealDB.query_read!("SELECT term FROM session_term WHERE active = true LIMIT 1;", config) {
+        Ok(body) => {
+            raw = extract_field(body, "term")
+            if Str.is_empty(raw) or raw == "null" or raw == "NONE" { "" } else { bare_id(raw) }
+        }
+        Err(_) => ""
+    }
+}
+
 # The subquery naming the has_subject edges the caller is assigned for the active term. The lesson
 # and assessment lists embed it as `has_subject IN (…)` / `lesson.has_subject IN (…)`, so the scope
 # lives in one text and the queries stay single statements.
@@ -2786,7 +2800,16 @@ respond! = |request, context| {
 
                 # --- Student Lesson APIs ---
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/student/subjects" {
-                    res = SurrealDB.query_read!("SELECT id, name, code FROM subjects WHERE active = true ORDER BY name;", context.surreal)
+                    # A student reads the subjects their own class level is paired with: the
+                    # has_subject pairs are the curriculum, so a subject their class does not teach is
+                    # not theirs to pick. A student whose profile names no class keeps the full list.
+                    class_pk = if caller.role == "student" { student_class_pk!(caller_id!(user_json), context.surreal) } else { "" }
+                    class_clause = if Str.is_empty(class_pk) {
+                        ""
+                    } else {
+                        " AND id IN (SELECT VALUE out FROM has_subject WHERE in = ${record_ref!(class_pk, "class_levels")} AND active = true)"
+                    }
+                    res = SurrealDB.query_read!("SELECT id, name, code FROM subjects WHERE active = true${class_clause} ORDER BY name;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
@@ -2862,11 +2885,24 @@ respond! = |request, context| {
                         subject_param = query_param(request_target_text(request), "subject_id")
                         term_param = query_param(request_target_text(request), "term_id")
                         class_param = query_param(request_target_text(request), "class_id")
+                        # A lesson hangs off a term. A caller that names one (the admin LMS passes the
+                        # term it drilled to) is scoped by it; a teacher's own picker has no term step,
+                        # so it is scoped to the term the school is in — the term their assignments are
+                        # scoped to — rather than listing every term's lessons under one class and
+                        # subject, which repeats the same week numbers once per term.
+                        own_term = if Str.is_empty(term_param) and caller.role == "teacher" { active_term_id!(context.surreal) } else { "" }
+                        term_clause = if !Str.is_empty(term_param) {
+                            "term = ${record_ref!(term_param, "terms")}"
+                        } else if Str.is_empty(own_term) {
+                            ""
+                        } else {
+                            "term = ${record_ref!(own_term, "terms")}"
+                        }
                         clauses = List.keep_if(
                             [
                                 "active = true",
                                 if Str.is_empty(subject_param) { "" } else { "has_subject.out = ${record_ref!(subject_param, "subjects")}" },
-                                if Str.is_empty(term_param) { "" } else { "term = ${record_ref!(term_param, "terms")}" },
+                                term_clause,
                                 if Str.is_empty(class_param) { "" } else { "has_subject.in = ${record_ref!(class_param, "class_levels")}" },
                                 if caller.role == "teacher" and !Str.is_empty(term_id) { "has_subject IN (${assigned_edges_subquery!(teacher_id, term_id)})" } else { "" },
                             ],

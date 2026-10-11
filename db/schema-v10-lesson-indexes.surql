@@ -1,0 +1,37 @@
+-- v10 — the indexes the lesson lists look things up by.
+--
+-- Every lesson list the app shows asks one question: the lessons of one class-subject edge
+-- (`has_subject`) in one term (`term`), ordered by week. `lessons` carries both as links — the e2e
+-- fixture mirrors prod's actual shape — but nothing has ever indexed them. v2's only lessons index is
+-- `idx_lessons_topic` on a `topic` column that the current shape does not have, so each of these
+-- lists scans the table and the class level is filtered in memory.
+--
+-- One composite index serves all of them: the full `(has_subject, term, week)` list is an index range
+-- scan, and the `(has_subject)` and `(has_subject, term)` prefixes the picker queries filter on are
+-- covered by the same index. `has_subject` already has `idx_hs_in`/`idx_hs_unique (in, out)` for the
+-- edge lookups, so nothing is added there.
+DEFINE INDEX IF NOT EXISTS idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week;
+
+-- The stale one. `idx_lessons_topic` indexes `topic`, a column the lessons the app reads no longer
+-- carry (they carry `has_subject`, `term`, `week` instead). Check before removing it: if prod's rows
+-- still set `topic`, the index is load-bearing and dropping it changes nothing about the queries
+-- above but does lose the one-lesson-per-topic guard.
+--
+--   SELECT count() FROM lessons WHERE topic != NONE GROUP ALL;
+--
+-- A 0 means it can go:
+-- REMOVE INDEX idx_lessons_topic ON lessons;
+
+-- Hand-off note for whoever applies this: the index above is deliberately not UNIQUE, so it can be
+-- applied to a database that already holds duplicates. The line the data model wants is one lesson
+-- per edge, term and week — exactly what `idx_topics_unique` enforces on `topics` — and making this
+-- index UNIQUE is what would enforce it here and stop a re-run of the seeding from adding a second
+-- lesson to a week. That step only lands on clean data, so: check, then de-duplicate, then swap the
+-- index.
+--
+--   SELECT * FROM (SELECT count() AS n, has_subject, term, week FROM lessons
+--     GROUP BY has_subject, term, week) WHERE n > 1;
+--
+-- No rows back means the swap is safe:
+-- REMOVE INDEX idx_lessons_edge_term_week ON lessons;
+-- DEFINE INDEX idx_lessons_edge_term_week ON lessons COLUMNS has_subject, term, week UNIQUE;
