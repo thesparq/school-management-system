@@ -1264,11 +1264,35 @@ at a time, detached, and wait for it.
 mode), `render_lesson_check.cjs` all checks, `users_api.sh` 95/95, `authz.sh` 27/27, `assessment_flow.sh`
 41/41, `general_assessment_flow.sh` 56/56, `matrix_token.sh` 26/26.
 
-**Still open — the term dimension of the same lesson list.** The teacher's picker is now scoped to the class
-and subject the card carries, but not to a term: it has no term step, so a teacher sees that class's subject
-across every term. With one term of data that is invisible; with three it is another kind of "duplicate Week 1".
-Deciding it means either adding the retired app's term step to the teacher's picker, or scoping it to the active
-session term the assignment itself is scoped to — a product choice, not a bug fix.
+**The two scopes that were still open — both closed (2026-10-11).** Same hole, two more surfaces:
+
+- **Teacher's term.** A lesson hangs off a term and the picker has no term step, so it listed every term's
+  lessons under one class and subject — the same week number once per term, which is the other half of
+  "20+ lessons". It reads the term of the **active session term**, the term the teacher's own assignments are
+  already scoped to; a caller that names a term (the admin LMS) is untouched. The alternative — giving the
+  teacher's picker the retired app's term step — is a UI change nobody has asked for yet, and this keeps the
+  picker's scope identical to the assignment's.
+- **Student's subjects.** `/api/student/subjects` answered every active subject in the school, so a student
+  could pick one their class is not paired with and land on an empty lesson list. It now answers the subjects
+  that class's `has_subject` pairs name (`id IN (SELECT VALUE out FROM has_subject WHERE in = <class> AND
+  active = true)`), with the full list kept for a student whose profile names no class — the same fallback rule
+  the lesson list uses, for the same reason.
+
+**Indexes.** `db/schema-v10-lesson-indexes.surql` adds the one composite index these lists needed:
+`(has_subject, term, week)` on `lessons`. `lessons` carries both links but nothing ever indexed them — v2's
+only lessons index is `idx_lessons_topic` on a `topic` column the current shape does not have — so every lesson
+list scanned the table, and `has_subject` filtering (the class scope, the teacher's assignment subquery, the
+student's subjects subquery) had no index to stand on either. The edge lookups were already covered
+(`idx_hs_in`, `idx_hs_unique (in, out)`), `topics` already had its `(has_subject, term, week)` unique index, and
+`teacher_assignment` already had its `(teacher, edge, session_term)` one; the file also records the stale
+`idx_lessons_topic` to verify-and-drop and the **UNIQUE** swap that would make "one lesson per edge, term and
+week" a database rule, which is the only thing that stops a seeding re-run from re-creating duplicates.
+
+**Verified again after both** (`roc check main.roc` 0 errors): teacher picker on one edge holding a Noel lesson
+and a Calvary probe **2 rows → 1**; JSS 2 student's subjects **Yoruba Language (JSS 1 only) excluded**, full list
+back with no profile; and the sweep: `smoke_teacher_role` 9/9, `e2e_student` 7/7, `e2e_loading` 20/20,
+`e2e_assessments` 17/17, `e2e_admin_config` 52/53 (its documented leftover-edge caveat), `e2e_users_directory`
+27/27, `users_api.sh` 95/95, `authz.sh` 27/27.
 
 ---
 
