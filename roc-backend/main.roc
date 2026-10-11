@@ -910,21 +910,30 @@ create_profile_from_journal! = |pk, payload, config| {
     passport = journal_field(payload, "passport") |> sanitize
     display_name = if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
     number_clause = school_number_clause!(pk, role, config)
-    # The journaled qualifications ride the payload as `credentials:<id>` tokens joined by commas
-    # (no comma or semicolon can appear in a record id), rebuilt into the array text the clause
-    # builder validates.
+    # The journaled qualifications, linked students and date of employment ride the payload as
+    # comma-joined tokens (no comma or semicolon can appear in a record id), rebuilt into the array
+    # texts the clause builders validate — the same create_extra_clauses! the live create uses.
     quals_journal = journal_field(payload, "qualifications") |> sanitize
-    quals_res =
+    students_journal = journal_field(payload, "students") |> sanitize
+    date_employed = journal_field(payload, "date_employed") |> sanitize
+    quals_text =
         if Str.is_empty(quals_journal) {
-            Ok("")
+            ""
         } else {
             quals_elements = List.keep_if(Str.split_on(quals_journal, ","), |element| !Str.is_empty(element))
-            qualifications_clause!("[${Str.join_with(List.map(quals_elements, |element| "\"${element}\""), ",")}]")
+            "[${Str.join_with(List.map(quals_elements, |element| "\"${element}\""), ",")}]"
         }
-    match quals_res {
+    students_text =
+        if Str.is_empty(students_journal) {
+            ""
+        } else {
+            students_elements = List.keep_if(Str.split_on(students_journal, ","), |element| !Str.is_empty(element))
+            "[${Str.join_with(List.map(students_elements, |element| "\"${element}\""), ",")}]"
+        }
+    match create_extra_clauses!(role, quals_text, date_employed, students_text) {
         Err(msg) => Err(msg),
-        Ok(quals_clause) => {
-            create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, quals_clause)
+        Ok(extra) => {
+            create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students)
             match db_body!(create_sql, config) {
                 Ok(_) => Ok({})
                 # The row already exists (the create landed, the journal was behind): that is a settle.
@@ -1082,16 +1091,74 @@ qualification_links! = |elements, out| {
     }
 }
 
+# The `SET` entry for a teacher's date of employment (`teacher_profile.date_employed`), or ""
+# when the payload carried none. The form sends a bare YYYY-MM-DD; the database casts it to a
+# datetime.
+date_employed_clause_from! : Str => Str
+date_employed_clause_from! = |value| {
+    if Str.is_empty(value) { "" } else { "date_employed = <datetime> '${surreal_literal(value)}'" }
+}
+
+# The `SET` entry for a parent's linked students, mirroring `qualifications_clause!`: an array of
+# `student_profile:<id>` record ids (the schema's `parent_profile.students` is an array of record
+# links), or "" when the payload carried none. An explicit `[]` means "no linked students".
+students_clause! : Str => [Ok(Str), Err(Str)]
+students_clause! = |array_text| {
+    elements = List.map(split_json_elements(array_text), |element| json_string_text(element))
+    invalid = List.keep_if(elements, |element| !Str.starts_with(element, "student_profile:"))
+
+    if Str.is_empty(array_text) or array_text == "[]" {
+        Ok("students = []")
+    } else if !List.is_empty(invalid) {
+        Err("each linked student must be a student_profile record id (student_profile:<id>)")
+    } else {
+        Ok("students = [${Str.join_with(student_profile_links!(elements, []), ",")}]")
+    }
+}
+
+# The student record literals for one element each (the recursive pass, like qualification_links!).
+student_profile_links! : List(Str), List(Str) => List(Str)
+student_profile_links! = |elements, out| {
+    match elements {
+        [] => out
+        [element, .. as rest] => student_profile_links!(rest, List.append(out, "type::record('student_profile', '${bare_id(element)}')"))
+    }
+}
+
+# The role-specific extra clauses a create carries: a teacher's qualifications and date of
+# employment, a parent's linked students. Any other role carrying one of them is a 400 naming its
+# table — the update path's misplaced-field rule, applied to the create.
+create_extra_clauses! : Str, Str, Str, Str => [Ok({ quals: Str, date: Str, students: Str }), Err(Str)]
+create_extra_clauses! = |role, quals_text, date_employed, students_text| {
+    if !Str.is_empty(quals_text) and role != "Teacher" {
+        Err("'qualifications' is not a column of ${profile_table_for(role)}")
+    } else if !Str.is_empty(date_employed) and role != "Teacher" {
+        Err("'date_employed' is not a column of ${profile_table_for(role)}")
+    } else if !Str.is_empty(students_text) and role != "Parent" {
+        Err("'students' is not a column of ${profile_table_for(role)}")
+    } else {
+        quals_res = if Str.is_empty(quals_text) { Ok("") } else { qualifications_clause!(quals_text) }
+        students_res = if Str.is_empty(students_text) { Ok("") } else { students_clause!(students_text) }
+        match (quals_res, students_res) {
+            (Err(message), _) => Err(message),
+            (Ok(_), Err(message)) => Err(message),
+            (Ok(quals), Ok(students)) => Ok({ quals: quals, date: date_employed_clause_from!(date_employed), students: students })
+        }
+    }
+}
+
 # Build the profile INSERT for the chosen role. Field sets mirror the prod tables:
-# parents carry a single `name`, students carry date_of_birth plus their class links,
-# admins may carry a role_title, teachers their qualifications (`qualifications_clause!`'s own
-# entry, empty for a teacher without any). The row's school number comes first: it is
+# parents carry a single `name` (plus their linked students), students carry date_of_birth plus
+# their class links, admins may carry a role_title, teachers their qualifications and date of
+# employment (`qualifications_clause!` / `date_employed_clause_from`' own entries, empty when the
+# payload carried none). The row's school number comes first: it is
 # `school_number_clause!`'s own `SET` entry, and every role that reaches this branch has one (only a
 # parent has no number, and a parent is built below).
-profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, qualifications_clause| {
+profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, qualifications_clause, date_employed_clause, students_clause| {
     if role == "Parent" {
         # parent_profile carries both `name` and `display_name` in the prod schema.
-        "CREATE type::record('parent_profile', '${user_id}') SET name = '${display_name}', display_name = '${display_name}', passport = '${passport}', created_at = time::now();"
+        students_part = if Str.is_empty(students_clause) { "" } else { ", ${students_clause}" }
+        "CREATE type::record('parent_profile', '${user_id}') SET name = '${display_name}', display_name = '${display_name}', passport = '${passport}'${students_part}, created_at = time::now();"
     } else {
         optional = List.keep_if(
             [
@@ -1101,6 +1168,7 @@ profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, su
                 if Str.is_empty(class_level) { "" } else { "current_class = ${record_ref!(class_level, "class_levels")}" },
                 if Str.is_empty(class_level) { "" } else { "class_enrolled = ${record_ref!(class_level, "class_levels")}" },
                 if Str.is_empty(qualifications_clause) { "" } else { qualifications_clause },
+                if Str.is_empty(date_employed_clause) { "" } else { date_employed_clause },
             ],
             |field| !Str.is_empty(field),
         )
@@ -1150,11 +1218,11 @@ profile_table_of = |raw_id| {
 profile_update_columns : Str -> List(Str)
 profile_update_columns = |table|
     if table == "parent_profile" {
-        ["display_name", "name", "passport"]
+        ["display_name", "name", "passport", "students"]
     } else if table == "admin_profile" {
         ["display_name", "first_name", "middle_name", "surname", "passport", "role_title"]
     } else if table == "teacher_profile" {
-        ["display_name", "first_name", "middle_name", "surname", "passport", "qualifications"]
+        ["display_name", "first_name", "middle_name", "surname", "passport", "qualifications", "date_employed"]
     } else {
         ["display_name", "first_name", "middle_name", "surname", "passport", "date_of_birth", "class_level"]
     }
@@ -1168,7 +1236,7 @@ immutable_update_fields = ["class_enrolled", "admission_number", "staff_id"]
 # back to the caller. The immutable ones are in here to be refused; `admission_number` and `staff_id`
 # are in no table's `profile_update_columns`, which is what makes a payload that carries one a 400
 # instead of an ignored field.
-known_update_fields = List.concat(["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level", "qualifications"], immutable_update_fields)
+known_update_fields = List.concat(["display_name", "first_name", "middle_name", "surname", "name", "passport", "role_title", "date_of_birth", "class_level", "qualifications", "date_employed", "students"], immutable_update_fields)
 
 # The fields the payload carries that this table has no column for. `name` is the legacy table's
 # shape: parent_profile still has that column (it is that table's single name field), no other
@@ -1227,7 +1295,7 @@ carries_field = |payload_raw, field| {
 
 # The payload fields whose value is a JSON array rather than a quoted string; extract_field reads
 # between quotes, so an array's presence is decided by the key itself (see carries_field).
-array_update_fields = ["qualifications"]
+array_update_fields = ["qualifications", "students"]
 
 # `field = 'value'` for a value already read out of the payload, or "" when the value is empty — an
 # empty clause is dropped from a list of them, which is how an update writes only what it was given.
@@ -1333,10 +1401,24 @@ update_clauses! = |table, payload_raw, config| {
         Ok("")
     }
 
-    match quals_clause_res {
-        Err(msg) => Err(msg),
-        Ok(quals_clause) => {
-            all_candidates = List.concat(candidates, [quals_clause])
+    # A parent's linked students replace the stored list wholesale, like a teacher's
+    # qualifications: the payload carries `students`, the whole array is written (empty = "no
+    # linked students"). Only the parent profile declares the column.
+    students_clause_res = if table == "parent_profile" and carries_field(payload_raw, "students") {
+        students_clause!(extract_json_array(payload_raw, "students"))
+    } else {
+        Ok("")
+    }
+
+    # A teacher's date of employment: a bare YYYY-MM-DD cast by the database. Absent or empty
+    # leaves the stored date alone (updates patch).
+    date_clause = if table == "teacher_profile" { date_employed_clause_from!(extract_field(payload_raw, "date_employed") |> sanitize) } else { "" }
+
+    match (quals_clause_res, students_clause_res) {
+        (Err(msg), _) => Err(msg),
+        (Ok(_), Err(msg)) => Err(msg),
+        (Ok(quals_clause), Ok(students_clause)) => {
+            all_candidates = List.concat(List.concat(candidates, [quals_clause, date_clause]), [students_clause])
             clauses = List.keep_if(all_candidates, |clause| !Str.is_empty(clause))
 
             if !Str.is_empty(email) and !looks_like_email(email) {
@@ -1568,6 +1650,8 @@ user_row_with_identity! = |row, users, role| {
         # Only the teacher profile selects the column, so an absent field is an empty array rather
         # than a guess: the page's teacher form reads this as the qualifications to prefill.
         "\"qualifications\":${qualifications_json!(row)}",
+        "\"date_employed\":\"${sanitize_json_text(extract_field(row, "date_employed"))}\"",
+        "\"students\":${students_json!(row)}",
         "\"school_number\":\"${sanitize_json_text(row_number!(row, role))}\"",
         "\"has_profile\":true",
     ]
@@ -1580,6 +1664,14 @@ user_row_with_identity! = |row, users, role| {
 qualifications_json! : Str => Str
 qualifications_json! = |row| {
     text = extract_json_array(row, "qualifications")
+
+    if Str.is_empty(text) { "[]" } else { text }
+}
+
+# The row's linked students the same way, for the parent rows (`["student_profile:<id>", …]`).
+students_json! : Str => Str
+students_json! = |row| {
+    text = extract_json_array(row, "students")
 
     if Str.is_empty(text) { "[]" } else { text }
 }
@@ -2556,25 +2648,21 @@ respond! = |request, context| {
                     display_name = display_name_from!(payload_raw)
 
                     # A teacher's qualifications are record links into the credentials catalog the
-                    # admin UI manages. Only the teacher profile declares the column, so any other
-                    # role carrying the field is a 400 naming the table — the update path's own
-                    # misplaced-field rule, applied to the create.
+                    # admin UI manages; their date of employment is the profile column; a parent's
+                    # linked students are record links into student_profile. Each belongs to one role,
+                    # so any other role carrying the field is a 400 naming the table — the update
+                    # path's own misplaced-field rule, applied to the create (create_extra_clauses!).
                     quals_text = extract_json_array(payload_raw, "qualifications")
-                    carries_quals = Str.contains(Str.replace_each(payload_raw, " ", ""), "\"qualifications\":")
-                    quals_res =
-                        if carries_quals and role != "Teacher" {
-                            Err("'qualifications' is not a column of ${profile_table_for(role)}")
-                        } else if carries_quals {
-                            qualifications_clause!(quals_text)
-                        } else {
-                            Ok("")
-                        }
+                    students_text = extract_json_array(payload_raw, "students")
+                    date_employed = extract_field(payload_raw, "date_employed") |> sanitize
+                    extra_res = create_extra_clauses!(role, quals_text, date_employed, students_text)
                     quals_journal = if role != "Teacher" { "" } else { Str.join_with(List.map(split_json_elements(quals_text), |element| json_string_text(element)), ",") }
+                    students_journal = if role != "Parent" { "" } else { Str.join_with(List.map(split_json_elements(students_text), |element| json_string_text(element)), ",") }
 
-                    match (quals_res, validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport)) {
+                    match (extra_res, validate_new_user!(role, email_val, first_name, surname, date_of_birth, class_level, passport)) {
                         (Err(message), _) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
                         (Ok(_), Err(message)) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
-                        (Ok(quals_clause), Ok(_)) =>
+                        (Ok(extra), Ok(_)) =>
                             if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
@@ -2588,7 +2676,7 @@ respond! = |request, context| {
                                     # file read a value up to the first double quote, so a payload that
                                     # itself contains quotes could never be read back. One token per
                                     # field, none of the values may contain ";".
-                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};wants_password=${wants_pw}"
+                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};students=${students_journal};date_employed=${date_employed};wants_password=${wants_pw}"
                                     journal_res = journal_begin!("create_user", email_val, payload_journal, context.surreal)
                                     match journal_res {
                                         Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
@@ -2613,7 +2701,7 @@ respond! = |request, context| {
                                                 Ok(_) => {
                                                     _ = journal_mark!(row_id, "password", context.surreal)
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
-                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, quals_clause)
+                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students)
                                                     created = db_body!(create_sql, context.surreal)
                                                     match created {
                                                         Ok(body) => {
@@ -2657,8 +2745,15 @@ respond! = |request, context| {
                     # `school_number` — and the teacher listing also selects `qualifications`, which the
                     # page's teacher form reads back (no other role's query names the column).
                     number_select = number_select_for(role_param)
-                    qualifications_select = if role_param == "Teacher" { ", qualifications" } else { "" }
-                    query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select}${qualifications_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
+                    # The role's own extra columns: a teacher listing also selects `qualifications`
+                    # and `date_employed` (the row's Edit form reads them back), a parent listing
+                    # `students` (the linked-student picker's prefill); no other role's query names
+                    # them.
+                    role_extra_select =
+                        if role_param == "Teacher" { ", qualifications, date_employed" }
+                        else if role_param == "Parent" { ", students" }
+                        else { "" }
+                    query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select}${role_extra_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body_read!(query, context.surreal) {
                         Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                         Ok(body) =>
