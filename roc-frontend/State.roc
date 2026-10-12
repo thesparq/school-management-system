@@ -85,6 +85,10 @@ Model : {
 	# The nav bar's active-session-term payload, refetched by the page's JavaScript on every
 	# navigation. Its own status is what tells the bar whether to show a spinner, a badge or nothing.
 	sessionTermData : Str,
+	# The dashboard's cards: one "key|value" line per number the backend answered, keyed by what it
+	# counts (students, teachers, classes, subjects, pending_grades, assessments, assignments). The
+	# view owns the labels, so a number the backend does not send simply shows a dash.
+	dashboardData : Str,
 	newUserDateOfBirth : Str,
 	newUserClassLevel : Str,
 	newUserRoleTitle : Str,
@@ -264,7 +268,8 @@ Msg : [
 	GotUsersData(Str),
 	GotTermsData(Str),
 	GotSubjectsData(Str),
-	GotSessionTermData(Str),
+	   GotSessionTermData(Str),
+	   GotDashboardData(Str),
 	# Ask for one list again, by the URL the page's fetch_data port takes: what a failed list's
 	# Retry control sends. The list keeps its payload until the answer lands, so a retry never
 	# flashes a skeleton over data that is already there.
@@ -470,6 +475,7 @@ init = |flags| {
 		            notificationsOpen: Bool.False,
 		            notificationsData: "",
 		sessionTermData: "",
+		dashboardData: "",
 		usersData: "",
 		termsData: "",
 		subjectsData: "",
@@ -579,28 +585,31 @@ init = |flags| {
 			Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
 		])
 			                _ => match initialRole {
-		                        Admin => [
-		                                Port.send("fetch_data", "/api/users?role=Student"),
-		                                Port.send("fetch_data", "/api/users?role=Teacher"),
-		                                Port.send("fetch_data", "/api/users?role=Parent"),
-		                                Port.send("fetch_data", "/api/users?role=Admin"),
-		                                Port.send("fetch_data", "/api/subjects"),
-		                                Port.send("fetch_data", "/api/teacher/lessons"),
-		                                Port.send("fetch_data", "/api/teacher/classes"),
-		                                Port.send("fetch_data", "/api/class_levels"),
-		                                Port.send("fetch_data", "/api/credentials"),
-		                                Port.send("fetch_data", "/api/class-subjects"),
-		                                Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
-		                                Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
-		                        ]
-		                        Teacher => [
-		                                Port.send("fetch_data", "/api/subjects"),
-		                                Port.send("fetch_data", "/api/teacher/lessons"),
-		                                Port.send("fetch_data", "/api/teacher/classes"),
-		                        ]
-		                        Student => [
-		                                Port.send("fetch_data", "/api/subjects"),
-		                        ]
+		                                    Admin => [
+		                                            Port.send("fetch_data", "/api/users?role=Student"),
+		                                            Port.send("fetch_data", "/api/users?role=Teacher"),
+		                                            Port.send("fetch_data", "/api/users?role=Parent"),
+		                                            Port.send("fetch_data", "/api/users?role=Admin"),
+		                                            Port.send("fetch_data", "/api/subjects"),
+		                                            Port.send("fetch_data", "/api/teacher/lessons"),
+		                                            Port.send("fetch_data", "/api/teacher/classes"),
+		                                            Port.send("fetch_data", "/api/class_levels"),
+		                                            Port.send("fetch_data", "/api/credentials"),
+		                                            Port.send("fetch_data", "/api/class-subjects"),
+		                                            Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+		                                            Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+		                                            Port.send("fetch_data", "/api/dashboard"),
+		                                    ]
+		                                    Teacher => [
+		                                            Port.send("fetch_data", "/api/subjects"),
+		                                            Port.send("fetch_data", "/api/teacher/lessons"),
+		                                            Port.send("fetch_data", "/api/teacher/classes"),
+		                                            Port.send("fetch_data", "/api/dashboard"),
+		                                    ]
+		                                    Student => [
+		                                            Port.send("fetch_data", "/api/subjects"),
+		                                            Port.send("fetch_data", "/api/dashboard"),
+		                                    ]
 		                        _ => []
 		                }
 	})
@@ -864,6 +873,12 @@ update = |model, msg|
 				Port.send("fetch_data", "/api/session_terms"),
 				Port.send("fetch_data", "/api/credentials"),
 			]
+		)
+		# The dashboard's numbers are counts, so they are refetched on every visit rather than shown
+		# as they were when the page booted; the boot list carries the same fetch for a direct load.
+		NavigateTo(Dashboard) => (
+			{ ..model, route: Dashboard, mobileMenuOpen: Bool.False },
+			[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard")]
 		)
 		NavigateTo(route) => {
 			urlStr = match route {
@@ -1654,7 +1669,8 @@ update = |model, msg|
 			}
 			({ ..model, activeUserTab: tab }, [Port.send("fetch_data", url)])
 		}
-		GotSessionTermData(s) => ({ ..model, sessionTermData: s }, [])
+		           GotSessionTermData(s) => ({ ..model, sessionTermData: s }, [])
+		           GotDashboardData(s) => ({ ..model, dashboardData: s }, [])
 		UpdateNewUserRole(s) => ({ ..model, newUserRole: s }, [])
 		SetPassportKey(k) => ({ ..model, newUserPassportKey: k }, [])
 		GotStudentsData(s) => ({ ..model, usersStudentsData: s }, [])

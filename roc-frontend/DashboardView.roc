@@ -2,16 +2,51 @@
 import html.Html exposing [div, text, h1, h2, p, span]
 import html.Attribute exposing [class]
 import UI
-import State exposing [Model, Role]
+import State exposing [Model, Role, list_state]
 DashboardView := [].{
 
 view = |model| {
-    match model.role {
-        Admin => admin_dashboard(model)
-        Teacher => teacher_dashboard(model)
-        Student => student_dashboard(model)
-        Parent => parent_dashboard(model)
-        _ => default_dashboard(model)
+    div([], [
+        # The dashboard's numbers, fed by the page's fetch of /api/dashboard. One hidden input for every
+        # role's dashboard: it lives here rather than in each of them, so a card can never be left
+        # without the payload it reads.
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("dashboard_data_input"),
+            Attribute.value(model.dashboardData),
+            Attribute.on_input(|s| GotDashboardData(s))
+        ]),
+        match model.role {
+            Admin => admin_dashboard(model)
+            Teacher => teacher_dashboard(model)
+            Student => student_dashboard(model)
+            Parent => parent_dashboard(model)
+            _ => default_dashboard(model)
+        }
+    ])
+}
+
+# One number from that payload, which arrives as a "key|value" line per count. A key the answer does
+# not carry — or a payload that never landed — shows a dash, so one missing number cannot blank the
+# cards around it. A fold rather than keep_if + List.first: the latter miscompiles on this nightly
+# (see UI.roc's note).
+dashboard_stat = |model, key| {
+    found = List.fold(Str.split_on(model.dashboardData, "\n"), "", |best, line| {
+        parts = Str.split_on(line, "|")
+        name = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+        value = match List.get(parts, 1) { Ok(v) => v, Err(_) => "" }
+        if name == key and !Str.is_empty(value) { value } else { best }
+    })
+    if Str.is_empty(found) { "—" } else { found }
+}
+
+# The status card reads the same payload's state rather than the numbers: a dashboard that could not
+# load its counts should say so instead of claiming everything is fine.
+dashboard_status = |model| {
+    match list_state(model.dashboardData) {
+        Pending => { value: "Checking…", hint: "Reading the latest numbers", icon: "⏳" }
+        Failed(message) => { value: "Unavailable", hint: message, icon: "⚠️" }
+        Ready(_) => { value: "Online", hint: "All services operational", icon: "✅" }
     }
 }
 
@@ -37,13 +72,14 @@ stat_card = |title, value, subtitle, icon| {
 }
 
 admin_dashboard = |model| {
+    status = dashboard_status(model)
     div([class("p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Here's what's happening in your school today."),
         div([class("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4")], [
-            stat_card("Total Students", "—", "Syncing from database", "🎓"),
-            stat_card("Total Teachers", "—", "Syncing from database", "👩‍🏫"),
-            stat_card("Active Classes", "—", "Syncing from database", "🏫"),
-            stat_card("System Status", "Online", "All services operational", "✅")
+            stat_card("Total Students", dashboard_stat(model, "students"), "Enrolled accounts", "🎓"),
+            stat_card("Total Teachers", dashboard_stat(model, "teachers"), "Teaching accounts", "👩‍🏫"),
+            stat_card("Active Classes", dashboard_stat(model, "classes"), "Class levels in use", "🏫"),
+            stat_card("System Status", status.value, status.hint, status.icon)
         ]),
         div([class("grid grid-cols-1 md:grid-cols-2 gap-6")], [
             UI.card({ classes: "" }, [
@@ -75,9 +111,9 @@ teacher_dashboard = |model| {
     div([class("p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Manage your classes and assessments."),
         div([class("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4")], [
-            stat_card("My Classes", "—", "View your class assignments", "📚"),
-            stat_card("Pending Grades", "—", "Submissions awaiting review", "📝"),
-            stat_card("Assessments", "—", "Active assessments", "📋")
+            stat_card("My Classes", dashboard_stat(model, "classes"), "Assigned class-subject pairs", "📚"),
+            stat_card("Pending Grades", dashboard_stat(model, "pending_grades"), "Submissions awaiting review", "📝"),
+            stat_card("Assessments", dashboard_stat(model, "assessments"), "Published on your lessons", "📋")
         ]),
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [
@@ -99,8 +135,8 @@ student_dashboard = |model| {
     div([class("p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Keep up the great work! Here's your learning overview."),
         div([class("grid grid-cols-1 sm:grid-cols-2 gap-4")], [
-            stat_card("My Subjects", "—", "View your enrolled subjects", "📚"),
-            stat_card("Pending Assignments", "—", "Due assignments", "📝")
+            stat_card("My Subjects", dashboard_stat(model, "subjects"), "Subjects your class takes", "📚"),
+            stat_card("Pending Assignments", dashboard_stat(model, "assignments"), "Published, not yet submitted", "📝")
         ]),
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [

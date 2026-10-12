@@ -1866,6 +1866,25 @@ assigned_edges_subquery! = |teacher_pk, term_id| {
     "SELECT VALUE has_subject FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE"
 }
 
+# One number for the dashboard, as the `"key":value` half of the answer's one object. A count that
+# could not be read answers 0 rather than failing the panel: one missing number should not blank a
+# dashboard that has three good ones.
+dashboard_count! : Str, Str, SurrealDB.Config => Str
+dashboard_count! = |key, statement, config| {
+    counted = match SurrealDB.query_read!(statement, config) {
+        Ok(body) => extract_number_field(body, "count")
+        Err(_) => ""
+    }
+
+    if Str.is_empty(counted) { dashboard_zero(key) } else { "\"${key}\":${counted}" }
+}
+
+# The same half for a number that is known to be zero without asking (a teacher with no active term).
+dashboard_zero : Str => Str
+dashboard_zero = |key| {
+    "\"${key}\":0"
+}
+
 # The class level a student is enrolled in, as the bare pk their lesson list is scoped by. "" when
 # the profile carries none (or the caller has no profile row yet), which leaves that list unscoped:
 # a student who is not enrolled anywhere still reads a subject's lessons rather than nothing.
@@ -2797,6 +2816,51 @@ respond! = |request, context| {
                                     Ok(json_response(200, body)),
                             }
                     }
+
+                # --- Dashboard ---
+                # The numbers the dashboard's cards show, for the caller's own role: every count is
+                # scoped the way the rest of the API scopes the same data (a teacher's own
+                # assignments for the term, a student's own class), so a card can never report
+                # something the caller could not otherwise open. Numbers only — the labels and icons
+                # are the page's, keyed by the names below.
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/dashboard" {
+                    term_id = active_session_term_id!(context.surreal)
+                    caller_pk = caller_id!(user_json)
+                    fields =
+                        if caller.role == "admin" {
+	                            [
+	                                dashboard_count!("students", "SELECT count() FROM student_profile WHERE deleted_at IS NONE GROUP ALL;", context.surreal),
+	                                dashboard_count!("teachers", "SELECT count() FROM teacher_profile WHERE deleted_at IS NONE GROUP ALL;", context.surreal),
+	                                dashboard_count!("classes", "SELECT count() FROM class_levels WHERE active = true GROUP ALL;", context.surreal),
+	                            ]
+                        } else if caller.role == "teacher" {
+                            # No active session term means no assignments and nothing to grade, which is
+                            # the same empty answer the teacher's own lists give.
+                            if Str.is_empty(term_id) {
+                                [dashboard_zero("classes"), dashboard_zero("pending_grades"), dashboard_zero("assessments")]
+                            } else {
+                                edges = assigned_edges_subquery!(caller_pk, term_id)
+                                [
+                                    dashboard_count!("classes", "SELECT count() FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${caller_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE GROUP ALL;", context.surreal),
+                                    dashboard_count!("pending_grades", "SELECT count() FROM submissions WHERE assessment_type = 'lesson' AND scored_mark IS NONE AND assessment_id IN (SELECT VALUE meta::id(id) FROM lesson_assessments WHERE deleted_at IS NONE AND lesson.has_subject IN (${edges})) GROUP ALL;", context.surreal),
+                                    dashboard_count!("assessments", "SELECT count() FROM lesson_assessments WHERE active = true AND deleted_at IS NONE AND lesson.has_subject IN (${edges}) GROUP ALL;", context.surreal),
+                                ]
+                            }
+                        } else if caller.role == "student" {
+                            # The class level the student's own profile names, the same scope their
+                            # subject and lesson lists use; a student with no class keeps the wider
+                            # answer rather than an empty page.
+                            class_pk = student_class_pk!(caller_pk, context.surreal)
+                            class_clause = if Str.is_empty(class_pk) { "" } else { " AND id IN (SELECT VALUE out FROM has_subject WHERE in = ${record_ref!(class_pk, "class_levels")} AND active = true)" }
+                            lesson_clause = if Str.is_empty(class_pk) { "" } else { " AND lesson.has_subject IN (SELECT VALUE id FROM has_subject WHERE in = ${record_ref!(class_pk, "class_levels")} AND active = true)" }
+                            [
+                                dashboard_count!("subjects", "SELECT count() FROM subjects WHERE active = true${class_clause} GROUP ALL;", context.surreal),
+                                dashboard_count!("assignments", "SELECT count() FROM lesson_assessments WHERE active = true AND deleted_at IS NONE${lesson_clause} AND meta::id(id) NOT IN (SELECT VALUE assessment_id FROM submissions WHERE student = ${record_ref!(caller_pk, "student_profile")} AND assessment_type = 'lesson') GROUP ALL;", context.surreal),
+                            ]
+                        } else {
+                            []
+                        }
+                    Ok(json_response(200, "{\"result\":[{${Str.join_with(fields, ",")}}]}"))
 
                 # --- Student Lesson APIs ---
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/student/subjects" {
