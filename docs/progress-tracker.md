@@ -1405,6 +1405,37 @@ sidebar), `smoke_teacher_role` 9/9, `e2e_student` 7/7, `e2e_admin` 16/16, `e2e_u
 linked-students list (the same ids the parent form now writes) would fill it, and `Recent Activity` on the admin
 dashboard is still an empty placeholder too.
 
+### Mobile: the lesson view, and breadcrumbs that lost their steps (2026-10-12)
+
+Both found on a 390px viewport.
+
+- **The lesson view scrolled sideways and ran off the right edge.** The lesson column is a flex child, so it
+  kept `min-width: auto` and could not shrink below its widest content — the failure mode is invisible on a
+  desktop and total on a phone. It carries `min-w-0 w-full` now, and the staff tables keep a readable minimum
+  width inside their scrolling wrapper rather than squashing four columns into 390px.
+- **The desktop dot rail floated over the lesson text on a phone.** `md:flex` on its own is not "desktop
+  only": with no display rule below md the element falls back to `block`. Worse, two functions owned its `hidden`
+  class — `buildSectionNav` removed it while the tab switch added it back — so the rail showed wherever the two
+  last disagreed. One function now owns that decision (`updateSectionNav`: wide screen **and** lesson tab **and**
+  sections present), from one pair of class strings, and the shown state keeps `hidden` so small screens never
+  see it. This is also what the earlier "invisible strip over the grading tab" fix had been papering over.
+- **The breadcrumb rendered its separators over empty labels** ("All classes › › ›"). A step reached by clicking
+  carries its own name in the model; a reload or a shared link at depth restores only the ids from the URL. The
+  names are resolved from the lists that carry them — and the two lists that were fetched into a *step's* hidden
+  input now live in the drill's shell, because a fetch lands only where an input exists and neither input exists
+  at depth, so those responses were being dropped. A deep load now reads **“All classes › JSS 1 › Agricultural
+  Science › Noel Term”**.
+
+**Verified** at 390px and 1280px: no sideways scroll, all 22 sections rendered, the rail absent on the phone and
+present on desktop, the tables scrolling rather than squashing. Suites: `e2e_notifications_lms` 26/26,
+`e2e_user_roles` 18/18, `e2e_loading` 20/20, `smoke_assignments_lms` 18/18, `e2e_student` 7/7,
+`smoke_teacher_role` 9/9, `e2e_nav_fixes` 6/6, `e2e_admin` 16/16, `e2e_assessments` 17/17, `e2e_admin_config`
+52/53 (its documented caveat), both render checks green.
+
+**Next on this screen**: a class-subject pairs picker inside the teacher's own form (create and edit), so the
+pairs can be set without going to the row's Assign dialog — with the edit mode seeding from the teacher's current
+pairs before Save is enabled, since an unseeded empty picker would wipe them.
+
 ---
 
 ## Completed Work
