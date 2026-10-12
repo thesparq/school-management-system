@@ -1568,13 +1568,27 @@ pairs before Save is enabled, since an unseeded empty picker would wipe them.
 - [x] Edit user dialog/form
 - [x] Config tab forms CRUD (Terms, Class Levels, Curriculum, Class Arms, Subjects)
 - [x] Toast/notification system (top-right toasts with a pausable countdown + the navbar bell's history)
-- [ ] Wire lesson viewer URL param to actual lesson ID (currently shows placeholder on navigation)
 - [x] Dashboard stat cards wired to real API data (one role-aware `/api/dashboard`; counts scoped the way
   each role's own lists are)
-- [ ] Parent portal (linked students view)
-- [ ] Dashboard stat cards wired to real API data
+- [ ] A class-subject pairs picker inside the teacher's own form (create and edit). The pairs are real and
+  savable today — from the row's **Assign** dialog — but they are not part of the teacher's record as the
+  form presents it. The edit mode has to seed from the teacher's current pairs before Save is enabled: an
+  unseeded empty picker would wipe them
+- [ ] A student's lesson page is not URL-addressable. `setupLessonViewer` (which reads `?id=`) is only wired
+  for the staff path, so a student who reloads `/student/lesson` gets "Select a Lesson" and has to click back
+  through their subjects; the teacher's and the admin LMS's deep links work
+- [ ] Parent portal — the parent dashboard's "My Children" is still a placeholder, while the data behind it
+  (the parent profile's linked students) is real and already written by the parent form
+- [ ] The admin dashboard's "Recent Activity" feed — it would need an activity/audit source that does not
+  exist yet; the school has deferred this one
+- [ ] `/api/student/assessments` without a `lesson_id` is still school-wide rather than scoped to the
+  student's class (the lesson and subject lists are scoped; this one was left)
 - [ ] Cloud deployment configuration
 - [ ] Rate limiting on backend
+
+Not this repository, but the reason lessons read thin: the generator
+(`johnethel-lesson-generator`) asks for 3+ content sections with a soft word count and validates neither, so
+its output is ~3.4 sections of ~58 words. See the lesson-renderer section above for the measurements.
 
 ## Architecture Notes
 - **Unified Roc server**: Single `roc-backend/main.roc` serves both API and frontend on port 8000
