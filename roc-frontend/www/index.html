@@ -258,6 +258,10 @@
     const savedTheme2 = localStorage.getItem('theme') || 'light';
     let finalToken = localStorage.getItem('auth_token') || '';
 
+    // Who is reading the lesson, from the token's groups (set below, once they are decoded).
+    // The lesson renderer shows a pupil and staff different sections of the same record; it reads this.
+    let _viewerRole = "Student";
+
     // Check for authorization code in URL (OAuth2 callback)
     const urlParams = new URLSearchParams(window.location.search);
     const authCode = urlParams.get('code');
@@ -318,6 +322,8 @@
             role = "Parent";
         }
 
+        // The lesson renderer shows different sections to a pupil than to staff; it reads this.
+        _viewerRole = role;
         const currentPath = (window.location.pathname + window.location.search) || '/';
         const flags = `${savedTheme2}|${finalToken}|${role}|${email}|${name}|${currentPath}|${window.location.origin}`;
         
@@ -1241,6 +1247,204 @@
     // The lesson currently open in the viewer: the assessment modal builds its question picker from it.
     let _currentLesson = null;
 
+    // Whether the lesson's staff-only sections are shown to this viewer. The role itself is decoded
+    // from the token's groups at boot (see _viewerRole near the auth flow).
+    function lesson_viewer_is_staff() {
+        return _viewerRole === "Admin" || _viewerRole === "Teacher";
+    }
+
+    // --- The lesson's sections ---
+    // Every section a lesson can carry, in reading order, each naming the viewers who may see it.
+    // "all" is the lesson itself and the pupil's own work around it; "staff" is the teacher's side of
+    // the same record — their plan and materials, their guidance, the references behind the lesson,
+    // and the answer keys to the question banks. A section with nothing in the record renders
+    // nothing, so a thin or older lesson simply shows fewer of them.
+    function lessonHeading(text) {
+        return `<h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${escHtml(text)}</h2>`;
+    }
+
+    function lessonProse(text) {
+        return text ? `<p class="text-base leading-relaxed text-foreground/90">${escHtml(text)}</p>` : "";
+    }
+
+    // A list item's text, without ever printing a raw object: anything that is not a string (or a
+    // wrapper carrying one) is skipped rather than dumped as JSON.
+    function lessonPlain(value) {
+        if (typeof value === "string") return value;
+        if (value && typeof value.text === "string") return value.text;
+        if (value && typeof value.body === "string") return value.body;
+        return "";
+    }
+
+    // The generator numbers its own sub-points ("(i)", "(ii)"), so that is read from the record
+    // rather than invented here.
+    function lessonSubPoint(pt) {
+        if (typeof pt === "string") return escHtml(pt);
+        if (!pt) return "";
+        const num = pt.sub_number ? `<span class="text-muted-foreground">${escHtml(String(pt.sub_number))}</span> ` : "";
+        return num + escHtml(lessonPlain(pt.text) || lessonPlain(pt.body));
+    }
+
+    function lessonList(items) {
+        const texts = (items || []).map(lessonPlain).filter(t => t.trim());
+        if (!texts.length) return "";
+        return `<ul class="space-y-2">${texts.map(t => `
+            <li class="flex items-start gap-2">
+                <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <p class="text-sm leading-relaxed">${escHtml(t)}</p>
+            </li>`).join("")}</ul>`;
+    }
+
+    // Cells arrive as HTML (the caller escapes what it puts in them), so they are not escaped again.
+    function lessonTable(headers, rows) {
+        if (!rows.length) return "";
+        return `<div class="overflow-x-auto rounded-lg border border-border">
+            <table class="w-full text-sm">
+                <thead><tr class="bg-muted/40">${headers.map(h => `<th class="text-left font-semibold px-3 py-2 whitespace-nowrap">${escHtml(h)}</th>`).join("")}</tr></thead>
+                <tbody>${rows.map(cells => `<tr class="border-t border-border">${cells.map(cell => `<td class="px-3 py-2 align-top">${cell}</td>`).join("")}</tr>`).join("")}</tbody>
+            </table>
+        </div>`;
+    }
+
+    function lessonSections(lesson) {
+        // Prod nests everything under `content`; falling back to the lesson itself keeps the older
+        // flat seed rows readable without a second code path.
+        const c = lesson.content || lesson;
+        const arr = (v) => Array.isArray(v) ? v : [];
+        const str = (v) => (typeof v === "string" ? v.trim() : "");
+        const out = [];
+        const add = (id, heading, viewers, body) => {
+            if (body && body.trim()) out.push({ id, heading, viewers, html: body });
+        };
+
+        // Learning objectives, with the taxonomy level the generator tagged each one with.
+        const objectives = arr(c.objectives);
+        if (objectives.length) {
+            add("section-objectives", "Learning Objectives", "all", `
+                <div class="rounded-xl border-l-4 border-primary bg-primary/5 p-6 space-y-4">
+                    <h2 class="flex items-center gap-2 text-lg font-bold text-primary">
+                        <span class="text-xl">🎯</span> Learning Objectives
+                    </h2>
+                    <ol class="space-y-2">
+                        ${objectives.map((obj, i) => `
+                            <li class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">${i + 1}</span>
+                                <p class="text-sm leading-relaxed">${escHtml(objectiveText(obj))}${obj && obj.taxonomy_level ? `<span class="ml-2 align-middle inline-flex items-center rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">${escHtml(String(obj.taxonomy_level))}</span>` : ""}</p>
+                            </li>`).join("")}
+                    </ol>
+                </div>`);
+        }
+
+        const introduction = str(c.introduction);
+        if (introduction) add("section-introduction", "Introduction", "all", lessonHeading("Introduction") + lessonProse(introduction));
+
+        arr(c.content_sections).forEach((sec, idx) => {
+            if (!sec) return;
+            const heading = sec.header || sec.title || `Section ${idx + 1}`;
+            const number = sec.section_number ? `<span class="text-muted-foreground">${escHtml(String(sec.section_number))}.</span> ` : "";
+            const subPoints = arr(sec.sub_points || sec.subpoints);
+            const body = `
+                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${number}${escHtml(heading)}</h2>
+                ${lessonProse(sec.body)}
+                ${subPoints.length ? `<ul class="space-y-2 pl-4">${subPoints.map(pt => `
+                    <li class="flex items-start gap-2">
+                        <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
+                        <p class="text-sm leading-relaxed">${lessonSubPoint(pt)}</p>
+                    </li>`).join("")}</ul>` : ""}`;
+            add(`section-content-${idx}`, heading, "all", body);
+        });
+
+        const keyPoints = arr(c.key_points);
+        if (keyPoints.length) {
+            add("section-keypoints", "Key Points", "all", `
+                <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6 space-y-4">
+                    <h2 class="flex items-center gap-2 text-lg font-bold text-amber-700 dark:text-amber-400">
+                        <span class="text-xl">⭐</span> Key Points to Remember
+                    </h2>
+                    <ul class="space-y-2">
+                        ${keyPoints.map(pt => `
+                        <li class="flex items-start gap-2">
+                            <span class="mt-1 text-amber-500">•</span>
+                            <p class="text-sm leading-relaxed text-amber-900 dark:text-amber-200">${escHtml(lessonPlain(pt))}</p>
+                        </li>`).join("")}
+                    </ul>
+                </div>`);
+        }
+
+        const conclusion = str(c.conclusion);
+        if (conclusion) add("section-conclusion", "Conclusion", "all", lessonHeading("Conclusion") + lessonProse(conclusion));
+
+        // --- The pupil's own work around the lesson ---
+        const prior = arr(c.prior_knowledge);
+        if (prior.length) add("section-prior-knowledge", "Before you start", "all", lessonHeading("Before you start") + lessonList(prior));
+
+        const criteria = arr(c.success_criteria);
+        if (criteria.length) add("section-success-criteria", "What you'll be able to do", "all", lessonHeading("What you'll be able to do") + lessonList(criteria));
+
+        const extension = arr(c.extension_activities);
+        if (extension.length) add("section-extension", "Extra practice", "all", lessonHeading("Extra practice") + lessonList(extension));
+
+        // --- The teacher's side of the same record ---
+        const steps = arr(c.lesson_steps);
+        if (steps.length) {
+            const rows = steps.map(s => {
+                const detail = [str(s.teaching_strategy), s.duration_mins ? `${s.duration_mins} minutes` : "", str(s.assessment)]
+                    .filter(t => t.trim()).map(escHtml).join(" · ");
+                return [
+                    `<span class="font-semibold">${escHtml(String(s.step_number ?? ""))}</span>`,
+                    escHtml(str(s.phase)),
+                    escHtml(str(s.teacher_actions)),
+                    escHtml(str(s.pupil_activities)) + (detail ? `<p class="mt-1 text-xs text-muted-foreground">${detail}</p>` : ""),
+                ];
+            });
+            add("section-lesson-steps", "Lesson Plan", "staff", lessonHeading("Lesson Plan") + lessonTable(["Step", "Phase", "Teacher actions", "Pupil activities"], rows));
+        }
+
+        const materials = arr(c.materials);
+        if (materials.length || lesson.duration_mins) {
+            const duration = lesson.duration_mins ? `<p class="text-sm text-muted-foreground">Duration: ${escHtml(String(lesson.duration_mins))} minutes</p>` : "";
+            add("section-materials", "Instructional Materials", "staff", lessonHeading("Instructional Materials") + duration + lessonList(materials));
+        }
+
+        const prose = [
+            ["section-formative", "Formative Assessment", str(c.formative_assessment)],
+            ["section-summative", "Summative Assessment", str(c.summative_assessment)],
+            ["section-remediation", "Support for Struggling Learners", str(c.remediation)],
+            ["section-teacher-tips", "Teacher's Notes", str(c.teacher_tips)],
+        ];
+        prose.forEach(([id, heading, text]) => { if (text) add(id, heading, "staff", lessonHeading(heading) + lessonProse(text)); });
+
+        const references = [
+            ["section-textbook-references", "Textbook References", arr(c.textbook_references)],
+            ["section-primary-sources", "Primary Sources", arr(c.primary_sources)],
+        ];
+        references.forEach(([id, heading, items]) => { if (items.length) add(id, heading, "staff", lessonHeading(heading) + lessonList(items)); });
+
+        // The question banks, answers included: this is the teacher's key, so a student is not shown
+        // them — the app's own assessment flow is where graded questions reach a student.
+        const mcqs = arr(c.mcq_questions);
+        if (mcqs.length) {
+            const rows = mcqs.map((q, i) => {
+                const options = [q.option_a, q.option_b, q.option_c].filter(o => str(o))
+                    .map((o, j) => `<div>(${"abc"[j]}) ${escHtml(str(o))}</div>`).join("");
+                const answer = escHtml(str(q.correct_answer)) + (str(q.explanation) ? `<p class="mt-1 text-xs text-muted-foreground">${escHtml(str(q.explanation))}</p>` : "");
+                return [`<span class="font-semibold">${i + 1}</span>`, escHtml(str(q.question)), options, answer];
+            });
+            add("section-mcq", "Revision Questions (multiple choice)", "staff", lessonHeading("Revision Questions (multiple choice)") + lessonTable(["#", "Question", "Options", "Answer"], rows));
+        }
+
+        const theory = arr(c.theoretical_questions);
+        if (theory.length) {
+            const rows = theory.map((q, i) => {
+                const parts = arr(q.parts).map(lessonPlain).filter(t => t.trim()).map(t => `<div>${escHtml(t)}</div>`).join("");
+                return [`<span class="font-semibold">${i + 1}</span>`, escHtml(str(q.question)) + parts, escHtml(str(q.model_answer)), escHtml(str(q.marking_scheme))];
+            });
+            add("section-theoretical", "Theoretical Questions", "staff", lessonHeading("Theoretical Questions") + lessonTable(["#", "Question", "Model answer", "Marking scheme"], rows));
+        }
+
+        return out;
+    }
+
     function renderLesson(lesson) {
         _currentLesson = lesson;
         // Update header
@@ -1260,107 +1464,11 @@
         const panel = document.getElementById("lesson-panel");
         if (!panel) return;
 
-        let html = "";
-        let sections = [];
-
-        // Prod stores everything under the nested `content` object; the flat lesson.* reads are
-        // kept as a fallback for the older seed rows.
-        const content = lesson.content || {};
-
-        // Introduction
-        const introduction = content.introduction || "";
-        if (introduction) {
-            sections.push({ id: "section-introduction", heading: "Introduction" });
-            html += `
-            <section id="section-introduction" class="scroll-mt-24 space-y-3">
-                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">Introduction</h2>
-                <p class="text-base leading-relaxed text-foreground/90">${escHtml(introduction)}</p>
-            </section>`;
-        }
-
-        // Learning Objectives
-        let objectives = [];
-        try {
-            objectives = content.objectives || (typeof lesson.objectives === "string" ? JSON.parse(lesson.objectives) : (lesson.objectives || []));
-        } catch(e) {}
-        if (objectives.length) {
-            sections.push({ id: "section-objectives", heading: "Learning Objectives" });
-            html += `
-            <section id="section-objectives" class="scroll-mt-24">
-                <div class="rounded-xl border-l-4 border-primary bg-primary/5 p-6 space-y-4">
-                    <h2 class="flex items-center gap-2 text-lg font-bold text-primary">
-                        <span class="text-xl">🎯</span> Learning Objectives
-                    </h2>
-                    <ol class="space-y-2">
-                        ${objectives.map((obj, i) => `
-                            <li class="flex items-start gap-3">
-                                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">${i+1}</span>
-                                <p class="text-sm leading-relaxed">${escHtml(objectiveText(obj))}</p>
-                            </li>`).join("")}
-                    </ol>
-                </div>
-            </section>`;
-        }
-
-        // Content Sections
-        let contentSections = [];
-        try {
-            contentSections = content.content_sections || (typeof lesson.content_sections === "string" ? JSON.parse(lesson.content_sections) : (lesson.content_sections || []));
-        } catch(e) {}
-        contentSections.forEach((sec, idx) => {
-            const secId = `section-content-${idx}`;
-            const heading = sec.header || sec.title || `Section ${idx+1}`;
-            sections.push({ id: secId, heading });
-            const subPoints = sec.sub_points || sec.subpoints || [];
-            html += `
-            <section id="${secId}" class="scroll-mt-24 space-y-4">
-                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${escHtml(heading)}</h2>
-                ${sec.body ? `<p class="text-base leading-relaxed text-foreground/90">${escHtml(sec.body)}</p>` : ""}
-                ${subPoints.length ? `
-                <ul class="space-y-2 pl-4">
-                    ${subPoints.map(pt => `
-                    <li class="flex items-start gap-2">
-                        <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
-                        <p class="text-sm leading-relaxed">${escHtml(typeof pt === "string" ? pt : pt.text || JSON.stringify(pt))}</p>
-                    </li>`).join("")}
-                </ul>` : ""}
-            </section>`;
-        });
-
-        // Key Points (amber card)
-        let keyPoints = [];
-        try {
-            keyPoints = content.key_points || (typeof lesson.key_points === "string" ? JSON.parse(lesson.key_points) : (lesson.key_points || []));
-        } catch(e) {}
-        if (keyPoints.length) {
-            sections.push({ id: "section-keypoints", heading: "Key Points" });
-            html += `
-            <section id="section-keypoints" class="scroll-mt-24">
-                <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6 space-y-4">
-                    <h2 class="flex items-center gap-2 text-lg font-bold text-amber-700 dark:text-amber-400">
-                        <span class="text-xl">⭐</span> Key Points to Remember
-                    </h2>
-                    <ul class="space-y-2">
-                        ${keyPoints.map(pt => `
-                        <li class="flex items-start gap-2">
-                            <span class="mt-1 text-amber-500">•</span>
-                            <p class="text-sm leading-relaxed text-amber-900 dark:text-amber-200">${escHtml(typeof pt === "string" ? pt : pt.text || JSON.stringify(pt))}</p>
-                        </li>`).join("")}
-                    </ul>
-                </div>
-            </section>`;
-        }
-
-        // Conclusion
-        const conclusion = content.conclusion || "";
-        if (conclusion) {
-            sections.push({ id: "section-conclusion", heading: "Conclusion" });
-            html += `
-            <section id="section-conclusion" class="scroll-mt-24 space-y-3">
-                <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">Conclusion</h2>
-                <p class="text-base leading-relaxed text-foreground/90">${escHtml(conclusion)}</p>
-            </section>`;
-        }
+        const built = lessonSections(lesson).filter(sec => sec.viewers === "all" || lesson_viewer_is_staff());
+        let html = built.map(sec => `
+            <section id="${sec.id}" class="scroll-mt-24 space-y-3">
+                ${sec.html}
+            </section>`).join("");
 
         if (!html) {
             html = `<div class="text-center py-12 text-muted-foreground space-y-2">
@@ -1373,6 +1481,7 @@
         panel.innerHTML = html;
 
         // Build scroll-spy sidebar
+        const sections = built.map(sec => ({ id: sec.id, heading: sec.heading }));
         buildSectionNav(sections);
         setupScrollSpy(sections);
         setupMobileTOC(sections);

@@ -29,6 +29,7 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | Script | What it proves | Needs |
 |---|---|---|
 | `render_lesson_check.cjs` | The page's own `renderLesson` turns a real lesson into the expected sections (introduction, objectives as text, content sections, sub-points, key points, conclusion) and leaks no raw JSON. No browser: it stubs the DOM and runs the page's JavaScript. | Backend + a lesson id |
+| `render_lesson_roles_check.cjs` | Which sections each viewer is shown. No browser and no backend: it runs the page's own script against a lesson shaped like the ones prod stores (every section the record can carry) and checks that a pupil gets the lesson and their own work around it — objectives, the body, key points, conclusion, "before you start", "what you'll be able to do", extra practice — while a teacher or admin gets all of that plus the teacher's side (lesson plan as a table, materials, both assessments, remediation, teacher's notes, references, primary sources) and the answer keys behind both question banks; that the pupil's page carries none of those, no tables and no raw JSON; and that a lesson with no content says so rather than rendering an empty page. | Nothing (runs against `www/index.html` alone) |
 | `e2e_signout.cjs` | The nav bar's avatar menu and sign-out: the menu starts closed, opens on a click, shows who is signed in and offers Sign Out, closes on a click outside; signing out navigates to Authentik's end-session with this origin's callback as the return and clears the token from storage. | Backend |
 | `e2e_auth_callback.cjs` | The OAuth2 round trip with Authentik's endpoints intercepted: the redirect URI the app sends is `<origin>/auth/callback` on both legs, the code is exchanged on the callback path with the PKCE verifier, the token is stored, the URL is cleaned back to the root, and a bare callback visit starts from the root too. | Backend |
 | `auth_config_check.cjs` | An origin's auth wiring against the *real* Authentik, no browser: the advertised userinfo endpoint is the instance-wide one and matches what the backend derives, it answers 401 for a bad token, and the app's redirect URI is registered (with an unregistered one rejected as a control). | Network access to Authentik |
@@ -53,6 +54,7 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
 LESSON_ID=lessons:... node tests/e2e/render_lesson_check.cjs
+node tests/e2e/render_lesson_roles_check.cjs      # the pupil/staff section split, no backend needed
 node tests/e2e/e2e_student.cjs
 node tests/e2e/e2e_auth_callback.cjs
 node tests/e2e/e2e_signout.cjs
