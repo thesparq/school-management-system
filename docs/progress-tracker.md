@@ -1468,10 +1468,19 @@ clearing it, and create-with-pairs with no active term refused (400) before anyt
 `e2e_general_assessments` 25/25, `e2e_admin_config` 52/53 (its documented caveat), `e2e_users_directory` 27/27,
 both render checks, `users_api.sh` 95/95, `authz.sh` 27/27.
 
-**Noted in passing**: nothing enforces a single active `session_term`. `active_session_term_id!` reads one row
-with `LIMIT 1`, so a database holding two active terms writes a teacher's pairs under whichever the query
-returns first — which is a data-integrity trap rather than a bug in this work, and worth a uniqueness rule of
-its own.
+**Fixed rather than noted**: nothing enforced a single active `session_term`. `active_session_term_id!` reads
+one row with `LIMIT 1` and a teacher's assignment write is scoped by that read, so two active terms meant a save
+could land under whichever row came back first — and the hub could produce that state, because activating a term
+wrote its flag without touching the current one (watched it happen on a sandbox: a pair written against a term
+nobody was looking at). `db/schema-v11-single-active-session-term.surql` mirrors the flag into a field that is
+absent unless the row is active and puts a unique index over it — a plain unique index on `active` would allow
+exactly one *inactive* row, and SurrealDB's unique indexes ignore NONE, which is what makes this partial. The
+session-term toggle is now a **move** (the others off, then the named row on, in one call — the index makes that
+order mandatory), `active_session_term_id!` orders by creation so a legacy two-active database answers the same
+way twice, and `e2e_admin_config.cjs` restores the seeded term it switched away from, since `e2e_loading` reads
+that term by name. Prod holds one active row today, so the migration applies cleanly; it is **not applied to
+prod yet** — that is the one step left, and it is the file rather than a manual statement: apply
+`db/schema-v11-single-active-session-term.surql`.
 
 ---
 
@@ -1614,6 +1623,8 @@ its own.
 - [ ] The admin dashboard's "Recent Activity" feed — it would need an activity/audit source that does not
   exist yet; the school has deferred this one
 - [x] `/api/student/assessments` without a `lesson_id` is scoped to the student's class now
+- [x] One current session term, enforced by the data (`db/schema-v11`), with the hub's toggle turned into a
+  move
 - [ ] Rate limiting on the backend — designed but not built: per-**caller** buckets rather than per-IP,
   because a school is usually one NAT address and a per-IP limit would lock out a whole classroom. Needs the
   two numbers only the school can pick: requests per minute per account, and what the burst should be
