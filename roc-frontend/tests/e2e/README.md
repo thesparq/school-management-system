@@ -145,6 +145,12 @@ APP_URL=http://127.0.0.1:8000 MOCK_AUTHENTIK_URL=http://127.0.0.1:9000 \
 Two schema notes learned from the prod tables: relations are created with `RELATE` (`CREATE` on a relation
 table is rejected), and `questions` / `answers` are `array<object>`, which implies their `.*` sub-field.
 
+One more state the suites share: the current session term. A school has one, the database enforces that
+(`db/schema-v11`, a partial unique index on the active flag), and switching a term on therefore switches
+the current one off — so a suite that activates its own term moves the flag rather than adding to it.
+`e2e_admin_config.cjs` switches the seeded term back before it finishes, because the suites that read the
+active term by name (`e2e_loading` asserts the nav bar's badge) run after it.
+
 `general_assessments` and `compositions` are in the fixture too (prod's field definitions). The fixture
 carries the six `questions.*` sub-field statements from `db/schema-v3.surql` that prod has not had applied
 to `general_assessments`: without them this SurrealDB generation rejects every question object, so a

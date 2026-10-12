@@ -1852,6 +1852,23 @@ config_toggle_response! = |table, payload_raw, config| {
     }
 }
 
+# The session term toggle, which is the one config toggle that is not a plain flag write: making a term
+# the current one switches the others off in the same call (see the endpoint's own note for why the order
+# is fixed). Switching a term off writes it alone.
+session_term_toggle_response! : Str, SurrealDB.Config => Server.Outcome
+session_term_toggle_response! = |payload_raw, config| {
+    id_val = extract_field(payload_raw, "id") |> sanitize
+    active = json_bool(payload_raw, "active")
+
+    if Str.is_empty(id_val) {
+        json_response(400, "{\"error\":\"id is required\"}")
+    } else if active == "true" {
+        db_response!("UPDATE session_term SET active = false WHERE id != ${record_ref!(id_val, "session_term")} AND active = true; UPDATE ${record_ref!(id_val, "session_term")} SET active = true;", config)
+    } else {
+        db_response!("UPDATE ${record_ref!(id_val, "session_term")} SET active = false;", config)
+    }
+}
+
 # --- Teacher class-subject assignments (the pairings that gate a teacher's access) ---
 #
 # `has_subject` (class_levels -> subjects) is the school's curriculum; `teacher_assignment` is one
@@ -1866,7 +1883,11 @@ config_toggle_response! = |table, payload_raw, config| {
 # save replaces the teacher's rows under that term only.
 active_session_term_id! : SurrealDB.Config => Str
 active_session_term_id! = |config| {
-    match SurrealDB.query_read!("SELECT id FROM session_term WHERE active = true LIMIT 1;", config) {
+    # Ordered by creation so the answer is the same one twice: with the single-active rule in place
+    # (db/schema-v11) there is only ever one row to read, and on a database that still holds two — a
+    # sandbox mid-suite, say — the newest is the one the school last set up rather than whichever the
+    # database happens to return first.
+    match SurrealDB.query_read!("SELECT id FROM session_term WHERE active = true ORDER BY created_at DESC LIMIT 1;", config) {
         Ok(body) => bare_id(extract_field(body, "id"))
         Err(_) => ""
     }
@@ -3723,9 +3744,13 @@ respond! = |request, context| {
                     )
                     Ok(config_update_response!("session_term", clauses, extract_field(payload_raw, "id") |> sanitize, "session_name or term", context.surreal))
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/session_terms/toggle-active" {
-                    # New session terms are created inactive, so this is what makes one usable.
+                    # New session terms are created inactive, so this is what makes one usable — and a school
+                    # has *one* current term, so switching one on is a move rather than an addition. The
+                    # schema's partial unique index (db/schema-v11) refuses a second active row, which makes
+                    # the order below mandatory rather than a preference: the others go off first, in the
+                    # same call, and the named row goes on after them.
                     payload_raw = read_body!(request)
-                    Ok(config_toggle_response!("session_term", payload_raw, context.surreal))
+                    Ok(session_term_toggle_response!(payload_raw, context.surreal))
                 } else {
                     Ok(json_response(404, "{\"error\":\"Not Found\"}"))
                 }

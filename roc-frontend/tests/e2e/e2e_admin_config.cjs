@@ -251,6 +251,16 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   check('activating the session term reports success', await hasText('Session term activated'));
   await waitForRowStatus(sessionName, 'Active');
   check('the session term now reads Active', await rowStatus(sessionName) === 'Active');
+  // Switching this one on switched the seeded term off: a school has one current term, and the save is a
+  // move (the schema refuses a second active row). The suite drives a shared sandbox, so it moves the flag
+  // back to where it found it before it finishes — the suites that read the active term's own name
+  // (e2e_loading asserts the nav badge) would otherwise fail on whatever ran before them.
+  check('activating a term switched the seeded one off', await (async () => {
+    const res = await fetch(`${appUrl}/api/session_terms`, { headers: { authorization: `Bearer ${process.env.AUTH_TOKEN || 'dev-skip'}` } });
+    const rows = (await res.json())[0].result;
+    const seeded = rows.find(r => r.session_name === '2026/2027');
+    return seeded && seeded.active === false;
+  })());
 
   // --- The curriculum edge: switched off in place, then back on ---------------------------------
   await tab('Curriculum');
@@ -267,6 +277,19 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 
   await page.click(`${edgeRow} >> button:has-text("Activate")`);
   await page.waitForSelector('text=Curriculum link activated', { timeout: 20000 }).catch(() => {});
+
+  // --- Put the current session term back where the suite found it --------------------------------
+  // Activating the term above switched the seeded one off (one current term; the save is a move), and
+  // the suites that read the active term by name run after this one. The same restore the other suites
+  // do for the state they touch.
+  await fetch(`${appUrl}/api/session_terms/toggle-active`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', authorization: `Bearer ${process.env.AUTH_TOKEN || 'dev-skip'}` },
+    body: JSON.stringify({ id: 'session_term:session_2026_2027', active: true }),
+  });
+  const restored = await (await fetch(`${appUrl}/api/session_terms`, { headers: { authorization: `Bearer ${process.env.AUTH_TOKEN || 'dev-skip'}` } })).json();
+  const seededRow = restored[0].result.find(r => r.session_name === '2026/2027');
+  check('the seeded session term is the current one again', !!seededRow && seededRow.active === true);
   check('reactivating the edge reports success', await hasText('Curriculum link activated'));
   const edgesBack = await api('/api/curriculum');
   check('the edge is back in the active curriculum', edgesBack.some(e => String(e.in).includes('jss_2') && String(e.out).includes('agricultural_science')));
