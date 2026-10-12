@@ -1376,6 +1376,35 @@ is only wired for the staff path, so a student who reloads `/student/lesson` get
 click back through their subjects. The teacher/admin deep link works. Worth fixing if students are expected to
 share or reload lesson links.
 
+### The dashboard's cards read real numbers (2026-10-12)
+
+They were placeholders — "—", "Syncing from database", and a hard-coded "Online". One role-aware
+`GET /api/dashboard` now counts what the cards show, scoped exactly the way the rest of the API scopes the same
+data, so a card cannot report something the caller could not otherwise open: an admin gets students, teachers and
+active class levels; a teacher gets their assigned pairs for the active session term, the submissions of their own
+lessons still awaiting a mark, and the assessments published on those lessons (no active term answers zeros, the
+same empty answer their own lists give); a student gets the subjects their class is paired with and the published
+assessments on that class's lessons they have not submitted, with the wider answer kept for a student whose
+profile names no class.
+
+The payload is numbers only — one `key|value` line each, through the usual hidden-input bridge — so the labels
+stay in `DashboardView.roc`, and a number the backend does not send renders as a dash rather than breaking the
+cards around it. System Status reads the fetch's own state (Checking… / Unavailable with the reason / Online)
+instead of always claiming everything is fine. Navigating back to the Dashboard refetches: these are counts, so a
+stale panel is the one thing it must not show.
+
+**Verified** by role against the sandbox — admin 18 students / 8 teachers / 9 classes / Online; a teacher holding
+one pair 1 class / 11 awaiting a mark / 23 assessments, and 0/0/0 once the pair is cleared; a JSS 2 student 1
+subject / 0 assignments, and 7 / 23 with no class on the profile — then in the browser for all three roles,
+including the refetch on navigating away and back. `e2e_loading` 20/20 (it drives the dashboard through the
+sidebar), `smoke_teacher_role` 9/9, `e2e_student` 7/7, `e2e_admin` 16/16, `e2e_user_roles` 18/18,
+`e2e_notifications_lms` 26/26, `smoke_assignments_lms` 18/18, `e2e_assessments` 17/17, `e2e_admin_config` 52/53
+(its documented caveat), `users_api.sh` 95/95, `authz.sh` 27/27.
+
+**Still to do on this screen**: the parent dashboard has no cards — just a "My Children" placeholder. Their
+linked-students list (the same ids the parent form now writes) would fill it, and `Recent Activity` on the admin
+dashboard is still an empty placeholder too.
+
 ---
 
 ## Completed Work
@@ -1509,6 +1538,8 @@ share or reload lesson links.
 - [x] Config tab forms CRUD (Terms, Class Levels, Curriculum, Class Arms, Subjects)
 - [x] Toast/notification system (top-right toasts with a pausable countdown + the navbar bell's history)
 - [ ] Wire lesson viewer URL param to actual lesson ID (currently shows placeholder on navigation)
+- [x] Dashboard stat cards wired to real API data (one role-aware `/api/dashboard`; counts scoped the way
+  each role's own lists are)
 - [ ] Parent portal (linked students view)
 - [ ] Dashboard stat cards wired to real API data
 - [ ] Cloud deployment configuration
