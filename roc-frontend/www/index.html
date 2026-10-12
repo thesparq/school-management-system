@@ -1190,16 +1190,10 @@
                 if (!el) return;
                 el.classList.toggle("hidden", name !== which);
             });
-            // The section navigator belongs to the lesson tab alone. Its markup carries `md:flex`,
-            // which beats a bare `hidden` class at desktop widths — so toggling `hidden` left it on
-            // screen as an invisible strip that swallowed clicks along the right edge of the
-            // assessments and grading tabs. Swapping the whole class list (the way the tabs above
-            // are switched) drops `md:flex` when it is not the lesson tab, so `hidden` really hides.
-            const sectionNav = document.getElementById("section-nav");
-            if (sectionNav) {
-                const navBaseCls = "fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center";
-                sectionNav.className = which === "lesson" ? `md:flex ${navBaseCls}` : `hidden ${navBaseCls}`;
-            }
+            // The section navigator belongs to the lesson tab alone (and, in CSS, to wide screens:
+            // see updateSectionNav).
+            _lessonTab = which;
+            updateSectionNav();
         }
 
         // The app re-renders its DOM on every state change, which drops listeners attached to the
@@ -1301,11 +1295,14 @@
             <li class="text-sm leading-relaxed">${escHtml(t)}</li>`).join("")}</ul>`;
     }
 
-    // Cells arrive as HTML (the caller escapes what it puts in them), so they are not escaped again.
+    // The lesson plan and the question banks are tables: on a phone they scroll sideways instead of
+    // squashing four columns into 390px, which is why the wrapper scrolls and the table keeps a
+    // readable minimum width. Cells arrive as HTML (the caller escapes what it puts in them), so they
+    // are not escaped again here.
     function lessonTable(headers, rows) {
         if (!rows.length) return "";
         return `<div class="overflow-x-auto rounded-lg border border-border">
-            <table class="w-full text-sm">
+            <table class="w-full min-w-[40rem] text-sm">
                 <thead><tr class="bg-muted/40">${headers.map(h => `<th class="text-left font-semibold px-3 py-2 whitespace-nowrap">${escHtml(h)}</th>`).join("")}</tr></thead>
                 <tbody>${rows.map(cells => `<tr class="border-t border-border">${cells.map(cell => `<td class="px-3 py-2 align-top">${cell}</td>`).join("")}</tr>`).join("")}</tbody>
             </table>
@@ -1487,16 +1484,34 @@
         setupMobileTOC(sections);
     }
 
+    // The section navigator's two states, in one place because two functions used to fight over its
+    // `hidden` class. `md:flex` on its own is not "desktop only": below md there is no display rule
+    // at all, so the element falls back to `block` — which is how the desktop dot rail ended up
+    // floating over the lesson text on a phone. `hidden` is what keeps it off small screens, so the
+    // shown state carries both.
+    const SECTION_NAV_BASE = "fixed right-6 top-1/2 -translate-y-1/2 z-50 group items-center";
+    const SECTION_NAV_SHOWN = `hidden md:flex ${SECTION_NAV_BASE}`;
+    const SECTION_NAV_HIDDEN = `hidden ${SECTION_NAV_BASE}`;
+
+    // Which tab of a tabbed lesson view is on screen ("lesson" when the view has no tabs).
+    let _lessonTab = "lesson";
+
+    // One owner for whether the navigator shows: only on a wide screen, only over the lesson body,
+    // and only when that body actually has sections. The tab switch and the renderer both call this,
+    // so neither can leave the rail visible where it does not belong.
+    function updateSectionNav() {
+        const nav = document.getElementById("section-nav");
+        if (!nav) return;
+        const dots = document.getElementById("section-nav-dots");
+        const hasSections = !!dots && dots.children.length > 0;
+        nav.className = (_lessonTab === "lesson" && hasSections) ? SECTION_NAV_SHOWN : SECTION_NAV_HIDDEN;
+    }
+
     // --- Scroll-spy sidebar ---
     function buildSectionNav(sections) {
         const dotsContainer = document.getElementById("section-nav-dots");
         const labelsContainer = document.getElementById("section-nav-labels");
-        const nav = document.getElementById("section-nav");
-        if (!dotsContainer || !labelsContainer || !sections.length) {
-            if (nav) nav.classList.add("hidden");
-            return;
-        }
-        nav && nav.classList.remove("hidden");
+        if (!dotsContainer || !labelsContainer) return;
 
         dotsContainer.innerHTML = sections.map((sec, i) => `
             <button data-sec="${sec.id}" title="${escHtml(sec.heading)}"
@@ -1516,6 +1531,8 @@
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
             });
         });
+
+        updateSectionNav();
     }
 
     function setupScrollSpy(sections) {

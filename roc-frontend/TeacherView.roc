@@ -171,7 +171,7 @@ teacher_lesson_view = |model| {
     Html.div([Attribute.class("relative")], [
         Html.div([Attribute.class("flex min-h-screen")], [
             # Main content column
-            Html.div([Attribute.class("flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
+            Html.div([Attribute.class("flex-1 min-w-0 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
 
                 # Back + lesson header
                 Html.div([Attribute.id("lesson-header"), Attribute.class("space-y-3")], [

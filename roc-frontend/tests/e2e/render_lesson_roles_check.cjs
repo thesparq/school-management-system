@@ -19,6 +19,8 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 class El {
   constructor(id) {
     this.id = id; this._html = ''; this.textContent = ''; this.value = ''; this.dataset = {}; this.style = {};
+    // The page reads `children` (the section navigator counts its dots), so the stub carries it.
+    this.children = [];
     const set = new Set();
     this.classList = {
       add: (...c) => c.forEach(x => set.add(x)), remove: (...c) => c.forEach(x => set.delete(x)),

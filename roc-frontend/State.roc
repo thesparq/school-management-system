@@ -418,17 +418,29 @@ Msg : [
 	}
 
 	# The fetches a restored drill-down step needs: the deeper steps drop the shallower loaded lists,
-	# so each step refetches exactly what it shows (the lessons for a term, the content for a lesson).
+	# so each step refetches exactly what it shows (the lessons for a term, the content for a lesson) —
+	# plus the three lists that carry the names behind the ids. A reload (or a link) at depth restores
+	# the ids from the URL and not the names, and the breadcrumb and headings read the names, so they
+	# are asked for at every depth rather than only by the step that shows them.
 	lms_history_effects = |state| {
-		if !Str.is_empty(state.lesson_id) {
-			[Port.send("fetch_data", "/api/student/lesson?lesson_id=${state.lesson_id}")]
-		} else if !Str.is_empty(state.term_id) {
-			[Port.send("fetch_data", "/api/teacher/lessons?class_id=${state.class_id}&subject_id=${state.subject_id}&term_id=${state.term_id}&admin_lms=1")]
-		} else if !Str.is_empty(state.subject_id) {
-			[Port.send("fetch_data", "/api/student/terms?admin_lms=1")]
-		} else {
-			[]
-		}
+		names = [
+			Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+			Port.send("fetch_data", "/api/class-subjects"),
+			Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+		]
+
+		step =
+			if !Str.is_empty(state.lesson_id) {
+				[Port.send("fetch_data", "/api/student/lesson?lesson_id=${state.lesson_id}")]
+			} else if !Str.is_empty(state.term_id) {
+				[Port.send("fetch_data", "/api/teacher/lessons?class_id=${state.class_id}&subject_id=${state.subject_id}&term_id=${state.term_id}&admin_lms=1")]
+			} else if !Str.is_empty(state.subject_id) {
+				[Port.send("fetch_data", "/api/student/terms?admin_lms=1")]
+			} else {
+				[]
+			}
+
+		List.concat(names, step)
 	}
 
 	# The model half of the same restore.

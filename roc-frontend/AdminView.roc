@@ -1335,7 +1335,6 @@ admin_class_picker = |model| {
 			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Browse any class level's curriculum, exactly as a teacher sees it — without gating.")])
 		]),
-		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_classes_data_input"), Attribute.value(model.adminLmsClassesData), Attribute.on_input(|s| GotAdminLmsClassesData(s))]),
 		match list_state(model.adminLmsClassesData) {
 			Pending => Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [admin_lms_skeleton(""), admin_lms_skeleton(""), admin_lms_skeleton("")])
 			Failed(message) => UI.list_error_state("Could not load the class levels", message, Click(RetryList("/api/class_levels?admin_lms=1")))
@@ -1370,10 +1369,10 @@ admin_subjects_view = |model| {
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
 			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsClassName)])
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_class_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsClassName)]),
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_class_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a subject to see its terms and lessons.")])
 		]),
 		match list_state(model.subjectPairsData) {
@@ -1413,15 +1412,14 @@ admin_terms_view = |model| {
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
 			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(lms_class_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsSubjectName)])
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsSubjectName)]),
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_subject_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
 		]),
-		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_terms_data_input"), Attribute.value(model.adminLmsTermsData), Attribute.on_input(|s| GotAdminLmsTermsData(s))]),
 		match list_state(model.adminLmsTermsData) {
 			Pending => Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [admin_lms_skeleton(""), admin_lms_skeleton(""), admin_lms_skeleton("")])
 			Failed(message) => UI.list_error_state("Could not load the terms", message, Click(RetryList("/api/student/terms?admin_lms=1")))
@@ -1456,15 +1454,15 @@ admin_lessons_view = |model| {
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
 			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(model.adminLmsClassName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(lms_class_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(model.adminLmsSubjectName)]),
+			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(lms_subject_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.adminLmsTermName)])
+			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_term_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.adminLmsTermName)]),
-			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text(model.adminLmsSubjectName)])
+			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_term_label(model))]),
+			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_lessons_data_input"), Attribute.value(model.adminLmsLessonsData), Attribute.on_input(|s| GotAdminLmsLessonsData(s))]),
 		match list_state(model.adminLmsLessonsData) {
@@ -1503,7 +1501,7 @@ admin_lessons_view = |model| {
 admin_lesson_view = |model| {
 	Html.div([Attribute.class("relative")], [
 		Html.div([Attribute.class("flex min-h-screen")], [
-			Html.div([Attribute.class("flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
+			                        Html.div([Attribute.class("flex-1 min-w-0 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
 				Html.input([
 					Attribute.type("hidden"),
 					Attribute.id("lesson_content_data_input"),
@@ -1584,6 +1582,46 @@ admin_lms_skeleton = |_| {
 	])
 }
 
+# --- The admin LMS drill's labels ---
+# A step reached by clicking carries its own name in the model; a reload (or a link) at depth restores
+# only the ids from the URL, which left the breadcrumb rendering its separators over empty labels. The
+# lists that carry the names are fetched at every depth (see lms_history_effects), so they are looked
+# up here. A fold rather than keep_if + List.first: the latter miscompiles on this nightly (see UI.roc).
+list_field_for = |list_data, key_index, value_index, key, fallback| {
+	List.fold(Str.split_on(list_data, "\n"), fallback, |found, line| {
+		parts = Str.split_on(line, "|")
+		if config_field(parts, key_index, "") == key {
+			config_field(parts, value_index, fallback)
+		} else {
+			found
+		}
+	})
+}
+
+lms_class_label = |model| {
+	if !Str.is_empty(model.adminLmsClassName) {
+		model.adminLmsClassName
+	} else {
+		list_field_for(model.adminLmsClassesData, 0, 1, model.adminLmsClassId, "Class")
+	}
+}
+
+lms_subject_label = |model| {
+	if !Str.is_empty(model.adminLmsSubjectName) {
+		model.adminLmsSubjectName
+	} else {
+		list_field_for(model.subjectPairsData, 3, 4, model.adminLmsSubjectId, "Subject")
+	}
+}
+
+lms_term_label = |model| {
+	if !Str.is_empty(model.adminLmsTermName) {
+		model.adminLmsTermName
+	} else {
+		list_field_for(model.adminLmsTermsData, 0, 1, model.adminLmsTermId, "Term")
+	}
+}
+
 # The admin LMS drill-down: class -> subjects -> terms -> lessons -> lesson content. One step is on
 # screen at a time; the fetch URLs behind each step carry the picked ids, and the class filter is
 # what makes the lesson list exactly one class level.
@@ -1592,6 +1630,13 @@ admin_lms_view = |model| {
 		# The pair catalog the subjects step reads; hidden, and only present on this page (the JS
 		# dispatches /api/class-subjects into it).
 		Html.input([Attribute.type("hidden"), Attribute.id("subject_pairs_data_input"), Attribute.value(model.subjectPairsData), Attribute.on_input(|s| GotSubjectPairsData(s))]),
+		# The same for the two lists that carry the *names* behind the drill's ids (a class level's, a
+		# term's). They sit in the shell rather than in the step that shows them, because a restored or
+		# reloaded step needs the names for its breadcrumb and heading while the step that owns the list
+		# is not on screen — a fetch lands only in an input that exists, and those two were being
+		# dropped, which is what left the breadcrumb's separators over empty labels.
+		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_classes_data_input"), Attribute.value(model.adminLmsClassesData), Attribute.on_input(|s| GotAdminLmsClassesData(s))]),
+		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_terms_data_input"), Attribute.value(model.adminLmsTermsData), Attribute.on_input(|s| GotAdminLmsTermsData(s))]),
 		if !Str.is_empty(model.selectedLessonId) {
 			admin_lesson_view(model)
 		} else if !Str.is_empty(model.adminLmsTermId) {

@@ -345,7 +345,7 @@ lesson_list_row = |id, title, week, idx| {
 student_lesson_content_view = |model| {
     Html.div([Attribute.class("relative")], [
         Html.div([Attribute.class("flex min-h-screen")], [
-            Html.div([Attribute.class("flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
+            Html.div([Attribute.class("flex-1 min-w-0 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8")], [
 
                 # Hidden input — JS writes JSON lesson content here, Roc picks it up
                 Html.input([
