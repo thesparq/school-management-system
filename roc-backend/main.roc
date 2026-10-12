@@ -2914,8 +2914,10 @@ respond! = |request, context| {
                      if Str.is_empty(lesson_id) {
                          Ok(json_response(400, "{\"error\":\"Missing lesson_id\"}"))
                      } else {
-                         # The whole record: lesson content lives in the nested `content` object.
-                         res = SurrealDB.query_read!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
+                         							# The whole record: lesson content lives in the nested `content` object. The subject and term
+                         							# names are resolved here because the viewer's header prints them and the row itself only
+                         							# carries the links (`has_subject`, `term`) — without this the header read "Subject · Term".
+                         							res = SurrealDB.query_read!("SELECT *, has_subject.out.name AS subject_name, term.name AS term_name FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
                          match res {
                              Ok(body) => Ok(json_response(200, body))
                              Err(err) => Ok(db_read_error!(err))
@@ -2939,7 +2941,9 @@ respond! = |request, context| {
                         if caller.role == "teacher" and !teacher_can_lesson!(teacher_id, lesson_id, term_id, context.surreal) {
                             Ok(not_assigned_response)
                         } else {
-                            res = SurrealDB.query_read!("SELECT * FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
+                            							# The same aliases the student's viewer asks for: its header prints the subject and term, and
+                            							# the row itself carries only the links.
+                            							res = SurrealDB.query_read!("SELECT *, has_subject.out.name AS subject_name, term.name AS term_name FROM ${record_ref!(lesson_id, "lessons")};", context.surreal)
                             match res {
                                 Ok(body) => Ok(json_response(200, body))
                                 Err(err) => Ok(db_read_error!(err))

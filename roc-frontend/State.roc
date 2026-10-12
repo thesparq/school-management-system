@@ -8,6 +8,17 @@ AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects, Creden
 
 AdminUserTab : [Students, Teachers, Parents, Admins]
 
+# The role a tab's Add button opens the form on: the tab and the role name are two spellings of the
+# same thing (the tab is what the page shows, the role is what the payload carries).
+role_for_tab = |tab| {
+	match tab {
+		Students => "Student"
+		Teachers => "Teacher"
+		Parents => "Parent"
+		Admins => "Admin"
+	}
+}
+
 # What a row action did: the message a deactivate/activate completion carries, so the banner can
 # say which one landed (or which one failed).
 UserToggleAction : [Deactivate, Activate]
@@ -1406,8 +1417,11 @@ update = |model, msg|
 		)
 		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Open the form in add mode: the header's Add User button. Everything the completing and
-		# editing modes set is cleared, so the modal opens empty.
-		OpenUserForm => ({ ..model, userFormOpen: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
+		# editing modes set is cleared, so the modal opens empty — and the role starts on the tab the
+		# admin is looking at, because the fields that follow the picker (a teacher's date employed and
+		# qualifications, a parent's children, an admin's role title) are otherwise invisible until it
+		# is touched: opening from the Teachers tab on the default "Student" read as a student's form.
+		OpenUserForm => ({ ..model, userFormOpen: Bool.True, newUserRole: role_for_tab(model.activeUserTab), completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
 		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,

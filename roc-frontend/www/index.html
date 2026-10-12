@@ -1297,11 +1297,8 @@
     function lessonList(items) {
         const texts = (items || []).map(lessonPlain).filter(t => t.trim());
         if (!texts.length) return "";
-        return `<ul class="space-y-2">${texts.map(t => `
-            <li class="flex items-start gap-2">
-                <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
-                <p class="text-sm leading-relaxed">${escHtml(t)}</p>
-            </li>`).join("")}</ul>`;
+        return `<ul class="list-disc pl-5 space-y-2 marker:text-primary">${texts.map(t => `
+            <li class="text-sm leading-relaxed">${escHtml(t)}</li>`).join("")}</ul>`;
     }
 
     // Cells arrive as HTML (the caller escapes what it puts in them), so they are not escaped again.
@@ -1355,11 +1352,8 @@
             const body = `
                 <h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${number}${escHtml(heading)}</h2>
                 ${lessonProse(sec.body)}
-                ${subPoints.length ? `<ul class="space-y-2 pl-4">${subPoints.map(pt => `
-                    <li class="flex items-start gap-2">
-                        <span class="mt-2 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary"></span>
-                        <p class="text-sm leading-relaxed">${lessonSubPoint(pt)}</p>
-                    </li>`).join("")}</ul>` : ""}`;
+                ${subPoints.length ? `<ul class="space-y-2">${subPoints.map(pt => `
+                    <li class="text-sm leading-relaxed">${lessonSubPoint(pt)}</li>`).join("")}</ul>` : ""}`;
             add(`section-content-${idx}`, heading, "all", body);
         });
 
@@ -1370,12 +1364,9 @@
                     <h2 class="flex items-center gap-2 text-lg font-bold text-amber-700 dark:text-amber-400">
                         <span class="text-xl">⭐</span> Key Points to Remember
                     </h2>
-                    <ul class="space-y-2">
+                    <ul class="list-disc pl-5 space-y-2 marker:text-amber-500">
                         ${keyPoints.map(pt => `
-                        <li class="flex items-start gap-2">
-                            <span class="mt-1 text-amber-500">•</span>
-                            <p class="text-sm leading-relaxed text-amber-900 dark:text-amber-200">${escHtml(lessonPlain(pt))}</p>
-                        </li>`).join("")}
+                        <li class="text-sm leading-relaxed text-amber-900 dark:text-amber-200">${escHtml(lessonPlain(pt))}</li>`).join("")}
                     </ul>
                 </div>`);
         }
@@ -1461,7 +1452,7 @@
         const metaEl = document.getElementById("lesson-meta");
         const weekEl = document.getElementById("lesson-week-badge");
         if (titleEl) titleEl.textContent = lesson.topic_title || "Lesson";
-        if (metaEl) metaEl.textContent = `${lesson.subject_name || "Subject"} · ${lesson.term_name || "Term"}`;
+        if (metaEl) { const meta = [lesson.subject_name, lesson.term_name].filter(Boolean).join(" · "); metaEl.textContent = meta; }
         if (weekEl && lesson.week) {
             weekEl.classList.remove("hidden");
             weekEl.classList.add("shrink-0");
