@@ -1436,6 +1436,43 @@ present on desktop, the tables scrolling rather than squashing. Suites: `e2e_not
 pairs can be set without going to the row's Assign dialog — with the edit mode seeding from the teacher's current
 pairs before Save is enabled, since an unseeded empty picker would wipe them.
 
+### The teacher form's pairs, a lesson page that reloads, and the parent's children (2026-10-12)
+
+The four queued items, all closed.
+
+- **Pairs in the teacher form.** The form carries the Assign dialog's picker (badges + search) over its own
+  state, so a new teacher can teach something without a second trip to the row's Assign action. On edit it
+  seeds from the teacher's current pairs and **Save waits for that fetch** — the picker is the set the save
+  replaces, so an unseeded empty one would clear a teacher's assignments. The backend takes `pairs` on the
+  profile payload (create and update) and writes the set through the statement the dialog's save already used;
+  the key's presence decides, so `[]` means "none of them" rather than "not sent". One behaviour changed while
+  sharing that statement: clearing now scopes to the term being saved, where the dialog's old copy cleared
+  every term the teacher had — a save describes this term, and the last term's rows are the record of what
+  they taught then.
+- **A lesson page is a URL.** The student's click-through writes `?id=` and the page reads it back into the
+  drill-down on a load, so a reload or a shared link opens that lesson instead of "No subject selected".
+  Underneath sat a routing bug worth its own line: `parse_route` matched the **whole** URL, so any link
+  carrying a query string fell through to `NotFound` — a reload of a lesson page rendered the app's 404 view.
+  A route is a path; the query string is state.
+- **The parent dashboard lists their children**, from a new `/api/parent/children` that reads the students the
+  caller's own parent row links (so a parent sees their own children and nobody else's), with the same three
+  states every other list has.
+- **Student assessments with no lesson named are class-scoped**, like the subject and lesson lists.
+
+**Verified in the browser**: a teacher created from the form with a pair picked in it, read back through the API
+carrying that pair; a student's lesson surviving a reload and naming its subject and term; the parent dashboard
+naming a linked child with their class. By curl: create-with-pairs, a PUT replacing the set, an empty list
+clearing it, and create-with-pairs with no active term refused (400) before anything is made. Suites:
+`e2e_user_roles` 18/18, `e2e_admin` 16/16, `e2e_loading` 20/20, `e2e_student` 7/7, `smoke_teacher_role` 9/9,
+`e2e_notifications_lms` 26/26, `e2e_nav_fixes` 6/6, `smoke_assignments_lms` 18/18, `e2e_assessments` 17/17,
+`e2e_general_assessments` 25/25, `e2e_admin_config` 52/53 (its documented caveat), `e2e_users_directory` 27/27,
+both render checks, `users_api.sh` 95/95, `authz.sh` 27/27.
+
+**Noted in passing**: nothing enforces a single active `session_term`. `active_session_term_id!` reads one row
+with `LIMIT 1`, so a database holding two active terms writes a teacher's pairs under whichever the query
+returns first — which is a data-integrity trap rather than a bug in this work, and worth a uniqueness rule of
+its own.
+
 ---
 
 ## Completed Work
@@ -1570,21 +1607,18 @@ pairs before Save is enabled, since an unseeded empty picker would wipe them.
 - [x] Toast/notification system (top-right toasts with a pausable countdown + the navbar bell's history)
 - [x] Dashboard stat cards wired to real API data (one role-aware `/api/dashboard`; counts scoped the way
   each role's own lists are)
-- [ ] A class-subject pairs picker inside the teacher's own form (create and edit). The pairs are real and
-  savable today — from the row's **Assign** dialog — but they are not part of the teacher's record as the
-  form presents it. The edit mode has to seed from the teacher's current pairs before Save is enabled: an
-  unseeded empty picker would wipe them
-- [ ] A student's lesson page is not URL-addressable. `setupLessonViewer` (which reads `?id=`) is only wired
-  for the staff path, so a student who reloads `/student/lesson` gets "Select a Lesson" and has to click back
-  through their subjects; the teacher's and the admin LMS's deep links work
-- [ ] Parent portal — the parent dashboard's "My Children" is still a placeholder, while the data behind it
-  (the parent profile's linked students) is real and already written by the parent form
+- [x] A class-subject pairs picker inside the teacher's own form (create and edit; seeded on edit, and Save
+  waits for the seed — see the section below)
+- [x] A lesson page is URL-addressable for students as well as staff (`?id=`, restored into the drill-down)
+- [x] Parent portal — the dashboard lists the children the parent's own row links (`/api/parent/children`)
 - [ ] The admin dashboard's "Recent Activity" feed — it would need an activity/audit source that does not
   exist yet; the school has deferred this one
-- [ ] `/api/student/assessments` without a `lesson_id` is still school-wide rather than scoped to the
-  student's class (the lesson and subject lists are scoped; this one was left)
-- [ ] Cloud deployment configuration
-- [ ] Rate limiting on backend
+- [x] `/api/student/assessments` without a `lesson_id` is scoped to the student's class now
+- [ ] Rate limiting on the backend — designed but not built: per-**caller** buckets rather than per-IP,
+  because a school is usually one NAT address and a per-IP limit would lock out a whole classroom. Needs the
+  two numbers only the school can pick: requests per minute per account, and what the burst should be
+- [ ] Cloud deployment configuration — Dokploy already builds from `Dockerfile.app` on push to `main`, so
+  this is only worth keeping if something different is wanted
 
 Not this repository, but the reason lessons read thin: the generator
 (`johnethel-lesson-generator`) asks for 3+ content sections with a soft word count and validates neither, so
