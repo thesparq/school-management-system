@@ -1502,14 +1502,42 @@ update_user_response! = |table, id_val, payload_raw, creating, clauses, config| 
 
     match auth_res {
         Err(message) => json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(message)}\"}"),
+        Ok(_) => {
+            profile_write =
+                if List.is_empty(clauses) {
+                    # An update that changes no column of the row — a form save that only touched the
+                    # identity or the pairs is exactly this case — has no statement to run for it.
+                    Ok("")
+                } else {
+                    verb = if creating { "CREATE" } else { "UPDATE" }
+                    set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()", "deleted_at = NONE"]), ", ")
+
+                    db_body!("${verb} ${record_ref!(id_val, table)} SET ${set_clause};", config)
+                }
+
+            match profile_write {
+                Err(detail) => json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}"),
+                # The profile half is done (or had nothing to do): a teacher's class-subject pairs live in
+                # their own table, one row per pair under the active session term, so they are written here
+                # — from every path that can carry them, including one that changed no column at all.
+                Ok(body) => finish_profile_write!(table, id_val, payload_raw, body, config),
+            }
+        }
+    }
+}
+
+# The response half of a profile write: the teacher's pairs first (the form saves the whole set through
+# the same statement the Assign dialog uses), then the body the write answered with — or, for a write
+# that changed no column, the id the caller named.
+finish_profile_write! : Str, Str, Str, Str, SurrealDB.Config => Server.Outcome
+finish_profile_write! = |table, id_val, payload_raw, body, config| {
+    match teacher_pairs_from_payload!(table, id_val, payload_raw, config) {
+        Err(detail) => json_response(500, "{\"error\":\"The profile was saved but its class-subject pairs were not\",\"detail\":\"${sanitize_json_text(detail)}\"}"),
         Ok(_) =>
-            if List.is_empty(clauses) {
+            if Str.is_empty(body) {
                 json_response(200, "{\"id\":\"${sanitize_json_text(id_val)}\"}")
             } else {
-                verb = if creating { "CREATE" } else { "UPDATE" }
-                set_clause = Str.join_with(List.concat(clauses, ["updated_at = time::now()", "deleted_at = NONE"]), ", ")
-
-                db_response!("${verb} ${record_ref!(id_val, table)} SET ${set_clause};", config)
+                json_response(200, body)
             }
     }
 }
@@ -1864,6 +1892,58 @@ active_term_id! = |config| {
 assigned_edges_subquery! : Str, Str => Str
 assigned_edges_subquery! = |teacher_pk, term_id| {
     "SELECT VALUE has_subject FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE"
+}
+
+# The statements that make a teacher's pair set exactly `edge_literals` for one session term: the rows
+# the new set drops are hidden, then each kept pair is revived or created. A hidden row is revived
+# rather than created over, because the (teacher, edge, term) unique index counts soft-deleted rows too
+# and would refuse the duplicate. Both branches are scoped to the one term — a save says what this
+# teacher teaches *this* term, and a term's rows are the record of what they taught then.
+# Used by the Assign dialog's save and by the teacher's own form, so the set is written one way.
+teacher_assignments_write! : Str, Str, List(Str), SurrealDB.Config => [Ok(Str), Err(Str)]
+teacher_assignments_write! = |teacher_bare, term_bare, edge_literals, config| {
+    if List.is_empty(edge_literals) {
+        db_body!("UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND session_term = type::record('session_term', '${term_bare}') AND deleted_at IS NONE;", config)
+    } else {
+        edge_list = Str.join_with(edge_literals, ", ")
+        revive_blocks = List.map(edge_literals, |edge_literal| "LET \$pair = (SELECT VALUE id FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}') LIMIT 1); IF array::len(\$pair) == 0 { CREATE teacher_assignment SET teacher_id = type::record('teacher_profile', '${teacher_bare}'), has_subject = ${edge_literal}, session_term = type::record('session_term', '${term_bare}'); } ELSE { UPDATE teacher_assignment SET deleted_at = NONE, assigned_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}'); };")
+        hide_statement = "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND session_term = type::record('session_term', '${term_bare}') AND deleted_at IS NONE AND has_subject NOT IN [${edge_list}]; "
+        db_body!("${hide_statement}${Str.join_with(revive_blocks, " ")}", config)
+    }
+}
+
+# The class-subject pairs a payload carries for a teacher, written after the row that owns them exists.
+# The payload names the whole set (the form shows the teacher's current pairs and saves that list), which
+# is the same replacement the Assign dialog saves, so both go through `teacher_assignments_write!`.
+# The key's own presence decides, not its contents: an empty array is a real instruction ("none of them"),
+# so it must not read as "pairs were not sent". No `pairs` key, or another role's table, writes nothing.
+teacher_pairs_from_payload! : Str, Str, Str, SurrealDB.Config => [Ok({}), Err(Str)]
+teacher_pairs_from_payload! = |table, id_val, payload_raw, config| {
+    sent_pairs = Str.contains(Str.replace_each(payload_raw, " ", ""), "\"pairs\":")
+
+    if table != "teacher_profile" or !sent_pairs {
+        Ok({})
+    } else {
+        term_id = active_session_term_id!(config)
+
+        if Str.is_empty(term_id) {
+            Err("No active session term. Set one in Configuration → Session Terms.")
+        } else {
+            edges = List.keep_if(List.map(split_json_elements(extract_json_array(payload_raw, "pairs")), |element| extract_field(element, "edge_id")), |edge| !Str.is_empty(edge))
+            invalid = List.keep_if(edges, |edge| !Str.starts_with(edge, "has_subject:"))
+
+            if !List.is_empty(invalid) {
+                Err("each pair must carry a has_subject edge id")
+            } else {
+			                edge_literals = List.map(bare_edges!(edges, []), |edge_bare| "has_subject:${edge_bare}")
+			                written = teacher_assignments_write!(bare_id(id_val), bare_id(term_id), edge_literals, config)
+			                match written {
+			                    Ok(_) => Ok({}),
+			                    Err(detail) => Err(detail),
+			                }
+            }
+        }
+    }
 }
 
 # One number for the dashboard, as the `"key":value` half of the answer's one object. A count that
@@ -2643,29 +2723,16 @@ respond! = |request, context| {
                         if !List.is_empty(invalid) {
                             Ok(json_response(400, "{\"error\":\"each pair must carry a has_subject edge id\"}"))
                         } else {
-                            # Full replacement, scoped to the active term: hide the rows the new
-                            # set drops, then keep one row per kept pair — reviving a hidden row
-                            # rather than creating over it, because the (teacher, edge, term) unique
-                            # index counts soft-deleted rows too and would refuse the duplicate.
-                            # Each pair's revive-or-create is its own IF block in the one call.
-                            teacher_bare = bare_id(teacher_id)
-                            term_bare = bare_id(term_id)
-                            body =
-                                if List.is_empty(edges) {
-                                    # Nothing to keep: the empty list means "clear the teacher".
-                                    db_body!("UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND deleted_at IS NONE;", context.surreal)
-                                } else {
-                                    edge_literals = List.map(bare_edges!(edges, []), |edge_bare| "has_subject:${edge_bare}")
-                                    edge_list = Str.join_with(edge_literals, ", ")
-                                    revive_blocks = List.map(edge_literals, |edge_literal| "LET \$pair = (SELECT VALUE id FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}') LIMIT 1); IF array::len(\$pair) == 0 { CREATE teacher_assignment SET teacher_id = type::record('teacher_profile', '${teacher_bare}'), has_subject = ${edge_literal}, session_term = type::record('session_term', '${term_bare}'); } ELSE { UPDATE teacher_assignment SET deleted_at = NONE, assigned_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND has_subject = ${edge_literal} AND session_term = type::record('session_term', '${term_bare}'); };")
-                                    hide_statement = "UPDATE teacher_assignment SET deleted_at = time::now() WHERE teacher_id = type::record('teacher_profile', '${teacher_bare}') AND session_term = type::record('session_term', '${term_bare}') AND deleted_at IS NONE AND has_subject NOT IN [${edge_list}]; "
-                                    statement = "${hide_statement}${Str.join_with(revive_blocks, " ")}"
-                                    db_body!(statement, context.surreal)
-                                }
-                            match body {
-                                Ok(_) => Ok(json_response(200, "{\"status\":\"OK\"}")),
-                                Err(detail) => Ok(json_response(500, "{\"error\":\"Could not save the assignments\",\"detail\":\"${sanitize_json_text(detail)}\"}"))
-                            }
+                            							# The whole set is replaced in one call (see teacher_assignments_write!), scoped to the
+                            							# active term — the same statement the teacher's own form saves through.
+                            							teacher_bare = bare_id(teacher_id)
+                            							term_bare = bare_id(term_id)
+                            							edge_literals = List.map(bare_edges!(edges, []), |edge_bare| "has_subject:${edge_bare}")
+                            							body = teacher_assignments_write!(teacher_bare, term_bare, edge_literals, context.surreal)
+                            							match body {
+                            								Ok(_) => Ok(json_response(200, "{\"status\":\"OK\"}")),
+                            								Err(detail) => Ok(json_response(500, "{\"error\":\"Could not save the assignments\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                            							}
                         }
                     }
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/class_arms" {
@@ -2714,9 +2781,15 @@ respond! = |request, context| {
                             if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
-                                class_ok =
-                                    if role == "Student" { class_level_exists!(class_level, context.surreal) } else { Bool.True }
-                                if !class_ok {
+	                                class_ok =
+	                                    if role == "Student" { class_level_exists!(class_level, context.surreal) } else { Bool.True }
+	                                # A teacher's pairs are written under the active session term, so a create that
+	                                # carries some needs one — the same rule the Assign dialog's save has, checked
+	                                # before the login and the row are made rather than after.
+	                                pairs_sent = role == "Teacher" and carries_field(payload_raw, "pairs") and !Str.is_empty(extract_json_array(payload_raw, "pairs"))
+	                                if pairs_sent and Str.is_empty(active_session_term_id!(context.surreal)) {
+	                                    Ok(json_response(400, "{\"error\":\"No active session term. Set one in Configuration → Session Terms.\"}"))
+	                                } else if !class_ok {
                                     Ok(json_response(400, "{\"error\":\"class_level '${class_level}' does not exist\"}"))
                                 } else {
                                     wants_pw = if Str.is_empty(password_val) { "0" } else { "1" }
@@ -2751,11 +2824,18 @@ respond! = |request, context| {
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
                                                     create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students)
                                                     created = db_body!(create_sql, context.surreal)
-                                                    match created {
-                                                        Ok(body) => {
-                                                            _ = journal_done!(row_id, "profile", context.surreal)
-                                                            Ok(json_response(200, body))
-                                                        }
+	                                                    match created {
+	                                                        # The pairs a teacher create carries are written after the row they belong to,
+	                                                        # through the same statement the Assign dialog saves with. A failure here leaves
+	                                                        # the journal open, so the reconciler can finish the job.
+	                                                        Ok(body) =>
+	                                                            match teacher_pairs_from_payload!(profile_table_for(role), user_id, payload_raw, context.surreal) {
+	                                                                Err(detail) => Ok(json_response(500, "{\"error\":\"The account was created but its class-subject pairs were not\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+	                                                                Ok(_) => {
+	                                                                    _ = journal_done!(row_id, "profile", context.surreal)
+	                                                                    Ok(json_response(200, body))
+	                                                                }
+	                                                            }
                                                         Err(detail) => {
                                                             _ = journal_fail!(row_id, "profile", detail, context.surreal)
                                                             match Authentik.deleteUser!(user_id) {
@@ -2815,6 +2895,28 @@ respond! = |request, context| {
                                     # report a login state that was never observed.
                                     Ok(json_response(200, body)),
                             }
+                    }
+
+                # --- The parent dashboard's children ---
+                # The students a parent's own row links, named for the dashboard's list. Read from the
+                # caller's own row, so a parent sees their own children and nobody else's; an admin may
+                # call it too (may_call's rule), which is what lets a suite see what a parent would.
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/parent/children" {
+                    parent_pk = caller_id!(user_json)
+                    links_text = match SurrealDB.query_read!("SELECT students FROM type::record('parent_profile', '${parent_pk}') LIMIT 1;", context.surreal) {
+                        Ok(body) => extract_json_array(body, "students")
+                        Err(_) => ""
+                    }
+                    links = List.keep_if(List.map(split_json_elements(links_text), |element| json_string_text(element)), |id| Str.starts_with(id, "student_profile:"))
+
+                    if List.is_empty(links) {
+                        Ok(json_response(200, "{\"result\":[]}"))
+                    } else {
+                        query = "SELECT id, display_name, current_class.name AS class_name FROM student_profile WHERE id IN [${Str.join_with(student_profile_links!(links, []), ",")}] AND deleted_at IS NONE ORDER BY display_name;"
+                        match SurrealDB.query_read!(query, context.surreal) {
+                            Ok(body) => Ok(json_response(200, body))
+                            Err(err) => Ok(db_read_error!(err))
+                        }
                     }
 
                 # --- Dashboard ---
@@ -2989,10 +3091,15 @@ respond! = |request, context| {
                         }
                     }
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/student/assessments") {
-                    # Students only see published (active) assessments.
+                    # Students only see published (active) assessments. With no lesson named — the My
+                    # Assignments page — a student's list is scoped to their own class's lessons, the same
+                    # scope their subject and lesson lists use; a student whose profile names no class keeps
+                    # the wider list rather than an empty one.
                     lesson_id = query_param(request_target_text(request), "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
-                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    class_pk = if caller.role == "student" and Str.is_empty(scope) { student_class_pk!(caller_id!(user_json), context.surreal) } else { "" }
+                    class_scope = if Str.is_empty(class_pk) { "" } else { "lesson.has_subject IN (SELECT VALUE id FROM has_subject WHERE in = ${record_ref!(class_pk, "class_levels")} AND active = true) AND " }
+                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${class_scope}${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
