@@ -1338,6 +1338,44 @@ blamed concurrency, but the real trap is cutting it short. Run it in the **foreg
 for it (a 900s timeout works); a detached or timed-out run dies with no summary line and no `www/app.wasm`,
 which looks exactly like a compile failure. `roc build` exits 2 merely because the module has a warning.
 
+### The lesson renderer draws the whole record now, split by viewer (2026-10-12)
+
+**Why lessons looked scanty**: prod stores **19 populated sections** per lesson (`content` holds them: introduction,
+objectives, content_sections, key_points, conclusion, prior_knowledge, success_criteria, extension_activities,
+lesson_steps, materials, formative/summative assessment, remediation, teacher_tips, textbook_references,
+primary_sources, mcq_questions, theoretical_questions — 2852–2874 of prod's 3413 lessons carry each one), and
+`renderLesson` drew five of them. The schema's flat `objectives`/`content_sections` fields are dead; everything
+lives under `content`.
+
+**The split** follows the pupil/teacher modes of the PDF template in the lesson generator
+(`johnethel-lesson-generator/src/mastra/public/pdf-assets/template.typ`), with one deliberate departure: the PDF's
+pupil mode prints both question banks with the answers stripped, and the school asked for students not to see them
+in the app at all, since the app already has its own assessment flow. So a pupil reads the lesson and their own
+work around it — objectives (with the generator's taxonomy level), introduction, the numbered content sections
+with the `(i)/(ii)` sub-points the generator writes, key points, conclusion, “before you start”
+(prior_knowledge), “what you'll be able to do” (success_criteria), “extra practice” (extension_activities) —
+while a teacher or admin additionally gets the teacher's side of the same record: lesson plan (**table**: step,
+phase, teacher actions, pupil activities, with strategy/duration/check beneath each row), instructional
+materials, both assessments, remediation, teacher's tips, textbook references, primary sources, and both question
+banks with their answer keys (**tables**). Three tables in total, none for a pupil.
+
+Staff get it through the same `renderLesson`, so the admin LMS and the teacher's viewer both show the full
+record; the role comes from the token's groups, decoded at boot as the rest of the page already does. A section
+with nothing in the record renders nothing, and the scroll-spy nav is built from whatever rendered, so a pupil's
+nav is simply shorter.
+
+**Verified**: a real prod lesson rendered both ways — **22 sections for staff, 12 for a pupil**, 3 tables vs 0,
+and no answer-key or teacher text in the pupil's page; then in the browser, the admin LMS deep-link and the
+student's own subjects → term → lesson click-through. `render_lesson_roles_check.cjs` (new, 14/14) pins the split
+with no browser and no backend; `render_lesson_check.cjs`, `e2e_student` 7/7, `e2e_nav_fixes` 6/6,
+`smoke_assignments_lms` 18/18, `e2e_assessments` 17/17, `e2e_loading` 20/20 and `e2e_notifications_lms` 26/26 all
+pass.
+
+**Noticed, not fixed**: a student's lesson page is not URL-addressable — `setupLessonViewer` (which reads `?id=`)
+is only wired for the staff path, so a student who reloads `/student/lesson` gets “Select a Lesson” and has to
+click back through their subjects. The teacher/admin deep link works. Worth fixing if students are expected to
+share or reload lesson links.
+
 ---
 
 ## Completed Work
