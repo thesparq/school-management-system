@@ -8,17 +8,6 @@ AdminConfigTab : [Terms, ClassLevels, Curriculum, SessionTerms, Subjects, Creden
 
 AdminUserTab : [Students, Teachers, Parents, Admins]
 
-# The role a tab's Add button opens the form on: the tab and the role name are two spellings of the
-# same thing (the tab is what the page shows, the role is what the payload carries).
-role_for_tab = |tab| {
-	match tab {
-		Students => "Student"
-		Teachers => "Teacher"
-		Parents => "Parent"
-		Admins => "Admin"
-	}
-}
-
 # What a row action did: the message a deactivate/activate completion carries, so the banner can
 # say which one landed (or which one failed).
 UserToggleAction : [Deactivate, Activate]
@@ -100,6 +89,8 @@ Model : {
 	# counts (students, teachers, classes, subjects, pending_grades, assessments, assignments). The
 	# view owns the labels, so a number the backend does not send simply shows a dash.
 	dashboardData : Str,
+	# A parent dashboard's children: one "name|class" line each, fed by /api/parent/children.
+	parentChildrenData : Str,
 	newUserDateOfBirth : Str,
 	newUserClassLevel : Str,
 	newUserRoleTitle : Str,
@@ -194,6 +185,12 @@ Model : {
 	newUserDateEmployed : Str,
 	newUserLinkedStudents : List(Str),
 	linkedSearch : Str,
+	# The teacher form's own class-subject picker: the edge ids it is showing, its search box, and
+	# whether that list is the teacher's real set (`false` until the edit form's fetch answers, which
+	# is what stops Save writing an empty set over a teacher's assignments).
+	formPairs : List(Str),
+	formPairsSearch : Str,
+	formPairsSeeded : Bool,
 	# The teacher-row Assign dialog: which teacher it is open for, the working set of edges, the
 	# dropdown's search text, and the last save's outcome.
 	assignDialogOpen : Bool,
@@ -281,6 +278,7 @@ Msg : [
 	GotSubjectsData(Str),
 	   GotSessionTermData(Str),
 	   GotDashboardData(Str),
+	   GotParentChildrenData(Str),
 	# Ask for one list again, by the URL the page's fetch_data port takes: what a failed list's
 	# Retry control sends. The list keeps its payload until the answer lands, so a retry never
 	# flashes a skeleton over data that is already there.
@@ -359,6 +357,11 @@ Msg : [
 	AddLinkedStudent(Str),
 	RemoveLinkedStudent(Str),
 	UpdateLinkedSearch(Str),
+	# The teacher form's class-subject picker, and the fetch that seeds it when editing.
+	AddFormPair(Str),
+	RemoveFormPair(Str),
+	UpdateFormPairsSearch(Str),
+	GotFormPairsData(Str),
 	# The admin LMS drill-down: class -> subject -> term -> lessons -> lesson content. Every step is
 	# its own URL (?class=…, then &subject=…, &term=…, &lesson=…), so the browser's back/forward walks
 	# the drill and a reload at depth comes back to the same step. The breadcrumb's links name the
@@ -377,25 +380,29 @@ Msg : [
 	GotAdminLmsClassesData(Str),
 ]
 
-	parse_route = |url| {
-		match url {
-			"/admin/users" => AdminUserManagement
-			"/admin/config" => AdminConfigurationHub
-			"/teacher/lessons" => TeacherLessonViewer
-			"/teacher/assessments" => TeacherAssessments
-			"/student/lessons" => StudentLessonViewer
-			"/student/assignments" => StudentAssignments
-			"/student/subjects" => StudentSubjects
-			"/student/lesson" => StudentLesson
-			"/teacher/classes" => TeacherMyClasses
-			"/messaging" => Messaging
-			"/" => Dashboard
-				# The admin LMS drill-down lives in the query string (the browser's back/forward restores
-				# it), so any /admin/lms URL — bare or with ?class=… — is the same route.
-				other if Str.starts_with(other, "/admin/lms") => AdminLMS
-				_ => NotFound
-		}
-	}
+	    parse_route = |url| {
+	            # The query string is state, not routing: `?id=` names the lesson, `?class=`/`?subject=`/`?term=`
+	            # the LMS step, and the app reads them from the URL itself. Matching the whole URL meant any
+	            # link carrying one — a lesson's own `?id=`, the LMS drill, the teacher's `?id=` — fell through
+	            # to NotFound, so a reload of a lesson page rendered the 404 view instead of the lesson.
+	            path = match List.first(Str.split_on(url, "?")) { Ok(only_path) => only_path, Err(_) => url }
+
+	            match path {
+	                    "/admin/users" => AdminUserManagement
+	                    "/admin/config" => AdminConfigurationHub
+	                    "/admin/lms" => AdminLMS
+	                    "/teacher/lessons" => TeacherLessonViewer
+	                    "/teacher/assessments" => TeacherAssessments
+	                    "/student/lessons" => StudentLessonViewer
+	                    "/student/assignments" => StudentAssignments
+	                    "/student/subjects" => StudentSubjects
+	                    "/student/lesson" => StudentLesson
+	                    "/teacher/classes" => TeacherMyClasses
+	                    "/messaging" => Messaging
+	                    "/" => Dashboard
+	                    _ => NotFound
+	            }
+	    }
 
 	# One query parameter of a URL target ("?class=A&subject=B" -> "A"), the same reading the
 	# backend's query_param uses (values carry no percent-encoding here — the app builds them).
@@ -478,6 +485,10 @@ init = |flags| {
 	# A direct load (or reload) of the admin LMS drill-down restores its depth from the URL's query
 	# string; for every other route this reads empty query params and comes back all blank.
 	initialLmsState = lms_from_query(pathStr)
+	# The lesson a lesson page names in its URL. The student's drill-down decides what to show from its
+	# own state, which is empty on a load — so without this a reload (or a shared link) of a lesson page
+	# rendered "No subject selected" and the lesson panel the page then fills was never there.
+	initialLessonId = if initialRoute == StudentLesson { query_value(pathStr, "id") } else { initialLmsState.lesson_id }
 
 	model = {
 		route: initialRoute,
@@ -499,6 +510,7 @@ init = |flags| {
 		            notificationsData: "",
 		sessionTermData: "",
 		dashboardData: "",
+		parentChildrenData: "",
 		usersData: "",
 		termsData: "",
 		subjectsData: "",
@@ -528,7 +540,7 @@ init = |flags| {
 		teacherClassId: "",
 		selectedTermId: "",
 		selectedTermName: "",
-		selectedLessonId: initialLmsState.lesson_id,
+		selectedLessonId: initialLessonId,
 		studentTermsData: "",
 		studentLessonsData: "",
 		teacherLessonsData: "",
@@ -564,6 +576,9 @@ init = |flags| {
 		newUserDateEmployed: "",
 		newUserLinkedStudents: [],
 		linkedSearch: "",
+		formPairs: [],
+		formPairsSearch: "",
+		formPairsSeeded: Bool.False,
 		assignDialogOpen: Bool.False,
 		assignTeacherId: "",
 		assignSelectedEdges: [],
@@ -632,6 +647,10 @@ init = |flags| {
 		                                    Student => [
 		                                            Port.send("fetch_data", "/api/subjects"),
 		                                            Port.send("fetch_data", "/api/dashboard"),
+		                                    ]
+		                                    Parent => [
+		                                            Port.send("fetch_data", "/api/dashboard"),
+		                                            Port.send("fetch_data", "/api/parent/children"),
 		                                    ]
 		                        _ => []
 		                }
@@ -817,6 +836,9 @@ update = |model, msg|
 	match msg {
 		UrlChanged(url) => {
 			newRoute = parse_route(url)
+			# A lesson page's own lesson, read from its URL: back/forward onto one has to land on that
+			# lesson (every other route leaves the field as it was).
+			studentLessonId = if newRoute == StudentLesson { query_value(url, "id") } else { model.selectedLessonId }
 			# Back/forward through the admin LMS drill: the URL carries the step, restore it and
 			# refetch what that step shows.
 			if newRoute == AdminLMS {
@@ -838,7 +860,7 @@ update = |model, msg|
 					]
 					_ => []
 				}
-				({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, fetches)
+				({ ..model, route: newRoute, mobileMenuOpen: Bool.False, selectedLessonId: studentLessonId }, fetches)
 			}
 		}
 		# Entering a page fetches what it cannot show without: the hub its five lists (its hidden
@@ -901,7 +923,12 @@ update = |model, msg|
 		# as they were when the page booted; the boot list carries the same fetch for a direct load.
 		NavigateTo(Dashboard) => (
 			{ ..model, route: Dashboard, mobileMenuOpen: Bool.False },
-			[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard")]
+			# A parent's dashboard also lists their children, so that fetch rides the same navigation.
+			if model.role == Parent {
+				[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard"), Port.send("fetch_data", "/api/parent/children")]
+			} else {
+				[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard")]
+			}
 		)
 		NavigateTo(route) => {
 			urlStr = match route {
@@ -1092,6 +1119,12 @@ update = |model, msg|
 		AddLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.append(model.newUserLinkedStudents, id), linkedSearch: "" }, [])
 		RemoveLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.keep_if(model.newUserLinkedStudents, |s| s != id) }, [])
 		UpdateLinkedSearch(s) => ({ ..model, linkedSearch: s }, [])
+		AddFormPair(edge) => ({ ..model, formPairs: List.append(model.formPairs, edge), formPairsSearch: "" }, [])
+		RemoveFormPair(edge) => ({ ..model, formPairs: List.keep_if(model.formPairs, |p| p != edge) }, [])
+		UpdateFormPairsSearch(s) => ({ ..model, formPairsSearch: s }, [])
+		# The teacher's current pairs, as the picker's starting set. Their order in the payload is the
+		# order the catalog answered in, which is the order the badges show.
+		GotFormPairsData(s) => ({ ..model, formPairs: List.keep_if(List.map(Str.split_on(s, "\n"), |line| match List.get(Str.split_on(line, "|"), 0) { Ok(edge) => edge, Err(_) => "" }), |edge| !Str.is_empty(edge)), formPairsSeeded: Bool.True }, [])
 		# --- The admin LMS drill-down: each step is a history entry (?class/?subject/?term/?lesson),
 		# so the browser's back/forward walks the drill instead of leaving the page. Each crumb's
 		# message navigates to its own level and drops the deeper state, so the crumb labelled with a
@@ -1374,6 +1407,16 @@ update = |model, msg|
 				} else {
 					""
 				}
+			# A teacher's class-subject pairs: the edge ids the form's picker holds, sent as the whole set
+			# (the save replaces it for the active session term). Withheld while the edit form is still
+			# reading the teacher's current pairs, so an empty picker can never clear them.
+			pairs_clause =
+				if model.newUserRole == "Teacher" and model.formPairsSeeded {
+					items = List.map(model.formPairs, |edge| "{\"edge_id\":\"${edge}\"}")
+					",\"pairs\":[${Str.join_with(items, ",")}]"
+				} else {
+					""
+				}
 			students_clause =
 				if model.newUserRole == "Parent" {
 					ids_json = Str.join_with(model.newUserLinkedStudents, "\",\"")
@@ -1381,7 +1424,7 @@ update = |model, msg|
 				} else {
 					""
 				}
-			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${date_clause}${students_clause}${password_clause}}"
+			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${date_clause}${pairs_clause}${students_clause}${password_clause}}"
 			req = {
 				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
@@ -1403,6 +1446,9 @@ update = |model, msg|
 		CompleteProfile(id, email) => (
 			{ ..model,
 				userFormOpen: Bool.True,
+				formPairs: [],
+				formPairsSearch: "",
+				formPairsSeeded: Bool.True,
 				completingProfileId: id,
 				newUserRole: user_tab_role(model.activeUserTab),
 				newUserFirstName: "",
@@ -1433,8 +1479,8 @@ update = |model, msg|
 		# admin is looking at, because the fields that follow the picker (a teacher's date employed and
 		# qualifications, a parent's children, an admin's role title) are otherwise invisible until it
 		# is touched: opening from the Teachers tab on the default "Student" read as a student's form.
-		OpenUserForm => ({ ..model, userFormOpen: Bool.True, newUserRole: role_for_tab(model.activeUserTab), completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
-		CloseUserForm => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
+		OpenUserForm => ({ ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
+		CloseUserForm => ({ ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
@@ -1468,6 +1514,12 @@ update = |model, msg|
 					newUserDateEmployed: if user_tab_role(model.activeUserTab) == "Teacher" { part(14) } else { "" },
 					newUserLinkedStudents: if user_tab_role(model.activeUserTab) == "Parent" { List.keep_if(Str.split_on(part(15), ","), |s| !Str.is_empty(s)) } else { [] },
 					linkedSearch: "",
+					# The form's own pairs picker: for a teacher it starts empty and unseeded, the fetch
+					# below fills it, and Save waits for it (user_form_waiting) — saving an empty picker
+					# would clear the assignments it is meant to be showing.
+					formPairs: [],
+					formPairsSearch: "",
+					formPairsSeeded: !(user_tab_role(model.activeUserTab) == "Teacher"),
 					userEditing: Bool.True,
 					lastCredentials: None,
 					submitResult: None,
@@ -1477,6 +1529,9 @@ update = |model, msg|
 				[
 					Port.send("fetch_data", "/api/users?role=Student"),
 					Port.send("fetch_data", "/api/credentials"),
+					# The teacher's pairs, for the form's picker. `for=form` keeps them out of the Assign
+					# dialog's own payload, which the same endpoint feeds.
+					Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${part(0)}&for=form"),
 				]
 			)
 		}
@@ -1697,6 +1752,7 @@ update = |model, msg|
 		}
 		           GotSessionTermData(s) => ({ ..model, sessionTermData: s }, [])
 		           GotDashboardData(s) => ({ ..model, dashboardData: s }, [])
+           GotParentChildrenData(s) => ({ ..model, parentChildrenData: s }, [])
 		UpdateNewUserRole(s) => ({ ..model, newUserRole: s }, [])
 		SetPassportKey(k) => ({ ..model, newUserPassportKey: k }, [])
 		GotStudentsData(s) => ({ ..model, usersStudentsData: s }, [])
@@ -1737,7 +1793,12 @@ update = |model, msg|
 				selectedLessonId: id,
 				currentLessonContent: "",
 			},
-			[Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}")]
+			# The lesson goes in the URL as the teacher's does, so the page can be reloaded or shared and
+			# still open on the same lesson (the viewer reads ?id= on the way in).
+			[
+				Port.send("push_state", "/student/lesson?id=${id}"),
+				Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}"),
+			]
 		)
 		GotStudentTermsData(s) => ({ ..model, studentTermsData: s }, [])
 		GotStudentLessonsData(s) => ({ ..model, studentLessonsData: s }, [])

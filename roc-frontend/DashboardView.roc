@@ -157,12 +157,38 @@ student_dashboard = |model| {
 parent_dashboard = |model| {
     div([class("p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Monitor your children's academic progress."),
+        # The children this parent's own row links, read from /api/parent/children. The three states are
+        # the same as every other list's: a skeleton until the answer lands, the backend's message with a
+        # retry when it failed, and a real empty state when there is nothing linked yet.
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("parent_children_data_input"),
+            Attribute.value(model.parentChildrenData),
+            Attribute.on_input(|s| GotParentChildrenData(s))
+        ]),
         UI.card({ classes: "" }, [
             UI.card_header({ classes: "" }, [
                 UI.card_title({ classes: "" }, [text("My Children")])
             ]),
             UI.card_content({ classes: "" }, [
-                p([class("text-sm text-muted-foreground")], [text("Your linked students will appear here once your account is configured.")])
+                match list_state(model.parentChildrenData) {
+                    Pending => div([class("space-y-2")], [UI.skeleton_bar("h-5 w-48"), UI.skeleton_bar("h-5 w-40")])
+                    Failed(message) => UI.list_error_state("Could not load your children", message, Click(RetryList("/api/parent/children")))
+                    Ready(rows) =>
+                        if List.is_empty(rows) {
+                            p([class("text-sm text-muted-foreground")], [text("No students are linked to your account yet. The school links them when it sets up your profile.")])
+                        } else {
+                            div([class("divide-y divide-border")], List.map(rows, |line| {
+                                parts = Str.split_on(line, "|")
+                                name = match List.get(parts, 0) { Ok(v) => v, Err(_) => "Student" }
+                                klass = match List.get(parts, 1) { Ok(v) => v, Err(_) => "" }
+                                div([class("flex items-center justify-between py-2")], [
+                                    span([class("text-sm font-medium")], [text(name)]),
+                                    if Str.is_empty(klass) { span([], []) } else { span([class("text-xs text-muted-foreground")], [text(klass)]) }
+                                ])
+                            }))
+                        }
+                }
             ])
         ])
     ])

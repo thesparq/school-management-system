@@ -111,7 +111,7 @@ admin_users_view = |model| {
         	                          )
         	                      } else {
         	                          UI.button(
-        	                              { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+        	                              { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting or user_form_waiting(model), classes: "w-full sm:w-auto" },
         	                              [Html.text(user_form_submit_label(model.isSubmitting, form_mode))]
         	                          )
         	                      }
@@ -182,7 +182,16 @@ admin_users_view = |model| {
 	            Attribute.id("teacher_assignments_data_input"),
 	            Attribute.on_input(|s| GotTeacherAssignmentsData(s))
 	        ]),
-	        # The click-outside close bridge: the page's JS writes to this input when either modal's dark
+	        # The bridge the page writes a teacher's current pairs into when the edit form asks for them
+        # (one `edge|class|class_name|subject|subject_name` line each): the form seeds its picker from
+        # it and only then lets the save run.
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("form_pairs_data_input"),
+            Attribute.value(""),
+            Attribute.on_input(|s| GotFormPairsData(s))
+        ]),
+        # The click-outside close bridge: the page's JS writes to this input when either modal's dark
 	        # backdrop is clicked, which drives the same close message the Cancel button (or the x) sends.
 	        # Each modal has its own, so the backdrop closes the dialog it belongs to.
 	        Html.input([
@@ -381,6 +390,12 @@ form_banner = |model| {
 # and the passport. The email input is enabled in every mode: a PUT that carries an email patches
 # Authentik's address (the login's own), so an account created without one — or with a typo — can
 # be fixed here.
+# Whether the form cannot be saved yet: a teacher's edit form waits for the picker to be seeded with
+# the pairs the save will replace, so an empty list can never clear a teacher's assignments.
+user_form_waiting = |model| {
+	model.newUserRole == "Teacher" and model.userEditing and !model.formPairsSeeded
+}
+
 user_form_body = |model, form_mode| {
     Html.div([Attribute.class("space-y-6")], [
         # Name row: the three parts sit evenly in one row, with a hint that only first and surname
@@ -426,13 +441,16 @@ user_form_body = |model, form_mode| {
         ]),
         # The teacher's qualifications picker and the parent's linked students sit in their own
         # full-width blocks, so they are never squeezed beside another field.
-        if model.newUserRole == "Teacher" {
-            user_qualifications_field(model)
-        } else if model.newUserRole == "Parent" {
-            user_linked_students_field(model)
-        } else {
-            Html.div([], [])
-        },
+        		if model.newUserRole == "Teacher" {
+        			Html.div([Attribute.class("space-y-6")], [
+        				user_qualifications_field(model),
+        				user_pairs_field(model),
+        			])
+        		} else if model.newUserRole == "Parent" {
+        			user_linked_students_field(model)
+        		} else {
+        			Html.div([], [])
+        		},
         # The password, for create mode only: the one thing the profile fields have no place for,
         # and the one the admin hands over. Optional — a login without one is made and can get one
         # later from the row's Reset password action.
@@ -1177,6 +1195,35 @@ session_term_label = |model| {
 # The teacher form's qualifications field: the selected badges with their removal, then a search
 # box whose dropdown offers the catalog's unselected matching rows — the retired app's
 # CredentialsSelect, rebuilt in the Roc page.
+# The teacher form's class-subject picker: the same badges and searchable dropdown the Assign dialog
+# uses, over the form's own state. It sits in the form because a teacher's pairs are part of what the
+# form is making or changing — and it is what makes a new teacher teach something without a second trip
+# to the row's Assign action.
+user_pairs_field = |model| {
+	seeded = model.formPairsSeeded
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text("Class-subject pairs")]),
+		pair_badges(model, model.formPairs, |edge| RemoveFormPair(edge)),
+		UI.input({
+			type: "text",
+			value: model.formPairsSearch,
+			placeholder: "Search class subjects...",
+			on_input: Input(|s| UpdateFormPairsSearch(s)),
+			is_disabled: model.isSubmitting or !seeded,
+			classes: "",
+		}),
+		if !seeded {
+			# Nothing may be picked before the teacher's own set has been read: the picker is showing
+			# what the save will replace, so an empty one would clear them.
+			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Reading this teacher's current pairs…")])
+		} else if Str.is_empty(model.formPairsSearch) {
+			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Saving replaces the whole set for the active session term.")])
+		} else {
+			pair_options(model, model.formPairs, model.formPairsSearch, |edge| AddFormPair(edge))
+		}
+	])
+}
+
 user_qualifications_field = |model| {
 	selected = model.newUserQualifications
 	Html.div([Attribute.class("space-y-2")], [
@@ -1289,9 +1336,10 @@ assign_form = |model| {
 
 # The dropdown's matching rows while the admin types, hiding the pairs already picked — the
 # addedSet filter of the retired SearchSelect.
-assign_pair_options = |model| {
-	selected = model.assignSelectedEdges
-	query = model.assignSearch
+# The pair picker's dropdown: the catalog's pairs whose "class / subject" matches the query, minus the
+# ones already chosen. A click sends that pair. Both surfaces that pick pairs — the teacher form and the
+# Assign dialog — go through this, so they offer the same list and the same matching.
+pair_options = |model, selected, query, on_pick| {
 	Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
 		List.map(List.keep_if(Str.split_on(model.subjectPairsData, "\n"), |line| {
 			parts = Str.split_on(line, "|")
@@ -1304,10 +1352,28 @@ assign_pair_options = |model| {
 			haystack = Str.join_with([config_field(parts, 2, ""), config_field(parts, 4, "")], " / ")
 			Html.div([
 				Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
-				Attribute.on_click(AddAssignPair(edge))
+				Attribute.on_click(on_pick(edge))
 			], [Html.text(haystack)])
 		})
 	)
+}
+
+# The chosen pairs as removable badges, in the order they were picked.
+pair_badges = |model, selected, on_remove| {
+	if List.is_empty(selected) {
+		Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("None attached yet.")])
+	} else {
+		Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |edge| {
+			Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
+				Html.text(pair_badge_text(model.subjectPairsData, edge)),
+				Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(on_remove(edge))], [Html.text("✕")])
+			])
+		}))
+	}
+}
+
+assign_pair_options = |model| {
+	pair_options(model, model.assignSelectedEdges, model.assignSearch, |edge| AddAssignPair(edge))
 }
 
 assign_save_banner = |model| {

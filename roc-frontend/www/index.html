@@ -561,8 +561,10 @@
     function fetchRouteFor(url) {
         const routes = [
             { match: (u) => u === "/api/dashboard", input: "dashboard_data_input", format: formatDashboard },
+            { match: (u) => u === "/api/parent/children", input: "parent_children_data_input", format: formatChildren },
             { match: (u) => u.includes("/api/credentials"), input: "credentials_data_input", format: formatCredentials },
             { match: (u) => u === "/api/class-subjects", input: "subject_pairs_data_input", format: formatSubjectPairs },
+            { match: (u) => u.includes("/api/teacher-assignments") && u.includes("for=form"), input: "form_pairs_data_input", format: formatSubjectPairs },
             { match: (u) => u.includes("/api/teacher-assignments"), input: "teacher_assignments_data_input", format: formatSubjectPairs },
             { match: (u) => u === "/api/teacher/classes", input: "teacher_classes_data_input", format: formatSubjectPairs },
             { match: (u) => u.includes("/api/class_levels") && u.includes("admin_lms=1"), input: "admin_lms_classes_data_input", format: formatClassLevels },
@@ -677,6 +679,12 @@
     function formatDashboard(data) {
         const row = unwrapRows(data)[0] || {};
         return Object.keys(row).map(k => k + "|" + row[k]);
+    }
+
+    // A parent's linked children: name|class. The dashboard lists them; a child the class filter cannot
+    // name still shows, with its class left blank.
+    function formatChildren(data) {
+        return unwrapRows(data).map(s => (s.display_name || "Student") + "|" + (s.class_name || ""));
     }
 
     function formatLessons(data) {
@@ -914,6 +922,12 @@
 
         // --- Lesson viewer (student) ---
         if (path === "/student/lesson") {
+            // A student's page is addressed the same way a teacher's is (`?id=`), so a reload or a link
+            // lands on the lesson instead of an empty "Select a Lesson" — the page used to reach the
+            // lesson only through the app's own click-through, which a reload throws away.
+            if (document.getElementById("lesson-panel")) {
+                setupLessonViewer(false);
+            }
             setupLessonTabs(false);
             // If lesson content is already in the hidden input (re-render after nav), render it
             const contentInput = document.getElementById("lesson_content_data_input");
