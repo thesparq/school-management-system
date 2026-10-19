@@ -1572,13 +1572,26 @@ is read as the new scheme's **Digital Technologies**; *History* as the document'
 carries one or two terms for most subjects because it is the examination year; the three new classes need
 their age ranges; and the school's streaming decides which of the 18 subjects is offered on which class.
 
-**The tier is proposed, not applied.** `class_levels` carries nothing that says junior or senior, and the
-lesson generator's `ClassLevel` enum stops at `JSS_3` with one shared age-wording branch from JSS 1 up — so
-a senior lesson would be worded like a junior one. The proposal is a `tier` field (`primary` / `junior` /
-`senior`) with the three SSS classes on `senior`, plus the generator-side senior branch written out per
-subject in `contexts.md`; the statements are in that folder's `README.md`. Applying them, and loading the
-scheme (class levels, subjects, the `has_subject` edges, and one `lessons` row per teaching week with the
-week's own content cell kept as the generation context), is the step after the school signs the data off.
+**The tier is built, not proposed.** `db/schema-v13-class-tier.surql` adds `class_levels.tier`
+(`primary`/`junior`/`senior`, backfilled by code) and the three senior class levels, and adds
+`lessons.content_outline` so a lesson row can carry the week's own outline from the scheme. Applied to the
+sandbox and verified (SSS 1–3 read back `tier = 'senior'`, the JSS rows `junior`, `year_1` `primary`, and
+the class-level create path still works). **Prod still needs v11, v12 and now v13 applied.**
+
+`db/load-sss-scheme.py` is the load: subjects, the 54 `has_subject` edges (all subjects on all three
+classes, the school's call), the term mapping, and one lesson per teaching week with the week's content
+cell as `content_outline` — 1,096 rows, proven on the sandbox (a re-run writes nothing), then removed from
+the sandbox again because unscoped lesson lists change when 1,000 lessons appear (see that folder's README).
+The load surfaced one real follow-up: `/api/teacher/lessons` answers `ORDER BY week LIMIT 50`, so with this
+much data the picker is capped and its order is not total — worth a search or a term step rather than a
+silent cut.
+
+**Senior maths renders.** The calculation subjects carry equations, so KaTeX 0.16.11 is vendored under
+`roc-frontend/www/katex/` (scripts, stylesheet, `.woff2` fonts — no CDN, the app typesets on a school
+network), `www/index.html` typesets `$...$` / `$$...$$` after a lesson, question bank or answer form renders,
+and `tests/e2e/math_render_check.cjs` (7 checks) proves it in Chromium on a lesson written for the check.
+The scheme review's remaining decisions are answered (Yoruba parked — the PDF has none; Computer Studies and
+History as the school's names; SSS 3's short year kept as the document has it).
 
 ---
 
@@ -1729,7 +1742,13 @@ week's own content cell kept as the generation context), is the step after the s
   looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
   is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
   only the school can pick: requests per minute per account, and the burst allowance
-- [ ] Apply `db/schema-v11-single-active-session-term.surql` and `db/schema-v12-token-cache.surql` to prod.
+- [ ] Apply `db/schema-v11-single-active-session-term.surql`, `db/schema-v12-token-cache.surql` and
+  `db/schema-v13-class-tier.surql` to prod, then run `db/load-sss-scheme.py` for the senior scheme (its
+  README in `docs/curriculum/sss-nerdc-2025/` says which term records to map the scheme's terms onto).
+- [ ] The teacher lesson picker (`/api/teacher/lessons`, `ORDER BY week LIMIT 50`) is capped without a total
+  order: with the senior scheme loaded, "week 1" alone fills the page and a teacher's own list can exceed 50.
+  Wants a tie-break that makes the cut deterministic and a way past it (a search, or the term step the admin
+  LMS already has).
 - [ ] Cloud deployment configuration — Dokploy already builds from `Dockerfile.app` on push to `main`, so
   this is only worth keeping if something different is wanted
 

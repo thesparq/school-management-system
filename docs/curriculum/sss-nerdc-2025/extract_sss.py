@@ -51,7 +51,8 @@ REQUESTED = OrderedDict([
     ('Visual Arts',                  {'SS1': ['VISUAL ARTS'], 'SS2': ['VISUAL ARTS'], 'SS3': ['VISUAL ARTS']}),
     ('Agricultural Science',         {'SS1': ['AGRICULTURAL SCIENCE'], 'SS2': ['AGRICULTURAL SCIENCE'], 'SS3': ['AGRICULTURAL SCIENCE']}),
     ('Food and Nutrition',           {'SS1': ['FOOD AND NUTRITION'], 'SS2': ['FOOD AND NUTRITION'], 'SS3': ['FOOD AND NUTRITION']}),
-    ('Digital Technologies',         {'SS1': ['DIGITAL TECHNOLOGIES'], 'SS2': ['DIGITAL TECHNOLOGIES'], 'SS3': ['DIGITAL TECHNOLOGIES']}),
+    # The new scheme calls this DIGITAL TECHNOLOGIES; the school's own name for the subject is Computer Studies.
+    ('Computer Studies',             {'SS1': ['DIGITAL TECHNOLOGIES'], 'SS2': ['DIGITAL TECHNOLOGIES'], 'SS3': ['DIGITAL TECHNOLOGIES']}),
     ('Geography',                    {'SS1': ['GEOGRAPHY'], 'SS2': ['GEOGRAPHY'], 'SS3': ['GEOGRAPHY']}),
 ])
 TERMS = ['FIRST', 'SECOND', 'THIRD']

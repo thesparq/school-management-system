@@ -934,7 +934,7 @@ NEW NERDC scheme, 2025 · 18 subjects, one table per term. Weeks in *italics* ar
 | 13 | *Closing* | Vacation |
 
 
-## Digital Technologies
+## Computer Studies
 
 3 terms · 33 weeks · 23 teaching weeks
 

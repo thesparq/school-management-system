@@ -35,6 +35,25 @@ always be generated with its week's cell, not with a bare topic title.
 | Assessment | 9 MCQs and 9 theory questions per lesson | the same shape, but theory questions written the way WAEC/NECO ask them (with “state”, “explain”, “calculate”, “assess” command words) and marked out of the exam's own scheme |
 | Outside the textbook | “reference WAEC/NECO syllabi where applicable” | explicit: which paper this topic feeds, and one past-question or practical angle |
 | The Nigerian setting | local examples | local examples *and* the national context where the subject has one (the Nigerian economy, the constitution, Nigerian texts, local crops, WAEC prescribed texts) |
+| Maths | plain prose and bare numbers | **LaTeX**: `$...$` for inline and `$$...$$` for display, which the app typesets (KaTeX, vendored). Subscripts and superscripts belong in the formula, not in words — `$1011_2 = 11_{10}$`, not "1011 base two equals 11 base ten" |
+
+### How the maths should be written
+
+The calculation subjects (Mathematics, Further Mathematics, Physics, Chemistry, Biology's genetics,
+Economics' and Financial Accounting's figures, Geography's bearings and gradients) carry equations every
+week, and the app renders LaTeX in every place a lesson shows text: the body, objectives, key points,
+questions, options and model answers.
+
+* Inline maths goes in single dollars — `the mole ratio is $1:2$`.
+* A formula that sits on its own line goes in double dollars — `$$PV = nRT$$`.
+* Standard LaTeX works (`\frac{2}{3}`, `\times`, `\int x^2\,dx`, `\sqrt{5}`, `\begin{aligned}…`), including
+the `aligned` block when a derivation runs over several lines.
+* Chemical formulae and units stay outside the maths: `$2H_2 + O_2 \rightarrow 2H_2O$` for the equation,
+but "23.0 g mol⁻¹" written normally.
+* Do not wrap a whole sentence in dollars, and do not use `$` for money — a price is "₦2,500", not
+`$2,500` (that last one would typeset as maths and break the sentence).
+* One broken formula does not blank a lesson: it shows its own source in red instead.
+
 
 ## Per subject
 

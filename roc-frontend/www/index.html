@@ -7,6 +7,9 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/dist.css" />
+  <!-- Typeset maths the lessons carry as LaTeX (`$x^2$`, `$$\int x\,dx$$`). Vendored, not a CDN: the app
+       is served from one origin and has to render maths on a school network. See www/katex/README.md. -->
+  <link rel="stylesheet" href="/katex/katex.min.css" />
   <script>
     // Blocking script to prevent flash of unstyled content (FOUC)
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -23,6 +26,8 @@
        line across the top. Shown when a navigation or an in-page tab switch starts and hidden once
        the new view has rendered (see beginNavProgress / noteNavProgressRender below). -->
   <div id="nav-progress" class="hidden fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-sm"></div>
+  <script defer src="/katex/katex.min.js"></script>
+  <script defer src="/katex/auto-render.min.js"></script>
   <script type="module">
     import { mount } from '/runtime.js';
 
@@ -1490,6 +1495,7 @@
         }
 
         panel.innerHTML = html;
+        typesetMath(panel);
 
         // Build scroll-spy sidebar
         const sections = built.map(sec => ({ id: sec.id, heading: sec.heading }));
@@ -1678,6 +1684,7 @@
             if (count) count.textContent = String(chosen.length);
             if (total) total.textContent = String(chosen.reduce((sum, q) => sum + (q.marks || 0), 0));
         };
+        typesetMath(area);
         area.querySelectorAll("[data-q-check], [data-q-marks]").forEach(el => el.addEventListener("input", updateTotals));
         updateTotals();
     }
@@ -1972,6 +1979,7 @@
                     ${notOpen ? `<span class="text-xs text-destructive">This assessment opens ${opensAt.toLocaleString()}.</span>` : ""}
                 </div>
             </div>`;
+        typesetMath(list);
 
         const updateCount = () => {
             const answered = collectAnswers(questions).filter(a => a.answer_text !== "").length;
@@ -2877,6 +2885,30 @@
 
     function escHtml(str) {
         return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // Typeset the LaTeX in a rendered container: the senior subjects' lesson bodies, questions and model
+    // answers carry maths, and everything else in those containers is already plain text by the time this
+    // runs (every interpolation went through escHtml), so `$...$` and `$$...$$` are the only maths markup
+    // and KaTeX only ever reads text nodes. A page without the KaTeX scripts — a DOM stub in a test, or a
+    // failed asset load — leaves the LaTeX visible rather than breaking the render.
+    function typesetMath(el) {
+        if (!el || typeof window.renderMathInElement !== "function") return;
+        try {
+            window.renderMathInElement(el, {
+                delimiters: [
+                    { left: "$$", right: "$$", display: true },
+                    { left: "\\[", right: "\\]", display: true },
+                    { left: "$", right: "$", display: false },
+                    { left: "\\(", right: "\\)", display: false },
+                ],
+                // A broken formula in one lesson must not blank the lesson: it stays as its own source.
+                throwOnError: false,
+                errorColor: "#b91c1c",
+            });
+        } catch (e) {
+            console.warn("math typesetting skipped:", e && e.message ? e.message : e);
+        }
     }
 </script>
 </body>
