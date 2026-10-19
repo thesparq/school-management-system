@@ -20,7 +20,14 @@ What it writes, in order, and only where the row is missing (so a re-run is a no
 4. **lessons** — one per week, with `topic_title`, `context` (the week's own content cell — `lessons.context`
    is prod's existing field for exactly this, the one the generator reads as its `context` argument) and
    `content` left empty for the generator. Teaching weeks only unless `--include-non-teaching` is given:
-   a school's midterm, break and examination weeks are the term's shape, not lessons.
+   a school's midterm, break and examination weeks are the term's shape, not lessons (prod's own 3,413
+   lessons agree — ten of them name a midterm, break or examination at all).
+
+The slug is the school's own convention, read back from the target database rather than assumed:
+`y<class><subject>-t<term>-w<week>-<topic>`, e.g. `y9-chm-t1-w1-introduction-to-chemistry`. The class
+numbers (`Year 1`→`y1` … `JSS 1`→`y6`, so `SSS 1`→`y9`) and the subject abbreviations come from the
+existing lessons; anything the database has not seen yet falls back to the subject's own code and to the
+ladder in `YEAR_LADDER`.
 
 The class levels themselves come from `db/schema-v13-class-tier.surql`, not from here — apply that first
 (this script refuses to run without `sss_1`, `sss_2` and `sss_3`).
@@ -55,7 +62,13 @@ SUBJECT_CODES = {
     'Visual Arts': 'VAR',
 }
 SCHEME_TERMS = {'FIRST': 'First', 'SECOND': 'Second', 'THIRD': 'Third'}
-CLASS_SLUG = {'SS1': 'sss-1', 'SS2': 'sss-2', 'SS3': 'sss-3'}
+CLASS_CODE = {'SS1': 'sss_1', 'SS2': 'sss_2', 'SS3': 'sss_3'}
+# The school's own lesson slugs run `y<class><subject>-t<term>-w<week>-<topic>`: Year 1-5 are `y1`-`y5`,
+# JSS 1-3 are `y6`-`y8` (read back from prod's 3,413 lessons), so the senior school continues `y9`-`y11`.
+# The loader derives the numbers it can from the *target* database and only falls back to this ladder.
+YEAR_LADDER = {'year_1': 1, 'year_2': 2, 'year_3': 3, 'year_4': 4, 'year_5': 5,
+               'jss_1': 6, 'jss_2': 7, 'jss_3': 8, 'sss_1': 9, 'sss_2': 10, 'sss_3': 11}
+SLUG_RE = re.compile(r'^(y\d+)-([a-z0-9]+)-t(\d+)-w(\d+)-')
 CLASS_CODE = {'SS1': 'sss_1', 'SS2': 'sss_2', 'SS3': 'sss_3'}
 
 
@@ -83,8 +96,26 @@ def as_record(rid):
 
 
 def slugify(text):
-    slug = re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
-    return slug[:60].strip('-')
+    """The topic part of a slug, the school's way: lowercase, spaces to dashes, punctuation kept
+    (prod's own slugs are full of `:`, `,`, `?` and apostrophes — `y5-crk-t1-w5-paul's-early-life:-...`)."""
+    return re.sub(r'\s+', '-', text.strip().lower())
+
+
+def slug_conventions(db):
+    """What the target database's own lesson slugs say: the `y<n>` per class and the abbreviation per
+    subject. Both are read rather than assumed, so a load into a database that numbers its classes
+    differently still produces slugs that look like its neighbours."""
+    years, subjects = {}, {}
+    rows = db.rows("SELECT slug, has_subject.in.code AS class, has_subject.out.name AS subject FROM lessons LIMIT 5000;")
+    for row in rows:
+        match = SLUG_RE.match(row.get('slug') or '')
+        if not match or not row.get('class'):
+            continue
+        years.setdefault(row['class'], set()).add(match.group(1))
+        if row.get('subject'):
+            subjects.setdefault(row['subject'].strip().lower(), set()).add(match.group(2))
+    return ({code: sorted(prefixes)[0] for code, prefixes in years.items() if len(prefixes) == 1},
+            {name: sorted(abbrevs)[0] for name, abbrevs in subjects.items() if len(abbrevs) == 1})
 
 
 class Db:
@@ -201,28 +232,45 @@ def main():
     for pair in args.terms:
         if '=' not in pair:
             raise SystemExit(f"--terms wants Term=record, got {pair!r}")
-        term, record = pair.split('=', 1)
-        asked[term.strip().title()] = record if record.startswith('terms:') else f'terms:{slugify(record)}'
-    term_ids = {}
+        term, wanted = pair.split('=', 1)
+        asked[term.strip().title()] = wanted if wanted.startswith('terms:') else f'terms:{slugify(wanted)}'
+    term_ids, term_orders = {}, {}
     for order, term in enumerate(('First', 'Second', 'Third'), start=1):
         if term in asked:
             wanted_term = asked[term]
-            rows = db.rows(f"SELECT id FROM {as_record(wanted_term)};")
+            rows = db.rows(f"SELECT id, sort_order FROM {as_record(wanted_term)};")
             if not rows:
                 db.write(f"CREATE {as_record(wanted_term)} SET name = {literal(term + ' Term')}, sort_order = {order}, active = true;")
+                term_orders[term] = order
+            else:
+                term_orders[term] = rows[0].get('sort_order') or order
             term_ids[term] = wanted_term
         else:
-            found = db.rows(f"SELECT id FROM terms WHERE string::lowercase(name) CONTAINS {literal(term.lower())} LIMIT 1;")
+            found = db.rows(f"SELECT id, sort_order FROM terms WHERE string::lowercase(name) CONTAINS {literal(term.lower())} LIMIT 1;")
             term_ids[term] = found[0]['id'] if found else f'terms:{slugify(term)}_term'
-            if not found:
+            if found:
+                term_orders[term] = found[0].get('sort_order') or order
+            else:
                 db.write(f"CREATE {as_record(term_ids[term])} SET name = {literal(term + ' Term')}, sort_order = {order}, active = true;")
-    print("  terms: " + ", ".join(f"{t}={as_record(i)}" for t, i in term_ids.items()))
+                term_orders[term] = order
+    print("  terms: " + ", ".join(f"{t}={as_record(i)} (t{term_orders[t]})" for t, i in term_ids.items()))
+
+    # 3b. the slug convention this database already uses (years per class, abbreviations per subject)
+    years, abbrevs = slug_conventions(db)
+    print("  slug years from existing lessons: " + (", ".join(f"{k}={v}" for k, v in sorted(years.items())) or "none"))
+    print("  subject abbreviations from existing lessons: " + (", ".join(f"{k}={v}" for k, v in sorted(abbrevs.items())) or "none"))
 
     # 4. lessons
-    lessons, skipped = 0, 0
+    lessons, skipped, no_year = 0, 0, []
     have = {(row['has_subject'], row['week']) for row in db.rows('SELECT has_subject, week FROM lessons;')}
     for name in wanted:
         for cls, terms in schemes[name].items():
+            code = CLASS_CODE[cls]
+            year = years.get(code) or (f"y{YEAR_LADDER[code]}" if code in YEAR_LADDER else None)
+            if year is None:
+                no_year.append(code)
+                continue
+            abbrev = abbrevs.get(name.strip().lower()) or SUBJECT_CODES.get(name, name[:3].upper()).lower()
             edge = edge_ids[(name, cls)]
             for scheme_term, block in terms.items():
                 term = SCHEME_TERMS[scheme_term]
@@ -234,13 +282,15 @@ def main():
                     if (edge, number) in have:
                         skipped += 1
                         continue
-                    slug = f"{slugify(name)}-{CLASS_SLUG[cls]}-{term.lower()}-w{number}"
+                    slug = f"{year}-{abbrev}-t{term_orders[term]}-w{number}-{slugify(week['topic'])}"
                     db.write(
                         f"CREATE lessons SET has_subject = {as_record(edge)}, term = {as_record(term_ids[term])}, "
                         f"week = {number}, topic_title = {literal(week['topic'])}, "
                         f"slug = {literal(slug)}, duration_mins = 40, active = true, "
                         f"context = {literal(week['content'])};")
                     lessons += 1
+    if no_year:
+        raise SystemExit(f"no year prefix for {', '.join(sorted(set(no_year)))} — add it to YEAR_LADDER")
     print(f"  lessons: {lessons} to create, {skipped} weeks skipped (non-teaching or already there)")
     print(f"{'would write' if args.dry_run else 'wrote'} {db.writes} statement(s)")
     return 0
