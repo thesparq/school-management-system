@@ -30,8 +30,8 @@ CREATE class_levels:sss_2 SET name = 'SSS 2', code = 'sss_2', age_range = '15-16
 CREATE class_levels:sss_3 SET name = 'SSS 3', code = 'sss_3', age_range = '16-17 years', active = true,
   tier = 'senior';
 
--- A lesson can carry the week's outline from the scheme: what that week's topic covers, in the school's
--- own words ("Definition, history, branches, and importance of chemistry"). It is the context the lesson
--- generator takes as its `context` argument, so a lesson row can say both what it is and what it must
--- cover, and a generated body is never built from a bare topic title.
-DEFINE FIELD IF NOT EXISTS content_outline ON lessons TYPE option<string>;
+-- Nothing else is needed for the scheme to land on a lesson: `lessons.context` already holds the week's
+-- own outline on prod (every one of its 3,413 rows carries one — "Distinguishing wants from needs."), and
+-- that is the field the scheme's content cell goes into and the generator reads as its `context`
+-- argument. No new field was added for it; see `db/load-sss-scheme.py`.
+

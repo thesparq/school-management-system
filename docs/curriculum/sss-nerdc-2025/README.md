@@ -47,7 +47,7 @@ an SSS 3 term, none is written here — see the questions below.
 | `sss1.md`, `sss2.md`, `sss3.md` | the same tables, readable, one per class |
 | `contexts.md` | what the senior tier means for lesson generation, per subject, and how the maths is written |
 | `extract_sss.py` | how these were read out of the PDF — re-runnable, no row hand-edited |
-| `../../db/schema-v13-class-tier.surql` | the tier, the three senior classes, `lessons.content_outline` |
+| `../../db/schema-v13-class-tier.surql` | the tier and the three senior classes |
 | `../../db/load-sss-scheme.py` | turns this folder's JSON into subjects, edges and lessons |
 
 ```sh
@@ -104,8 +104,10 @@ have come out worded like a junior one.
   rows that exist are backfilled by their codes (`jss*` junior, `primary*`/`year*` primary).
 * **SSS 1, SSS 2, SSS 3** — the three senior classes, `tier = 'senior'`, ages `14-15` / `15-16` / `16-17`
   years (one year per class, the pattern the junior rows use; the school can change the numbers).
-* **`lessons.content_outline`** — the week's outline from the scheme ("Definition, history, branches, and
-  importance of chemistry"), so a lesson row carries both what it is and what it must cover.
+* **Nothing new for the week's outline** — `lessons.context` already holds it on prod (all 3,413 of prod's
+  lessons carry one: "Distinguishing wants from needs."), and that is the field the scheme's content cell
+  goes into and the generator reads as its `context` argument. An earlier draft of this file added a second
+  field for it (`content_outline`); prod's schema showed that was a duplicate, and it is gone.
 
 The generator side is the other half, and it is a different repository: its `ClassLevel` enum needs
 `SSS_1`, `SSS_2`, `SSS_3` and its prompt needs the senior branch. `contexts.md` is that branch written out,
@@ -140,8 +142,8 @@ already there, so a re-run is a no-op:
 3. **terms** — the scheme says First/Second/Third; the school's own term rows have its own names, so
    `--terms Second=terms:summer_term` says which record a scheme term means (`terms:first_term` and
    friends are created when nothing matches).
-4. **lessons** — one per **teaching** week (1,096 of the 1,746), `topic_title` and `content_outline` from
-   the file, `content` left empty for the generator, `slug` = `<subject>-<class>-<term>-w<week>`.
+4. **lessons** — one per **teaching** week (1,096 of the 1,746), `topic_title` and `context` from the
+   file, `content` left empty for the generator, `slug` = `<subject>-<class>-<term>-w<week>`.
    `--include-non-teaching` also makes rows for midterm/break/revision/exam weeks.
 
 On the sandbox it ran clean: 54 edges, 3 terms, 1,096 lessons, then `0 to create` on the second run, and a

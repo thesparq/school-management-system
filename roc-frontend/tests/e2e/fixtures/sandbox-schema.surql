@@ -119,11 +119,19 @@ DEFINE FIELD updated_at ON parent_profile TYPE none | datetime;
 DEFINE TABLE lessons SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD active ON lessons TYPE bool DEFAULT true;
 DEFINE FIELD content ON lessons TYPE none | object FLEXIBLE;
+-- Prod's own field, and the one the scheme's per-week content cell goes into: the outline the lesson
+-- generator reads as its `context` argument (every prod lesson carries one).
+DEFINE FIELD context ON lessons TYPE none | string;
+DEFINE FIELD deleted_at ON lessons TYPE none | datetime;
 DEFINE FIELD duration_mins ON lessons TYPE int;
+-- Whether the generator has filled `content` yet, and how many times it has (prod's fields).
+DEFINE FIELD generated ON lessons TYPE bool DEFAULT false;
 DEFINE FIELD has_subject ON lessons TYPE record<has_subject>;
 DEFINE FIELD slug ON lessons TYPE string;
 DEFINE FIELD term ON lessons TYPE record<terms>;
 DEFINE FIELD topic_title ON lessons TYPE string;
+DEFINE FIELD updated_at ON lessons TYPE none | datetime;
+DEFINE FIELD version ON lessons TYPE int DEFAULT 1;
 DEFINE FIELD week ON lessons TYPE int;
 -- Prod's own lessons indexes (see db/schema-v10-lesson-indexes.surql): without these a sandbox would
 -- enforce neither the slug nor the one-lesson-per-edge-term-week rule that prod enforces, so a bug

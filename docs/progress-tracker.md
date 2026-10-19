@@ -1482,6 +1482,10 @@ that term by name. Prod holds one active row today, so the migration applies cle
 prod yet** — that is the one step left, and it is the file rather than a manual statement: apply
 `db/schema-v11-single-active-session-term.surql`.
 
+*(2026-10-19: prod's `session_term` now carries `only_active` and `idx_st_only_active`, and exactly one row
+is active — so v11 **is** applied. The note above was true when it was written and is left as the record of
+that day; the deploy note is the one to trust.)*
+
 ---
 
 ### The token cache — one validation per page boot, not one per request (2026-10-19)
@@ -1574,13 +1578,14 @@ their age ranges; and the school's streaming decides which of the 18 subjects is
 
 **The tier is built, not proposed.** `db/schema-v13-class-tier.surql` adds `class_levels.tier`
 (`primary`/`junior`/`senior`, backfilled by code) and the three senior class levels, and adds
-`lessons.content_outline` so a lesson row can carry the week's own outline from the scheme. Applied to the
+a lesson's `context` field as the week's own outline (prod already had it — 3,413 rows carry one — so no
+new field was added for it). Applied to the
 sandbox and verified (SSS 1–3 read back `tier = 'senior'`, the JSS rows `junior`, `year_1` `primary`, and
 the class-level create path still works). **Prod still needs v11, v12 and now v13 applied.**
 
 `db/load-sss-scheme.py` is the load: subjects, the 54 `has_subject` edges (all subjects on all three
 classes, the school's call), the term mapping, and one lesson per teaching week with the week's content
-cell as `content_outline` — 1,096 rows, proven on the sandbox (a re-run writes nothing), then removed from
+cell as `context` — 1,096 rows, proven on the sandbox (a re-run writes nothing), then removed from
 the sandbox again because unscoped lesson lists change when 1,000 lessons appear (see that folder's README).
 The load surfaced one real follow-up: `/api/teacher/lessons` answers `ORDER BY week LIMIT 50`, so with this
 much data the picker is capped and its order is not total — worth a search or a term step rather than a
@@ -1592,6 +1597,29 @@ network), `www/index.html` typesets `$...$` / `$$...$$` after a lesson, question
 and `tests/e2e/math_render_check.cjs` (7 checks) proves it in Chromium on a lesson written for the check.
 The scheme review's remaining decisions are answered (Yoruba parked — the PDF has none; Computer Studies and
 History as the school's names; SSS 3's short year kept as the document has it).
+
+**What prod actually holds, read on 2026-10-19** (`db2.johnethel.school`, ns `main`, db `lessons`, through the
+public endpoint with the school's own credentials): 8 class levels (`jss_1..3`, `year_1..5`), 23 subjects,
+3,413 lessons, and the terms `noel_term`, `calvary_term`, `summer_term` — the school's names, which is what
+the loader's `--terms` maps onto. **v11 is applied** (`session_term.only_active` + its index, one active
+row); **v12 is not** (`token_cache` does not exist); **v13 is not** (no `tier`, no SSS classes); and none of
+the senior scheme is loaded (0 lessons for Chemistry, Physics, Biology, Economics, Government or Financial
+Accounting, and no such subjects).
+
+Two things that read back from prod changed the plan before anything was written to it:
+
+- **`lessons.context` already exists and already carries exactly what the scheme provides** — all 3,413 rows
+  have one ("Distinguishing wants from needs."), and it is the field the generator reads as its `context`
+  argument. v13's second field for it (`content_outline`) was a duplicate of something prod has had all
+  along; it is out of the schema file, the loader writes `context`, and only an **older draft** of it ever
+  reached the sandbox.
+- **The sandbox fixture was missing five of prod's `lessons` fields** (`context`, `generated`, `version`,
+  `updated_at`, `deleted_at`), which is exactly why the duplication was not visible locally. The fixture now
+  declares them, field-for-field with prod.
+
+The load was re-run on the sandbox with the corrected field (`context`, `generated` false, `version` 1 on a
+sample row) and removed again afterwards; the sandbox keeps the schema and the tier. Prod write is the next
+step and needs the school's go-ahead: v12, v13, then the loader with its three terms, dry run first.
 
 ---
 
@@ -1742,9 +1770,10 @@ History as the school's names; SSS 3's short year kept as the document has it).
   looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
   is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
   only the school can pick: requests per minute per account, and the burst allowance
-- [ ] Apply `db/schema-v11-single-active-session-term.surql`, `db/schema-v12-token-cache.surql` and
-  `db/schema-v13-class-tier.surql` to prod, then run `db/load-sss-scheme.py` for the senior scheme (its
-  README in `docs/curriculum/sss-nerdc-2025/` says which term records to map the scheme's terms onto).
+- [ ] Apply `db/schema-v12-token-cache.surql` and `db/schema-v13-class-tier.surql` to prod (v11 is already
+  there — read back 2026-10-19), then run `db/load-sss-scheme.py` for the senior scheme:
+  `--terms First=terms:noel_term --terms Second=terms:calvary_term --terms Third=terms:summer_term`, dry run
+  first. Its README in `docs/curriculum/sss-nerdc-2025/` says what each step writes.
 - [ ] The teacher lesson picker (`/api/teacher/lessons`, `ORDER BY week LIMIT 50`) is capped without a total
   order: with the senior scheme loaded, "week 1" alone fills the page and a teacher's own list can exceed 50.
   Wants a tie-break that makes the cut deterministic and a way past it (a search, or the term step the admin

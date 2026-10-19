@@ -151,9 +151,9 @@ file stale. What belongs here is the shape and the rules:
 - **A class level carries a `tier`** — `primary`, `junior` or `senior` (`db/schema-v13`), so the stage of
   school is a property of the data rather than something inferred from a name. It exists because lesson
   generation needs it: a senior lesson is not a junior lesson with harder words, and the generator cannot tell
-  the two apart from `JSS 3` and `SSS 1` alone. `lessons.content_outline` is the same idea on the other side:
-  a lesson row carries the week's own outline (the scheme's "what this topic covers"), which is the context the
-  generator is handed instead of a bare topic title.
+  the two apart from `JSS 3` and `SSS 1` alone. `lessons.context` is the same idea on the other side: a
+  lesson row carries the week's own outline (the scheme's "what this topic covers", every prod row has one),
+  which is the context the generator is handed instead of a bare topic title.
 - **Maths in lesson text is LaTeX**, typeset in the browser by the vendored KaTeX (`roc-frontend/www/katex/`,
   MIT): `$...$` inline, `$$...$$` display. The stored strings stay plain text, so nothing about the storage
   model changes — but a formula is written in LaTeX by whoever generates the lesson, and a page that cannot

@@ -17,10 +17,10 @@ What it writes, in order, and only where the row is missing (so a re-run is a no
 3. **terms** — the scheme says First/Second/Third; the *school's* term rows are named by its own
    calendar, so `--terms Second=terms:summer_term` says which record a scheme term means. Without it, a
    `terms:first_term` / `second_term` / `third_term` row is created if the name has no match.
-4. **lessons** — one per week, with `topic_title` and `content_outline` (the week's own content cell,
-   which is the context the lesson generator is handed) and `content` left empty for the generator to
-   fill. Teaching weeks only unless `--include-non-teaching` is given: a school's midterm, break and
-   examination weeks are the term's shape, not lessons.
+4. **lessons** — one per week, with `topic_title`, `context` (the week's own content cell — `lessons.context`
+   is prod's existing field for exactly this, the one the generator reads as its `context` argument) and
+   `content` left empty for the generator. Teaching weeks only unless `--include-non-teaching` is given:
+   a school's midterm, break and examination weeks are the term's shape, not lessons.
 
 The class levels themselves come from `db/schema-v13-class-tier.surql`, not from here — apply that first
 (this script refuses to run without `sss_1`, `sss_2` and `sss_3`).
@@ -239,7 +239,7 @@ def main():
                         f"CREATE lessons SET has_subject = {as_record(edge)}, term = {as_record(term_ids[term])}, "
                         f"week = {number}, topic_title = {literal(week['topic'])}, "
                         f"slug = {literal(slug)}, duration_mins = 40, active = true, "
-                        f"content_outline = {literal(week['content'])};")
+                        f"context = {literal(week['content'])};")
                     lessons += 1
     print(f"  lessons: {lessons} to create, {skipped} weeks skipped (non-teaching or already there)")
     print(f"{'would write' if args.dry_run else 'wrote'} {db.writes} statement(s)")
