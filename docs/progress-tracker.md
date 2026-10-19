@@ -1554,6 +1554,34 @@ observable in a suite.
 
 ---
 
+### The SSS 1–3 scheme of work, extracted for review (2026-10-19)
+
+The school sent `NEW NERDC SCHEME, 2025.pdf` (428 pages: JSS 1–3 and SSS 1–3) and asked for the senior
+scheme of a named list of subjects, formatted to review, with the context lesson generation needs — and
+**not** loaded into the database. It is in `docs/curriculum/sss-nerdc-2025/`: `schemes.json` (1,746 weeks
+across 18 subjects × SSS 1–3, 1,096 of them teaching weeks), `sss1.md`/`sss2.md`/`sss3.md` (the same
+tables, readable), `contexts.md` (what the senior tier means per subject, including the WAEC 2026–2030
+literature list the document itself carries) and `extract_sss.py` — the parser is `pdftotext -layout`
+plus the document's own inconsistencies (mixed-case term headings, subject headings missing their class
+or their "SCHEME OF WORK", column headings that do not sit where the rows put their text, tables that run
+across page breaks), and no row is hand-edited, so a corrected PDF re-extracts to corrected data.
+
+What the school's review has to settle: **Yoruba is not in the document at all** (no Nigerian-language
+table anywhere in its 428 pages — the 18 extracted are everything it holds that was asked for); *Computer*
+is read as the new scheme's **Digital Technologies**; *History* as the document's **Nigerian History**; SSS 3
+carries one or two terms for most subjects because it is the examination year; the three new classes need
+their age ranges; and the school's streaming decides which of the 18 subjects is offered on which class.
+
+**The tier is proposed, not applied.** `class_levels` carries nothing that says junior or senior, and the
+lesson generator's `ClassLevel` enum stops at `JSS_3` with one shared age-wording branch from JSS 1 up — so
+a senior lesson would be worded like a junior one. The proposal is a `tier` field (`primary` / `junior` /
+`senior`) with the three SSS classes on `senior`, plus the generator-side senior branch written out per
+subject in `contexts.md`; the statements are in that folder's `README.md`. Applying them, and loading the
+scheme (class levels, subjects, the `has_subject` edges, and one `lessons` row per teaching week with the
+week's own content cell kept as the generation context), is the step after the school signs the data off.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
