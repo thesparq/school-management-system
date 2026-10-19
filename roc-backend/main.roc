@@ -958,7 +958,16 @@ create_profile_from_journal! = |pk, payload, config| {
     match create_extra_clauses!(role, quals_text, date_employed, students_text) {
         Err(msg) => Err(msg),
         Ok(extra) => {
-            create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students)
+            admin_type_journal = journal_field(payload, "admin_type") |> sanitize
+            admin_perms_journal = journal_field(payload, "permissions") |> sanitize
+            admin_clause =
+                if Str.is_empty(admin_type_journal) {
+                    ""
+                } else {
+                    perms = List.keep_if(Str.split_on(admin_perms_journal, ","), |key| !Str.is_empty(key))
+                    Str.join_with(List.concat(["admin_type = '${admin_type_journal}'"], [admin_permissions_clause(perms)]), ", ")
+                }
+            create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students, admin_clause)
             match db_body!(create_sql, config) {
                 Ok(_) => Ok({})
                 # The row already exists (the create landed, the journal was behind): that is a settle.
@@ -1179,7 +1188,7 @@ create_extra_clauses! = |role, quals_text, date_employed, students_text| {
 # payload carried none). The row's school number comes first: it is
 # `school_number_clause!`'s own `SET` entry, and every role that reaches this branch has one (only a
 # parent has no number, and a parent is built below).
-profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, qualifications_clause, date_employed_clause, students_clause| {
+profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, qualifications_clause, date_employed_clause, students_clause, admin_clause| {
     if role == "Parent" {
         # parent_profile carries both `name` and `display_name` in the prod schema.
         students_part = if Str.is_empty(students_clause) { "" } else { ", ${students_clause}" }
@@ -1194,6 +1203,7 @@ profile_create_sql! = |role, number_clause, user_id, first_name, middle_name, su
                 if Str.is_empty(class_level) { "" } else { "class_enrolled = ${record_ref!(class_level, "class_levels")}" },
                 if Str.is_empty(qualifications_clause) { "" } else { qualifications_clause },
                 if Str.is_empty(date_employed_clause) { "" } else { date_employed_clause },
+                if Str.is_empty(admin_clause) { "" } else { admin_clause },
             ],
             |field| !Str.is_empty(field),
         )
@@ -1435,33 +1445,47 @@ update_clauses! = |table, payload_raw, config| {
         Ok("")
     }
 
-    # A teacher's date of employment: a bare YYYY-MM-DD cast by the database. Absent or empty
-    # leaves the stored date alone (updates patch).
+    # An admin's type and permissions, when the payload speaks about them (the values are checked against
+    # the catalog in admin_rights_clauses!).
+    admin_clause_res = if table == "admin_profile" {
+        admin_rights_clauses!(payload_raw, config)
+    } else {
+        Ok([])
+    }
+
+# A teacher's date of employment: a bare YYYY-MM-DD cast by the database. Absent or empty
+# leaves the stored date alone (updates patch).
     date_clause = if table == "teacher_profile" { date_employed_clause_from!(extract_field(payload_raw, "date_employed") |> sanitize) } else { "" }
 
+    # Nested rather than a three-way match: Roc's exhaustiveness checker handles a tuple of two tag
+    # unions and reports the three-way one as incomplete however it is written.
     match (quals_clause_res, students_clause_res) {
         (Err(msg), _) => Err(msg),
         (Ok(_), Err(msg)) => Err(msg),
-        (Ok(quals_clause), Ok(students_clause)) => {
-            all_candidates = List.concat(List.concat(candidates, [quals_clause, date_clause]), [students_clause])
-            clauses = List.keep_if(all_candidates, |clause| !Str.is_empty(clause))
+        (Ok(quals_clause), Ok(students_clause)) =>
+            match admin_clause_res {
+                Err(msg) => Err(msg),
+                Ok(admin_clauses) => {
+                    all_candidates = List.concat(List.concat(List.concat(candidates, [quals_clause, date_clause]), [students_clause]), admin_clauses)
+                    clauses = List.keep_if(all_candidates, |clause| !Str.is_empty(clause))
 
-            if !Str.is_empty(email) and !looks_like_email(email) {
-                Err("email is not a valid address")
-            } else if !List.is_empty(misplaced) {
-                first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
+                    if !Str.is_empty(email) and !looks_like_email(email) {
+                        Err("email is not a valid address")
+                    } else if !List.is_empty(misplaced) {
+                        first = match List.first(misplaced) { Ok(field) => field, Err(_) => "" }
 
-                Err(misplaced_message(first, table))
-            } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
-                Err("date_of_birth must look like YYYY-MM-DD")
-            } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
-                Err("class_level '${class_level}' does not exist")
-            } else if List.is_empty(clauses) and Str.is_empty(email) {
-                Err("no updatable fields: send an email or at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
-            } else {
-                Ok(clauses)
-            }
-        }
+                        Err(misplaced_message(first, table))
+                    } else if table == "student_profile" and !Str.is_empty(date_of_birth) and !looks_like_date(date_of_birth) {
+                        Err("date_of_birth must look like YYYY-MM-DD")
+                    } else if table == "student_profile" and !Str.is_empty(class_level) and !class_level_exists!(class_level, config) {
+                        Err("class_level '${class_level}' does not exist")
+                    } else if List.is_empty(clauses) and Str.is_empty(email) {
+                        Err("no updatable fields: send an email or at least one of ${Str.join_with(profile_update_columns(table), ", ")}")
+                    } else {
+                        Ok(clauses)
+                    }
+                }
+            },
     }
 }
 
@@ -1506,6 +1530,114 @@ create_only_clauses! = |table, pk, payload_raw, creating, config| {
         List.concat(number_clauses, List.concat(enrolled, ["created_at = time::now()"]))
     }
 }
+
+# The type and permissions an admin payload asks for, validated: a type the catalog does not define and a
+# permission it does not list are refused. `set` is false when the payload spoke about neither (a name edit
+# or a profile completion), which leaves both columns alone.
+admin_rights_values! : Str => [Ok({ admin_type : Str, permissions : List(Str), set : Bool }), Err(Str)]
+admin_rights_values! = |payload_raw| {
+    kind = extract_field(payload_raw, "admin_type") |> sanitize
+    has_ticks = carries_field(payload_raw, "permissions")
+    known_types = List.map(admin_types, |defined| defined.key)
+    requested = List.map(split_json_elements(extract_json_array(payload_raw, "permissions")), |element| Str.replace_each(element, "\"", ""))
+    unknown_ticks = List.keep_if(requested, |key| !List.contains(all_permissions, key))
+
+    if Str.is_empty(kind) and !has_ticks {
+        Ok({ admin_type: "", permissions: [], set: Bool.False })
+    } else if !Str.is_empty(kind) and !List.contains(known_types, kind) {
+        Err("admin_type must be one of ${Str.join_with(known_types, ", ")}")
+    } else if has_ticks and !List.is_empty(unknown_ticks) {
+        Err("unknown permission: ${Str.join_with(unknown_ticks, ", ")}")
+    } else {
+        effective =
+            if kind == "super_admin" {
+                all_permissions
+            } else if has_ticks {
+                requested
+            } else {
+                type_permissions(kind)
+            }
+
+        Ok({ admin_type: kind, permissions: effective, set: Bool.True })
+    }
+}
+
+# The admin's type and permissions as `SET` entries, for the update path (where absent means "leave them").
+admin_rights_clauses! : Str, SurrealDB.Config => [Ok(List(Str)), Err(Str)]
+admin_rights_clauses! = |payload_raw, _config| {
+    match admin_rights_values!(payload_raw) {
+        Err(message) => Err(message),
+        Ok(values) =>
+            if !values.set {
+                Ok([])
+            } else {
+                Ok(List.concat(
+                    if Str.is_empty(values.admin_type) { [] } else { ["admin_type = '${values.admin_type}'"] },
+                    [admin_permissions_clause(values.permissions)],
+                ))
+            },
+    }
+}
+
+# The permissions array as a SurrealQL array literal.
+admin_permissions_clause : List(Str) -> Str
+admin_permissions_clause = |keys| {
+    "permissions = [${Str.join_with(List.map(keys, |key| "'${key}'"), ", ")}]"
+}
+
+# How many other admins are super admins right now. 'The school must keep one' is enforced with this: a write
+# that would take the last one away is refused, so a wrong click cannot lock the school out of its own
+# permissions. `except_pk` is the row being changed, which does not count as a spare.
+other_super_admins! : Str, SurrealDB.Config => [Ok(U64), Err(Str)]
+other_super_admins! = |except_pk, config| {
+    query = "SELECT count() FROM admin_profile WHERE admin_type = 'super_admin' AND deleted_at IS NONE AND id != ${record_ref!(except_pk, "admin_profile")} GROUP ALL;"
+
+    match db_body!(query, config) {
+        Err(message) => Err(message),
+        Ok(body) => Ok(field_int!(body, "count")),
+    }
+}
+
+# Whether a write to a profile row would take the school's last super admin away. Only a payload that
+# names an admin type can, and only for an admin row; a lookup that fails answers "yes, refuse" (the rule
+# must not fail open).
+loses_last_super_admin_guard! : Str, Str, Str, SurrealDB.Config => Bool
+loses_last_super_admin_guard! = |table, id_val, payload_raw, config| {
+    kind = extract_field(payload_raw, "admin_type") |> sanitize
+
+    if table != "admin_profile" or Str.is_empty(kind) {
+        Bool.False
+    } else {
+        loses_last_super_admin!(id_val, kind, config) != Ok(Bool.False)
+    }
+}
+
+# The refusal both guards answer with.
+last_super_admin_message = "The school needs at least one super admin. Give another admin the Super Admin type first."
+
+# Whether the row being written is the last super admin and the write would take that away. One read of the
+# stored type, and a count of the others, only on the occasional write that changes an admin's rights.
+loses_last_super_admin! : Str, Str, SurrealDB.Config => [Ok(Bool), Err(Str)]
+loses_last_super_admin! = |id_val, kind, config| {
+    if kind == "super_admin" {
+        Ok(Bool.False)
+    } else {
+        match db_body!("SELECT admin_type FROM ${record_ref!(id_val, "admin_profile")} WHERE deleted_at IS NONE;", config) {
+            Err(message) => Err(message),
+            Ok(row) =>
+                if extract_field(row, "admin_type") != "super_admin" {
+                    Ok(Bool.False)
+                } else {
+                    match other_super_admins!(bare_id(id_val), config) {
+                        Err(message) => Err(message),
+                        Ok(others) => Ok(others == 0),
+                    }
+                },
+        }
+    }
+}
+
+
 
 # The write half of PUT /api/users, shared by the patch and the attach: the email goes to Authentik
 # first (the address is how the login is found, so a failure has to stop the update instead of
@@ -2500,6 +2632,144 @@ may_call = |role, required| {
     }
 }
 
+# --- An admin's rights ---
+#
+# The role says "member of staff with the admin shell"; it never said which part of the school they run. An
+# admin's `admin_type` and `permissions` (db/schema-v14) say what they may actually do, and the gate below
+# asks for the permission a route needs instead of letting every admin through. "super_admin" is every
+# permission at once and is what keeps the school from locking itself out.
+
+# The permissions there are. A route that changes the school's shape asks for one of these; the labels and
+# hints are what the hub shows beside each tick.
+admin_permissions = [
+    { key: "users.manage", label: "Manage users", hint: "create, edit and deactivate students, teachers, parents and admins" },
+    { key: "setup.manage", label: "Manage school setup", hint: "terms, subjects, class levels, session terms and the curriculum" },
+    { key: "lessons.manage", label: "View and manage lessons", hint: "the LMS, lesson content and the lesson lists" },
+    { key: "assessments.manage", label: "Manage assessments", hint: "create and publish assessments, grade and release marks" },
+    { key: "assignments.manage", label: "Manage staff assignments", hint: "the teacher Assign dialog and qualifications" },
+    { key: "permissions.manage", label: "Manage permissions", hint: "change admin types and what other admins may do" },
+]
+
+all_permissions = List.map(admin_permissions, |permission| permission.key)
+
+# The admin types the school has, with the permissions a new admin of that type starts with. Adding a type is
+# a line here (the database stores the key, not a fixed list), which is why "more later" is cheap.
+admin_types = [
+    { key: "super_admin", label: "Super Admin", hint: "everything, including who else is an admin", permissions: all_permissions },
+    { key: "supervisor", label: "Supervisor", hint: "oversees teaching and learning: the LMS and assessments, no user management", permissions: ["lessons.manage", "assessments.manage"] },
+]
+
+# The permissions a type starts an admin with, or [] for a type nobody defined.
+type_permissions : Str -> List(Str)
+type_permissions = |admin_type| {
+    # A recursive scan rather than keep_if + first: that pair miscompiles in this Roc.
+    look = |remaining| match remaining {
+        [] => []
+        [kind, .. as rest] => if kind.key == admin_type { kind.permissions } else { look(rest) }
+    }
+
+    look(admin_types)
+}
+
+# The permission a route needs from an admin, or "" when the role alone is enough. Only the routes the
+# `required_role` matrix gives to admins are named here; everything else answers "" and behaves as before.
+required_permission : Method, Str -> Str
+required_permission = |method, target| {
+    if Str.starts_with(target, "/api/teacher/") {
+        # An admin reaches the teacher routes through the admin shell. Reading them is the LMS; writing them
+        # is assessment work.
+        if !Method.is_eq(method, GET) {
+            "assessments.manage"
+        } else if Str.starts_with(target, "/api/teacher/general-assessments") {
+            "assessments.manage"
+        } else {
+            "lessons.manage"
+        }
+    } else if target == "/api/users/set-password" or target == "/api/users/activate" or target == "/api/users/pending" or target == "/api/users/reconcile" or target == "/api/upload-url" {
+        "users.manage"
+    } else if target == "/api/users" or Str.starts_with(target, "/api/users?") {
+        # Reading the directory is how every picker works (and every role may do it); writing it is the
+        # permission the school asked to keep away from supervisors.
+        if Method.is_eq(method, GET) { "" } else { "users.manage" }
+    } else if target == "/api/students" or target == "/api/teachers" or target == "/api/enroll" {
+        "users.manage"
+    } else if target == "/api/class-subjects" or Str.starts_with(target, "/api/teacher-assignments") {
+        "assignments.manage"
+    } else if target == "/api/permissions" or target == "/api/admin-types" {
+        # The catalog the admin form renders its ticks from.
+        "users.manage"
+    } else if target == "/api/admin-rights" {
+        # A caller's own rights: every admin may read their own.
+        ""
+    } else if List.any(config_route_prefixes, |prefix| Str.starts_with(target, prefix)) {
+        if Method.is_eq(method, GET) { "" } else { "setup.manage" }
+    } else {
+        ""
+    }
+}
+
+# The permissions an admin's row carries. A row that is missing or soft-deleted answers with none, which is
+# what makes revoking an admin real: the Authentik group still says "admin", the school's data says "not
+# any more".
+admin_rights! : Str, SurrealDB.Config => [Ok({ is_super : Bool, permissions : List(Str) }), Err(Str)]
+admin_rights! = |body, config| {
+    pk = caller_id!(body) |> sanitize
+
+    if Str.is_empty(pk) {
+        Err("the token names no login")
+    } else {
+        query = "SELECT admin_type, permissions FROM ${record_ref!(pk, "admin_profile")} WHERE deleted_at IS NONE;"
+
+        match db_body!(query, config) {
+            Err(message) => Err(message),
+            Ok(row) => {
+                kind = extract_field(row, "admin_type")
+                granted = List.map(split_json_elements(extract_json_array(row, "permissions")), |element| Str.replace_each(element, "\"", ""))
+
+                Ok({ is_super: kind == "super_admin", permissions: granted })
+            }
+        }
+    }
+}
+
+# Whether this admin may use this route: the route asks for no permission, or the caller is a DEV_MODE token
+# (the developer's own key), or the caller's row carries it. A super admin carries every permission by
+# definition, so their stored list is not consulted.
+permitted_admin! : { body : Str, role : Str, dev : Bool }, Method, Str, SurrealDB.Config => Bool
+permitted_admin! = |caller, method, target, config| {
+    needed = required_permission(method, target)
+
+    if Str.is_empty(needed) {
+        Bool.True
+    } else if caller.role != "admin" or caller.dev {
+        Bool.True
+    } else {
+        match admin_rights!(caller.body, config) {
+            Err(_) => Bool.False,
+            Ok(rights) => rights.is_super or List.contains(rights.permissions, needed),
+        }
+    }
+}
+
+# The name of a permission for a message: the key itself when nobody labelled it.
+permission_label : Str -> Str
+permission_label = |key| {
+    look = |remaining| match remaining {
+        [] => key
+        [permission, .. as rest] => if permission.key == key { permission.label } else { look(rest) }
+    }
+
+    look(admin_permissions)
+}
+
+# The 403 for an admin who is the right role but lacks the permission the route needs. It names the
+# permission in the school's own words, so the next question is answerable ("ask a super admin to grant it").
+permission_forbidden_response = |required| {
+    # Single quotes around the permission's name: the message is JSON, so a second pair of double quotes
+    # would end the string early and leave the client unable to read its own error.
+    json_response(403, "{\"error\":\"Forbidden: this needs the '${permission_label(required)}' permission; ask a super admin to grant it\"}")
+}
+
 # The 403 for a route outside the caller's role: it names the role the route needs, so a student
 # hitting an admin endpoint is told what that endpoint expects rather than only "Forbidden".
 forbidden_response = |role, required| {
@@ -2646,6 +2916,39 @@ token_cache_status! = |config| {
     }
 }
 
+# The catalog the admin form is built from: the permissions there are, and the admin types with the ticks
+# each one starts with. It is answered to an admin with `users.manage` (the form lives on the user screens);
+# it is static text, so it carries nothing a lower permission could not see.
+admin_catalog_json : Str
+admin_catalog_json = {
+    permissions = Str.join_with(
+        List.map(admin_permissions, |permission| "{\"key\":\"${permission.key}\",\"label\":\"${permission.label}\",\"hint\":\"${permission.hint}\"}"),
+        ",",
+    )
+    types = Str.join_with(
+        List.map(admin_types, |kind| {
+            ticks = Str.join_with(List.map(kind.permissions, |key| "\"${key}\""), ",")
+            "{\"key\":\"${kind.key}\",\"label\":\"${kind.label}\",\"hint\":\"${kind.hint}\",\"permissions\":[${ticks}]}"
+        }),
+        ",",
+    )
+
+    "{\"permissions\":[${permissions}],\"types\":[${types}]}"
+}
+
+# The caller's own rights, for a page that has to hide what the caller cannot use (the admin shell's own
+# sidebar, so a supervisor is not shown screens the backend will refuse).
+admin_rights_json! : Str, SurrealDB.Config => Str
+admin_rights_json! = |body, config| {
+    match admin_rights!(body, config) {
+        Err(_) => "{\"is_super\":false,\"permissions\":[]}",
+        Ok(rights) => {
+            granted = Str.join_with(List.map(rights.permissions, |key| "\"${key}\""), ",")
+            "{\"is_super\":${if rights.is_super { "true" } else { "false" }},\"permissions\":[${granted}]}"
+        }
+    }
+}
+
 # --- Main request handler ---
 
 # The request target as the handlers match on it: the resource path plus its query string
@@ -2691,13 +2994,13 @@ respond! = |request, context| {
             match token_res {
                 Ok(token) =>
                     if context.dev_mode and List.contains(dev_tokens, token) {
-                        Ok({ body: dev_token_body(token), role: dev_token_role(token) })
+                        Ok({ body: dev_token_body(token), role: dev_token_role(token), dev: Bool.True })
                     } else {
                         # The cache first: a token this backend validated a moment ago is answered from
                         # SurrealDB instead of Authentik, and any miss — including a database that will
                         # not answer — falls through to the one authority, which then fills the cache.
                         match validated_identity!(token, context.surreal) {
-                            Ok(body) => Ok({ body, role: role_from_groups!(body) }),
+                            Ok(body) => Ok({ body, role: role_from_groups!(body), dev: Bool.False }),
                             Err(message) => Err(message),
                         }
                     }
@@ -2705,12 +3008,15 @@ respond! = |request, context| {
             }
 
         required = required_role(request.method, request_target_text(request))
+        needs = required_permission(request.method, request_target_text(request))
 
         match auth {
             Err(e) => 
                 Ok(json_response(401, "{\"error\":\"Unauthorized: ${e}\"}"))
             Ok(caller) if !may_call(caller.role, required) =>
                 Ok(forbidden_response(caller.role, required))
+            Ok(caller) if !permitted_admin!(caller, request.method, request_target_text(request), context.surreal) =>
+                Ok(permission_forbidden_response(needs))
             Ok(caller) => {
                 user_json = caller.body
                 if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/students" {
@@ -2863,6 +3169,11 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_levels/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("class_levels", payload_raw, context.surreal))
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/admin-types" {
+                    Ok(json_response(200, admin_catalog_json))
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/admin-rights" {
+                    # A DEV_MODE caller is the developer's own key: it holds every permission.
+                    Ok(json_response(200, if caller.dev { "{\"is_super\":true,\"permissions\":[]}" } else { admin_rights_json!(user_json, context.surreal) }))
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/curriculum") {
                     # The curriculum is the class_levels -> subjects edge in the prod schema. The hub
                     # asks with ?all=true so a link that has been switched off stays listed (and can
@@ -3009,6 +3320,35 @@ respond! = |request, context| {
                     students_text = extract_json_array(payload_raw, "students")
                     date_employed = extract_field(payload_raw, "date_employed") |> sanitize
                     extra_res = create_extra_clauses!(role, quals_text, date_employed, students_text)
+                    # An admin's type and permissions: validated here, written with the row, and journaled so
+                    # a create the reconciler replays lands with the same rights.
+                    admin_values_res =
+                        if role == "Admin" {
+                            admin_rights_values!(payload_raw)
+                        } else {
+                            Ok({ admin_type: "", permissions: [], set: Bool.False })
+                        }
+                    admin_values_error = match admin_values_res {
+                        Err(message) => message
+                        Ok(_) => ""
+                    }
+                    admin_clause = match admin_values_res {
+                        Err(_) => ""
+                        Ok(values) =>
+                            if !values.set {
+                                ""
+                            } else {
+                                clauses = List.concat(
+                                    if Str.is_empty(values.admin_type) { [] } else { ["admin_type = '${values.admin_type}'"] },
+                                    [admin_permissions_clause(values.permissions)],
+                                )
+                                Str.join_with(clauses, ", ")
+                            }
+                    }
+                    admin_journal = match admin_values_res {
+                        Err(_) => "admin_type=;permissions="
+                        Ok(values) => "admin_type=${values.admin_type};permissions=${Str.join_with(values.permissions, ",")}"
+                    }
                     quals_journal = if role != "Teacher" { "" } else { Str.join_with(List.map(split_json_elements(quals_text), |element| json_string_text(element)), ",") }
                     students_journal = if role != "Parent" { "" } else { Str.join_with(List.map(split_json_elements(students_text), |element| json_string_text(element)), ",") }
 
@@ -3016,7 +3356,9 @@ respond! = |request, context| {
                         (Err(message), _) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
                         (Ok(_), Err(message)) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
                         (Ok(extra), Ok(_)) =>
-                            if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
+                            if !Str.is_empty(admin_values_error) {
+                                Ok(json_response(400, "{\"error\":\"${admin_values_error}\"}"))
+                            } else if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
                             } else {
 	                                class_ok =
@@ -3035,7 +3377,7 @@ respond! = |request, context| {
                                     # file read a value up to the first double quote, so a payload that
                                     # itself contains quotes could never be read back. One token per
                                     # field, none of the values may contain ";".
-                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};students=${students_journal};date_employed=${date_employed};wants_password=${wants_pw}"
+                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};students=${students_journal};date_employed=${date_employed};wants_password=${wants_pw};${admin_journal}"
                                     journal_res = journal_begin!("create_user", email_val, payload_journal, context.surreal)
                                     match journal_res {
                                         Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
@@ -3060,7 +3402,7 @@ respond! = |request, context| {
                                                 Ok(_) => {
                                                     _ = journal_mark!(row_id, "password", context.surreal)
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
-                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students)
+                                                    create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students, admin_clause)
                                                     created = db_body!(create_sql, context.surreal)
 	                                                    match created {
 	                                                        # The pairs a teacher create carries are written after the row they belong to,
@@ -3800,7 +4142,15 @@ respond! = |request, context| {
                                                         create_only_clauses!(table, pk, payload_raw, creating, context.surreal),
                                                     )
 
-                                                Ok(update_user_response!(table, id_val, payload_raw, creating, all_clauses, context.surreal))
+                                                # An admin's type or ticks can be taken away, but the school keeps
+                                                # one super admin: a write that would leave none is refused before
+                                                # it happens. A lookup that fails refuses it too — the rule is too
+                                                # important to fail open.
+                                                if loses_last_super_admin_guard!(table, id_val, payload_raw, context.surreal) {
+                                                    Ok(json_response(400, "{\"error\":\"${sanitize_json_text(last_super_admin_message)}\"}"))
+                                                } else {
+                                                    Ok(update_user_response!(table, id_val, payload_raw, creating, all_clauses, context.surreal))
+                                                }
                                             }
                                         }
                                 }
@@ -3822,6 +4172,17 @@ respond! = |request, context| {
                         match profile_table_of(id_val) {
                             Err(message) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(message)}\"}")),
                             Ok(table) => {
+                                # Deleting the school's last super admin would take the permissions away with
+                                # the row: refused, like changing its type away (the update path's guard).
+                                last_super = if table == "admin_profile" {
+                                    loses_last_super_admin!(id_val, "", context.surreal) == Ok(Bool.True)
+                                } else {
+                                    Bool.False
+                                }
+
+                                if last_super {
+                                    Ok(json_response(400, "{\"error\":\"${sanitize_json_text(last_super_admin_message)}\"}"))
+                                } else {
                                 # Journal the delete before touching either side, so a crash between the
                                 # profile hide and the login disable is settled by the reconciler.
                                 journal_res = journal_begin!("delete_user", "", id_val, context.surreal)
@@ -3878,6 +4239,7 @@ respond! = |request, context| {
                                                 }
                                             }
                                         }
+                                }
                                 }
                             }
                         }

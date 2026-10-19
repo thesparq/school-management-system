@@ -59,8 +59,21 @@ check "a student's token is refused a teacher route (403)" "$(call mock-student-
 check "a student's token may read the directory listing" "$(call mock-student-token GET '/api/users?role=Student')" " HTTP 200"
 check "a teacher's token is allowed a teacher route" "$(call mock-teacher-token GET /api/teacher/lessons)" " HTTP 200"
 check "a teacher's token is refused an admin write (403)" "$(call mock-teacher-token POST /api/terms "{\"name\":\"Authz denied3 ${STAMP}\",\"sort_order\":96}")" " HTTP 403"
-check "an administrator's token may call a teacher route" "$(call mock-admin-token GET /api/teacher/lessons)" " HTTP 200"
-check "an administrator's token may write configuration" "$(call mock-admin-token POST /api/terms "{\"name\":\"Authz admin term ${STAMP}\",\"sort_order\":95}")" " HTTP 200"
+# The admin role comes from the group; what the admin may *do* comes from their school-side profile
+# (`admin_type` + `permissions`, db/schema-v14). The mock's admin login has no profile, so it starts with
+# no permissions at all — which is the point: an Authentik admin nobody has set up in the school can see
+# the shell and nothing else.
+curl -s -o /dev/null -X DELETE "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin"}'
+check "an admin login with no school profile may not use the LMS (403)" "$(call mock-admin-token GET /api/teacher/lessons)" " HTTP 403"
+check "and the refusal names the permission it needs" "$(call mock-admin-token GET /api/teacher/lessons)" "View and manage lessons"
+check "attaching a supervisor profile to that login is accepted" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin","first_name":"Sandbox","surname":"Supervisor","passport":"https://example.com/supervisor.jpg","admin_type":"supervisor"}')" "200"
+check "a supervisor may call a teacher route" "$(call mock-admin-token GET /api/teacher/lessons)" " HTTP 200"
+check "a supervisor may not create a user (403)" "$(call mock-admin-token POST /api/users '{"role":"Parent","email":"authz_sup@example.com","first_name":"Authz","surname":"Sup","passport":"https://example.com/a.jpg"}')" " HTTP 403"
+check "and the refusal names Manage users" "$(call mock-admin-token POST /api/users '{}')" "Manage users"
+check "a supervisor may not write configuration (403)" "$(call mock-admin-token POST /api/terms "{\"name\":\"Authz sup ${STAMP}\",\"sort_order\":94}")" " HTTP 403"
+check "and the refusal names Manage school setup" "$(call mock-admin-token POST /api/terms '{}')" "Manage school setup"
+check "promoting that login to super admin is accepted" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"super_admin"}')" "200"
+check "a super admin may write configuration" "$(call mock-admin-token POST /api/terms "{\"name\":\"Authz admin term ${STAMP}\",\"sort_order\":95}")" " HTTP 200"
 check "a token with no groups is a student" "$(call mock-groupless-token GET /api/student/subjects)" " HTTP 200"
 check "and is refused a teacher route (403)" "$(call mock-groupless-token GET /api/teacher/lessons)" " HTTP 403"
 
