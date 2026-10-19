@@ -281,3 +281,15 @@ DEFINE FIELD IF NOT EXISTS session_term ON teaches TYPE record<session_term>;
 DEFINE FIELD IF NOT EXISTS assigned_at ON teaches TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS deleted_at ON teaches TYPE none | datetime;
 DEFINE INDEX IF NOT EXISTS idx_teaches_unique ON teaches COLUMNS in, out, session_term UNIQUE;
+
+-- --- V12: the token cache (db/schema-v12-token-cache.surql, statement for statement) ---
+-- What the backend keeps of an account it has just validated a token for, so a page's burst of calls
+-- costs one Authentik round trip instead of a dozen. Mirrored here so a sandbox caches like prod
+-- does: without the table every request validates against the mock and nothing can observe a hit.
+DEFINE TABLE IF NOT EXISTS token_cache SCHEMAFULL PERMISSIONS NONE;
+DEFINE FIELD IF NOT EXISTS subject ON token_cache TYPE string;
+DEFINE FIELD IF NOT EXISTS identity ON token_cache TYPE string;
+DEFINE FIELD IF NOT EXISTS expires_at ON token_cache TYPE datetime;
+DEFINE FIELD IF NOT EXISTS created_at ON token_cache TYPE datetime DEFAULT time::now();
+DEFINE INDEX IF NOT EXISTS idx_token_cache_subject ON token_cache COLUMNS subject;
+DEFINE INDEX IF NOT EXISTS idx_token_cache_expiry ON token_cache COLUMNS expires_at;

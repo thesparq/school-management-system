@@ -20,6 +20,17 @@
 # from. `mock-groupless-token` stands for a login in no directory group (a student). The DEV_MODE
 # tokens (`dev-skip`, `dev-student`, `dev-teacher`) never reach this handler.
 #
+# A **JWT-shaped** bearer token is answered from its own claims instead, which is what a real
+# userinfo endpoint does with the access tokens it issued: `sub` names a login in this directory and
+# the answer is that login's `groups_obj` names, so a suite can mint a token for any login it has
+# (`{"sub": …, "exp": …}`) and watch what the directory says about it. Two states are refused the
+# way Authentik refuses them — an `exp` that has passed, and a login that is missing or has
+# `is_active` false — so a disabled account's token really stops working here. The signature is not
+# checked: this mock stands in for the decision, not for the cryptography.
+#
+# `GET /userinfo_calls` reports how many validations this endpoint has answered, so a suite can prove
+# the backend served a request from its token cache rather than asking again.
+#
 #   python3 tests/e2e/fixtures/mock_authentik_unique.py [port]
 #
 # The port defaults to 9000 and can also come from MOCK_AUTHENTIK_PORT, so several sandboxes can run
@@ -31,10 +42,12 @@
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+import base64
 import itertools
 import json
 import os
 import sys
+import time
 
 PORT = int(sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MOCK_AUTHENTIK_PORT', '9000'))
 USERS_PATH = '/api/v3/core/users/'
@@ -48,6 +61,7 @@ counter = itertools.count(1)
 pk_prefix = f"mock_uuid_{os.getpid()}"
 users = {}  # pk (as text) -> the login, exactly as the list endpoint returns it
 password_sets = {}  # pk -> the password the app asked to set (so tests can assert the call landed)
+userinfo_calls = 0  # how many validations the userinfo endpoint has answered
 
 
 def next_pk():
@@ -122,6 +136,49 @@ def bearer_token(handler):
     return header[len('Bearer '):] if header.startswith('Bearer ') else ''
 
 
+def jwt_claims(token):
+    """The claims of a JWT-shaped token, or None when the string is not one.
+
+    Only the payload is read. The signature is not checked: this mock stands in for the decision a
+    real endpoint makes about a token it issued, not for the cryptography behind that decision.
+    """
+    parts = token.split('.')
+    if len(parts) != 3:
+        return None
+    payload = parts[1] + '=' * (-len(parts[1]) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload.encode()).decode())
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return claims if isinstance(claims, dict) else None
+
+
+def claims_userinfo(token):
+    """The userinfo body a JWT-shaped token stands for, or None when it stands for nobody.
+
+    A token is honoured for a login the directory has and has not switched off, and only until its
+    `exp` — the two refusals a real endpoint makes. The body is the directory's, not the token's:
+    `groups` comes from the login's own group objects, which is what Authentik answers from too.
+    """
+    claims = jwt_claims(token)
+    if claims is None:
+        return None
+    sub = str(claims.get('sub') or '')
+    login = users.get(sub)
+    exp = claims.get('exp')
+    if not sub or login is None or not login['is_active']:
+        return None
+    if not isinstance(exp, (int, float)) or exp <= time.time():
+        return None
+    return {
+        'sub': sub,
+        'uid': sub,
+        'name': login.get('name') or claims.get('name', ''),
+        'email': login.get('email', ''),
+        'groups': [group['name'] for group in login.get('groups_obj', [])],
+    }
+
+
 def pk_of(path):
     # `/api/v3/core/users/<pk>/` -> `<pk>` as text; None for the collection path itself.
     if not path.startswith(USERS_PATH):
@@ -179,11 +236,18 @@ class MockHandler(BaseHTTPRequestHandler):
             self.send_header('Location', f"{redirect_uri}#access_token=dev-skip&expires_in=3600")
             self.end_headers()
         elif parsed.path.rstrip('/') == USERINFO_PATH.rstrip('/'):
-            body = userinfo.get(bearer_token(self))
+            global userinfo_calls
+            userinfo_calls += 1
+            token = bearer_token(self)
+            body = userinfo.get(token)
+            if body is None:
+                body = claims_userinfo(token)
             if body is None:
                 send(self, 401, {'detail': 'Invalid token.'})
             else:
                 send(self, 200, body, spaced=True)
+        elif parsed.path.rstrip('/') == '/userinfo_calls':
+            send(self, 200, {'count': userinfo_calls})
         elif parsed.path.rstrip('/') == '/password_sets':
             send(self, 200, password_sets)
         elif pk_of(parsed.path) is None and parsed.path.rstrip('/') == USERS_PATH.rstrip('/'):

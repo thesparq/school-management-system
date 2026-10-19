@@ -1484,6 +1484,76 @@ prod yet** — that is the one step left, and it is the file rather than a manua
 
 ---
 
+### The token cache — one validation per page boot, not one per request (2026-10-19)
+
+Every `/api` request validated its bearer token by calling Authentik's userinfo endpoint, which is a whole
+HTTPS round trip, and a page does not make one request: a dashboard boot fires about a dozen, the admin hub's
+lists fire four directory walks together, and `/api/users?role=` walks the whole directory a page at a time.
+So one page load paid for a dozen authoritative validations of the same token, and a fetch loop would have
+multiplied that straight into Authentik.
+
+**Why a store and not a map.** The platform hands `respond!` its `Context` **by value**, and `Server.Outcome`
+has no variant that carries an updated context back — so an app-level table cannot be held across requests at
+all; the only things the platform documents as retained are host-owned handles (`Sqlite.Db`,
+`Server.Readiness`). The cache therefore lives in a store the app already owns: SurrealDB, in a `token_cache`
+table (`db/schema-v12-token-cache.surql`).
+
+- **What is kept**: the body Authentik answered with, base64-encoded (a quote-free, backslash-free value, so
+the response scanner reads it back intact rather than a re-rendering of it), keyed by the token's SHA-256 —
+the table holds no live credentials, and the raw token is nowhere. The deadline is the earlier of now + 60
+seconds and the token's own `exp`, read by decoding the token's payload segment; a token whose `exp` cannot be
+read (the mock's fixed tokens, any non-JWT) is simply not cached, and a DEV_MODE token never reaches the
+validation path at all. A hit is indistinguishable from a miss because the stored body *is* the body the route
+would have been handed, and the role is still derived from it in the one place it is ever derived.
+- **Invalidation is pushed, where this backend owns the write.** Dropping a disabled account's entries is
+*not* an extra request: the disable already happens in this process (`DELETE /api/users` calls
+`Authentik.updateUser!`), so it is one more statement on the connection the handler is already holding. Four
+call sites, all of them writes that change what userinfo would answer about that login: the delete handler
+(with the profile hide, before the disable branches — so whichever branch the delete lands in, the cache is
+already gone), the reconciler's replay of an interrupted delete, the activate path (re-enabling counts too —
+the rule is the write, not "disable only"), and the update path when it carries a new email. **The TTL covers
+what this process cannot see**: someone disabled directly in Authentik's own UI, where 60 seconds is the
+backstop rather than the mechanism. That number is the one thing still open — it is the school's to pick
+(short enough to bite, long enough that a page's burst is one call).
+- **A miss always falls through to Authentik** — no entry, an expired one, a database that fails to answer, a
+table that was never created. The cache is never the reason a request fails, and a database without v12 runs
+exactly as before, one validation per request, which is what the startup line reports (`token cache: ready`
+/ `not usable — apply db/schema-v12-token-cache.surql`).
+
+**The bug the verification found, and it was silent.** `extract_number_field` read a numeric JSON field by
+keeping every digit anywhere in the value, so a token carrying a *fractional* `"exp": 1792407417.59` read as
+179240741759 — a second count from the year 1975 — and `time::from_unix` refused it as out of range. The
+UPSERT errored, nothing was ever cached, and every request still answered 200 (the write is best-effort by
+design, so the failure was invisible except as the latency it did not save). The rule is fixed rather than the
+one caller: a number is the digit run the value **begins** with — its whole-number part — not every digit the
+value contains. That reader is shared (`field_int!`: assessment weights, marks, resubmission counts; the
+school-number columns; the dashboard counts), and its other callers read integer fields, so one rule now
+covers them all. `users_api.sh` (95 checks, the school numbers), `assessment_flow.sh` (41) and
+`general_assessment_flow.sh` (56) are what stood behind that.
+
+**Verified** with `roc-frontend/tests/e2e/token_cache.sh` (new, 32 checks, driven through the mock's own
+validation counter and the database): three requests with one token cost one validation; the entry's id is the
+token's hash and its deadline sits inside the TTL; a delete drops the login's entries in the same call and the
+still-valid token is a 401 on its very next request; a re-enable drops them too (the next request validates
+again); an entry past its deadline is a miss; a token ten seconds from expiry gets ten seconds, not sixty; a
+token with no readable `exp` and a DEV_MODE token are never cached; a bogus token is still a 401; and with the
+table removed a request still works, validating every time. A genuine 60-second cycle was watched end to end
+(cached at 0s, hits at 20s and 40s, a fresh validation at 65s), and `matrix_token.sh` — which boots its own
+backend with **no database at all** — still passes 26/26, which is the fall-through rule doing its job. The
+rest of the sweep: `e2e_loading` 20/20, `e2e_admin` 16/16, `e2e_assessments` 17/17, `e2e_general_assessments`
+25/25, `e2e_user_roles` 18/18, `e2e_users_directory` 27/27, `e2e_notifications_lms` 26/26, `e2e_admin_config`
+54/55 (its documented caveat), `e2e_student` 7/7, `smoke_teacher_role` 9/9, `smoke_assignments_lms` 18/18,
+`e2e_nav_fixes` 6/6, `e2e_signout` 9/9, `e2e_auth_callback` 12/12, `authz.sh` 27/27, both render checks.
+
+**Applies to prod**: `db/schema-v12-token-cache.surql` needs applying, like v11 — the code is correct either
+way (without it every request validates, exactly as today) and the boot line says which it is. The sandbox
+fixture (`tests/e2e/fixtures/sandbox-schema.surql`) mirrors the statements, so a sandbox caches like prod, and
+the mock Authentik now answers a **JWT-shaped** token from its own claims (`{"sub": …, "exp": …}`, refused
+once `exp` has passed or the login is off) and reports `/userinfo_calls`, which is what makes a cache hit
+observable in a suite.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
@@ -1625,9 +1695,13 @@ prod yet** — that is the one step left, and it is the file rather than a manua
 - [x] `/api/student/assessments` without a `lesson_id` is scoped to the student's class now
 - [x] One current session term, enforced by the data (`db/schema-v11`), with the hub's toggle turned into a
   move
-- [ ] Rate limiting on the backend — designed but not built: per-**caller** buckets rather than per-IP,
-  because a school is usually one NAT address and a per-IP limit would lock out a whole classroom. Needs the
-  two numbers only the school can pick: requests per minute per account, and what the burst should be
+- [ ] Rate limiting on the backend — **dropped in favour of the token cache** (see the section above): the
+  gate in front of every route already bounds an anonymous caller to `/health` and the SPA fallback, there is
+  no login endpoint to brute-force (Authentik owns sign-in), and the real exposure — an authenticated client
+  looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
+  is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
+  only the school can pick: requests per minute per account, and the burst allowance
+- [ ] Apply `db/schema-v11-single-active-session-term.surql` and `db/schema-v12-token-cache.surql` to prod.
 - [ ] Cloud deployment configuration — Dokploy already builds from `Dockerfile.app` on push to `main`, so
   this is only worth keeping if something different is wanted
 

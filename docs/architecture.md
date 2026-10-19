@@ -25,7 +25,7 @@ roc-frontend/           app.roc (the SPA), State.roc (model/messages), *View.roc
                         www/index.html (the page's own JS: routing, forms, chat, assessments),
                         www/app.css → dist.css (Tailwind), build.roc (the Joy platform itself
                         comes by release-bundle URL from app.roc's header)
-db/schema-v2..v8.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
+db/schema-v2..v12.surql  the schema lineage. Versioned files, meant to be additive; v5 was never applied to
                         prod and is superseded by v8 (not replayable as it stands, see Storage model),
                         and v7 is the latest applied
 devops/                 the compose file (Dokploy), legacy/docker-compose.golem.yml, .env.example
@@ -38,9 +38,10 @@ Dockerfile.app          the deployment image: frontend bundle + backend binary
 
 - **Browser** — the SPA, its `index.html` logic, and the user's token. It talks to the backend at the same
   origin and to Authentik for login. No database credentials, no R2 secret, no service tokens live here.
-- **Backend** — the only thing that talks to SurrealDB, Authentik's admin API and R2. It validates every
-  request's bearer token against Authentik before any route does work, and holds all credentials in its
-  environment (`SURREAL_*`, `AUTHENTIK_*`, `R2_*`, plus `DEV_MODE`, `BIND_HOST`, `PORT`, `STATIC_DIR`).
+- **Backend** — the only thing that talks to SurrealDB, Authentik's admin API and R2. It decides who the
+  caller is before any route does work, validating the request's bearer token against Authentik and keeping
+  that answer for a short while (see Auth & access), and it holds all credentials in its environment
+  (`SURREAL_*`, `AUTHENTIK_*`, `R2_*`, plus `DEV_MODE`, `BIND_HOST`, `PORT`, `STATIC_DIR`).
 - **SurrealDB** — the school's data. Reached only by the backend, over HTTP Basic auth, with a URL that is
   in-cluster in production (`http://surrealdb:8000/sql`) and the public endpoint for clients outside.
 - **Authentik** — identity. Login happens in the browser; the backend only validates tokens and performs
@@ -54,6 +55,14 @@ Dockerfile.app          the deployment image: frontend bundle + backend binary
    **instance-wide** userinfo endpoint — `/application/o/userinfo/`, *not* `<issuer>userinfo` (that is a
    404 and would reject every real token; `AuthUrls.roc` derives it correctly, and
    `roc-frontend/tests/e2e/auth_config_check.cjs` checks a deployed origin against the real Authentik).
+   What that endpoint answered is then kept in `token_cache` (`db/schema-v12-token-cache.surql`) until the
+   earlier of 60 seconds and the token's own `exp`, so a page's burst of calls — a dashboard boot fires about
+   a dozen — costs one validation rather than one per request. Two rules make keeping it safe: this backend
+   drops a login's entries in the same call as any write of its own that changes what userinfo would answer
+   (disable, delete, re-enable, a new email — that is what makes a disable bite on the next request, not at
+   the end of the minute), and every miss — no entry, an entry past its deadline, a database that will not
+   answer, the table not created yet — falls through to Authentik, so the cache is never why a request
+   fails. `roc-frontend/tests/e2e/token_cache.sh` drives both halves against the mock's own counter.
 3. The caller's identity comes from the token (`sub`/`uid`, which is the Authentik `pk`), and its role from
    the `groups` claim — the frontend routes by that role, and **the backend enforces the same role per route**
    from one matrix in `roc-backend/main.roc`: `required_role` names what each route family needs —
@@ -77,7 +86,7 @@ file stale. What belongs here is the shape and the rules:
 - **Tables**: `subjects`, `class_levels`, `terms`, `session_term`, `lessons`, `lesson_content`, `has_subject`
   (a relation edge class_levels → subjects), `class_terms`, `teacher_assignment`, `student_profile`,
   `teacher_profile`, `parent_profile`, `admin_profile`, `lesson_assessments`, `general_assessments`,
-  `compositions`, `submissions`, `credentials`.
+  `compositions`, `submissions`, `credentials`, `token_cache`.
 - **Two divergences between the files and prod were harmless, and both are closed** (the files had declared
   more than prod, on unused tables): v3's `teaches` edge, and its `general_assessments.questions.*` sub-fields.
   *(Both were closed on 2026-10-05: the six `general_assessments.questions.*` statements were applied for the

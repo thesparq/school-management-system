@@ -14,6 +14,7 @@ import http.Response
 import http.Method
 import SurrealDB
 import Base64
+import Sha256
 import Url
 import R2
 import Golem
@@ -92,6 +93,9 @@ init! = || {
     # Settle anything a previous run left mid-operation before serving: the two-system journal
     # only self-heals when something looks at it.
     warn!(reconcile_pending!(ctx.surreal))
+    # Say whether the token cache is usable, once: a missing table costs a database round trip per
+    # request and caches nothing, which otherwise shows up only as latency.
+    warn!(token_cache_status!(ctx.surreal))
 
     Ok({
         config: Server.default_config.with_listen({ host: bind_host, port }),
@@ -224,20 +228,38 @@ surreal_literal = |text| {
         |> Str.replace_each("\r", " ")
 }
 
-# Read a numeric JSON field as text: extract_number_field(body, "iteration") == "3".
+# Read a numeric JSON field's whole-number part as text: extract_number_field(body, "iteration") ==
+# "3". The value is a JSON number, so its digit run ends where the number does — at the decimal point
+# of a fraction, or at the punctuation that closes the value. Digits are read from the start of the
+# value and nowhere else: a reader that keeps every digit it can find anywhere in the text answers a
+# number the body never said (this one read `"exp": 1792407417.59` as 179240741759, a count of
+# seconds from the year 1975).
 extract_number_field : Str, Str => Str
 extract_number_field = |json_str, field| {
     parts = Str.split_on(json_str, "\"${field}\":")
     match List.get(parts, 1) {
-        Ok(rest) => {
-            chunk = match List.first(Str.split_on(rest, ",")) { Ok(v) => v, Err(_) => rest }
-            digits = List.keep_if(Str.to_utf8(chunk), |byte| byte >= 48 and byte <= 57)
-            match Str.from_utf8(digits) {
-                Ok(text) => text
-                Err(_) => ""
-            }
-        }
+        Ok(rest) => digits_prefix(Str.trim(rest))
         Err(_) => ""
+    }
+}
+
+# The digits a JSON value begins with: its whole-number part. "123}72" -> "123", "123.59}" -> "123",
+# "\"12\"" -> "" (a value that is not a number is not read as one).
+digits_prefix : Str -> Str
+digits_prefix = |text| {
+    take = |remaining, out| match remaining {
+        [] => out
+        [byte, .. as rest] =>
+            if byte >= 48 and byte <= 57 {
+                take(rest, List.append(out, byte))
+            } else {
+                out
+            }
+    }
+
+    match Str.from_utf8(take(Str.to_utf8(text), [])) {
+        Ok(digits) => digits
+        Err(_) => "",
     }
 }
 
@@ -844,6 +866,9 @@ settle_delete! = |row, row_id, config| {
         Ok(table) => {
             # The profile may already be hidden; the update is idempotent either way.
             _ = db_body!("UPDATE ${record_ref!(id_val, table)} SET deleted_at = time::now();", config)
+            # A delete replayed by the reconciler is still a delete: the cached validations of that
+            # login go with it, exactly as they did in the handler the crash interrupted.
+            _ = forget_cached_identity!(bare_id(id_val), config)
             match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": false}") {
                 Ok(_) => {
                     _ = journal_done!(row_id, "login_disabled", config)
@@ -1503,6 +1528,14 @@ update_user_response! = |table, id_val, payload_raw, creating, clauses, config| 
     match auth_res {
         Err(message) => json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(message)}\"}"),
         Ok(_) => {
+            # A new address is part of the userinfo body this backend caches, so the moment one lands the
+            # entry for this login stops being what Authentik would answer about it.
+            if Str.is_empty(email) {
+                {}
+            } else {
+                _ = forget_cached_identity!(bare_id(id_val), config)
+            }
+
             profile_write =
                 if List.is_empty(clauses) {
                     # An update that changes no column of the row — a form save that only touched the
@@ -2450,6 +2483,146 @@ forbidden_response = |role, required| {
     json_response(403, "{\"error\":\"Forbidden: this route requires the ${required} role; your role is ${role}\"}")
 }
 
+# --- The token cache ---
+#
+# Every /api request validates its bearer token against Authentik's userinfo endpoint (`Authentik.roc`),
+# which is a whole HTTPS round trip. A page boot fires about a dozen API calls, so it pays for a dozen
+# authoritative validations of one token — and a token that validated a moment ago still validates. The
+# body Authentik answered with is therefore kept in SurrealDB (`db/schema-v12-token-cache.surql`) until a
+# deadline, and a request that finds it there skips the round trip.
+#
+# Strategy: **push invalidation where this backend owns the change, the TTL everywhere else.** An entry is
+# dropped the moment this backend changes what userinfo would answer about that login — disable, delete,
+# re-enable, a new email — because those writes happen in this same process: the drop is one more
+# statement in a handler that is already talking to the database, not an extra request and not a
+# callback. A change made directly in Authentik's own UI cannot be seen from here, and that is the one
+# thing `token_cache_seconds` is for: it bounds such a change. It is not what makes a disable take effect.
+#
+# Two rules keep the cache from changing an answer:
+#   - An entry never outlives its token: the deadline is the earlier of now + `token_cache_seconds` and
+#     the token's own `exp`, so an expired token cannot be served out of here. A token whose exp cannot be
+#     read is not cached at all.
+#   - A hit is indistinguishable from a miss: what is stored is the very body Authentik answered with,
+#     and the role is derived from that body in the one place it is ever derived (the call site below).
+#     Every miss — no entry, an expired entry, a database that fails to answer, a table not created yet —
+#     falls through to Authentik, so the cache is never the reason a request fails.
+#
+# The record id is the token's SHA-256, so this table holds no live credentials: reading it yields
+# nothing a session could be lifted out of. The raw token is never stored anywhere.
+
+# How long a validation is reused. Short enough that a change made outside this backend takes barely
+# longer to bite than the request that made it, long enough that one page's burst of calls (a boot fires
+# about a dozen) costs one validation instead of a dozen. `REMOVE TABLE token_cache` turns the cache off:
+# every lookup then misses (see the fall-through rule above) and the boot line says so.
+token_cache_seconds = 60
+
+# The cache key for a bearer token: its SHA-256 in hex.
+token_key : Str -> Str
+token_key = |token| Sha256.hex(Sha256.digest(Str.to_utf8(token)))
+
+# The `exp` claim of a JWT, in seconds since the epoch, read from the token's own payload. It is only
+# ever used to keep an entry from outliving the token, so a token that is not a JWT — or one whose claim
+# cannot be read — has no deadline to offer and is simply not cached.
+token_expiry! : Str => [Ok(U64), Err(Str)]
+token_expiry! = |token| {
+    match List.get(Str.split_on(token, "."), 1) {
+        Err(_) => Err("not a JWT"),
+        Ok(segment) =>
+            match Base64.decode(segment) {
+                Err(message) => Err(message),
+                Ok(claims) =>
+                    match U64.from_str(extract_number_field(claims, "exp")) {
+                        Ok(seconds) => Ok(seconds),
+                        Err(_) => Err("the token carries no readable exp"),
+                    },
+            },
+    }
+}
+
+# The body this backend last validated this exact token with, or an Err when there is nothing usable: no
+# entry, one past its deadline, a database that did not answer, a table not created yet. `db_body!` rather
+# than the retrying read on purpose — a cache read that fails is a miss, and the fallback costs exactly
+# what the request cost before the cache existed, so a retry would only add latency.
+cached_identity! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+cached_identity! = |token, config| {
+    query = "SELECT identity FROM ${record_ref!(token_key(token), "token_cache")} WHERE expires_at > time::now();"
+
+    match db_body!(query, config) {
+        Err(message) => Err(message),
+        Ok(body) => {
+            encoded = extract_field(body, "identity")
+
+            if Str.is_empty(encoded) {
+                Err("no cached identity")
+            } else {
+                Base64.decode(encoded)
+            }
+        }
+    }
+}
+
+# Keep a validated body until its deadline, and sweep the entries that reached theirs on the way past.
+# Best effort by construction: the caller was authorized by Authentik a moment ago, so a write that
+# fails leaves the request alone (it is one validation slower, not an error), and any row it would have
+# written expires on its own.
+cache_identity! : Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+cache_identity! = |token, identity, config| {
+    if Str.is_empty(identity) {
+        Err("there is nothing to cache")
+    } else {
+        match token_expiry!(token) {
+            Err(message) => Err(message),
+            Ok(exp) => {
+                subject = caller_id!(identity)
+                deadline = "time::min([time::now() + ${U64.to_str(token_cache_seconds)}s, time::from_unix(${U64.to_str(exp)})])"
+                store = "UPSERT ${record_ref!(token_key(token), "token_cache")} SET subject = '${surreal_literal(subject)}', identity = '${Base64.encode(identity)}', expires_at = ${deadline}, created_at = time::now();"
+                sweep = "DELETE FROM token_cache WHERE expires_at < time::now();"
+
+                db_body!("${store} ${sweep}", config)
+            }
+        }
+    }
+}
+
+# Forget every cached validation of one login, so the next request with any of its tokens asks Authentik
+# again. Called beside every write this backend makes that changes what userinfo would answer about that
+# login — disable, delete, re-enable, a new email — because a change made here has to bite on the next
+# request, not at the end of the TTL. It never fails the operation it follows: that write already
+# happened, and an entry left behind expires on its own.
+forget_cached_identity! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+forget_cached_identity! = |subject, config| {
+    db_body!("DELETE FROM token_cache WHERE subject = '${surreal_literal(bare_id(subject))}';", config)
+}
+
+# The body behind a bearer token: the cache when this backend validated the same token a moment ago,
+# otherwise Authentik, whose answer is then kept for the next one. Both paths hand the caller the same
+# thing — the body Authentik answered with — so the role is derived from it once, where this is called.
+validated_identity! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+validated_identity! = |token, config| {
+    match cached_identity!(token, config) {
+        Ok(identity) => Ok(identity),
+        Err(_) =>
+            match Authentik.validateToken!(token) {
+                Ok(identity) => {
+                    _ = cache_identity!(token, identity, config)
+                    Ok(identity)
+                }
+                Err(message) => Err(message),
+            },
+    }
+}
+
+# Whether the cache's table answers, for the startup log. A cache that is not there costs a database round
+# trip per request and caches nothing, so say so once at boot — the reconciler prints its summary for the
+# same reason — instead of leaving it to be discovered from the latency.
+token_cache_status! : SurrealDB.Config => Str
+token_cache_status! = |config| {
+    match db_body!("SELECT id FROM token_cache LIMIT 1;", config) {
+        Ok(_) => "token cache: ready",
+        Err(_) => "token cache: not usable — apply db/schema-v12-token-cache.surql (a database still starting clears this); every request validates against Authentik until it is",
+    }
+}
+
 # --- Main request handler ---
 
 # The request target as the handlers match on it: the resource path plus its query string
@@ -2497,9 +2670,12 @@ respond! = |request, context| {
                     if context.dev_mode and List.contains(dev_tokens, token) {
                         Ok({ body: dev_token_body(token), role: dev_token_role(token) })
                     } else {
-                        match Authentik.validateToken!(token) {
-                            Ok(body) => Ok({ body, role: role_from_groups!(body) })
-                            Err(e) => Err(e)
+                        # The cache first: a token this backend validated a moment ago is answered from
+                        # SurrealDB instead of Authentik, and any miss — including a database that will
+                        # not answer — falls through to the one authority, which then fills the cache.
+                        match validated_identity!(token, context.surreal) {
+                            Ok(body) => Ok({ body, role: role_from_groups!(body) }),
+                            Err(message) => Err(message),
                         }
                     }
                 Err(e) => Err(e)
@@ -3616,6 +3792,11 @@ respond! = |request, context| {
                                             }
                                             Ok(body) => {
                                                 _ = journal_mark!(row_id, "profile_hidden", context.surreal)
+                                                # The account is being taken away: let go of what is cached
+                                                # about it here, with the profile hide, so the login stops
+                                                # being served from the cache on its very next request —
+                                                # whichever of the disable branches below this lands in.
+                                                _ = forget_cached_identity!(bare_id(id_val), context.surreal)
                                                 # A profile row can exist with no login behind it (a legacy or
                                                 # directory-mismatched account): for such a row the profile hide
                                                 # IS the whole delete, and the disable step below would answer a
@@ -3691,7 +3872,14 @@ respond! = |request, context| {
                                     Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                                     Ok(_) =>
                                         match Authentik.updateUser!(bare_id(id_val), "{\"is_active\": true}") {
-                                            Ok(_) => Ok(json_response(200, "{\"restored\":\"${sanitize_json_text(id_val)}\"}")),
+                                            Ok(_) => {
+                                                # Re-enabling changes what userinfo answers about this login,
+                                                # so its cached validations go too: the rule is "a write that
+                                                # changes whether a login can sign in drops its entries", not
+                                                # "disable only".
+                                                _ = forget_cached_identity!(bare_id(id_val), context.surreal)
+                                                Ok(json_response(200, "{\"restored\":\"${sanitize_json_text(id_val)}\"}"))
+                                            },
                                             Err(message) => Ok(json_response(502, "{\"error\":\"The profile is restored, but the login could not be re-enabled in Authentik\",\"detail\":\"${sanitize_json_text(message)}\"}")),
                                         }
                                 }
