@@ -154,8 +154,11 @@ Model : {
 	newTermSortOrder : Str,
 	newSubjectName : Str,
 	newSubjectCode : Str,
-	newClassLevelName : Str,
-	newClassLevelCode : Str,
+	        newClassLevelName : Str,
+	        newClassLevelCode : Str,
+	        # Which stage of school the new class level is (primary / junior / senior), or "" for none: the
+	        # lesson generator reads this to write senior lessons as senior lessons.
+	        newClassLevelTier : Str,
 	newSessionTermName : Str,
 	newSessionTermTerm : Str,
 	newCurriculumClassLevel : Str,
@@ -168,9 +171,12 @@ Model : {
 	# its own values in the order its fetched line carries them (e.g. for a term name, sort
 	# order, —; for a session term name, term link). The section's update call names them.
 	editId : Str,
-	editField1 : Str,
-	editField2 : Str,
-	editField3 : Str,
+	    editField1 : Str,
+	    editField2 : Str,
+	    editField3 : Str,
+	    # The fourth editable column a row can carry: a class level's stage (`tier`). Every other section's
+	    # editor uses one to three fields, and the unused ones sit empty.
+	    editField4 : Str,
 	# The teacher's own class-subject pairs (My Classes cards), the full catalog fed to the Assign
 	# dialog and the admin LMS, and one teacher's current pairs (the dialog's badges).
 	teacherClassesData : Str,
@@ -318,8 +324,9 @@ Msg : [
 	UpdateNewTermSortOrder(Str),
 	UpdateNewSubjectName(Str),
 	UpdateNewSubjectCode(Str),
-	UpdateNewClassLevelName(Str),
-	UpdateNewClassLevelCode(Str),
+	        UpdateNewClassLevelName(Str),
+	        UpdateNewClassLevelCode(Str),
+	        UpdateNewClassLevelTier(Str),
 	UpdateNewSessionTermName(Str),
 	UpdateNewSessionTermTerm(Str),
 	UpdateNewCurriculumClassLevel(Str),
@@ -328,9 +335,10 @@ Msg : [
 	ConfigCreateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	StartConfigEdit(Str),
 	CancelConfigEdit,
-	UpdateEditField1(Str),
-	UpdateEditField2(Str),
-	UpdateEditField3(Str),
+	        UpdateEditField1(Str),
+	        UpdateEditField2(Str),
+	        UpdateEditField3(Str),
+	        UpdateEditField4(Str),
 	SubmitConfigUpdate(AdminConfigTab),
 	ConfigUpdateCompleted(AdminConfigTab, Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	ToggleConfigActive(AdminConfigTab, Str, Bool),
@@ -554,8 +562,9 @@ init = |flags| {
 		newTermSortOrder: "",
 		newSubjectName: "",
 		newSubjectCode: "",
-		newClassLevelName: "",
-		newClassLevelCode: "",
+		                newClassLevelName: "",
+		                newClassLevelCode: "",
+		                newClassLevelTier: "",
 		newSessionTermName: "",
 		newSessionTermTerm: "",
 		newCurriculumClassLevel: "",
@@ -564,9 +573,10 @@ init = |flags| {
 		isConfigSubmitting: Bool.False,
 		configSubmitResult: None,
 		editId: "",
-		editField1: "",
-		editField2: "",
-		editField3: "",
+		            editField1: "",
+		            editField2: "",
+		            editField3: "",
+		            editField4: "",
 		teacherClassesData: "",
 		subjectPairsData: "",
 		teacherAssignmentsData: "",
@@ -726,7 +736,7 @@ config_create_call = |model, tab| {
 			"{\"name\":\"${model.newTermName}\"${sort_clause}}"
 		}
 		Subjects => "{\"name\":\"${model.newSubjectName}\",\"code\":\"${model.newSubjectCode}\"}"
-		ClassLevels => "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"}"
+		                ClassLevels => "{\"name\":\"${model.newClassLevelName}\",\"code\":\"${model.newClassLevelCode}\"${new_tier_field(model.newClassLevelTier)}}"
 		SessionTerms => "{\"session_name\":\"${model.newSessionTermName}\",\"term\":\"${model.newSessionTermTerm}\"}"
 		Curriculum => "{\"class_level\":\"${model.newCurriculumClassLevel}\",\"subject\":\"${model.newCurriculumSubject}\"}"
 		Credentials => "{\"name\":\"${model.newCredentialName}\"}"
@@ -763,7 +773,7 @@ config_update_call = |model, tab| {
 	payload = match tab {
 		Terms => "${id_field}${json_text_field("name", model.editField1)}${json_number_field("sort_order", model.editField2)}}"
 		Subjects => "${id_field}${json_text_field("name", model.editField1)}${json_text_field("code", model.editField2)}}"
-		ClassLevels => "${id_field}${json_text_field("name", model.editField1)}${json_text_field("code", model.editField2)}${json_text_field("age_range", model.editField3)}}"
+		            ClassLevels => "${id_field}${json_text_field("name", model.editField1)}${json_text_field("code", model.editField2)}${json_text_field("age_range", model.editField3)}${tier_clause(model.editField4)}}"
 		SessionTerms => "${id_field}${json_text_field("session_name", model.editField1)}${json_text_field("term", model.editField2)}}"
 		# A curriculum link has no editable column — it is linked or not — so the views only ever
 		# offer its toggle; this branch keeps the match exhaustive.
@@ -775,9 +785,30 @@ config_update_call = |model, tab| {
 	{ endpoint: config_endpoint(tab), payload }
 }
 
+# The class level's stage in an update payload. "Not set" reaches the backend as the word `none`, which
+# it writes as NONE (the column's empty value, `db/schema-v13`); an empty string means the editor never
+# touched it, so the patch leaves the column alone.
+tier_clause = |value| {
+	if Str.is_empty(value) {
+		""
+	} else {
+		",\"tier\":\"${value}\""
+	}
+}
+
+# The stage of a *new* class level: "Not set" and the untouched form both mean the row is created without
+# one (the column allows NONE), so neither sends a value.
+new_tier_field = |value| {
+	if Str.is_empty(value) or value == "none" {
+		""
+	} else {
+		",\"tier\":\"${value}\""
+	}
+}
+
 # Leaving edit mode, after a save or a cancel. Only one row is open at a time.
 config_edit_cleared = |model| {
-	{ ..model, editId: "", editField1: "", editField2: "", editField3: "" }
+	    { ..model, editId: "", editField1: "", editField2: "", editField3: "", editField4: "" }
 }
 
 # A successful create clears only its own form.
@@ -785,7 +816,7 @@ config_form_cleared = |model, tab| {
 	match tab {
 		Terms => { ..model, newTermName: "", newTermSortOrder: "" }
 		Subjects => { ..model, newSubjectName: "", newSubjectCode: "" }
-		ClassLevels => { ..model, newClassLevelName: "", newClassLevelCode: "" }
+		        ClassLevels => { ..model, newClassLevelName: "", newClassLevelCode: "", newClassLevelTier: "" }
 		SessionTerms => { ..model, newSessionTermName: "", newSessionTermTerm: "" }
 		Curriculum => { ..model, newCurriculumClassLevel: "", newCurriculumSubject: "" }
 		Credentials => { ..model, newCredentialName: "" }
@@ -1188,8 +1219,9 @@ update = |model, msg|
 		UpdateNewTermSortOrder(s) => ({ ..model, newTermSortOrder: s }, [])
 		UpdateNewSubjectName(s) => ({ ..model, newSubjectName: s }, [])
 		UpdateNewSubjectCode(s) => ({ ..model, newSubjectCode: s }, [])
-		UpdateNewClassLevelName(s) => ({ ..model, newClassLevelName: s }, [])
-		UpdateNewClassLevelCode(s) => ({ ..model, newClassLevelCode: s }, [])
+		                UpdateNewClassLevelName(s) => ({ ..model, newClassLevelName: s }, [])
+		                UpdateNewClassLevelCode(s) => ({ ..model, newClassLevelCode: s }, [])
+		                UpdateNewClassLevelTier(s) => ({ ..model, newClassLevelTier: s }, [])
 		UpdateNewSessionTermName(s) => ({ ..model, newSessionTermName: s }, [])
 		UpdateNewSessionTermTerm(s) => ({ ..model, newSessionTermTerm: s }, [])
 		UpdateNewCurriculumClassLevel(s) => ({ ..model, newCurriculumClassLevel: s }, [])
@@ -1245,17 +1277,21 @@ update = |model, msg|
 				{
 					..model,
 					editId: config_part(parts, 0),
-					editField1: config_part(parts, 1),
-					editField2: config_part(parts, 2),
-					editField3: config_part(parts, 3),
+					                    editField1: config_part(parts, 1),
+					                    editField2: config_part(parts, 2),
+					                    editField3: config_part(parts, 3),
+					                    # A class level's line carries its stage last (`id|name|code|age_range|active|tier`);
+					                    # every other row's line is shorter and this reads "".
+					                    editField4: config_part(parts, 5),
 				},
 				[]
 			)
 		}
 		CancelConfigEdit => (config_edit_cleared(model), [])
-		UpdateEditField1(s) => ({ ..model, editField1: s }, [])
-		UpdateEditField2(s) => ({ ..model, editField2: s }, [])
-		UpdateEditField3(s) => ({ ..model, editField3: s }, [])
+		            UpdateEditField1(s) => ({ ..model, editField1: s }, [])
+		            UpdateEditField2(s) => ({ ..model, editField2: s }, [])
+		            UpdateEditField3(s) => ({ ..model, editField3: s }, [])
+		            UpdateEditField4(s) => ({ ..model, editField4: s }, [])
 		SubmitConfigUpdate(tab) => {
 			call = config_update_call(model, tab)
 			req = {

@@ -955,6 +955,23 @@ config_labeled_select = |label, select_id, options, to_msg| {
 	])
 }
 
+# The same, with the chosen value set on the control: the stage picker has to show what is actually
+# chosen ("Not set" reads as the empty string here) rather than the browser's first option.
+config_labeled_select_value = |label, select_id, value, options, to_msg| {
+	Html.div([Attribute.class("space-y-2")], [
+		UI.label({ classes: "" }, [Html.text(label)]),
+		Html.div([Attribute.class("relative")], [
+			Html.select([
+				Attribute.class(config_select_classes),
+				Attribute.id(select_id),
+				Attribute.value(value),
+				Attribute.on_change(to_msg)
+			], options),
+			Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
+		])
+	])
+}
+
 config_select_classes = "w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 appearance-none"
 
 # A select in an open editor: the cell has no label (the table header names the column), and it
@@ -1809,23 +1826,34 @@ terms_row = |model, line| {
 # --- Class Levels ---
 
 class_levels_config_view = |model| {
-	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); a deactivated level stays listed so it can be switched back on.", [
+	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); a deactivated level stays listed so it can be switched back on. The stage says which part of the school a level is (primary, junior, senior) and is what lessons are written for: a senior class gets exam-level lessons, a junior one does not.", [
 		config_form_row([
 			config_labeled_input("Class level name", "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
 			config_labeled_input("Code", "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
+			config_labeled_select_value("Stage", "new-class-level-tier-select", if Str.is_empty(model.newClassLevelTier) { "none" } else { model.newClassLevelTier }, config_stage_options, |s| UpdateNewClassLevelTier(s)),
 		], config_submit_button(model, ClassLevels, "Create Class Level")),
 		config_create_banner(model),
-		config_table(["Class level", "Code", "Age range", "Status", "Actions"], class_levels_rows(model))
+		config_table(["Class level", "Code", "Age range", "Stage", "Status", "Actions"], class_levels_rows(model))
 	])
 }
 
+# The stage a class level can carry, as the picker's options. "none" is the empty choice the column
+# accepts (`db/schema-v13` allows NONE): a level nobody has classified yet. The chosen option is set on the
+# `<select>` itself (its `value`), so the options do not mark one.
+config_stage_options = [
+	Html.option([Attribute.value("none")], [Html.text("Not set")]),
+	Html.option([Attribute.value("primary")], [Html.text("Primary")]),
+	Html.option([Attribute.value("junior")], [Html.text("Junior")]),
+	Html.option([Attribute.value("senior")], [Html.text("Senior")]),
+]
+
 class_levels_rows = |model| {
 	match list_state(model.classLevelsData) {
-		Pending => UI.table_skeleton_rows(["w-40", "w-16", "w-24", "w-20", "w-24"])
-		Failed(message) => [UI.table_error_state(5, "Could not load the class levels", message, Click(RetryList("/api/class_levels?all=true")))]
+		Pending => UI.table_skeleton_rows(["w-40", "w-16", "w-24", "w-20", "w-20", "w-24"])
+		Failed(message) => [UI.table_error_state(6, "Could not load the class levels", message, Click(RetryList("/api/class_levels?all=true")))]
 		Ready(rows) =>
 			if List.is_empty(rows) {
-				[UI.table_empty_state(5, "folder", "No class levels yet", "Create the first one above.")]
+				[UI.table_empty_state(6, "folder", "No class levels yet", "Create the first one above.")]
 			} else {
 				List.map(rows, |line| class_levels_row(model, line))
 			}
@@ -1836,12 +1864,14 @@ class_levels_row = |model, line| {
 	parts = Str.split_on(line, "|")
 	id = config_field(parts, 0, "")
 	is_active = config_field(parts, 4, "true") == "true"
+	tier = config_field(parts, 5, "")
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
 			config_edit_cell(config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
 			config_edit_cell(config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
 			config_edit_cell(config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
+			config_edit_cell(config_row_select("edit-class-level-tier-select", if Str.is_empty(model.editField4) { "none" } else { model.editField4 }, config_stage_options, |s| UpdateEditField4(s))),
 			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, ClassLevels)
 		])
@@ -1850,10 +1880,36 @@ class_levels_row = |model, line| {
 			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Class level"))]),
 			UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(config_field(parts, 2, "—"))]),
 			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_field(parts, 3, "—"))]),
+			UI.table_cell({ classes: "" }, [config_stage_badge(tier)]),
 			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
 			config_row_actions(model, ClassLevels, line, id, is_active)
 		])
 	}
+}
+
+# A level's stage in the table: the word, or a dash when nobody has set one.
+config_stage_badge = |tier| {
+	if Str.is_empty(tier) {
+		Html.span([Attribute.class("text-muted-foreground text-xs")], [Html.text("—")])
+	} else {
+		Html.span([
+			Attribute.class(
+				if tier == "senior" {
+					"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary"
+				} else {
+					"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
+				}
+			)
+		], [Html.text(tier_label(tier))])
+	}
+}
+
+# The word for a stage, capitalised: the column stores lowercase so the database's assert stays simple.
+tier_label = |tier| match tier {
+	"primary" => "Primary"
+	"junior" => "Junior"
+	"senior" => "Senior"
+	_ => tier
 }
 
 # --- Curriculum ---

@@ -105,11 +105,15 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   const levelName = `JSS 4 ${stamp % 100000}`;
   await fill('e.g. JSS 4', levelName);
   await fill('e.g. jss_4', `jss4_${stamp % 100000}`);
+  // The stage is what lessons are written for (a senior class gets exam-level lessons), so the form has
+  // to be able to set it — and the list has to show what was set.
+  await page.selectOption('#new-class-level-tier-select', 'junior');
   await page.click('button:has-text("Create Class Level")');
   await page.waitForSelector('text=Class level created', { timeout: 20000 }).catch(() => {});
   check('created class level reports success', await hasText('Class level created'));
   await page.waitForSelector(`text=${levelName}`, { timeout: 20000 }).catch(() => {});
   check('created class level appears in the list', await rowHas(levelName, `jss4_${stamp % 100000}`));
+  check('and shows the stage it was created with', await rowHas(levelName, 'Junior'));
 
   // --- Subjects: seeded rows and a create ---
   await tab('Subjects');
@@ -213,11 +217,15 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   check('a class level row opens with all three of its columns', await levelEditor.locator('input').count() === 3);
   await levelEditor.locator('input[placeholder="Class level name"]').fill(editedLevelName);
   await levelEditor.locator('input[placeholder="Age range"]').fill('13-14 years');
+  // The fourth editable column is the stage, a select rather than an input (so the "three columns"
+  // check above still counts three inputs).
+  await levelEditor.locator('#edit-class-level-tier-select').selectOption('primary');
   await levelEditor.locator('button:has-text("Save")').click();
   await page.waitForSelector('text=Class level updated', { timeout: 20000 }).catch(() => {});
   check('saving a class level edit reports success', await hasText('Class level updated'));
   await page.waitForSelector(`text=${editedLevelName}`, { timeout: 20000 }).catch(() => {});
   check('the edited class level shows its new name and age range', await rowHas(editedLevelName, '13-14 years'));
+  check('and its new stage', await rowHas(editedLevelName, 'Primary'));
 
   // --- A subject: deactivating takes it off the active-only list without removing the row --------
   await tab('Subjects');

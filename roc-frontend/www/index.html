@@ -655,7 +655,9 @@
     }
 
     function formatClassLevels(data) {
-        return unwrapRows(data).map(c => (c.id || "") + "|" + (c.name || "Unknown") + "|" + (c.code || "") + "|" + (c.age_range || "") + "|" + (c.active !== false));
+        // `id|name|code|age_range|active|tier`: the stage is last so every existing reader of the
+        // shorter line keeps its indices, and the hub's Class Levels row reads it there.
+        return unwrapRows(data).map(c => (c.id || "") + "|" + (c.name || "Unknown") + "|" + (c.code || "") + "|" + (c.age_range || "") + "|" + (c.active !== false) + "|" + (c.tier || ""));
     }
 
     function formatCurriculum(data) {

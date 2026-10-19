@@ -1855,6 +1855,13 @@ config_text_clause! = |field, payload_raw| {
     }
 }
 
+# A class level's stage: the column takes `primary` / `junior` / `senior` or NONE, and `"none"` is how
+# the hub's "Not set" arrives (it has to be able to take a stage away again).
+valid_tier : Str => Bool
+valid_tier = |value| {
+    Str.is_empty(value) or value == "none" or value == "primary" or value == "junior" or value == "senior"
+}
+
 # The response for a lookup-table update. `clauses` holds the SET entries the payload produced;
 # when it produced none there is nothing to write, so the 400 names the columns the table takes.
 # db_response! answers 500 with the statement's own message when the write is rejected (a duplicate
@@ -2810,9 +2817,11 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/class_levels") {
                     # ?all=true is the hub's view: a deactivated level stays listed so it can be
                     # edited or switched back on. Everyone else gets the active levels only.
-                    # Ordered by the school's own stage order (see `class_stage_rank`).
+                    # Ordered by the school's own stage order (see `class_stage_rank`), and `tier` itself
+                    # rides along in both selects: the hub shows it as the Stage column and edits it
+                    # (`db/schema-v13`), so it has to be part of what the list answers.
                     scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
-                    query = "SELECT id, name, code, age_range, active FROM (SELECT id, name, code, age_range, active, ${class_stage_rank("tier")} AS class_rank FROM class_levels${scope}) ORDER BY class_rank, name;"
+                    query = "SELECT id, name, code, age_range, active, tier FROM (SELECT id, name, code, age_range, active, tier, ${class_stage_rank("tier")} AS class_rank FROM class_levels${scope}) ORDER BY class_rank, name;"
                     res = SurrealDB.query_read!(query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
@@ -2824,24 +2833,33 @@ respond! = |request, context| {
 
                     level_name = extract_field(payload_raw, "name")
                     level_code = extract_field(payload_raw, "code")
+                    level_tier = extract_field(payload_raw, "tier")
                     if Str.is_empty(level_name) {
                         Ok(json_response(400, "{\"error\":\"name is required\"}"))
                     } else if Str.is_empty(level_code) {
                         Ok(json_response(400, "{\"error\":\"code is required\"}"))
+                    } else if !valid_tier(level_tier) {
+                        Ok(json_response(400, "{\"error\":\"tier must be primary, junior or senior\"}"))
                     } else {
                         Ok(db_response!("CREATE class_levels CONTENT ${safe_payload};", context.surreal))
                     }
                 } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/class_levels" {
                     payload_raw = read_body!(request)
-                    clauses = List.keep_if(
-                        [
-                            config_text_clause!("name", payload_raw),
-                            config_text_clause!("code", payload_raw),
-                            config_text_clause!("age_range", payload_raw),
-                        ],
-                        |clause| !Str.is_empty(clause),
-                    )
-                    Ok(config_update_response!("class_levels", clauses, extract_field(payload_raw, "id") |> sanitize, "name, code or age_range", context.surreal))
+                    tier_value = extract_field(payload_raw, "tier") |> sanitize
+                    if !valid_tier(tier_value) {
+                        Ok(json_response(400, "{\"error\":\"tier must be primary, junior or senior\"}"))
+                    } else {
+                        clauses = List.keep_if(
+                            [
+                                config_text_clause!("name", payload_raw),
+                                config_text_clause!("code", payload_raw),
+                                config_text_clause!("age_range", payload_raw),
+                                if Str.is_empty(tier_value) { "" } else if tier_value == "none" { "tier = NONE" } else { "tier = '${tier_value}'" },
+                            ],
+                            |clause| !Str.is_empty(clause),
+                        )
+                        Ok(config_update_response!("class_levels", clauses, extract_field(payload_raw, "id") |> sanitize, "name, code, age_range or tier", context.surreal))
+                    }
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/class_levels/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("class_levels", payload_raw, context.surreal))
