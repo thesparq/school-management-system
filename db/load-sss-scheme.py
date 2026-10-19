@@ -232,8 +232,8 @@ def main():
     for pair in args.terms:
         if '=' not in pair:
             raise SystemExit(f"--terms wants Term=record, got {pair!r}")
-        term, wanted = pair.split('=', 1)
-        asked[term.strip().title()] = wanted if wanted.startswith('terms:') else f'terms:{slugify(wanted)}'
+        term, target = pair.split('=', 1)
+        asked[term.strip().title()] = target if target.startswith('terms:') else f'terms:{slugify(target)}'
     term_ids, term_orders = {}, {}
     for order, term in enumerate(('First', 'Second', 'Third'), start=1):
         if term in asked:

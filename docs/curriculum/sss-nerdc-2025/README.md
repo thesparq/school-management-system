@@ -130,43 +130,66 @@ A senior lesson body carries equations, and the app now renders them instead of 
   equation with the subscripts and superscripts in place.
 
 
-## Loading it (the script, and what it wrote on the sandbox)
+## Loading it — **applied to prod on 2026-10-19**
 
 `db/load-sss-scheme.py` turns `schemes.json` into rows. Order, and every step is skipped when the row is
 already there, so a re-run is a no-op:
 
 1. **subjects** — one per subject under a readable id (`subjects:chemistry`); an existing subject of the
-   same name is reused (Agricultural Science already is).
+   same name is reused. On prod six were already there (English Language, History, Christian Religious
+   Studies, Agricultural Science, Computer Studies, Geography), so the load created twelve.
 2. **has_subject** — the curriculum edge from each senior class to each subject: 18 × 3 = 54, because the
    school's answer was "all subjects for all classes".
-3. **terms** — the scheme says First/Second/Third; the school's own term rows have its own names, so
-   `--terms Second=terms:summer_term` says which record a scheme term means (`terms:first_term` and
-   friends are created when nothing matches).
+3. **terms** — the scheme says First/Second/Third; the school's own rows are `noel_term`, `calvary_term`,
+   `summer_term`, mapped by `--terms First=terms:noel_term --terms Second=terms:calvary_term
+   --terms Third=terms:summer_term`. The loader numbers the term part of a slug from the record's own
+   `sort_order` (t1/t2/t3), and creates `terms:first_term` and friends only when nothing in the database
+   matches.
 4. **lessons** — one per **teaching** week (1,096 of the 1,746), `topic_title` and `context` from the
-   file, `content` left empty for the generator, `slug` = `<subject>-<class>-<term>-w<week>`.
-   `--include-non-teaching` also makes rows for midterm/break/revision/exam weeks.
+   file, `content` empty and `generated` false ("awaiting generation"), `slug` in the school's own
+   convention (below). `--include-non-teaching` also makes rows for midterm/break/revision/exam weeks.
 
-On the sandbox it ran clean: 54 edges, 3 terms, 1,096 lessons, then `0 to create` on the second run, and a
-sample row read back as *SSS 1 · Chemistry · First Term · week 1 · "Introduction to Chemistry"* with the
-outline `"Definition, history, branches, and importance of chemistry"`.
+**The slug convention is read from the database being written to**, not assumed:
+`y<class><subject>-t<term>-w<week>-<topic>`, e.g. `y9-chm-t1-w1-introduction-to-chemistry`. Prod's own
+lessons gave the class numbers (Year 1-5 = `y1`-`y5`, JSS 1-3 = `y6`-`y8`, so SSS 1-3 = `y9`-`y11`) and the
+subject abbreviations (`ict` for Computer Studies, `crs` for Christian Religious Studies, `chm` and `fmt`
+for the new ones); the fallbacks are the ladder in `YEAR_LADDER` and the subject's own code.
 
 ```sh
-python3 db/schema-v13-class-tier.surql                       # via the usual /sql call, or Dokploy's own step
-python3 db/load-sss-scheme.py --dry-run                      # what it would write
-python3 db/load-sss-scheme.py --terms First=terms:noel_term  # the real run
+# against the sandbox (what the checks use)
+python3 db/load-sss-scheme.py --dry-run
+
+# against prod — the public endpoint, the school's own credentials from Infisical, their three terms
+infisical run --env=prod --silent -- python3 db/load-sss-scheme.py \
+  --url https://db2.johnethel.school/sql --user "$SURREAL_DB_USERNAME" --pass "$SURREAL_DB_PASSWORD" \
+  --ns main --db lessons \
+  --terms First=terms:noel_term --terms Second=terms:calvary_term --terms Third=terms:summer_term --dry-run
 ```
 
-**The sandbox was reset afterwards, deliberately**: the loader's 1,096 lessons change what an unscoped
-lesson list returns, and `e2e_assessments.cjs` picks the fixture lesson by name from that list. The tier
-(and the three senior class levels) stayed, because they change nothing else. Run the loader whenever the
-senior data is wanted.
+### What prod holds now (2026-10-19)
 
-**One thing the load surfaced — `LIMIT 50` with no tie-break.** `/api/teacher/lessons` (the picker's list)
-answers `ORDER BY week LIMIT 50`. With ~1,100 lessons in the database, "week 1" alone fills the whole page,
-the rows that come back are whatever the database returns first, and a teacher's own list (assignments ×
-terms × weeks) can exceed 50 and quietly lose entries. The LMS drill-down is unaffected (it passes
-class/subject/term), so this only bites the unprefixed picker. Worth a follow-up: order by something total
-(subject, then week) and give the picker a search or a term step rather than a silent cap.
+| | Before | After |
+|---|---|---|
+| class levels | 8 (`jss_1-3`, `year_1-5`) | **11** — SSS 1-3 added, `tier = 'senior'`; the JSS rows `junior`, the year rows `primary` |
+| subjects | 23 | **35** |
+| `has_subject` edges | 127 (181 − the 54 this load made) | **181** |
+| lessons | 3,413 | **4,509** (1,096 senior; `generated = false` on all of them, `content` empty) |
+| awaiting generation | 529 | **1,625** |
+| schema | v11 | v11 + **v12** (`token_cache`) + **v13** (`tier` + the three classes) |
+
+Read back from an SSS 1 Chemistry week 1 row: `slug y9-chm-t1-w1-introduction-to-chemistry`, term *Noel
+Term*, `context "Definition, history, branches, and importance of chemistry"`, `generated false`, `version
+1`. The 27 Chemistry lessons across SSS 1's three terms are weeks 1, 2, 3, 4, 6, 8, 9, 10, 11 — the scheme's
+own teaching weeks, with its midterm, break and examination weeks left out.
+
+The write took **11m17s** for 1,162 statements, because the loader sends one statement per request to keep
+per-statement errors honest. Batching them (the endpoint takes several statements per call) is the obvious
+speed-up if the scheme is ever reloaded; correctness did not need it.
+
+**Two bugs only the prod run could catch**, both fixed: the `--terms` parser rebound the `wanted` list
+(so the run died with `KeyError: 't'` the first time the flag was ever used — no sandbox run passed it),
+and the slugs had to be brought onto the school's convention after reading theirs.
+
 
 
 ## Also extracted, but not asked for

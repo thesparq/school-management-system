@@ -1618,8 +1618,25 @@ Two things that read back from prod changed the plan before anything was written
   declares them, field-for-field with prod.
 
 The load was re-run on the sandbox with the corrected field (`context`, `generated` false, `version` 1 on a
-sample row) and removed again afterwards; the sandbox keeps the schema and the tier. Prod write is the next
-step and needs the school's go-ahead: v12, v13, then the loader with its three terms, dry run first.
+sample row) and removed again afterwards; the sandbox keeps the schema and the tier.
+
+**Applied to prod on 2026-10-19**, with the school's go-ahead ("additive and not destructive"), in three
+steps: v12 (`token_cache`), v13 (`tier` + the three senior classes), then the loader with the school's own
+terms. Read back afterwards: class levels 8 → 11 (SSS 1-3 `senior`, the JSS rows `junior`, the year rows
+`primary`), subjects 23 → 35 (six reused by name), edges +54, lessons 3,413 → **4,509**, and the rows
+awaiting generation 529 → **1,625** — `content` empty and `generated` false, which is the state the school
+asked for ("awaiting lesson generation instructions"). A sample row: `y9-chm-t1-w1-introduction-to-chemistry`,
+*Noel Term*, `context "Definition, history, branches, and importance of chemistry"`. The scheme's midterm,
+break and examination weeks are not lessons (prod's own data agrees: 10 of its 3,413 rows name such a week).
+
+The loader got the school's own slug convention on the way (`y<class><subject>-t<term>-w<week>-<topic>`, read
+from the target database: Year 1-5 = `y1`-`y5`, JSS 1-3 = `y6`-`y8`, so SSS 1-3 = `y9`-`y11`), and the prod
+run caught two bugs the sandbox never could: the `--terms` flag rebound the loader's own `wanted` list (it had
+never been exercised), and one statement per request meant 11 minutes for 1,162 of them — honest errors, slow
+network; batching is the speed-up if the scheme is ever reloaded.
+
+**Still open from this work**: pushing `main` (the deploy that ships KaTeX and the token cache — the database
+is already ahead, so the app works either way), and the `LIMIT 50` picker below.
 
 ---
 
@@ -1770,14 +1787,14 @@ step and needs the school's go-ahead: v12, v13, then the loader with its three t
   looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
   is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
   only the school can pick: requests per minute per account, and the burst allowance
-- [ ] Apply `db/schema-v12-token-cache.surql` and `db/schema-v13-class-tier.surql` to prod (v11 is already
-  there — read back 2026-10-19), then run `db/load-sss-scheme.py` for the senior scheme:
-  `--terms First=terms:noel_term --terms Second=terms:calvary_term --terms Third=terms:summer_term`, dry run
-  first. Its README in `docs/curriculum/sss-nerdc-2025/` says what each step writes.
+- [ ] Push `main` when the school is ready: it deploys KaTeX + the token cache (the database already has
+  v12, v13 and the senior scheme, so the app works either way).
 - [ ] The teacher lesson picker (`/api/teacher/lessons`, `ORDER BY week LIMIT 50`) is capped without a total
-  order: with the senior scheme loaded, "week 1" alone fills the page and a teacher's own list can exceed 50.
-  Wants a tie-break that makes the cut deterministic and a way past it (a search, or the term step the admin
-  LMS already has).
+  order: with the senior scheme loaded (4,509 lessons), "week 1" alone fills the page and the rows that come
+  back are whatever the database gives first. A teacher's own list is scoped to their assignments and the
+  active term — usually under 50 — so this bites an admin viewing that page, or a teacher with four or more
+  subjects. Wants a tie-break that makes the cut deterministic and a way past it (a search, or the term step
+  the admin LMS already has).
 - [ ] Cloud deployment configuration — Dokploy already builds from `Dockerfile.app` on push to `main`, so
   this is only worth keeping if something different is wanted
 
