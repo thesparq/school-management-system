@@ -66,6 +66,27 @@ const check = (n, ok, x='') => { results.push(ok); console.log(`${ok?'PASS':'FAI
   const afterClick = await page.locator('#section-nav-panel').evaluate(el => getComputedStyle(el).opacity);
   check('a label inside the box is clickable and the box stays open', Number(afterClick) > 0.5, 'opacity=' + afterClick);
 
+  // --- The avatar dropdown closes when one of its own items navigates ---
+  // It only ever closed on a click *outside* it, and a click on a menu item is inside it by definition — so
+  // Settings left the dropdown open behind the page it opened. Sign Out hid the bug: it leaves the page.
+  await page.goto(`${appUrl}/`, { waitUntil: 'load' });
+  await page.waitForSelector('#app', { timeout: 45000 });
+  await page.waitForTimeout(1500);
+  await page.click('#user-menu-button');
+  await page.waitForTimeout(400);
+  check('the avatar dropdown opens', await page.evaluate(() => !document.getElementById('user-menu').classList.contains('hidden')));
+  await page.click('#user-menu >> text="Settings"');
+  await page.waitForTimeout(1500);
+  check('and a click on Settings goes there', page.url().endsWith('/settings'), page.url());
+  check('with the dropdown closed behind it', await page.evaluate(() => document.getElementById('user-menu').classList.contains('hidden')));
+  // The sidebar's own items are outside the menu, so that path closed it already; assert it anyway, because
+  // it is the same rule from the other side.
+  await page.click('#user-menu-button');
+  await page.waitForTimeout(300);
+  await page.click('aside >> text="Messaging"');
+  await page.waitForTimeout(1200);
+  check('and so does navigating from the sidebar', await page.evaluate(() => document.getElementById('user-menu').classList.contains('hidden')));
+
   await browser.close();
   const failed = results.filter(r => !r).length;
   console.log(`\n${results.length - failed}/${results.length} checks passed`);

@@ -475,6 +475,7 @@
             if (window.app && window.app.sendUrl) {
                 window.app.sendUrl(path);
             }
+            closeUserMenu();
             refreshAdminRights();
         });
 
@@ -523,6 +524,7 @@
                 // new page's JavaScript has drawn what it will draw).
                 beginNavProgress();
                 window.history.pushState(null, '', url);
+                closeUserMenu();
                 refreshActiveSessionTerm();
                 refreshAdminRights();
                 refreshPasswordState();
@@ -632,14 +634,22 @@
             const menu = document.getElementById("user-menu");
             if (!menu || menu.classList.contains("hidden")) return;
             if (menu.contains(e.target) || (e.target.closest && e.target.closest("#user-menu-button"))) return;
-            const input = document.getElementById("user_menu_close_input");
-            if (input) input.dispatchEvent(new Event("input", { bubbles: true }));
+            closeUserMenu();
         });
     }
 
     // ========================================================
     // Helpers
     // ========================================================
+
+    // Close the avatar dropdown by dispatching the same input the outside-click listener uses. A click on
+    // one of the menu's *own* items is deliberately ignored by that listener (the click is inside the menu),
+    // so a menu that started a navigation has to be closed by the navigation: otherwise the dropdown sits
+    // open behind the page it just opened — which is what Settings did.
+    function closeUserMenu() {
+        const input = document.getElementById("user_menu_close_input");
+        if (input) input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
 
     function dispatchToInput(id, value) {
         const el = document.getElementById(id);
