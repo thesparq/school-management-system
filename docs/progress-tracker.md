@@ -1673,6 +1673,75 @@ network; batching is the speed-up if the scheme is ever reloaded.
 **Still open from this work**: pushing `main` (the deploy that ships KaTeX and the token cache — the database
 is already ahead, so the app works either way), and the `LIMIT 50` picker below.
 
+### The hub's Class Levels screen edits a level's stage (2026-10-20)
+
+`class_levels.tier` (v13) decides what a lesson is written for — a senior class gets exam-level lessons, a
+junior one does not — and it was only settable by hand until now. The Configuration Hub's **Class Levels**
+screen carries a **Stage** column and a Stage picker on both the create form and the row editor
+(`primary` / `junior` / `senior`, plus "Not set", which is the column's NONE). The backend's list returns
+`tier`, the create accepts it and the patch writes it, so a level can be re-classified without SQL. Verified
+on the sandbox: the field survives a hub edit of the level's name/code/age range (that PUT only writes what
+it carries), and `e2e_admin_config.cjs` asserts the column and both pickers.
+
+### An administrator's type and permissions — enforced by the data, chosen from the hub (2026-10-20)
+
+The school asked for two things: an admin *type* (Supervisor now — "they have access to the LMS but not user
+management" — Bursar/Registrar/Admin officer later), and permissions the school can tick per administrator.
+Both are built, and the split between them is the design:
+
+- **The type is a preset and a label; the ticks are the truth.** A pure role→permission table makes giving one
+  person a small extra right mean inventing a role, and per-person ticks alone make setting up each new
+  administrator a fresh decision. So the type sets the starting ticks (and is the school's own name for what
+  the person is), each tick can then be taken off or put back, and **the backend enforces the ticks**.
+- **The catalog is code** (`admin_permissions`, `admin_types` in `main.roc`), so adding a type is a line, and
+  `GET /api/admin-types` hands the form the same list the gate uses — labels and hints included, so the screen
+  and the 403s speak the school's words rather than permission keys.
+- **Six permissions**: users, school setup, curriculum & lessons, assessments, staff assignments, permissions.
+  `required_permission` maps the admin route families onto them (`/api/users` writes → `users.manage`, config
+  writes → `setup.manage`, the LMS reads → `lessons.manage`, assessment work → `assessments.manage`, the Assign
+  dialog → `assignments.manage`); reads that every role needs stay open, and a route with no permission named
+  behaves exactly as before.
+- **Deciding rights is its own permission** (`permissions.manage`), not implied by `users.manage`: without
+  that split an admin who could edit users could grant themselves the run of the school. The check is on the
+  *payload* (the write that names `admin_type`/`permissions`), so a name edit by a users-only admin still
+  lands, and the 403 names "Manage permissions".
+- **Nobody is locked out**: `db/schema-v14-admin-permissions.surql` backfills every existing admin as
+  `super_admin` with all six, and the backend refuses any write that would take the school's last super admin
+  away (the delete path included). `super_admin` carries every permission by definition, so its stored ticks
+  are never the reason something is allowed.
+- **The screen**: the user form's Admin branch now shows an **Admin type** picker (replacing the free-text
+  "Role title", which is why the directory column reads "Admin type" and shows the catalog's label), a
+  **Permissions** panel with one tick per permission and the school's own wording, and it opens a fresh
+  administrator on the catalog's *narrowest* type — so Add-then-Save cannot hand out more than the school's
+  smallest seat. The panel is read-only for a caller without `permissions.manage`, and the save leaves both
+  fields out for them, so the backend's refusal is never the thing they meet.
+- **The sidebar follows the caller's own row** (`GET /api/admin-rights`): a supervisor sees the LMS, the
+  dashboard and messaging, and no User Management or Configuration Hub. A deep link or a reload after a
+  permission change lands on a card naming the permission the screen needs instead of a page of failed calls.
+  The page fails *open* when the rights answer has not arrived — the backend is the authority, and hiding the
+  school's own screens from a super admin whose one request hiccuped is the worse failure.
+
+**Two rules the work exposed, both in the shared scanners** (`main.roc`):
+
+- `extract_field` read a column the row does not carry — the database answers `null` — as the *next field's
+  name*: `"middle_name":null,"passport":"…"` put "passport" in the middle name, and the edit form prefilled
+  it back into the next save. A value that does not start with a quote is absent now.
+- `carries_field` decides an array's presence by the key alone, and only for the fields `array_update_fields`
+  names; `permissions` and `pairs` are arrays this app sends, so they are named there. Without it
+  `{"admin_type":"supervisor","permissions":[…]}` read as a type-only payload and the ticks were silently
+  replaced with the type's defaults.
+
+**Verified on the sandbox**: `authz.sh` 51/51 (new cases: a seat with `users.manage` but not
+`permissions.manage` may edit users and may not set a type, grant itself anything, or create an admin with a
+type; a holder of the permission may; the listing carries type and ticks), `users_api.sh` 95/95,
+`assessment_flow.sh` 41/41, `general_assessment_flow.sh` 53/53, `e2e_admin_permissions.cjs` (the form and a
+supervisor's own view, in Chromium), `e2e_user_roles.cjs`, `e2e_admin.cjs`, `e2e_admin_config.cjs`,
+`e2e_users_directory.cjs`; `roc check` clean on both sides.
+
+**Deploy order matters**: v14 goes to prod **before** the new code, or the running code would read no type and
+no ticks for the admins that exist and refuse them everything. The backfill inside v14 is what makes the order
+safe.
+
 ---
 
 ## Completed Work
@@ -1822,8 +1891,10 @@ is already ahead, so the app works either way), and the `LIMIT 50` picker below.
   looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
   is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
   only the school can pick: requests per minute per account, and the burst allowance
-- [ ] Push `main` when the school is ready: it deploys KaTeX + the token cache (the database already has
-  v12, v13 and the senior scheme, so the app works either way).
+- [ ] Push `main` when the school is ready: the app-side work that is ready now — the class-level **Stage**
+  field in the hub (`526b89e`), the **admin types and permissions** (schema v14 + the enforcement + the form),
+  and the two scanner fixes. **Apply `db/schema-v14-admin-permissions.surql` to prod first** (it backfills every
+  existing admin as `super_admin`), then push: the deploy ships the code that reads the columns.
 - [ ] The teacher lesson picker (`/api/teacher/lessons`, `ORDER BY week LIMIT 50`) is capped without a total
   order: with the senior scheme loaded (4,509 lessons), "week 1" alone fills the page and the rows that come
   back are whatever the database gives first. A teacher's own list is scoped to their assignments and the

@@ -565,6 +565,8 @@
     // body has executed.
     function fetchRouteFor(url) {
         const routes = [
+            { match: (u) => u === "/api/admin-types", input: "admin_types_data_input", format: formatAdminTypes },
+            { match: (u) => u === "/api/admin-rights", input: "admin_rights_data_input", format: formatAdminRights },
             { match: (u) => u === "/api/dashboard", input: "dashboard_data_input", format: formatDashboard },
             { match: (u) => u === "/api/parent/children", input: "parent_children_data_input", format: formatChildren },
             { match: (u) => u.includes("/api/credentials"), input: "credentials_data_input", format: formatCredentials },
@@ -613,7 +615,7 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name.
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions.
     // The first six fields are what the table renders today; the next seven are what the row's Edit
     // action loads into the form above (the backend's PUT patches the row, so the form has to start
     // with the values that are there). date_of_birth arrives with a time on it, but the form's date
@@ -627,7 +629,10 @@
     // never builds it, so the prefix lives in one place. The trailing fields are the role-specific
     // ones the lists and the edit form call: a teacher's qualification ids (comma-joined — a record
     // id has no comma) and date employed, a parent's linked-student ids (comma-joined), and the
-    // student's class name.
+    // student's class name. The last two are an administrator's own: the type the school gave the row
+    // (`admin_type`, a catalog key the view labels) and the permissions the backend enforces for it
+    // (comma-joined — the edit form starts its ticks from exactly these, so what is stored is what the
+    // form shows). Every other role's rows carry them empty.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
@@ -636,7 +641,9 @@
                 + "|" + String(u.date_of_birth || "").slice(0, 10) + "|" + (u.current_class || "") + "|" + (u.role_title || "") + "|" + (u.passport || "")
                 + "|" + String((u.qualifications || []).join(","))
                 + "|" + String(u.date_employed || "").slice(0, 10) + "|" + String((u.students || []).join(","))
-                + "|" + (u.class_name || "");
+                + "|" + (u.class_name || "")
+                + "|" + (u.admin_type || "")
+                + "|" + String((u.permissions || []).join(","));
         });
     }
 
@@ -669,6 +676,25 @@
     // edge_id|class_level_id|class_level_name|subject_id|subject_name.
     function formatSubjectPairs(data) {
         return unwrapRows(data).map(p => (p.edge_id || "") + "|" + (p.class_level_id || "") + "|" + (p.class_level_name || "") + "|" + (p.subject_id || "") + "|" + (p.subject_name || "Unknown"));
+    }
+
+    // The admin form's catalog: every permission the backend knows ("perm|key|label|hint") and every admin
+    // type with the ticks it starts on ("type|key|label|hint|tick,tick"). One line shape, so the view reads
+    // both with the same splitter it uses for every other list.
+    function formatAdminTypes(data) {
+        const catalog = data && data[0] && data[0].result ? data[0].result : data;
+        const row = Array.isArray(catalog) ? (catalog[0] || {}) : (catalog || {});
+        const lines = (row.permissions || []).map(p => ["perm", p.key || "", p.label || "", p.hint || ""].join("|"));
+        (row.types || []).forEach(t => lines.push(["type", t.key || "", t.label || "", t.hint || "", (t.permissions || []).join(",")].join("|")));
+        return lines;
+    }
+
+    // The caller's own rights ("is_super|users.manage,setup.manage"): the one line the sidebar reads before
+    // it draws a screen the backend would refuse, and the form reads before it offers the permission ticks.
+    function formatAdminRights(data) {
+        const rights = data && data[0] && data[0].result ? data[0].result : data;
+        const row = Array.isArray(rights) ? (rights[0] || {}) : (rights || {});
+        return [String(row.is_super === true) + "|" + (row.permissions || []).join(",")];
     }
 
     // The qualifications catalog: id|name|active.

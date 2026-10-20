@@ -91,12 +91,29 @@ render = |model| {
 				UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("Dashboard")])
 			],
 			match model.role {
-				Admin => [
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminUserManagement, on_click: Click(NavigateTo(AdminUserManagement)) }, [text("User Management")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminConfigurationHub, on_click: Click(NavigateTo(AdminConfigurationHub)) }, [text("Configuration Hub")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == AdminLMS, on_click: Click(NavigateTo(AdminLMS)) }, [text("LMS")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
-				]
+				Admin => {
+			                                        # An administrator's own sidebar follows the permissions their row carries: a
+			                                        # supervisor (the LMS and assessments, no user management) is not offered a
+			                                        # screen the backend would refuse. Each item names the permission it needs —
+			                                        # the same keys the backend's own gate asks for — and Messaging is every
+			                                        # role's, so it stays.
+			                                        items = [
+			                                                { permission: "users.manage", route: AdminUserManagement, label: "User Management" },
+			                                                { permission: "setup.manage", route: AdminConfigurationHub, label: "Configuration Hub" },
+			                                                { permission: "lessons.manage", route: AdminLMS, label: "LMS" },
+			                                        ]
+			                                        shown = List.keep_if(items, |item| State.caller_has_permission(model, item.permission))
+
+			                                        List.concat(
+			                                                List.map(shown, |item| {
+			                                                        UI.sidebar_nav_item(
+			                                                                { ..UI.default_sidebar_nav_item, is_active: model.route == item.route, on_click: Click(NavigateTo(item.route)) },
+			                                                                [text(item.label)]
+			                                                        )
+			                                                }),
+			                                                [UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])]
+			                                        )
+			                                }
 				Teacher => [
 					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherMyClasses, on_click: Click(NavigateTo(TeacherMyClasses)) }, [text("My Classes")]),
 					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherAssessments, on_click: Click(NavigateTo(TeacherAssessments)) }, [text("Assessments & Grading")]),
@@ -347,12 +364,27 @@ render = |model| {
 	div([class(theme_class)], [
 		# The active session term: fed by the page's JavaScript on boot and on every navigation
 		# (see refreshActiveSessionTerm in www/index.html). Its payload is what session_term_bar reads.
-		Html.input([
-			Attribute.type("hidden"),
-			Attribute.id("active_session_term_input"),
-			Attribute.value(model.sessionTermData),
-			Attribute.on_input(|s| GotSessionTermData(s))
-	]),
+		        Html.input([
+		                Attribute.type("hidden"),
+		                Attribute.id("active_session_term_input"),
+		                Attribute.value(model.sessionTermData),
+		                Attribute.on_input(|s| GotSessionTermData(s))
+		        ]),
+		        # The caller's own rights and the admin catalog. Both sit at the root rather than on a page, because
+		        # the sidebar reads the rights on *every* admin route — a payload dispatched into an input that is not
+		        # rendered is dropped, and the sidebar would draw the screens the backend refuses.
+		        Html.input([
+		                Attribute.type("hidden"),
+		                Attribute.id("admin_rights_data_input"),
+		                Attribute.value(model.adminRightsData),
+		                Attribute.on_input(|s| GotAdminRightsData(s))
+		        ]),
+		        Html.input([
+		                Attribute.type("hidden"),
+		                Attribute.id("admin_types_data_input"),
+		                Attribute.value(model.adminTypesData),
+		                Attribute.on_input(|s| GotAdminTypesData(s))
+		        ]),
 	# The avatar menu closes when the page's own listener sees a click outside it (www/index.html
 	# dispatches this input), so it never stays open behind a navigation.
 	Html.input([

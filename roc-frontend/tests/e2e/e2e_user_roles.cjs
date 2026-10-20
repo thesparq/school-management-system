@@ -1,9 +1,9 @@
 // Browser checks for the admin user management's role-tailored form and list, against a
 // *sandbox* backend (see README.md): one modal whose fields follow the picked role (a teacher's
-// date employed and qualifications, a parent's linked students, an administrator's role title, a
-// student's date of birth and class), and a table whose extra column is that role's own (a
-// student's class, a parent's students, an administrator's role title). Also the modal's own
-// behaviour: a blurred backdrop, and a click on it cancels the form without a write.
+// date employed and qualifications, a parent's linked students, an administrator's type and
+// permissions, a student's date of birth and class), and a table whose extra column is that
+// role's own (a student's class, a parent's students, an administrator's type). Also the modal's
+// own behaviour: a blurred backdrop, and a click on it cancels the form without a write.
 //
 // Needs playwright + chromium (the same install the other e2e suites require):
 //   cd roc-frontend && npm i -D playwright && npx playwright install chromium
@@ -59,7 +59,7 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   check('and still the school number and status every tab shares',
     teacherHeaders.includes('School number') && teacherHeaders.includes('Status'), JSON.stringify(teacherHeaders));
   check('the teachers table adds no per-role column of its own',
-    !teacherHeaders.includes('Class') && !teacherHeaders.includes('Students') && !teacherHeaders.includes('Role title'), JSON.stringify(teacherHeaders));
+    !teacherHeaders.includes('Class') && !teacherHeaders.includes('Students') && !teacherHeaders.includes('Admin type'), JSON.stringify(teacherHeaders));
 
   await page.click('#app button:has-text("Parents")');
   await page.waitForTimeout(1200);
@@ -67,7 +67,7 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 
   await page.click('#app button:has-text("Administrators")');
   await page.waitForTimeout(1200);
-  check('the administrators table adds a Role title column', (await headers()).includes('Role title'), JSON.stringify(await headers()));
+  check('the administrators table adds an Admin type column', (await headers()).includes('Admin type'), JSON.stringify(await headers()));
 
   // --- The modal's fields follow the picked role ---
   await page.click('#app button:has-text("Students")');
@@ -92,7 +92,9 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   check('and asks for no teacher fields', !(await hasText('Date employed')));
 
   await pickRole('Admin');
-  check('an administrator\'s form asks for a role title', await hasText('Role title'));
+  check('an administrator\'s form asks for an admin type', (await page.locator('#new-user-admin-type-select').count()) === 1);
+  check('and shows the permissions panel with the school\'s own wording',
+    (await hasText('Permissions')) && (await hasText('Manage users')) && (await hasText('Manage school setup')));
   check('and asks for no parent fields', !(await hasText('Linked students')));
 
   // --- The backdrop cancels without a write ---

@@ -1,4 +1,4 @@
-module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state]
+module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state, catalog_field, admin_catalog_permissions, admin_catalog_types, caller_has_permission, can_manage_admin_rights, admin_type_permissions, admin_default_type]
 
 import pf.Effect
 import pf.Http
@@ -91,9 +91,19 @@ Model : {
 	dashboardData : Str,
 	# A parent dashboard's children: one "name|class" line each, fed by /api/parent/children.
 	parentChildrenData : Str,
-	newUserDateOfBirth : Str,
-	newUserClassLevel : Str,
-	newUserRoleTitle : Str,
+	        newUserDateOfBirth : Str,
+	        newUserClassLevel : Str,
+	        # An administrator's own two facts, and the catalog they come from. `adminTypesData` is
+	        # /api/admin-types: one line per permission ("perm|key|label|hint") and one per type
+	        # ("type|key|label|hint|tick,tick"), fetched for an admin on boot so the form can open on a type
+	        # rather than on an empty picker. `adminRightsData` is the caller's *own* rights
+	        # (/api/admin-rights, "is_super|key,key"): the sidebar shows only what it allows, and the form's
+	        # picker and ticks are read-only without `permissions.manage`, which is what the backend asks for
+	        # any payload that sets either.
+	        adminTypesData : Str,
+	        adminRightsData : Str,
+	        newUserAdminType : Str,
+	        newUserPermissions : List(Str),
 	# The id of the login whose profile is being completed, empty while the form is creating a new
 	# login. One form serves both: with an id it is a PUT that attaches the profile to that login,
 	# without one a POST that creates the login and its profile together.
@@ -241,8 +251,13 @@ Msg : [
 	UpdateNewUserMiddleName(Str),
 	UpdateNewUserSurname(Str),
 	UpdateNewUserDateOfBirth(Str),
-	UpdateNewUserClassLevel(Str),
-	UpdateNewUserRoleTitle(Str),
+	        UpdateNewUserClassLevel(Str),
+	        # The admin form's own two controls: the type the school gives an administrator (the picker) and the
+	        # permissions that ride with it (each tick can be taken off or put back).
+	        UpdateNewUserAdminType(Str),
+	        ToggleNewUserPermission(Str),
+	        GotAdminTypesData(Str),
+	        GotAdminRightsData(Str),
 	UpdateNewUserEmail(Str),
 	UpdateNewUserPassword(Str),
 	# Fill the password field with a generated one. The page's own generator answers through the
@@ -527,10 +542,13 @@ init = |flags| {
 		activeUserTab: Students,
 		newUserRole: "Student",
 		newUserPassportKey: "",
-		newUserDateOfBirth: "",
-		newUserClassLevel: "",
-		newUserRoleTitle: "",
-		            completingProfileId: "",
+		                newUserDateOfBirth: "",
+		                newUserClassLevel: "",
+		                adminTypesData: "",
+		                adminRightsData: "",
+		                newUserAdminType: "",
+		                newUserPermissions: [],
+		                            completingProfileId: "",
 		            newUserPassword: "",
 		            userEditing: Bool.False,
 		            lastCredentials: None,
@@ -611,12 +629,17 @@ init = |flags| {
 	# gigantic function and the wasm then traps with "function signature mismatch" at start, blanking
 	# the page. A `match` with full inline lists (as here) compiles and runs.
 	(model, match initialRoute {
-		AdminConfigurationHub => [
-			Port.send("fetch_data", "/api/users?role=Student"),
-			Port.send("fetch_data", "/api/users?role=Teacher"),
-			Port.send("fetch_data", "/api/users?role=Parent"),
-			Port.send("fetch_data", "/api/users?role=Admin"),
-			Port.send("fetch_data", "/api/subjects"),
+		                AdminConfigurationHub => [
+			                        Port.send("fetch_data", "/api/users?role=Student"),
+			                        Port.send("fetch_data", "/api/users?role=Teacher"),
+			                        Port.send("fetch_data", "/api/users?role=Parent"),
+			                        Port.send("fetch_data", "/api/users?role=Admin"),
+			                        # The caller's own rights and the admin catalog: the sidebar draws every admin route
+			                        # from the first, so it is fetched wherever an admin can land directly (this branch,
+			                        # the LMS one below, and the role branch further down).
+			                        Port.send("fetch_data", "/api/admin-rights"),
+			                        Port.send("fetch_data", "/api/admin-types"),
+			                        Port.send("fetch_data", "/api/subjects"),
 			Port.send("fetch_data", "/api/teacher/lessons"),
 			Port.send("fetch_data", "/api/terms"),
 			Port.send("fetch_data", "/api/class_levels?all=true"),
@@ -627,17 +650,25 @@ init = |flags| {
 		]
 		# A direct load (or reload) of the drill-down at depth restores its state from the URL (the
 		# model fields above already carry the ids; this just adds the fetches that depth needs).
-		AdminLMS => List.concat(lms_history_effects(initialLmsState), [
-			Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
-			Port.send("fetch_data", "/api/class-subjects"),
-			Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
-		])
+		                AdminLMS => List.concat(lms_history_effects(initialLmsState), [
+		                        Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
+		                        Port.send("fetch_data", "/api/class-subjects"),
+		                        Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
+		                        # The sidebar's own two (see the configuration branch above).
+		                        Port.send("fetch_data", "/api/admin-rights"),
+		                        Port.send("fetch_data", "/api/admin-types"),
+		                ])
 			                _ => match initialRole {
 		                                    Admin => [
 		                                            Port.send("fetch_data", "/api/users?role=Student"),
 		                                            Port.send("fetch_data", "/api/users?role=Teacher"),
 		                                            Port.send("fetch_data", "/api/users?role=Parent"),
 		                                            Port.send("fetch_data", "/api/users?role=Admin"),
+		                                            # The admin form's own catalog and the caller's own rights: the
+		                                            # sidebar reads the second before it draws a screen the backend
+		                                            # would refuse, and the form reads both.
+		                                            Port.send("fetch_data", "/api/admin-types"),
+		                                            Port.send("fetch_data", "/api/admin-rights"),
 		                                            Port.send("fetch_data", "/api/subjects"),
 		                                            Port.send("fetch_data", "/api/teacher/lessons"),
 		                                            Port.send("fetch_data", "/api/teacher/classes"),
@@ -716,6 +747,87 @@ user_tab_role = |tab| {
 		Admins => "Admin"
 	}
 }
+
+# --- An administrator's type and permissions: the catalog, and the caller's own rights --------------
+
+# The catalog's own lines: /api/admin-types answers one "perm|key|label|hint" line per permission and one
+# "type|key|label|hint|tick,tick" line per type. The view renders the first as the checkboxes and the second
+# as the type picker, so the two readers below are the only place that knows the shape.
+admin_catalog_permissions = |data| List.keep_if(Str.split_on(data, "\n"), |line| Str.starts_with(line, "perm|"))
+admin_catalog_types = |data| List.keep_if(Str.split_on(data, "\n"), |line| Str.starts_with(line, "type|"))
+
+# One field of a catalog line, by index; index 0 is the line's own kind ("perm" or "type").
+catalog_field = |line, index| match List.get(Str.split_on(line, "|"), index) {
+        Ok(value) => value
+        Err(_) => ""
+}
+
+# The ticks a type starts on, as the catalog writes them (comma-joined). A recursive scan rather than
+# `keep_if` + `first`: that pair miscompiles in this Roc.
+admin_type_ticks = |data, kind| {
+        look = |remaining| match remaining {
+                [] => ""
+                [line, .. as rest] => if catalog_field(line, 1) == kind { catalog_field(line, 4) } else { look(rest) }
+        }
+
+        look(admin_catalog_types(data))
+}
+
+# The same, as the list the model holds and the payload sends.
+admin_type_permissions = |data, kind| {
+        joined = admin_type_ticks(data, kind)
+
+        if Str.is_empty(joined) { [] } else { List.keep_if(Str.split_on(joined, ","), |key| !Str.is_empty(key)) }
+}
+
+# The type a fresh admin form starts on: the one the catalog gives the fewest ticks, so clicking Add and
+# Save without touching the panel hands out the school's narrowest seat rather than its widest. Super Admin
+# is every permission, so it is never the default; with no catalog yet there is no type to start on and the
+# form waits for the fetch (GotAdminTypesData seeds it).
+admin_default_type = |data| {
+        count_ticks = |kind| {
+                joined = admin_type_ticks(data, kind)
+                if Str.is_empty(joined) { 0 } else { List.len(Str.split_on(joined, ",")) }
+        }
+
+        look = |remaining, best, best_count| match remaining {
+                [] => best
+                [line, .. as rest] => {
+                        kind = catalog_field(line, 1)
+                        count = count_ticks(kind)
+
+                        if Str.is_empty(best) or count < best_count {
+                                look(rest, kind, count)
+                        } else {
+                                look(rest, best, best_count)
+                        }
+                }
+        }
+
+        look(admin_catalog_types(data), "", 0)
+}
+
+# Whether the caller's own rights hold one permission — the question the sidebar asks before showing a screen
+# the backend would refuse. `adminRightsData` is /api/admin-rights' answer, "is_super|key,key". An answer that
+# has not arrived yet, or a request that failed, reads as "everything": the backend is the authority that
+# refuses, and hiding the school's own screens from a super admin whose one request hiccuped is the worse
+# failure of the two.
+caller_has_permission = |model, key| {
+        match list_state(model.adminRightsData) {
+                Ready([line, ..]) => {
+                        parts = Str.split_on(line, "|")
+                        is_super = match List.get(parts, 0) { Ok(value) => value == "true", Err(_) => Bool.False }
+                        granted = match List.get(parts, 1) { Ok(value) => value, Err(_) => "" }
+
+                        is_super or List.contains(List.keep_if(Str.split_on(granted, ","), |granted_key| !Str.is_empty(granted_key)), key)
+                }
+                _ => Bool.True,
+        }
+}
+
+# Whether this caller may set an administrator's type and ticks: the permission that owns them, which is what
+# the backend asks for and what makes the form's own panel read-only for anyone else.
+can_manage_admin_rights = |model| caller_has_permission(model, "permissions.manage")
 
 # Whether a user-form value may be sent. The create/update payload is hand-written JSON with no
 # escape handling (the backend reads each field as the text between its first two quotes), and the
@@ -1037,10 +1149,38 @@ update = |model, msg|
 			({ ..model, newUserSurname: s }, [])
 		UpdateNewUserDateOfBirth(s) =>
 			({ ..model, newUserDateOfBirth: s }, [])
-		UpdateNewUserClassLevel(s) =>
-			({ ..model, newUserClassLevel: s }, [])
-		UpdateNewUserRoleTitle(s) =>
-			({ ..model, newUserRoleTitle: s }, [])
+		                UpdateNewUserClassLevel(s) =>
+		                        ({ ..model, newUserClassLevel: s }, [])
+		                # The type sets the ticks, which are then each editable on its own: the model holds the ticks
+		                # because they are what the save sends and the backend enforces.
+		                UpdateNewUserAdminType(kind) =>
+		                        ({ ..model, newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind) }, [])
+		                ToggleNewUserPermission(key) => (
+		                        { ..model,
+		                                newUserPermissions: if List.contains(model.newUserPermissions, key) {
+		                                        List.keep_if(model.newUserPermissions, |ticked| ticked != key)
+		                                } else {
+		                                        List.append(model.newUserPermissions, key)
+		                                }
+		                        },
+		                        []
+		                )
+		                # The catalog can land while the form is already open on an Admin row. A fresh create that has
+		                # no type yet then starts on the catalog's narrowest type with its ticks; an edit keeps the
+		                # row's own two (the row prefilled them), which is why the seed asks whether this is a create.
+		                GotAdminTypesData(s) => {
+		                        seed = model.userFormOpen and !model.userEditing and model.newUserRole == "Admin" and Str.is_empty(model.newUserAdminType)
+		                        kind = if seed { admin_default_type(s) } else { model.newUserAdminType }
+		                        (
+		                                { ..model,
+		                                        adminTypesData: s,
+		                                        newUserAdminType: kind,
+		                                        newUserPermissions: if seed { admin_type_permissions(s, kind) } else { model.newUserPermissions },
+		                                },
+		                                []
+		                        )
+		                }
+		                GotAdminRightsData(s) => ({ ..model, adminRightsData: s }, [])
 		SetConfigTab(tab) =>
 			({ ..model, activeConfigTab: tab, configSubmitResult: None }, [])
 		UpdateNewUserEmail(s) =>
@@ -1382,10 +1522,9 @@ update = |model, msg|
 				model.newUserMiddleName,
 				model.newUserSurname,
 				model.newUserEmail,
-				model.newUserDateOfBirth,
-				model.newUserClassLevel,
-				model.newUserRoleTitle,
-				model.newUserPassportKey,
+				                                model.newUserDateOfBirth,
+				                                model.newUserClassLevel,
+				                                model.newUserPassportKey,
 				model.newUserPassword,
 			], |field| !user_text_ok(field))
 			if !List.is_empty(forbidden) {
@@ -1415,15 +1554,17 @@ update = |model, msg|
 				} else {
 					",\"password\":\"${model.newUserPassword}\""
 				}
-			# role_title is a column of admin_profile only, and the form shows it only for the Admin
-			# role — a carried-but-unwritable field is a 400 on the backend ("'role_title' is not a
-			# column of student_profile"), so the payload has to mirror the form's own visibility.
-			role_title_clause =
-				if model.newUserRole == "Admin" {
-					",\"role_title\":\"${model.newUserRoleTitle}\""
-				} else {
-					""
-				}
+			                        # An admin's type and ticks ride the form's own panel: sent as a pair, so what the
+			                        # backend stores is what the panel showed. They are left out entirely for a caller who
+			                        # may not decide rights — the backend refuses a payload that speaks about them, and the
+			                        # panel is read-only for such a caller, so a name edit still has to land.
+			                        admin_rights_clause =
+			                                if model.newUserRole == "Admin" and can_manage_admin_rights(model) {
+			                                        ticks = Str.join_with(List.map(model.newUserPermissions, |key| "\"${key}\""), ",")
+			                                        ",\"admin_type\":\"${model.newUserAdminType}\",\"permissions\":[${ticks}]"
+			                                } else {
+			                                        ""
+			                                }
 			# A teacher's qualifications are the credentials record ids the picker selected: the
 			# backend stores them as record links. Only the teacher profile declares the column, so
 			# the clause mirrors the form's own visibility like role_title above (an empty selection
@@ -1460,7 +1601,7 @@ update = |model, msg|
 				} else {
 					""
 				}
-			payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${role_title_clause}${qual_clause}${date_clause}${pairs_clause}${students_clause}${password_clause}}"
+			                        payload = "{${identity_fields}\"first_name\":\"${model.newUserFirstName}\",\"middle_name\":\"${model.newUserMiddleName}\",\"surname\":\"${model.newUserSurname}\",\"date_of_birth\":\"${model.newUserDateOfBirth}\",\"class_level\":\"${model.newUserClassLevel}\",\"passport\":\"${model.newUserPassportKey}\"${admin_rights_clause}${qual_clause}${date_clause}${pairs_clause}${students_clause}${password_clause}}"
 			req = {
 				method: if completing { PUT } else { POST },
 				uri: "${model.appOrigin}/api/users",
@@ -1479,43 +1620,59 @@ update = |model, msg|
 		}
 		# A row the directory lists without a profile: the form loads that login (its name and address are
 		# shown, and are not the form's to edit), and the role comes from the tab the row was on.
-		CompleteProfile(id, email) => (
-			{ ..model,
-				userFormOpen: Bool.True,
-				formPairs: [],
-				formPairsSearch: "",
-				formPairsSeeded: Bool.True,
-				completingProfileId: id,
-				newUserRole: user_tab_role(model.activeUserTab),
-				newUserFirstName: "",
-				newUserMiddleName: "",
-				newUserSurname: "",
-				newUserEmail: email,
-				newUserDateOfBirth: "",
-				newUserClassLevel: "",
-				newUserRoleTitle: "",
-				newUserPassportKey: "",
-				newUserPassword: "",
-				newUserQualifications: [],
-				qualSearch: "",
-				newUserDateEmployed: "",
-				newUserLinkedStudents: [],
-				linkedSearch: "",
-				userEditing: Bool.False,
-				lastCredentials: None,
-				submitResult: None,
-			},
-			# The parent form's linked-students picker reads the student listing, so it is fetched
-			# whenever a form can show it.
-			[Port.send("fetch_data", "/api/users?role=Student")]
-		)
+		                CompleteProfile(id, email) => {
+		                        # Agreeing to give a profile to a login the directory lists is a create in effect, so the
+		                        # admin panel starts where a fresh admin form does (see OpenUserForm).
+		                        kind = admin_default_type(model.adminTypesData)
+		                        (
+		                                { ..model,
+		                                        userFormOpen: Bool.True,
+		                                        formPairs: [],
+		                                        formPairsSearch: "",
+		                                        formPairsSeeded: Bool.True,
+		                                        completingProfileId: id,
+		                                        newUserRole: user_tab_role(model.activeUserTab),
+		                                        newUserFirstName: "",
+		                                        newUserMiddleName: "",
+		                                        newUserSurname: "",
+		                                        newUserEmail: email,
+		                                        newUserDateOfBirth: "",
+		                                        newUserClassLevel: "",
+		                                        newUserAdminType: kind,
+		                                        newUserPermissions: admin_type_permissions(model.adminTypesData, kind),
+		                                        newUserPassportKey: "",
+		                                        newUserPassword: "",
+		                                        newUserQualifications: [],
+		                                        qualSearch: "",
+		                                        newUserDateEmployed: "",
+		                                        newUserLinkedStudents: [],
+		                                        linkedSearch: "",
+		                                        userEditing: Bool.False,
+		                                        lastCredentials: None,
+		                                        submitResult: None,
+		                                },
+		                                # The parent form's linked-students picker reads the student listing, so it is fetched
+		                                # whenever a form can show it.
+		                                [Port.send("fetch_data", "/api/users?role=Student")]
+		                        )
+		                }
 		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
-		# Open the form in add mode: the header's Add User button. Everything the completing and
-		# editing modes set is cleared, so the modal opens empty — and the role starts on the tab the
-		# admin is looking at, because the fields that follow the picker (a teacher's date employed and
-		# qualifications, a parent's children, an admin's role title) are otherwise invisible until it
-		# is touched: opening from the Teachers tab on the default "Student" read as a student's form.
-		OpenUserForm => ({ ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [Port.send("fetch_data", "/api/users?role=Student")])
+		                # Open the form in add mode: the header's Add User button. Everything the completing and
+		                # editing modes set is cleared, so the modal opens empty — and the role starts on the tab the
+		                # admin is looking at, because the fields that follow the picker (a teacher's date employed and
+		                # qualifications, a parent's children, an admin's type and ticks) are otherwise invisible until it
+		                # is touched: opening from the Teachers tab on the default "Student" read as a student's form.
+		                OpenUserForm => {
+		                        # A fresh administrator starts on the catalog's narrowest type with its ticks, so the panel
+		                        # is truthful for a save that never touches it — and a create cannot inherit what an earlier
+		                        # edit left in the model. The catalog is re-fetched with the form, so an open form never
+		                        # depends on the boot fetch having landed.
+		                        kind = admin_default_type(model.adminTypesData)
+		                        (
+		                                { ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" },
+		                                [Port.send("fetch_data", "/api/users?role=Student"), Port.send("fetch_data", "/api/admin-types")]
+		                        )
+		                }
 		CloseUserForm => ({ ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
@@ -1537,10 +1694,16 @@ update = |model, msg|
 					newUserEmail: part(2),
 					newUserDateOfBirth: part(9),
 					newUserClassLevel: part(10),
-					# role_title is a column of admin_profile only, so only an admin row can carry one; the
-					# other tables' fixture rows can hold a stray flex value, which the form must not
-					# prefill (a carried field the table cannot write is a 400 on the backend).
-					newUserRoleTitle: if user_tab_role(model.activeUserTab) == "Admin" { part(11) } else { "" },
+					                                        # An admin row's own type and ticks, read from the two fields the listing
+					                                        # appends after the class name — every other role's rows carry none. The form
+					                                        # starts from the row rather than from the type's own defaults, so an edit
+					                                        # that only fixes a name cannot silently reset what the school set.
+					                                        newUserAdminType: if user_tab_role(model.activeUserTab) == "Admin" { part(17) } else { "" },
+					                                        newUserPermissions: if user_tab_role(model.activeUserTab) == "Admin" {
+					                                                List.keep_if(Str.split_on(part(18), ","), |key| !Str.is_empty(key))
+					                                        } else {
+					                                                []
+					                                        },
 					newUserPassportKey: part(12),
 					newUserPassword: "",
 					newUserQualifications: if user_tab_role(model.activeUserTab) == "Teacher" { quals } else { [] },
@@ -1560,11 +1723,13 @@ update = |model, msg|
 					lastCredentials: None,
 					submitResult: None,
 				},
-				# The edit form's pickers read their catalogs: the student listing for a parent's
-				# linked students, the credentials catalog for a teacher's qualifications.
-				[
-					Port.send("fetch_data", "/api/users?role=Student"),
-					Port.send("fetch_data", "/api/credentials"),
+				                                # The edit form's pickers read their catalogs: the student listing for a parent's
+				                                # linked students, the credentials catalog for a teacher's qualifications, and the
+				                                # admin catalog for an administrator's type and ticks.
+				                                [
+				                                        Port.send("fetch_data", "/api/users?role=Student"),
+				                                        Port.send("fetch_data", "/api/credentials"),
+				                                        Port.send("fetch_data", "/api/admin-types"),
 					# The teacher's pairs, for the form's picker. `for=form` keeps them out of the Assign
 					# dialog's own payload, which the same endpoint feeds.
 					Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${part(0)}&for=form"),
@@ -1618,7 +1783,7 @@ update = |model, msg|
 				]
 				_ => []
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserRoleTitle: "", newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, List.concat(notification_for(newResult, "User management"), refresh))
+			                        ({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserAdminType: "", newUserPermissions: [], newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, List.concat(notification_for(newResult, "User management"), refresh))
 		}
 		# --- A row's actions: deactivate and activate ---
 		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the

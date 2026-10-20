@@ -3,16 +3,46 @@ import html.Html
 import html.Attribute
 
 import UI
-import State exposing [Model, Msg, AdminConfigTab, AdminUserTab, list_state]
+import State exposing [Model, Msg, AdminConfigTab, AdminUserTab, list_state, catalog_field, admin_catalog_permissions, admin_catalog_types, caller_has_permission, can_manage_admin_rights, admin_type_permissions, admin_default_type]
 AdminView := [].{
 
 view = |model| {
     match model.route {
-        AdminUserManagement => admin_users_view(model)
-        AdminConfigurationHub => admin_config_view(model)
-        AdminLMS => admin_lms_view(model)
+        AdminUserManagement => admin_route(model, "users.manage", admin_users_view(model))
+        AdminConfigurationHub => admin_route(model, "setup.manage", admin_config_view(model))
+        AdminLMS => admin_route(model, "lessons.manage", admin_lms_view(model))
         _ => Html.div([], [Html.h1([], [Html.text("Admin Dashboard")]), Html.p([], [Html.text("Welcome to Admin Dashboard")])])
     }
+}
+
+# A screen the caller's own permissions do not cover. The sidebar does not offer it, but a bookmarked URL, a
+# reload after a permission change, or a link from elsewhere still arrives here — and every request the screen
+# would make is refused by the backend. So the page names the permission it needs instead of drawing a screen
+# full of failed calls. The backend is still the authority; this is only what the page says.
+admin_route = |model, permission, content| {
+    if caller_has_permission(model, permission) {
+        content
+    } else {
+        Html.div([Attribute.class("p-6 md:p-8")], [
+            Html.div([Attribute.class("max-w-xl rounded-lg border bg-card p-6 space-y-2")], [
+                Html.h1([Attribute.class("text-xl font-semibold")], [Html.text("This screen needs another permission")]),
+                Html.p([Attribute.class("text-sm text-muted-foreground")], [
+                    Html.text("Your account may not open this screen: it needs '${permission_label(model, permission)}'. Ask a super admin to grant it, or use the screens in the sidebar.")
+                ])
+            ])
+        ])
+    }
+}
+
+# A permission in the school's own words, from the catalog the form reads. The key itself when the catalog has
+# not landed: a message that names the key is still actionable, and the backend's own 403 does the same.
+permission_label = |model, key| {
+    look = |remaining| match remaining {
+        [] => key
+        [line, .. as rest] => if catalog_field(line, 1) == key { catalog_field(line, 2) } else { look(rest) }
+    }
+
+    look(admin_catalog_permissions(model.adminTypesData))
 }
 
 # -------------------------------------------------------
@@ -163,7 +193,8 @@ admin_users_view = |model| {
 	        # The admin widgets' list payloads: the qualifications catalog, the full pair catalog, and
 	        # the teacher-assignments list the Assign dialog seeds its badges from. The inputs sit here
 	        # (only the users page uses them), and each fetch's answer is dispatched only into an input
-	        # that exists.
+	        # that exists. The caller's own rights and the admin catalog are *not* here: the sidebar reads
+	        # them on every admin route, so they live at the root (see app.roc's view).
 	        Html.input([
 	            Attribute.type("hidden"),
 	            Attribute.value(model.credentialsData),
@@ -389,7 +420,8 @@ form_banner = |model| {
 # parts, the contact and role, the profile fields the chosen role uses, the create-only password,
 # and the passport. The email input is enabled in every mode: a PUT that carries an email patches
 # Authentik's address (the login's own), so an account created without one — or with a typo — can
-# be fixed here.
+# be fixed here. An administrator's own fields are its type (the school's label, which sets the
+# ticks) and the permissions panel under them.
 # Whether the form cannot be saved yet: a teacher's edit form waits for the picker to be seeded with
 # the pairs the save will replace, so an empty list can never clear a teacher's assignments.
 user_form_waiting = |model| {
@@ -427,7 +459,10 @@ user_form_body = |model, form_mode| {
                     user_form_field("Class level (*)", user_class_level_select(model, model.userClassLevelsData))
                 ])
             } else if model.newUserRole == "Admin" {
-                user_form_field("Role title", user_form_text_input("e.g. Bursar", model.newUserRoleTitle, model.isSubmitting, |s| UpdateNewUserRoleTitle(s)))
+                # The type is the school's own label for what this administrator is (Supervisor, and the
+                # kinds the catalog grows later). The ticks it starts with are the panel below, where each
+                # one can be taken off or put back.
+                user_form_field("Admin type", admin_type_select(model))
             } else if model.newUserRole == "Teacher" {
                 Html.div([Attribute.class("space-y-2")], [
                     user_form_field("Date employed", user_form_date_input(model.newUserDateEmployed, model.isSubmitting, |s| UpdateNewUserDateEmployed(s))),
@@ -439,18 +474,20 @@ user_form_body = |model, form_mode| {
                 Html.div([], [])
             }
         ]),
-        # The teacher's qualifications picker and the parent's linked students sit in their own
-        # full-width blocks, so they are never squeezed beside another field.
-        		if model.newUserRole == "Teacher" {
-        			Html.div([Attribute.class("space-y-6")], [
-        				user_qualifications_field(model),
-        				user_pairs_field(model),
-        			])
-        		} else if model.newUserRole == "Parent" {
-        			user_linked_students_field(model)
-        		} else {
-        			Html.div([], [])
-        		},
+        # The teacher's qualifications picker, the parent's linked students and the admin's permissions panel
+        # sit in their own full-width blocks, so they are never squeezed beside another field.
+                        if model.newUserRole == "Teacher" {
+                                Html.div([Attribute.class("space-y-6")], [
+                                        user_qualifications_field(model),
+                                        user_pairs_field(model),
+                                ])
+                        } else if model.newUserRole == "Parent" {
+                                user_linked_students_field(model)
+                        } else if model.newUserRole == "Admin" {
+                                admin_permissions_field(model)
+                        } else {
+                                Html.div([], [])
+                        },
         # The password, for create mode only: the one thing the profile fields have no place for,
         # and the one the admin hands over. Optional — a login without one is made and can get one
         # later from the row's Reset password action.
@@ -629,27 +666,98 @@ user_class_level_select = |model, classes| {
 }
 
 # The profile fields the chosen role's create actually reads: date_of_birth and class_level for a
-# student, role_title for an admin, nothing extra for a teacher or a parent.
-user_role_fields = |model| {
-    if model.newUserRole == "Admin" {
-        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            user_form_field("Role title (optional)", user_form_text_input("e.g. Bursar", model.newUserRoleTitle, model.isSubmitting, |s| UpdateNewUserRoleTitle(s)))
+# student, nothing extra for a teacher or a parent (their own pickers sit below the field row).
+# The admin permissions panel: every permission the school's catalog defines, one tick each, in the
+# school's own words. The type above it sets the starting ticks; this is where they are adjusted, and the
+# ticks are what the backend enforces — the type is only a label and a preset. A caller who may not decide
+# rights (no `permissions.manage`) sees the same list read-only and the form leaves both fields out of their
+# save, so a name edit by them still lands.
+admin_permissions_field = |model| {
+        holder = caller_has_permission(model, "permissions.manage")
+        is_super = model.newUserAdminType == "super_admin"
+
+        Html.div([Attribute.class("space-y-3")], [
+                Html.div([Attribute.class("space-y-1")], [
+                        UI.label({ classes: "" }, [Html.text("Permissions")]),
+                        Html.p(
+                                [Attribute.class("text-xs text-muted-foreground")],
+                                [Html.text(
+                                        if is_super {
+                                                "A super admin holds every permission; that is what the type means. Give a narrower type to take any away."
+                                        } else if !holder {
+                                                "Ask a super admin to change these: deciding what an administrator may do is its own permission."
+                                        } else {
+                                                "The type above sets these; take off or put back any of them, and what is ticked here is what the backend allows."
+                                        }
+                                )]
+                        )
+                ]),
+                Html.div([Attribute.class("space-y-2")], List.map(admin_catalog_permissions(model.adminTypesData), |line| admin_permission_tick(model, line, holder, is_super)))
         ])
-    } else if model.newUserRole == "Student" {
-        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            user_form_field("Date of birth (*)", UI.input({
-                type: "date",
-                value: model.newUserDateOfBirth,
-                placeholder: "",
-                on_input: Input(|s| UpdateNewUserDateOfBirth(s)),
-                is_disabled: model.isSubmitting,
-                classes: ""
-            })),
-            user_form_field("Class level (*)", user_class_level_select(model, model.userClassLevelsData))
+}
+
+# One permission as a tick: the label and the hint under it, and a button that toggles it. A button rather
+# than an `<input type=checkbox>`, so the click is a Joy message like every other control in the app.
+admin_permission_tick = |model, line, holder, is_super| {
+        key = catalog_field(line, 1)
+        ticked = List.contains(model.newUserPermissions, key)
+
+        Html.div([Attribute.class("flex items-start gap-3"), Attribute.id("permission-tick-${key}")], [
+                UI.button(
+                        {
+                                variant: Ghost,
+                                size: Sm,
+                                on_click: Click(ToggleNewUserPermission(key)),
+                                is_disabled: model.isSubmitting or !holder or is_super,
+                                classes: "text-base leading-none"
+                        },
+                        [Html.text(if ticked { "☑" } else { "☐" })]
+                ),
+                Html.div([Attribute.class("space-y-0.5")], [
+                        Html.p([Attribute.class("text-sm font-medium")], [Html.text(catalog_field(line, 2))]),
+                        Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(catalog_field(line, 3))])
+                ])
         ])
-    } else {
-        Html.div([], [])
-    }
+}
+
+# The admin type picker: the catalog's types, chosen by key, with the value set on the control so an edit
+# opens on the row's own type. Read-only for a caller who may not decide rights, and the placeholder is a
+# type nobody has picked yet (a row the school has not classified).
+admin_type_select = |model| {
+        holder = can_manage_admin_rights(model)
+        options = List.concat(
+                [Html.option([Attribute.value("")], [Html.text("Select a type…")])],
+                List.map(admin_catalog_types(model.adminTypesData), |line| {
+                        Html.option([Attribute.value(catalog_field(line, 1))], [Html.text(catalog_field(line, 2))])
+                }),
+        )
+
+        Html.div([Attribute.class("relative")], [
+                Html.select(
+                        [
+                                Attribute.class(config_select_classes),
+                                Attribute.id("new-user-admin-type-select"),
+                                Attribute.value(model.newUserAdminType),
+                                Attribute.on_change(|s| UpdateNewUserAdminType(s)),
+                                Attribute.disabled(model.isSubmitting or !holder)
+                        ],
+                        options
+                ),
+                Html.span([Attribute.class("pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs")], [Html.text("▼")])
+        ])
+}
+
+# The label of a type, for a row of the directory: the key the listing carries, in the school's words. A key
+# the catalog does not know (or a row with no type at all) shows as the dash the other empty cells use.
+admin_type_label = |model, key| {
+        look = |remaining| match remaining {
+                [] => ""
+                [line, .. as rest] => if catalog_field(line, 1) == key { catalog_field(line, 2) } else { look(rest) }
+        }
+
+        label = look(admin_catalog_types(model.adminTypesData))
+
+        if Str.is_empty(label) { "—" } else { label }
 }
 
 users_for_tab = |model| {
@@ -677,7 +785,9 @@ users_for_tab = |model| {
                     # One row per line, as the page's `formatUsers` writes it. The first six fields are
                     # what the table renders; the last seven are what Edit loads into the form in the
                     # modal (only the form can change them — the backend's PUT patches the row).
-                    # id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport.
+                    # id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions.
+                    # The admin type is the one the school gave the row, shown in the school's own words; the
+                    # permissions after it are what the form prefills its ticks from.
                     user_row(model, line)
                 })
             }
@@ -685,14 +795,14 @@ users_for_tab = |model| {
 }
 
 # The header cell(s) a role's tab inserts between Email and School number — the one extra column
-# each old per-role table carried (a student's class, a parent's linked students, an admin's role
-# title). Teachers have nothing to add here: their one extra action (Assign) already lives in the
+# each old per-role table carried (a student's class, a parent's linked students, an administrator's
+# type). Teachers have nothing to add here: their one extra action (Assign) already lives in the
 # row's Actions cell, so their tab contributes no header.
 users_extra_headers = |tab| {
     match tab {
         Students => [UI.table_head({ classes: "" }, [Html.text("Class")])]
         Parents => [UI.table_head({ classes: "" }, [Html.text("Students")])]
-        Admins => [UI.table_head({ classes: "" }, [Html.text("Role title")])]
+        Admins => [UI.table_head({ classes: "" }, [Html.text("Admin type")])]
         Teachers => []
     }
 }
@@ -710,7 +820,7 @@ user_role_cells = |model, parts| {
             text = if List.is_empty(names) { "—" } else { Str.join_with(names, ", ") }
             [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(text)])]
         }
-        Admins => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(config_field(parts, 11, "—"))])]
+        Admins => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(admin_type_label(model, config_field(parts, 17, "")))])]
         Teachers => []
     }
 }
