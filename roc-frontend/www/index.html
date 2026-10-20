@@ -354,6 +354,7 @@
             if (window.app && window.app.sendUrl) {
                 window.app.sendUrl(path);
             }
+            refreshAdminRights();
         });
 
         // Initialize page-specific JS after WASM mount
@@ -402,6 +403,7 @@
                 beginNavProgress();
                 window.history.pushState(null, '', url);
                 refreshActiveSessionTerm();
+                refreshAdminRights();
                 setupPageJS();
             }, 0);
         });
@@ -923,6 +925,29 @@
                 dispatchToInput("active_session_term_input", payload);
             });
     }
+
+    // ─── The caller's own rights (what the shell may offer) ───
+    // The sidebar and every admin screen's guard read this payload: it says which permissions the caller's
+    // own row carries, and the backend is what enforces them. The app fetches it on boot; this refreshes it
+    // on every navigation and once a minute while the page is open, because a permission change (someone
+    // narrowed to Supervisor, a tick granted) has to reach a page that is already open — without it the
+    // shell keeps drawing the answer it booted with, which is exactly how a fixed account stayed locked out
+    // of its own screens until a reload. Only an admin page renders the input, so only there is it asked.
+    //
+    // A failed refresh deliberately dispatches nothing: the last good answer stays in place rather than
+    // being replaced by the three-state error payload, whose own reading is the permissive one (the
+    // backend is the authority, and a fetch that hiccuped must not widen the shell).
+    function refreshAdminRights() {
+        if (!document.getElementById("admin_rights_data_input")) return;
+        fetch("/api/admin-rights", { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                return okPayload(formatAdminRights(await res.json()));
+            })
+            .then((payload) => dispatchToInput("admin_rights_data_input", payload))
+            .catch(() => { /* keep the last answer; the next navigation or tick tries again */ });
+    }
+    setInterval(refreshAdminRights, 60000);
 
     // ========================================================
     // Page-specific JS (re-runs on every navigation)
