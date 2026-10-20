@@ -195,9 +195,19 @@ parent_dashboard = |model| {
 }
 
 default_dashboard = |_model| {
-    div([class("p-6 md:p-8 flex items-center justify-center min-h-[60vh]")], [
+    # The wrapper fills the space under the nav and centers the card in it. It used to center the card in
+    # a fixed 60vh band, which on a phone put it well above the middle of the screen with the empty half
+    # of the page below it. A percentage height does not work here either: the shell's content area is a
+    # flex item and hands its children no definite height to take one against. The 4rem is the nav's own
+    # height (`h-16` in app.roc), and `dvh` so a phone's address bar is accounted for.
+    #
+    # The padding is the card's own block rather than UI.card_content's: that component carries
+    # `p-6 pt-0` for content that follows a card header, and a `pt-*` passed in `classes` loses to its
+    # `pt-0` by stylesheet order — which is what left this card's icon against its top edge with all the
+    # space at the bottom.
+    div([class("p-6 md:p-8 flex items-center justify-center min-h-[calc(100dvh_-_4rem)]")], [
         UI.card({ classes: "max-w-md w-full text-center" }, [
-            UI.card_content({ classes: "py-12 space-y-4" }, [
+            div([class("p-8 sm:p-12 space-y-4")], [
                 div([class("text-5xl mb-4")], [text("🔒")]),
                 h2([class("text-xl font-semibold")], [text("Authentication Required")]),
                 p([class("text-muted-foreground")], [text("Please sign in to access the school management system.")])

@@ -97,10 +97,24 @@ udp (before the fix it reports the leftover `eturnal`).
 ## In-app chat (the page logs into Matrix itself)
 
 The app's Messaging page talks to Synapse directly from the browser, and it logs in **as the person
-using it**: the page opens the homeserver's own SSO entry point
-(`/_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…`), Synapse hands the browser to
-Authentik — the provider in `devops/matrix-config/homeserver.yaml` — and comes back to the page with a
-one-time `loginToken`, which the page exchanges for an access token it keeps for the tab session.
+using it**: the page asks the homeserver which sign-in providers it offers
+(`GET /_matrix/client/v3/login`), opens its SSO entry point for the first of them, Synapse hands the
+browser to Authentik — the provider in `devops/matrix-config/homeserver.yaml` — and comes back to the
+page with a one-time `loginToken`, which the page exchanges for an access token it keeps for the tab
+session.
+
+**The provider's id is not the one written in the homeserver's config.** Synapse prefixes a configured
+`idp_id` with the sign-in mechanism it belongs to, so `idp_id: authentik` is exposed to clients — and
+appears in the SSO redirect path — as **`oidc-authentik`**
+(`synapse/config/oidc.py`: `idp_id = "oidc-" + idp_id`). The page therefore reads the id out of the
+login endpoint rather than pinning it; a pinned `authentik` is what answered
+`M_NOT_FOUND "Unknown identity provider"` on the deployed homeserver. Element finds the provider the
+same way, so the two clients stay in step whatever the id is.
+
+**Do not change a deployed `idp_id`.** Synapse records which provider a chat account came from
+(`user_external_ids`), so renaming it makes the next login look like a new person and Synapse creates a
+second account — a new `@…:` localpart for everyone. The app no longer cares what the id is; the
+accounts already on the homeserver do.
 
 So the deployment holds **no chat credential at all**. There is no admin token for the backend to keep
 valid, no account for it to create, and nothing that can silently stop working when a shared secret goes
@@ -131,7 +145,10 @@ Notes on how the session behaves:
   <password> http://localhost:8008` (or the admin API), once.
 
 Verified by `node roc-frontend/tests/e2e/e2e_matrix_sso.cjs` in Chromium against `fixtures/mock_synapse.py`:
-the redirect and the exchange, the token kept across a reload (and no second login), a replayed
-`loginToken` refused without a loop, **Try again** working, and — the point of the whole change — the
-mock never receiving a single `/_synapse/admin/` call.
+the provider is looked up and the redirect names the id the homeserver offered (the mock offers
+`oidc-authentik` and refuses anything else exactly as Synapse does, so a pinned id fails here rather than
+in production), the exchange, the token kept across a reload (and no second login), a replayed
+`loginToken` refused without a loop, **Try again** working, a homeserver that offers no provider at all
+said plainly instead of sending the browser into a 404, and — the point of the whole change — the mock
+never receiving a single `/_synapse/admin/` call.
 

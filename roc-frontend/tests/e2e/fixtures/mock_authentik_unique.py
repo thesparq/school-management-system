@@ -52,6 +52,9 @@ import time
 PORT = int(sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MOCK_AUTHENTIK_PORT', '9000'))
 USERS_PATH = '/api/v3/core/users/'
 USERINFO_PATH = '/application/o/userinfo/'
+TOKEN_PATH = '/application/o/token/'
+# The one password the mock's grant accepts for any login it knows (see do_POST).
+MOCK_PASSWORD = 'mock-current-password'
 counter = itertools.count(1)
 # Every pk this process hands out carries the process id, so a restarted mock cannot re-issue a pk an
 # earlier run already wrote a profile under (the sandbox database outlives the mock, and a colliding
@@ -202,6 +205,9 @@ def claims_userinfo(token):
         'uid': sub,
         'name': login.get('name') or claims.get('name', ''),
         'email': login.get('email', ''),
+        # The real userinfo carries the username too, and the app's password check sends it as the password
+        # grant's `username` — the identifier Authentik's own identification stage expects.
+        'preferred_username': login.get('username', ''),
         'groups': [group['name'] for group in login.get('groups_obj', [])],
     }
 
@@ -302,6 +308,24 @@ class MockHandler(BaseHTTPRequestHandler):
             send(self, 404, {'detail': 'Not found.'})
 
     def do_POST(self):
+        path = urlparse(self.path).path
+        if path == TOKEN_PATH:
+            # The password grant: what the app's backend calls to check a *current* password. It answers the
+            # way the real provider does — a token when the credentials are right, `invalid_grant` when they
+            # are not — and accepts one fixed password for any login it knows, so a suite can drive both.
+            form = parse_qs(self.rfile.read(int(self.headers.get('Content-Length', 0))).decode())
+            if (form.get('grant_type') or [''])[0] != 'password':
+                return send(self, 400, '{"error":"unsupported_grant_type"}')
+            identifier = (form.get('username') or [''])[0]
+            password = (form.get('password') or [''])[0]
+            login = next((u for u in users.values()
+                          if u.get('username') == identifier or u.get('email') == identifier), None)
+            if login is None or password != MOCK_PASSWORD:
+                return send(self, 400, '{"error":"invalid_grant","error_description":"Invalid credentials"}')
+            return send(self, 200, '{"access_token":"mock-password-grant-token","token_type":"Bearer","expires_in":300}')
+        self._post_legacy()
+
+    def _post_legacy(self):
         path = urlparse(self.path).path
         set_password = path.endswith('/set_password/')
         if set_password:

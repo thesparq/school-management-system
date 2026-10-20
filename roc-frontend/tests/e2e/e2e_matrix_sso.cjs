@@ -37,6 +37,10 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-sso-'));
   const backendBin = path.join(workdir, 'backend');
   const mockLog = path.join(workdir, 'mock.log');
+  // What the mock homeserver offers, in a file it re-reads per request: the last phase of this suite
+  // changes it while the page is open (see the homeserver-with-no-provider block below).
+  const providersFile = path.join(workdir, 'providers.json');
+  fs.writeFileSync(providersFile, JSON.stringify([{ id: 'oidc-authentik', name: 'Johnethel School SSO' }]));
   fs.writeFileSync(mockLog, '');
 
   console.log('building the backend (first run is slow)...');
@@ -44,7 +48,8 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   if (build.status !== 0) { console.error('backend build failed'); process.exit(1); }
 
   const mock = spawn('python3', ['roc-frontend/tests/e2e/fixtures/mock_synapse.py', String(mockPort)], {
-    cwd: repo, stdio: ['ignore', 'inherit', 'inherit'], env: { ...process.env, LOG_FILE: mockLog },
+    cwd: repo, stdio: ['ignore', 'inherit', 'inherit'],
+    env: { ...process.env, LOG_FILE: mockLog, SSO_PROVIDERS_FILE: providersFile },
   });
   // The mock has to be listening before the page can log in; wait for it rather than assuming.
   let mockUp = false;
@@ -81,6 +86,8 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
 
   const mockLines = () => fs.readFileSync(mockLog, 'utf8').split('\n').filter(Boolean);
   const countMatching = (needle) => mockLines().filter(l => l.includes(needle)).length;
+  // Exact-path lines, for the paths that are prefixes of one another (`/login` and `/login/sso/...`).
+  const countPath = (method, path) => mockLines().filter(l => l.trim() === `${method} ${path}`).length;
 
   const browser = await chromium.launch({ channel: 'chromium' });
   const ctx = await browser.newContext();
@@ -104,6 +111,15 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   await page.waitForTimeout(6000);
   check('the page asked the homeserver for an SSO login', countMatching('/login/sso/redirect') === 1,
     `mock log: ${JSON.stringify(mockLines())} | panel: ${await chatPanel()} | errors: ${JSON.stringify(errors)}`);
+  // The provider is the homeserver's to name. The mock offers `oidc-authentik` — what Synapse makes of
+  // the config's `idp_id: authentik` — and 404s anything else, so a pinned name fails here rather than on
+  // the deployed homeserver.
+  check('it asked which provider the homeserver offers', countPath('GET', '/_matrix/client/v3/login') === 1);
+  check('and used the id it was offered, not the config file\u2019s',
+    mockLines().some(l => l.startsWith('GET /_matrix/client/v3/login/sso/redirect/oidc-authentik?')),
+    JSON.stringify(mockLines().slice(0, 3)));
+  check('no attempt named a provider the homeserver does not offer',
+    !mockLines().some(l => l.includes('/login/sso/redirect/authentik?')), JSON.stringify(mockLines().slice(0, 3)));
   check('the redirect carried the app page as its return address',
     mockLines().some(l => l.includes(encodeURIComponent(`${appUrl}/messaging`))), JSON.stringify(mockLines().slice(0, 3)));
   check('the one-time login token was exchanged for an access token', countMatching('POST /_matrix/client/v3/login') === 1);
@@ -150,6 +166,31 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   check('still without touching the admin API', countMatching('/_synapse/admin/') === 0);
   check('no page errors', errors.length === 0, JSON.stringify(errors));
   await spentCtx.close();
+
+  // --- A homeserver that offers no provider at all: said plainly, and no trip into a 404 ---
+  // The state the deployed homeserver was in for the page's old, pinned id: an unknown provider answers
+  // 404 in the browser as a bare JSON error. The connect path has to stop at the app instead and say what
+  // is wrong — here, by the homeserver reporting an empty provider list.
+  fs.writeFileSync(providersFile, '[]');
+  const noProvCtx = await browser.newContext();
+  await noProvCtx.addInitScript(t => localStorage.setItem('auth_token', t), appToken);
+  const noProvPage = await noProvCtx.newPage();
+  noProvPage.on('pageerror', e => errors.push(e.message.slice(0, 160)));
+  await noProvPage.route('**/api/**', route => route.continue({
+    headers: { ...route.request().headers(), authorization: 'Bearer dev-skip' },
+  }));
+  const redirectsBeforeNoProvider = countMatching('/login/sso/redirect');
+  await noProvPage.goto(`${appUrl}/messaging`, { waitUntil: 'load' });
+  await noProvPage.waitForTimeout(4000);
+  check('a homeserver with no provider is not sent to one',
+    countMatching('/login/sso/redirect') === redirectsBeforeNoProvider);
+  check('and the page says so',
+    await noProvPage.evaluate(() => document.body.innerText.includes('offers no sign-in provider')),
+    (await noProvPage.evaluate(() => (document.getElementById('matrix-rooms-list') || {}).innerText || 'no panel')).slice(0, 160));
+  check('with the way to try again',
+    await noProvPage.evaluate(() => document.body.innerText.includes('Try again')));
+  check('still no page errors', errors.length === 0, JSON.stringify(errors));
+  await noProvCtx.close();
 
   await browser.close();
   stop();

@@ -122,6 +122,9 @@ card_title = |config, children| {
 }
 
 card_content = |config, children| {
+	# `pt-0` is for content that follows a card header. It is emitted after `p-*` and `py-*`, so it wins
+	# over a top padding passed in `classes`: a header-less card has to give its content its own padding
+	# (as the signed-out dashboard does) rather than pass one here.
 	final_classes = Str.join_with(["p-6 pt-0", config.classes], " ")
 	div([class(final_classes)], children)
 }

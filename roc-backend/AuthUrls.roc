@@ -23,4 +23,19 @@ AuthUrls := [].{
             "${issuer}userinfo"
         }
     }
+
+    ## The token endpoint for a password grant, derived the same way and for the same reason: Authentik
+    ## serves one for the whole instance (`https://<host>/application/o/token/`), so the issuer's application
+    ## slug has to come off before the path is appended.
+    token_url : Str -> Str
+    token_url = |issuer| {
+        if Str.contains(issuer, "/application/o/") {
+            match Str.split_on(issuer, "/application/o/") |> List.first {
+                Ok(origin) => if Str.is_empty(origin) { "${issuer}token" } else { "${origin}/application/o/token/" }
+                Err(_) => "${issuer}token"
+            }
+        } else {
+            "${issuer}token"
+        }
+    }
 }

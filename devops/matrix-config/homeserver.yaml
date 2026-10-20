@@ -29,6 +29,12 @@ enable_registration: false
 enable_cors: true
 
 oidc_providers:
+  # The id here is NOT the id a client sees: Synapse exposes a configured `idp_id` as `oidc-<id>`
+  # (synapse/config/oidc.py prefixes it with the sign-in mechanism), so this one is `oidc-authentik`
+  # in the SSO redirect path and in `GET /_matrix/client/v3/login`. The app looks the id up there
+  # rather than hardcoding either value, so this line can stay as it is — and should, because
+  # changing it after people have logged in makes Synapse treat them as new users (their existing
+  # accounts are keyed by the id that was current when they were created).
   - idp_id: authentik
     idp_name: "Johnethel School SSO"
     issuer: "https://auth.johnethel.school/application/o/matrix/"

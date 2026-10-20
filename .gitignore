@@ -43,3 +43,7 @@ golem-server.log
 /devops/docker-compose.yml.broken2
 /devops/docker-compose.yml.original
 /devops/docker-compose.yml.remote
+
+# Python bytecode from the e2e fixtures (one .pyc was committed once; it should never be).
+__pycache__/
+*.pyc

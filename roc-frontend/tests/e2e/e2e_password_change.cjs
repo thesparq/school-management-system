@@ -89,6 +89,28 @@ const api = async (method, path, body) => {
   await page.waitForTimeout(3500);
   check('and the pages work again', await page.evaluate(() => !document.body.innerText.includes('password_change_required')), page.url());
 
+  // --- A change the person chose: the current password is asked, and checked by Authentik ---
+  // Nothing is owed now, so this is the voluntary path: the form gains the current-password field and the
+  // backend verifies it through the provider's password grant (the mock accepts `mock-current-password`
+  // for any login it knows). It is what closes the hole a stolen session would otherwise have.
+  await page.goto(`${appUrl}/settings`, { waitUntil: 'load' });
+  await page.waitForTimeout(4000);
+  check('Settings offers the current-password field when nothing is owed',
+    (await page.locator('#current-password-field input').count()) === 1);
+  await page.fill('#new-password-field input', `Chosen-${stamp}!`);
+  await page.fill('#confirm-password-field input', `Chosen-${stamp}!`);
+  await page.click('text=Set my password');
+  await page.waitForTimeout(1500);
+  check('a chosen change without it is refused', await hasText('Enter your current password'));
+  await page.fill('#current-password-field input', 'not-the-password');
+  await page.click('text=Set my password');
+  await page.waitForSelector('text=not your current password', { timeout: 20000 }).catch(() => {});
+  check('and a wrong one is refused by the check', await hasText('not your current password'));
+  await page.fill('#current-password-field input', 'mock-current-password');
+  await page.click('text=Set my password');
+  await page.waitForSelector('text=Your password is set', { timeout: 20000 }).catch(() => {});
+  check('the right one is accepted', await hasText('Your password is set'));
+
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 
   await browser.close();

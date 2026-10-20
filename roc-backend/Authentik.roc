@@ -5,6 +5,7 @@ import pf.Http
 import pf.Env
 import pf.OsStr
 import AuthUrls
+import Url
 
 Authentik := [].{
     validateToken! : Str => [Ok(Str), Err(Str)]
@@ -40,6 +41,60 @@ Authentik := [].{
                 }
             }
             Err(_) => Err("Http Error connecting to Authentik")
+        }
+    }
+
+    ## Whether this password is the login's current one. The password grant runs the provider's own
+    ## authentication flow, so the answer comes from the only party that can check a password — and the token
+    ## it answers with is discarded: the status is the whole answer. 200 means the credentials are right;
+    ## `invalid_grant` means they are not; anything else (a grant this client is not allowed to use, a client
+    ## secret that was rotated, an Authentik that is down) is an Err, so a broken deployment is reported as
+    ## broken rather than read as "wrong password".
+    ##
+    ## The token it mints is a session this backend never uses — the check costs one session, which is the
+    ## price of asking the identity provider instead of trusting a password ourselves.
+    verifyPassword! : Str, Str => [Ok(Bool), Err(Str)]
+    verifyPassword! = |username, password| {
+        issuer = match Env.var!("AUTHENTIK_ISSUER_URL") {
+            Ok(os) => OsStr.display(os)
+            Err(_) => "http://localhost:9000/application/o/school/"
+        }
+        client_id = match Env.var!("AUTHENTIK_CLIENT_ID") { Ok(os) => OsStr.display(os), Err(_) => "" }
+        client_secret = match Env.var!("AUTHENTIK_CLIENT_SECRET") { Ok(os) => OsStr.display(os), Err(_) => "" }
+
+        if Str.is_empty(client_id) or Str.is_empty(client_secret) {
+            Err("AUTHENTIK_CLIENT_ID / AUTHENTIK_CLIENT_SECRET are not set, so a password cannot be checked")
+        } else if Str.is_empty(username) {
+            Err("this login has no username to check a password against")
+        } else {
+            body = "grant_type=password&username=${Url.encode(username)}&password=${Url.encode(password)}&client_id=${Url.encode(client_id)}&client_secret=${Url.encode(client_secret)}&scope=openid"
+
+            req =
+                Request.from_method(POST)
+                    |> Request.with_uri(AuthUrls.token_url(issuer))
+                    |> Request.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    |> Request.with_body(Str.to_utf8(body))
+
+            match Http.send!(req) {
+                Err(_) => Err("Could not reach Authentik to check the password"),
+                Ok(response) => {
+                    status = Response.status(response)
+
+                    if status == 200 {
+                        Ok(Bool.True)
+                    } else if status == 400 or status == 401 {
+                        answer = match Str.from_utf8(Response.body(response)) { Ok(text) => text, Err(_) => "" }
+
+                        if Str.contains(answer, "invalid_grant") {
+                            Ok(Bool.False)
+                        } else {
+                            Err("Authentik refused the password check: ${Str.trim(answer)}")
+                        }
+                    } else {
+                        Err("Authentik answered HTTP ${U16.to_str(status)} to the password check")
+                    }
+                }
+            }
         }
     }
 

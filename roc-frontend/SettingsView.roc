@@ -53,6 +53,17 @@ password_card = |model| {
         Html.p([Attribute.class("text-xs text-muted-foreground")], [
             Html.text("At least 8 characters. You will sign in with it from now on.")
         ]),
+        # The current password is asked only when nothing is owed: a change the person *chose* has to prove
+        # it (Authentik checks it for us), while a change they are being made to do follows a sign-in with
+        # that very password — and asking again there would let a broken check lock them out of the one
+        # screen that frees them.
+        if model.passwordRequired {
+            Html.p([Attribute.class("text-xs text-muted-foreground")], [
+                Html.text("You signed in with the password an administrator set, so there is nothing to prove — just choose your own.")
+            ])
+        } else {
+            password_field("Current password", "current-password-field", model.currentPassword, model.isSubmitting, |s| UpdateCurrentPassword(s))
+        },
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
             password_field("New password", "new-password-field", model.newPassword, model.isSubmitting, |s| UpdateNewPassword(s)),
             password_field("Repeat the new password", "confirm-password-field", model.confirmPassword, model.isSubmitting, |s| UpdateConfirmPassword(s)),

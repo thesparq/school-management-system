@@ -8,6 +8,32 @@
 ## No HTTP in it, so `roc test UrlTest.roc` covers the rule cleanly.
 
 Url := [].{
+    ## Percent-encode one form or query component: everything outside the unreserved set (`A-Za-z0-9-._~`)
+    ## becomes `%XX`, and a space becomes `%20` (not `+`, which is a form-body convention this file does not
+    ## have to guess at). Needed for the password grant's form body, where a password containing `&`, `=` or
+    ## `+` would otherwise end the field it is in.
+    encode : Str -> Str
+    encode = |text| {
+        digits = Str.to_utf8("0123456789ABCDEF")
+
+        digit = |index| match List.get(digits, index) {
+            Ok(byte) => Str.from_utf8([byte]) ?? "0"
+            Err(_) => "0"
+        }
+
+        hex = |byte| {
+            value = U8.to_u64(byte)
+            "%${digit(value / 16)}${digit(value % 16)}"
+        }
+
+        unreserved = |byte| {
+            (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) or (byte >= 48 and byte <= 57) or byte == 45 or byte == 46 or byte == 95 or byte == 126
+        }
+
+        parts = List.map(Str.to_utf8(text), |byte| if unreserved(byte) { Str.from_utf8([byte]) ?? "" } else { hex(byte) })
+        Str.join_with(parts, "")
+    }
+
     ## Percent-decode one query component: `%XX` (upper- or lowercase hex) becomes the byte it names
     ## and `+` becomes a space. Malformed escapes stay literal — a value that merely contains `%`
     ## (`100%`, `%zz`) is passed through unchanged — and a decoded byte sequence that is not valid

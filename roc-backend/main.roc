@@ -2923,6 +2923,32 @@ clear_password_required! = |pk, config| {
     db_body!("UPDATE ${record_ref!(pk, "password_state")} SET changed_at = time::now();", config)
 }
 
+# Whether this password is the caller's current one, asked of Authentik — with "could not check" told apart
+# from "wrong", because those are different things to say: one is the person mistyping, the other is a
+# deployment whose password grant or client secret needs attention. The username it signed in with is what
+# the provider's identification stage expects; a deployment that identifies people by address is covered by
+# the second try, which costs a second attempt only when the first one failed.
+password_check! : Str, Str => [Verified, Wrong, Unavailable(Str)]
+password_check! = |user_json, password| {
+    username = extract_field(user_json, "preferred_username")
+    email = extract_field(user_json, "email")
+
+    match Authentik.verifyPassword!(username, password) {
+        Ok(Bool.True) => Verified
+        Err(message) => Unavailable(message)
+        Ok(Bool.False) =>
+            if Str.is_empty(email) {
+                Wrong
+            } else {
+                match Authentik.verifyPassword!(email, password) {
+                    Ok(Bool.True) => Verified
+                    Ok(Bool.False) => Wrong
+                    Err(message) => Unavailable(message)
+                }
+            },
+    }
+}
+
 # Whether this request may proceed while a change is pending: the two routes that answer the state, and
 # nothing else. A caller with no pending requirement — every login whose password was not set here — is
 # unaffected, and the developer's own key is never gated.
@@ -4292,19 +4318,44 @@ respond! = |request, context| {
                     # the service credential it already holds for an admin's reset — keyed by the caller and
                     # never by a payload id, so this can only change your own. The requirement the gate was
                     # holding is cleared by this write, which is the one thing that clears it.
+                    #
+                    # A change the person is *not* being made to do (nothing is owed — they came to Settings
+                    # by choice) has to prove the current password, and only Authentik can check one: the
+                    # password grant runs its own authentication flow, so `current` is verified there. A
+                    # change that *is* owed does not ask: they signed in with that password moments ago, and
+                    # requiring it again would mean a broken password check could lock a person out of the
+                    # one screen that frees them.
                     payload_raw = read_body!(request)
                     new_password = extract_field(payload_raw, "password")
+                    current_password = extract_field(payload_raw, "current")
                     pk = caller_id!(user_json)
+                    owed = password_change_pending!(pk, context.surreal)
 
                     if password_ok(new_password) == Bool.False {
                         Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
+                    } else if !owed and Str.is_empty(current_password) {
+                        Ok(json_response(400, "{\"error\":\"Enter your current password to change it\"}"))
                     } else {
-                        match Authentik.setPassword!(bare_id(pk), new_password) {
-                            Err(msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(msg)}\"}")),
-                            Ok(_) => {
-                                _ = clear_password_required!(pk, context.surreal)
-                                Ok(json_response(200, "{\"ok\":true}"))
-                            },
+                        # Nothing owed means the current password has to be proven, and proving it is a call to
+                        # Authentik: a "could not check" is answered as the deployment problem it is, not as a
+                        # wrong password.
+                        check = if Str.is_empty(current_password) { Verified } else { password_check!(user_json, current_password) }
+
+                        match check {
+                            # 400, not 401: a wrong password is a problem with *this request*, while this API
+                            # answers 401 for a bearer token it will not accept — and the page treats that as
+                            # "signed out" and sends the person to Authentik. A mistyped password must not log
+                            # anybody out.
+                            Wrong => Ok(json_response(400, "{\"error\":\"That is not your current password\"}")),
+                            Unavailable(message) => Ok(json_response(502, "{\"error\":\"Could not check your current password: ${sanitize_json_text(message)}\"}")),
+                            Verified =>
+                                match Authentik.setPassword!(bare_id(pk), new_password) {
+                                    Err(msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(msg)}\"}")),
+                                    Ok(_) => {
+                                        _ = clear_password_required!(pk, context.surreal)
+                                        Ok(json_response(200, "{\"ok\":true}"))
+                                    },
+                                },
                         }
                     }
 

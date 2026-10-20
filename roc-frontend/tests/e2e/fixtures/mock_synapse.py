@@ -3,10 +3,16 @@
 
 Answers the calls the page itself makes when it logs in and reads its room list:
 
-    GET  /_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…  -> 302 back with ?loginToken=
+    GET  /_matrix/client/v3/login                                        -> 200 the providers it offers
+    GET  /_matrix/client/v3/login/sso/redirect/oidc-authentik?redirectUrl=…
+                                                                         -> 302 back with ?loginToken=
     POST /_matrix/client/v3/login                                        -> 200 access_token (m.login.token)
     GET  /_matrix/client/v3/sync                                         -> 200 an empty sync
     GET  /_matrix/client/v3/account/whoami                               -> the user a token belongs to
+
+A redirect naming a provider this homeserver does not offer answers 404
+`M_NOT_FOUND "Unknown identity provider"`, which is what the real Synapse answered to the id the page
+used to pin (see below).
 
 This is the flow the [REDACTED] uses: the homeserver's own OIDC provider logs the person in (see
 `devops/matrix-config/homeserver.yaml`), so nothing needs an administrator's token to make an account
@@ -35,6 +41,28 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 USER_ID = "@thesparq:matrix.johnethel.school"
 log = open(os.environ.get("LOG_FILE", "/dev/stdout"), "a", buffering=1)
+
+# The identity providers this homeserver offers. The deployed one is configured in
+# `devops/matrix-config/homeserver.yaml` with `idp_id: authentik`, and Synapse exposes that to clients as
+# **`oidc-authentik`**: it prefixes a provider's configured id with the sign-in mechanism it belongs to
+# (`synapse/config/oidc.py`), which is the detail a page that pins the configured value gets wrong. The
+# mock offers the prefixed id — so a page that guesses has to fail here the way it failed against the
+# deployed homeserver — and refuses anything else exactly as Synapse does.
+#
+# `SSO_PROVIDERS_FILE`, when set, is read on every request, so a suite can change what the homeserver
+# offers while the page is open ("[]" for a homeserver that offers nothing).
+DEFAULT_PROVIDERS = [{"id": "oidc-authentik", "name": "Johnethel School SSO"}]
+PROVIDERS_FILE = os.environ.get("SSO_PROVIDERS_FILE", "")
+
+
+def providers():
+    if not PROVIDERS_FILE:
+        return DEFAULT_PROVIDERS
+    try:
+        with open(PROVIDERS_FILE) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return DEFAULT_PROVIDERS
 
 _state_lock = threading.Lock()
 _login_counter = 0
@@ -89,9 +117,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._record(b"")
+        if self.path == "/_matrix/client/v3/login":
+            # What this homeserver will accept, the way a client asks (MSC2858): the page reads the
+            # provider list here rather than assuming the name the config file uses.
+            return self._send(200, json.dumps({"flows": [
+                {"type": "m.login.sso", "identity_providers": providers()},
+                {"type": "m.login.token"},
+            ]}))
         if self.path.startswith("/_matrix/client/v3/login/sso/redirect"):
             # The homeserver's SSO entry point: hand the browser to the identity provider and come back to
-            # `redirectUrl` with a one-time login token.
+            # `redirectUrl` with a one-time login token. A provider it does not offer is refused before
+            # anything is handed over — 404, as the real homeserver answers.
+            idp_id = urllib.parse.urlparse(self.path).path.rsplit("/", 1)[-1]
+            if idp_id not in [p["id"] for p in providers()]:
+                return self._send(404, '{"errcode":"M_NOT_FOUND","error":"Unknown identity provider"}')
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             back = (query.get("redirectUrl") or [""])[0]
             if not back:

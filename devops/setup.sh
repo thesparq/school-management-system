@@ -56,7 +56,10 @@ config['enable_registration'] = False
 config['macaroon_secret_key'] = os.environ.get('SYNAPSE_MACAROON_SECRET_KEY', 'default_secret')
 config['registration_shared_secret'] = os.environ.get('SYNAPSE_REGISTRATION_SHARED_SECRET', 'default_secret')
 
-# Configure OIDC for Authentik
+# Configure OIDC for Authentik. The id a client sees is `oidc-authentik`, not `authentik`: Synapse
+# prefixes a configured `idp_id` with the sign-in mechanism it belongs to (synapse/config/oidc.py).
+# The app reads the id out of `GET /_matrix/client/v3/login`, so nothing depends on this value being
+# either spelling — see devops/README.md before changing it, because existing accounts are keyed by it.
 config['oidc_providers'] = [
     {
         'idp_id': 'authentik',

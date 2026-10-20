@@ -286,9 +286,12 @@
     // Set when a connect attempt fails, so the tab offers to try again instead of bouncing the browser
     // through the identity provider in a loop (a spent `loginToken`, or a homeserver that is down).
     const MATRIX_CONNECT_FAILED_KEY = "matrix_connect_failed";
-    // The homeserver's OIDC provider id (its config's `idp_id`). Naming it skips the provider picker; a
-    // deployment with several providers would leave this out and let the person choose.
-    const MATRIX_SSO_IDP = "authentik";
+    // Which identity provider to use is the homeserver's to say, not ours to guess: the id it hands out
+    // is **not** the one written in its config. Synapse prefixes a provider's configured `idp_id` with
+    // the sign-in mechanism it belongs to, so `idp_id: authentik` (`devops/matrix-config/homeserver.yaml`)
+    // is `oidc-authentik` to a client — the pinned name this page used to send is what answered
+    // `M_NOT_FOUND "Unknown identity provider"` on the deployed homeserver. The invitation is looked up
+    // per attempt instead (see matrixSsoProviderId).
     const MATRIX_REDIRECT_PATH = "/messaging";
 
     // The backend proxy is authenticated with the app's own token; every client-API call against
@@ -312,11 +315,29 @@
         return data.homeserver;
     }
 
+    // The identity provider this homeserver offers, asked of the homeserver itself: the login endpoint
+    // lists what it will accept (MSC2858) without needing a token, and the homeserver answers it from this
+    // page's origin (the deployment sets `enable_cors: true` for exactly this). One provider is the school's
+    // case; if a deployment ever offers several, the first is used, and that would be the place to offer a
+    // choice instead.
+    async function matrixSsoProviderId(homeserver) {
+        const res = await fetch(`${homeserver}/_matrix/client/v3/login`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `The chat server answered ${res.status}.`);
+        const sso = (data.flows || []).find(f => f.type === "m.login.sso");
+        const provider = ((sso && sso.identity_providers) || [])[0];
+        if (!provider || !provider.id) {
+            throw new Error("The chat server offers no sign-in provider, so chat cannot be connected. Ask your administrator to finish setting it up.");
+        }
+        return provider.id;
+    }
+
     // Send the person to the homeserver's SSO login. They are already signed in to Authentik — that is
     // how they are in this app at all — so the trip out and back is a bounce rather than a second login.
-    function startMatrixSso(homeserver) {
+    async function startMatrixSso(homeserver) {
+        const idp = await matrixSsoProviderId(homeserver);
         const back = window.location.origin + MATRIX_REDIRECT_PATH;
-        const url = `${homeserver}/_matrix/client/v3/login/sso/redirect/${MATRIX_SSO_IDP}?redirectUrl=${encodeURIComponent(back)}`;
+        const url = `${homeserver}/_matrix/client/v3/login/sso/redirect/${encodeURIComponent(idp)}?redirectUrl=${encodeURIComponent(back)}`;
         window.location.assign(url);
     }
 
@@ -2658,7 +2679,9 @@
                     return;
                 }
                 if (roomsList) roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">Connecting to chat…</p>`;
-                startMatrixSso(homeserver);
+                // `await`: a homeserver that will not name a provider (or is unreachable) has to land in
+                // the catch below and be said on the page, rather than escaping as an unhandled rejection.
+                await startMatrixSso(homeserver);
                 return;
             }
 
@@ -2669,7 +2692,11 @@
             bindMatrixComposer();
             renderMatrixChannelControls();
         } catch(e) {
-            showMatrixError(e.message || "Failed to connect to messaging server.");
+            // Every failure of the connect path leaves the same note the SSO round trip leaves, so a
+            // reload offers the way back (showMatrixReconnect) instead of sending the person out again.
+            const message = e.message || "Failed to connect to messaging server.";
+            if (!sessionStorage.getItem(MATRIX_TOKEN_KEY)) sessionStorage.setItem(MATRIX_CONNECT_FAILED_KEY, message);
+            showMatrixReconnect(message);
             console.error("Matrix setup error:", e);
         }
     }
@@ -2712,7 +2739,7 @@
         _matrixClient.token = null;
         try {
             if (_matrixClient.homeserver) {
-                startMatrixSso(_matrixClient.homeserver);
+                await startMatrixSso(_matrixClient.homeserver);
             } else {
                 showMatrixReconnect("Your chat session ended. Connect again.");
             }

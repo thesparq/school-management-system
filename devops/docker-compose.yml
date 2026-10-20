@@ -38,6 +38,11 @@ services:
     - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL:-https://auth.johnethel.school/application/o/userinfo/}
     - AUTHENTIK_API_TOKEN=${AUTHENTIK_SERVICE_ACCOUNT_TOKEN:-}
     - AUTHENTIK_HOST=${AUTHENTIK_HOST:-auth.johnethel.school}
+    # The app's own OAuth client. Token validation does not need it, but checking a *current* password does
+    # (the password grant runs Authentik's authentication flow), which is how a password change made from
+    # Settings is verified. Without these, that check answers 502 and says so.
+    - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID:-}
+    - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET:-}
     # Cloudflare R2 holds the passport photos. Compose passes into a container only the variables its
     # own `environment:` names — Infisical/Dokploy interpolation alone does not — so all five are
     # listed here. They default to empty so a missing value stays a 503 from `/api/upload-url` that

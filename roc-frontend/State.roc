@@ -101,6 +101,9 @@ Model : {
 	passwordReason : Str,
 	newPassword : Str,
 	confirmPassword : Str,
+	# The password they signed in with. Asked only when nothing is owed: a change the person chose has to
+	# prove it, and Authentik is the only party that can check one (see `password_check!` in main.roc).
+	currentPassword : Str,
 	passwordResult : [None, Success(Str), Error(Str)],
 	        newUserDateOfBirth : Str,
 	        newUserClassLevel : Str,
@@ -273,6 +276,7 @@ Msg : [
 	        GotPasswordState(Str),
 	        UpdateNewPassword(Str),
 	        UpdateConfirmPassword(Str),
+	        UpdateCurrentPassword(Str),
 	        SubmitPasswordChange,
 	        PasswordChangeCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	UpdateNewUserEmail(Str),
@@ -557,6 +561,7 @@ init = |flags| {
 		passwordReason: "",
 		newPassword: "",
 		confirmPassword: "",
+		currentPassword: "",
 		passwordResult: None,
 		usersData: "",
 		termsData: "",
@@ -1290,8 +1295,8 @@ dispatch = |model, msg|
 			# The whole replacement list, like the retired agent's save: what the dialog shows is what
 			# the teacher ends up with (the backend hides the dropped rows and revives or creates the
 			# kept ones, scoped to the active session term). An empty list means "clear the teacher".
-			pairs_json = "[${Str.join_with(List.map(model.assignSelectedEdges, |edge| "{\"edge_id\":\"${edge}\"}"), ",")}]"
-			req = {
+			                        pairs_json = "[${Str.join_with(List.map(model.assignSelectedEdges, |edge| "{\"edge_id\":\"${edge}\"}"), ",")}]"
+			                        req = {
 				method: POST,
 				uri: "${model.appOrigin}/api/teacher-assignments",
 				headers: [
@@ -2017,6 +2022,7 @@ dispatch = |model, msg|
            }
            UpdateNewPassword(s) => ({ ..model, newPassword: s }, [])
            UpdateConfirmPassword(s) => ({ ..model, confirmPassword: s }, [])
+           UpdateCurrentPassword(s) => ({ ..model, currentPassword: s }, []),
            SubmitPasswordChange => {
            	# The rules the backend enforces, said here first so the form answers without a round trip;
            	# the backend checks them again and its own message is what the form shows when it refuses.
@@ -2031,25 +2037,30 @@ dispatch = |model, msg|
            			"The password may not contain line breaks"
            		} else if model.newPassword != model.confirmPassword {
            			"The two passwords do not match"
-           		} else {
+           			} else if !model.passwordRequired and Str.is_empty(model.currentPassword) {
+           				# Nothing is owed, so this is a change the person chose: it has to prove the current password.
+           				"Enter your current password"
+           			} else {
            			""
            		}
            
            	if !Str.is_empty(problem) {
            		({ ..model, passwordResult: Error(problem) }, [])
            	} else {
-           		# The password is sent in the body and never kept: the backend hands it to Authentik and
-           		# answers; nothing here stores it beyond the keystrokes.
-           		req = {
-           			method: POST,
-           			uri: "${model.appOrigin}/api/me/password",
-           			headers: [
-           				{ name: "Authorization", value: "Bearer ${model.authToken}" },
-           				{ name: "Content-Type", value: "application/json" }
-           			],
-           			body: Str.to_utf8("{\"password\":\"${model.newPassword}\"}"),
-           			timeout_ms: NoTimeout,
-           		}
+		                        # The password is sent in the body and never kept: the backend hands it to Authentik and
+		                        # answers; nothing here stores it beyond the keystrokes. `current` rides along only when
+		                        # it was asked for (and typed): the backend verifies it against Authentik first.
+		                        current_clause = if Str.is_empty(model.currentPassword) { "" } else { ",\"current\":\"${model.currentPassword}\"" }
+		                        req = {
+		                                method: POST,
+		                                uri: "${model.appOrigin}/api/me/password",
+		                                headers: [
+		                                        { name: "Authorization", value: "Bearer ${model.authToken}" },
+		                                        { name: "Content-Type", value: "application/json" }
+		                                ],
+		                                body: Str.to_utf8("{\"password\":\"${model.newPassword}\"${current_clause}}"),
+		                                timeout_ms: NoTimeout,
+		                        }
            		({ ..model, isSubmitting: Bool.True, passwordResult: None }, [Http.request(req, |res| PasswordChangeCompleted(res))])
            	}
            }
@@ -2074,7 +2085,7 @@ dispatch = |model, msg|
            		None => Bool.False
            	}
            
-           	({ ..model, isSubmitting: Bool.False, passwordResult: result, passwordRequired: if cleared { Bool.False } else { model.passwordRequired }, newPassword: if cleared { "" } else { model.newPassword }, confirmPassword: if cleared { "" } else { model.confirmPassword } }, [])
+           	({ ..model, isSubmitting: Bool.False, passwordResult: result, passwordRequired: if cleared { Bool.False } else { model.passwordRequired }, newPassword: if cleared { "" } else { model.newPassword }, confirmPassword: if cleared { "" } else { model.confirmPassword }, currentPassword: if cleared { "" } else { model.currentPassword } }, [])
            }
 		UpdateNewUserRole(s) => ({ ..model, newUserRole: s }, [])
 		SetPassportKey(k) => ({ ..model, newUserPassportKey: k }, [])

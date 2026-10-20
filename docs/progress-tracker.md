@@ -1920,6 +1920,62 @@ again). Plus the whole set re-run: `authz.sh` 60/60, `users_api.sh` 99/99, `e2e_
 
 ---
 
+### The chat login asked for a provider the homeserver does not have, and the sign-out card sat off-centre (2026-10-20)
+
+Opening Messaging on the deployed app landed on a JSON 404 — `M_NOT_FOUND "Unknown identity provider"` — for
+the redirect the page built:
+
+    /_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…
+
+**The homeserver's config was right and the page was wrong.** Synapse does not expose a configured `idp_id`
+as itself: it prefixes it with the sign-in mechanism it belongs to, so `idp_id: authentik`
+(`devops/matrix-config/homeserver.yaml`) is **`oidc-authentik`** to clients and in the redirect path
+(`synapse/config/oidc.py`: `idp_id = "oidc-" + idp_id`). The page had pinned the config file's value.
+
+- The page now asks the homeserver which providers it offers — `GET /_matrix/client/v3/login` (MSC2858,
+  public, and answered from the app's origin because the deployment sets `enable_cors: true`) — and opens the
+  SSO entry point with the first id it is given. A renamed provider keeps working, and a homeserver that
+  offers **none** now says so on the page instead of sending the browser into a 404.
+- The connect path's failures land in the same **Try again** state the SSO round trip's do: `startMatrixSso`
+  became asynchronous, and an un-awaited rejection used to escape the caller's `catch`, leaving the panel on
+  "Connecting to chat…" with nothing to press.
+- `fixtures/mock_synapse.py` is why this passed locally while failing in production: it accepted **any** id in
+  the redirect path. It now answers the discovery call, offers `oidc-authentik` (what the config's `authentik`
+  becomes) and refuses anything else with the same 404 Synapse gives — plus a providers file a suite can empty
+  while the page is open.
+
+The sign-out card (`default_dashboard`, on screen while the sign-out navigation is under way) had two defects
+of its own:
+
+- it centred itself in a fixed 60vh band, so on a phone it sat ~150px under the nav with the empty half of the
+  page beneath it. It fills the content area now (`min-h-[calc(100dvh_-_4rem)]`): a percentage does not work
+  here, because the shell's content area is a flex item and gives its children no definite height, and the
+  4rem is the nav's own `h-16`.
+- its padding lost to the component's: `UI.card_content` carries `p-6 pt-0` for content that follows a card
+  header, and `.pt-0` is emitted *after* `.p-*`/`.py-*`, so the `py-12` it was given was cancelled on the top
+  side alone — the icon sat against the card's top edge with all the space at the bottom (measured: 0px above
+  the icon, 48px below the text). The card pads its own block now, and `UI.card_content` says so for the next
+  caller.
+
+**Verified**: `e2e_matrix_sso.cjs` 25/25 (new: the discovery call, the redirect naming the id it was offered,
+no attempt naming an id the homeserver does not offer, and a homeserver with no provider reported in the page)
+and `e2e_signout.cjs` 13/13 (new: the card is on the page, sits in the middle — *above 279px / below 279px* at
+390×844 — is evenly padded — *33px / 33px* — and spills nothing sideways). The card was measured before and
+after at 1440×900 and 390×844. Re-run against the regenerated stylesheet: `e2e_nav_fixes` 6/6, `e2e_loading`
+20/20, `e2e_admin` 16/16, `e2e_student` 7/7, `e2e_notifications_lms` 26/26, `e2e_icons_refresh` 10/10, and
+`roc check` clean on both sides.
+
+**Deploying it**: a frontend change only — the app image built from `main` (CI regenerates `dist.css`, so the
+committed file is for local runs). No schema and no environment variable. The interim advice to set a real
+Synapse server-admin token for Messaging is obsolete with this fix: `MATRIX_ADMIN_TOKEN` can be deleted from
+Infisical (prod and dev).
+
+Left alone, next to it: while the card asks the person to sign in, the shell still draws the sidebar's account
+block and its unconditional "Dashboard" item for a role with no session. Not what was reported here; worth
+tidying the next time that screen is touched.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired

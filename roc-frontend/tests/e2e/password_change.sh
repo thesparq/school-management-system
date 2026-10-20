@@ -73,6 +73,19 @@ NP_TOK=$(jwt "$NP_PK" "Students")
 check "a login made without a password owes nothing" "$(call "$NP_TOK" GET /api/me/password-state)" '"required":false'
 check "and reaches its own data" "$(call "$NP_TOK" GET /api/student/subjects)" " HTTP 200"
 
+# --- 5. A change nothing owed has to prove the current password -------------------------
+# The check is Authentik's own password grant (the mock accepts `mock-current-password` for any login it
+# knows), and it is what closes the hole a stolen session would otherwise have: without it, anyone holding
+# a live session could set a new password and lock the owner out.
+check "a chosen change without the current password is refused" "$(call "$NP_TOK" POST /api/me/password "{\"password\":\"Chosen-${STAMP}!\"}" )" " HTTP 400"
+check "and says what is missing" "$(call "$NP_TOK" POST /api/me/password "{\"password\":\"Chosen-${STAMP}!\"}")" "Enter your current password"
+check "a wrong current password is refused" "$(call "$NP_TOK" POST /api/me/password "{\"password\":\"Chosen-${STAMP}!\",\"current\":\"not-it\"}")" " HTTP 400"
+check "and says which one is wrong" "$(call "$NP_TOK" POST /api/me/password "{\"password\":\"Chosen-${STAMP}!\",\"current\":\"not-it\"}")" "not your current password"
+check "the right current password is accepted" "$(call "$NP_TOK" POST /api/me/password "{\"password\":\"Chosen-${STAMP}!\",\"current\":\"mock-current-password\"}")" " HTTP 200"
+check "and the login still works with its own data" "$(call "$NP_TOK" GET /api/student/subjects)" " HTTP 200"
+# A change that *is* owed may send the current password too — and then it has to be right.
+check "a wrong current password is refused even when one is owed" "$(call "$TOK" POST /api/me/password "{\"password\":\"Owed-${STAMP}!\",\"current\":\"not-it\"}")" " HTTP 400"
+
 # --- 5. The developer's key is never gated, and cleanup ---------------------------------
 check "the developer's own key is unaffected" "$(call dev-skip GET /api/me/password-state)" '"required":false'
 check "cleaning up the first login answers 200" "$(call dev-skip DELETE /api/users "{\"id\":\"student_profile:${PK}\"}")" " HTTP 200"
