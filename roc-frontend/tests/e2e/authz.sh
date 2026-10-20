@@ -114,7 +114,29 @@ check "and the ticks" "$(call dev-skip GET '/api/users?role=Admin')" '"permissio
 curl -s -o /dev/null -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" \
   -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"supervisor","permissions":["lessons.manage","assessments.manage"]}'
 
-# --- 7. a row's absent columns read as absent, not as the next field's name ----------------
+# --- 7. the school's own subject shape: a hashed `sub`, no pk in the body ------------------
+# Authentik's default `sub_mode` answers the login's *hashed* uuid, so a real userinfo body carries no pk:
+# `sub` is not what the directory, the profile rows or the listing are keyed by. The backend resolves the
+# login through the directory (by email) and keys everything on the pk it finds — without that, every
+# caller-scoped feature reads an id no row has, which is what locked the school's own admin out.
+SEED_PK=$(curl -s "$B/api/users?role=Admin" -H 'Authorization: Bearer dev-skip' | python3 -c "
+import json,sys
+rows=json.load(sys.stdin)[0]['result']
+# The login *this* process's directory has is the row the directory answered an email for; rows left behind
+# by earlier runs carry the same name and no email, because that mock process is gone.
+hit=[r for r in rows if r.get('display_name') == 'Seed Admin' and (r.get('email') or '')]
+print(str(hit[0]['id']).split(':')[1] if hit else '')
+")
+check "the directory has the seeded administrator" "$SEED_PK" "mock_uuid_"
+# Its row carries one tick and not the others, so the answer below can only come from that row.
+curl -s -o /dev/null -X PUT "$B/api/users" -H 'Authorization: Bearer dev-skip' -H "$C" \
+  -d "{\"id\":\"admin_profile:${SEED_PK}\",\"first_name\":\"Seed\",\"surname\":\"Admin\",\"passport\":\"https://example.com/seed-admin.jpg\",\"admin_type\":\"supervisor\",\"permissions\":[\"lessons.manage\"]}"
+check "a hashed subject resolves to the school's own row" "$(call mock-hashed-token GET /api/admin-rights)" '"permissions":["lessons.manage"]'
+check "and that row's tick is what the routes enforce" "$(call mock-hashed-token GET /api/teacher/lessons)" " HTTP 200"
+check "while a tick it lacks is refused (403)" "$(call mock-hashed-token POST /api/users '{}')" " HTTP 403"
+check "and the refusal names Manage users" "$(call mock-hashed-token POST /api/users '{}')" "Manage users"
+
+# --- 8. a row's absent columns read as absent, not as the next field's name ----------------
 # The database answers a selected column the row does not carry as `null`; the listing scans text, so
 # `"middle_name":null,"passport":"…"` used to read "passport" as the middle name and the edit form
 # prefilled it back into the next save.

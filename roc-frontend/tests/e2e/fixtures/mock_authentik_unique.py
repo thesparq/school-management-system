@@ -128,6 +128,13 @@ userinfo = {
                          'email': 'admin@example.com', 'groups': ['Administrators']},
     'mock-groupless-token': {'sub': 'mock_uuid_groupless', 'uid': 'mock_uuid_groupless', 'name': 'Sandbox Groupless',
                              'email': 'groupless@example.com', 'groups': []},
+    # The school's own provider answers a *hashed* subject (Authentik's default `sub_mode`), so a real body
+    # carries no pk at all — `sub` is a hash of the login's uuid, and there is no `uid`. This token stands
+    # for the seeded administrator (`seed-admin@example.com`), whose profile row is keyed by its pk, so it
+    # is the shape a school-side lookup has to resolve through the directory.
+    'mock-hashed-token': {'sub': 'addd0ec45fbe222e313c56cf123a6ab99080a2723b8ab5df9f5c72ab7f07145a',
+                          'name': 'Seed Admin', 'email': 'seed-admin@example.com', 'preferred_username': 'seed-admin',
+                          'groups': ['Super Admins']},
 }
 
 

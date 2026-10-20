@@ -331,17 +331,19 @@ take_json_array = |bytes, depth, in_string, out| {
     }
 }
 
-# The authenticated user's id, used as the profile record id (the MoonBit stack's convention).
-# The dev tokens have no userinfo body, so they fall back to their literal value.
+# The authenticated user's id, used as the profile record id (the MoonBit stack's convention). `uid`
+# first: it is the school-side pk this backend writes into a body whose provider subject is not one (see
+# `with_school_pk!`), and the sandbox mock sends both claims with the same value. The dev tokens have no
+# userinfo body, so they fall back to their literal value.
 caller_id! : Str => Str
 caller_id! = |user| {
-    sub = extract_field(user, "sub")
-    if !Str.is_empty(sub) {
-        bare_id(sub)
+    uid = extract_field(user, "uid")
+    if !Str.is_empty(uid) {
+        bare_id(uid)
     } else {
-        uid = extract_field(user, "uid")
-        if !Str.is_empty(uid) {
-            bare_id(uid)
+        sub = extract_field(user, "sub")
+        if !Str.is_empty(sub) {
+            bare_id(sub)
         } else if Str.is_empty(user) {
             "unknown"
         } else {
@@ -905,21 +907,35 @@ profile_missing! = |pk, table, config| {
     }
 }
 
-# Find a login's pk in the directory by its email; the login is unique by email in Authentik.
-# Empty when the directory cannot be read or the email is not there.
-directory_pk_for_email! : Str => Str
-directory_pk_for_email! = |email| {
+# The directory pk of the login a userinfo body is about: matched by email — unique in Authentik, and the
+# one attribute both answers carry — then by username for a login that has no address. "" when the
+# directory does not answer or has no such login.
+directory_pk_for_login! : Str, Str => Str
+directory_pk_for_login! = |email, username| {
     match directory_users!() {
         Err(_) => ""
         Ok(users_body) => {
             elements = split_json_elements(extract_json_array(users_body, "results"))
-            match List.find_first(elements, |user| extract_field(user, "email") == email) {
-                Ok(user) => directory_pk!(user)
-                Err(_) => ""
+            by_email = List.find_first(elements, |user| !Str.is_empty(email) and extract_field(user, "email") == email)
+
+            found = match by_email {
+                Ok(user) => user
+                Err(_) =>
+                    match List.find_first(elements, |user| !Str.is_empty(username) and extract_field(user, "username") == username) {
+                        Ok(user) => user
+                        Err(_) => "",
+                    },
             }
+
+            if Str.is_empty(found) { "" } else { directory_pk!(found) }
         }
     }
 }
+
+# Find a login's pk in the directory by its email; the login is unique by email in Authentik.
+# Empty when the directory cannot be read or the email is not there.
+directory_pk_for_email! : Str => Str
+directory_pk_for_email! = |email| directory_pk_for_login!(email, "")
 
 # Rebuild the profile row from the journaled payload. The payload is the create request's JSON
 # (minus the password, which is never stored), read back with the scanners.
@@ -2938,9 +2954,43 @@ forget_cached_identity! = |subject, config| {
     db_body!("DELETE FROM token_cache WHERE subject = '${surreal_literal(bare_id(subject))}';", config)
 }
 
+# The userinfo body with the caller's school-side pk written into it as `uid`, which is what every
+# school-side lookup reads (`caller_id!`). Authentik's `sub` is the *provider's* subject, and this
+# school's provider answers the default *hashed* user id — not the pk the directory, the profile rows and
+# the listing are keyed by — so a body that carries no pk of its own gets one, resolved through the
+# directory by email (then username). A body that already has a `uid` (the sandbox mock, or a provider
+# configured with `sub_mode = user_id`) is handed back untouched, and a lookup that fails leaves the body
+# alone too: the caller is authorized either way, and an unresolved login is the state the routes already
+# handle (a profile that has not been made yet).
+#
+# Without this, a hashed subject never matches a profile row: every caller-scoped feature — a teacher's own
+# assignments, a student's own class, a parent's own children, and an administrator's type and permissions —
+# reads the wrong id and behaves as if the row did not exist.
+with_school_pk! : Str => Str
+with_school_pk! = |body| {
+    if Str.is_empty(body) or !Str.is_empty(extract_field(body, "uid")) {
+        body
+    } else {
+        pk = directory_pk_for_login!(extract_field(body, "email"), extract_field(body, "preferred_username"))
+
+        if Str.is_empty(pk) {
+            body
+        } else {
+            # Written in as the first claim, so the text scanners read it and nothing else changes shape.
+            rest = match List.get(Str.split_on(body, "{"), 1) {
+                Ok(tail) => tail
+                Err(_) => "",
+            }
+
+            if Str.is_empty(rest) { body } else { "{\"uid\":\"${pk}\",${rest}" }
+        }
+    }
+}
+
 # The body behind a bearer token: the cache when this backend validated the same token a moment ago,
-# otherwise Authentik, whose answer is then kept for the next one. Both paths hand the caller the same
-# thing — the body Authentik answered with — so the role is derived from it once, where this is called.
+# otherwise Authentik, whose answer is then kept for the next one — with the caller's school-side pk
+# resolved into it (`with_school_pk!`) so every lookup downstream reads the id the school's rows are keyed
+# by, and so the cached entry's own subject is that pk, which is what invalidation matches on.
 validated_identity! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
 validated_identity! = |token, config| {
     match cached_identity!(token, config) {
@@ -2948,8 +2998,9 @@ validated_identity! = |token, config| {
         Err(_) =>
             match Authentik.validateToken!(token) {
                 Ok(identity) => {
-                    _ = cache_identity!(token, identity, config)
-                    Ok(identity)
+                    resolved = with_school_pk!(identity)
+                    _ = cache_identity!(token, resolved, config)
+                    Ok(resolved)
                 }
                 Err(message) => Err(message),
             },
