@@ -1814,6 +1814,16 @@ two different bugs until one of them is proven — the console one-liner
 (`fetch('/api/admin-rights', {headers:{Authorization:'Bearer '+localStorage.auth_token}}).then(r=>r.json()).then(console.log)`)
 settles which in ten seconds.
 
+**A profile row follows its login's pk**, which is the one operational rule that comes with this: a login that
+is deleted and made again gets a *new* pk, so the old row is left behind (the person shows as "No profile yet"
+and their type and ticks sit on a row nothing addresses). Disable and re-activate a login instead of deleting
+and re-creating it. `authz.sh` now drives the whole path on a numeric pk — the shape the sandbox's
+`mock_uuid_…` pks never had — by attaching a profile to the seeded numeric-pk administrator through the API and
+calling as it: if the app's own keying ever drifted from `type::record('<table>', '<pk>')`, those cases fail.
+The uuid would be a different keying convention (and userinfo does not even carry it — only a hash of it), so
+it would mean migrating every row and every link that points at one; the pk is what the directory answers, what
+the create path receives and what the existing links already use.
+
 ---
 
 ## Completed Work

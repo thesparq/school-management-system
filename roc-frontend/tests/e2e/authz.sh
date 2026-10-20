@@ -136,7 +136,18 @@ check "and that row's tick is what the routes enforce" "$(call mock-hashed-token
 check "while a tick it lacks is refused (403)" "$(call mock-hashed-token POST /api/users '{}')" " HTTP 403"
 check "and the refusal names Manage users" "$(call mock-hashed-token POST /api/users '{}')" "Manage users"
 
-# --- 8. a row's absent columns read as absent, not as the next field's name ----------------
+# --- 8. a login whose pk is a number: the app's own row keying, end to end ----------------
+# The school's own admin is pk 5, and the app keys a profile row as `type::record('admin_profile','5')` — a
+# *string* id. A row written as a bare `admin_profile:5` is a different record that no lookup finds, which is
+# how that admin ended up with a row nothing could see. Every other sandbox pk is `mock_uuid_…`, where the
+# two forms are the same record and the mistake is invisible, so this drives the whole path on a numeric pk:
+# the row is created through the API (the app's own create path), then called as that login.
+check "a profile can be attached to a numeric-pk login" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H 'Authorization: Bearer dev-skip' -H "$C" -d '{"id":"admin_profile:9002","first_name":"Seed","surname":"Numeric","passport":"https://example.com/numeric.jpg","admin_type":"supervisor","permissions":["lessons.manage"]}')" "200"
+check "a numeric-pk caller resolves to that row" "$(call mock-numeric-admin-token GET /api/admin-rights)" '"permissions":["lessons.manage"]'
+check "and its ticks are what the routes enforce" "$(call mock-numeric-admin-token GET /api/teacher/lessons)" " HTTP 200"
+check "while a tick it lacks is refused (403)" "$(call mock-numeric-admin-token POST /api/users '{}')" " HTTP 403"
+
+# --- 9. a row's absent columns read as absent, not as the next field's name ----------------
 # The database answers a selected column the row does not carry as `null`; the listing scans text, so
 # `"middle_name":null,"passport":"…"` used to read "passport" as the middle name and the edit form
 # prefilled it back into the next save.

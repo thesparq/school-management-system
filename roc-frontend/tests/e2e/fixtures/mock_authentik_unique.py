@@ -117,6 +117,20 @@ users['9001'] = {
         {'pk': f'{pk_prefix}_group_numeric', 'name': 'Students', 'is_superuser': False, 'attributes': {}}
     ],
 }
+# And one that is an administrator, so the caller path can be driven with a numeric pk: the app keys a
+# profile row as `type::record('<table>', '<pk>')`, a *string* id, and a bare `admin_profile:9002` is a
+# different record that no lookup finds (see the progress tracker). The school's own admin is pk 5.
+users['9002'] = {
+    'pk': 9002,
+    'username': 'seed-numeric-admin',
+    'name': 'Seed Numeric Admin',
+    'email': 'seed-numeric-admin@example.com',
+    'is_active': True,
+    'groups': [f'{pk_prefix}_group_numeric_admin'],
+    'groups_obj': [
+        {'pk': f'{pk_prefix}_group_numeric_admin', 'name': 'Super Admins', 'is_superuser': False, 'attributes': {}}
+    ],
+}
 
 # token -> the userinfo body the backend reads the caller's id and role from
 userinfo = {
@@ -135,6 +149,12 @@ userinfo = {
     'mock-hashed-token': {'sub': 'addd0ec45fbe222e313c56cf123a6ab99080a2723b8ab5df9f5c72ab7f07145a',
                           'name': 'Seed Admin', 'email': 'seed-admin@example.com', 'preferred_username': 'seed-admin',
                           'groups': ['Super Admins']},
+    # A login whose pk is a *number*, as the real directory's are (`"pk":13`): the app keys a profile row as
+    # `type::record('<table>', '<pk>')` — a string id — and a bare `admin_profile:9002` is a *different*
+    # record that no lookup finds. The school's own admin is pk 5, so this is the shape their row had to be
+    # keyed in (and the shape the sandbox's `mock_uuid_…` pks never exercise).
+    'mock-numeric-admin-token': {'sub': '9002', 'uid': '9002', 'name': 'Seed Numeric Admin',
+                                 'email': 'seed-numeric-admin@example.com', 'groups': ['Super Admins']},
 }
 
 
