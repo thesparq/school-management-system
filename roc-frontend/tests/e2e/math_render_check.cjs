@@ -113,7 +113,7 @@ const LESSON_CONTENT = {
 (async () => {
     let lessonId;
     try {
-        const rows = await db(`CREATE lessons SET has_subject = (SELECT VALUE id FROM has_subject WHERE \`in\` = ${CLASS} AND out = ${SUBJECT} LIMIT 1)[0], term = ${TERM}, week = ${WEEK}, topic_title = 'Number Base System (maths render check)', slug = '${SLUG}', duration_mins = 40, active = true, content_outline = 'Place value and conversions in base two', content = ${JSON.stringify(LESSON_CONTENT)};`);
+        const rows = await db(`CREATE lessons SET has_subject = (SELECT VALUE id FROM has_subject WHERE \`in\` = ${CLASS} AND out = ${SUBJECT} LIMIT 1)[0], term = ${TERM}, week = ${WEEK}, topic_title = 'Number Base System (maths render check)', slug = '${SLUG}', duration_mins = 40, active = true, context = 'Place value and conversions in base two', content = ${JSON.stringify(LESSON_CONTENT)};`);
         lessonId = rows[0].id;
     } catch (err) {
         console.error(`FAIL  the sandbox could not be prepared — ${err.message}`);

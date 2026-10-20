@@ -52,6 +52,8 @@ claim instead; `authz.sh` is the check that the gate bites either way.
 | `smoke_teacher_role.cjs` | The teacher role's own shell in Chromium: My Classes renders, the sidebar offers it and hides the admin entries, and an unassigned teacher sees the empty state rather than a gate failure. | Sandbox backend |
 | `matrix_token.sh` | The chat proxy (`GET /api/matrix/token`) against a mock Synapse (`fixtures/mock_synapse.py`): no/bogus token is a 401; every role is allowed and receives a homeserver plus a real token (not the old `null` stub); the backend upserts and logs in **the caller's own** encoded user id with the caller's display name; a valid cached token is reused (validated via whoami, no new device minted) while a stale one is replaced; a missing `MATRIX_ADMIN_TOKEN` answers 503 naming it. Self-contained: builds the backend and boots it twice plus the mock — no database or Authentik needed. | Roc toolchain |
 | `smoke_assignments_lms.cjs` | The teacher-assignment surfaces in Chromium: the admin LMS drill-down renders class → subject → term → lesson → content read-only, the teacher row's Assign dialog searches, badges and saves the whole pair set, the Configuration hub's Qualifications tab creates a catalog row, and the teacher form's picker offers it. Creates its own teacher row (the Assign action needs one with a profile). | Sandbox backend |
+| `list_order.sh` | The order every list the pages pull comes back in, over the API: the class lists in the school's own order — the primary years, then the junior school, then the senior school, which is what `class_stage_rank` sorts by — in `/api/class_levels`, `/api/class-subjects`, `/api/curriculum` and a teacher's own pair lists; subject lists alphabetical; and the orders the other lists have (terms by sort order, session terms by name, lessons by week, assessments and submissions newest first). Writes one deliberately unsorted pair set for `teacher_profile:dev_teacher` and clears it again. | Sandbox backend |
+| `e2e_list_order.cjs` | The same order as the admin and staff *views* render it, in Chromium: the admin LMS class picker (Year 1-5, JSS 1-3, SSS 1-3), a class's subject cards, the Configuration hub's class level / subject / curriculum tables, and the teacher's My Classes cards. Assigns that teacher's pairs in reverse first and clears them at the end. | Sandbox backend |
 
 ```sh
 node tests/e2e/render_lesson_check.cjs            # defaults to a known prod lesson
@@ -76,6 +78,8 @@ sh tests/e2e/assessment_flow.sh
 sh tests/e2e/users_api.sh
 sh tests/e2e/general_assessment_flow.sh
 sh tests/e2e/authz.sh
+sh tests/e2e/list_order.sh
+node tests/e2e/e2e_list_order.cjs
 sh tests/e2e/token_cache.sh      # MOCK_AUTHENTIK_URL + SURREAL_URL, like users_api.sh
 node tests/e2e/math_render_check.cjs   # SURREAL_URL for the database it writes its lesson to
 ```
@@ -109,8 +113,11 @@ The fixture schema mirrors the prod profile, lesson and assessment tables (SCHEM
 `passport`, `display_name` and `questions` fields) plus the lookup tables' unique indexes, the school-number
 statements from `db/schema-v8-ids.surql` (`id_sequences` and the `option<int>` number columns, so the sandbox
 draws the same numbers prod will), the `token_cache` statements from `db/schema-v12-token-cache.surql` (so a sandbox keeps validated tokens like prod, instead of validating every request while the cache looks the same from outside) and `session_term`,
-seeds the class levels, terms, one subject with its `has_subject` edge, one lesson, one session term, and a
-`student_profile:dev_user` so the dev-skip caller resolves a name. The
+seeds the school's eleven class levels — the primary years, the junior school and the senior school, each with the
+stage `db/schema-v13-class-tier.surql` puts on it, which is what the class lists are ordered by — terms, four
+subjects with their `has_subject` edges (JSS 1 teaches all four, Year 1 and SSS 1 two each, so a class list has
+rows in more than one stage), one lesson, one session term, and a `student_profile:dev_user` so the dev-skip
+caller resolves a name. The
 lesson's `content.mcq_questions` carry a `correct_answer` letter, which is what the create-assessment modal
 stores as the question's `answer` and what submit-time MCQ scoring compares against. The
 mock keeps a user table: a fresh `pk` per create, which is what keeps each created account's record id

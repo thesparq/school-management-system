@@ -4,6 +4,41 @@
 
 **Status: backend + renderer aligned to prod (`db2.johnethel.school`, ns `main`, db `lessons`); one pre-existing frontend blocker open (see below).**
 
+### List ordering — the school's class order, subjects alphabetical (2026-10-20)
+
+The lists the pages render came back in whatever order the query happened to produce: the class lists
+were `ORDER BY name` (so the admin LMS, the Configuration hub and the drill-downs read JSS 1-3, SSS 1-3,
+then Year 1-5), `/api/curriculum` had no `ORDER BY` at all, and the pair lists ordered classes by name.
+Now one rule — `class_stage_rank` in `roc-backend/main.roc` — orders every list of classes by the stage
+`class_levels.tier` carries (v13: primary, junior, senior) and then by name, so they read **Year 1-5,
+then JSS 1-3, then SSS 1-3**, with a level nobody has staged after the three. It is applied to
+`/api/class_levels` (all three variants), `/api/class-subjects`, `/api/curriculum` and the teacher's own
+pair lists (`/api/teacher/assignments`, `/api/teacher/classes`); SurrealDB's `ORDER BY` takes a field
+name rather than an expression, so the rank is computed in an inner select and the outer one still
+answers exactly the columns it did before. Subject lists were already alphabetical (`ORDER BY name`)
+and stay that way; a pair list is class first, subject inside the class.
+
+**The other lists were audited and left as they were** — terms and the student's terms by `sort_order`,
+session terms by name, credentials by name, lessons by `week`, assessments and submissions newest first,
+a parent's children by name. The user listing stays `created_at DESC` on purpose: a just-created
+account is what an admin looks for, and the Authentik half of the merged listing has no school-side
+name to sort by server-side.
+
+**The sandbox fixture grew the data this needs** (`roc-frontend/tests/e2e/fixtures/sandbox-schema.surql`):
+the `tier` field (v13's own statement) and prod's eleven class levels with their stages, four subjects
+out of the school's list with `has_subject` edges in three stages, so a list that groups by stage has
+something to group. Two suites enforce the order and both were checked against the *old* code as a
+negative control (7 of 23 API checks and 5 of 10 browser checks fail there, and all pass on this one):
+
+- `tests/e2e/list_order.sh` — the API order of every list above (23 checks).
+- `tests/e2e/e2e_list_order.cjs` — the same order as the admin and staff views render it in Chromium:
+  the admin LMS class picker, a class's subject cards, the hub's class level / subject / curriculum
+  tables, and a teacher's My Classes cards (10 checks).
+
+One open item: a class level created in the hub carries no stage, so it sorts after the three stages
+until someone sets one — the sibling workstream that makes the stage editable in the hub is what closes
+that; until then the ordering rule and the create form disagree about new rows.
+
 ### Teacher assignments and qualifications — backend migrated (2026-10-08)
 
 Two features from the retired SvelteKit/MoonBit stack are now served by the Roc backend, ported with

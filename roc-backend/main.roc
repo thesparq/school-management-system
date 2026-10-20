@@ -2019,6 +2019,22 @@ dashboard_zero = |key| {
     "\"${key}\":0"
 }
 
+# The stage a class level belongs to, as the sort key every list of classes is shown in: the primary
+# years (Year 1-5) first, then the junior school (JSS 1-3), then the senior school (SSS 1-3). `tier` is
+# the data's own statement of the stage (`db/schema-v13-class-tier.surql`) — the thing the project
+# stopped inferring from a name — so a level the school adds lands in its group once its stage is set,
+# and one nobody has staged ranks after the three rather than inside one at random. The field is named
+# by the caller because a class list reads either `class_levels` itself or the level at the far end of a
+# `has_subject` edge (`in`, `has_subject.in`).
+#
+# The rank is computed inside the query's inner select, because SurrealDB's ORDER BY takes a field
+# name rather than an expression: the outer select answers only the columns the page reads, so the
+# rank orders the rows without becoming part of the payload.
+class_stage_rank : Str => Str
+class_stage_rank = |tier_field| {
+    "IF ${tier_field} = 'primary' THEN 1 ELSE IF ${tier_field} = 'junior' THEN 2 ELSE IF ${tier_field} = 'senior' THEN 3 ELSE 4 END"
+}
+
 # The class level a student is enrolled in, as the bare pk their lesson list is scoped by. "" when
 # the profile carries none (or the caller has no profile row yet), which leaves that list unscoped:
 # a student who is not enrolled anywhere still reads a subject's lessons rather than nothing.
@@ -2794,8 +2810,10 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/class_levels") {
                     # ?all=true is the hub's view: a deactivated level stays listed so it can be
                     # edited or switched back on. Everyone else gets the active levels only.
+                    # Ordered by the school's own stage order (see `class_stage_rank`).
                     scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
-                    res = SurrealDB.query_read!("SELECT id, name, code, age_range, active FROM class_levels${scope} ORDER BY name;", context.surreal)
+                    query = "SELECT id, name, code, age_range, active FROM (SELECT id, name, code, age_range, active, ${class_stage_rank("tier")} AS class_rank FROM class_levels${scope}) ORDER BY class_rank, name;"
+                    res = SurrealDB.query_read!(query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
@@ -2830,9 +2848,11 @@ respond! = |request, context| {
                 } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/curriculum") {
                     # The curriculum is the class_levels -> subjects edge in the prod schema. The hub
                     # asks with ?all=true so a link that has been switched off stays listed (and can
-                    # be switched back on); the default is the active curriculum only.
+                    # be switched back on); the default is the active curriculum only. Ordered like
+                    # every other list of classes — stage first, then the subject's name.
                     scope = if query_param(request_target_text(request), "all") == "true" { "" } else { " WHERE active = true" }
-                    res = SurrealDB.query_read!("SELECT id, in, out, active FROM has_subject${scope};", context.surreal)
+                    query = "SELECT id, in, out, active FROM (SELECT id, in, out, active, in.name AS class_level_name, out.name AS subject_name, ${class_stage_rank("in.tier")} AS class_rank FROM has_subject${scope}) ORDER BY class_rank, class_level_name, subject_name;"
+                    res = SurrealDB.query_read!(query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
@@ -2881,8 +2901,11 @@ respond! = |request, context| {
                     Ok(config_toggle_response!("credentials", payload_raw, context.surreal))
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/class-subjects" {
                     # Every class-subject pair of the active curriculum, as the admin's Assign dialog
-                    # offers them: one row per has_subject edge, with the class and subject names.
-                    res = SurrealDB.query_read!("SELECT id AS edge_id, in.id AS class_level_id, in.name AS class_level_name, out.id AS subject_id, out.name AS subject_name, out.code AS subject_code FROM has_subject WHERE active = true ORDER BY in.name ASC, out.name ASC;", context.surreal)
+                    # offers them: one row per has_subject edge, with the class and subject names. The
+                    # class comes first in the school's own stage order, the subject alphabetically
+                    # inside it — the same order the teacher's own pair lists answer in.
+                    query = "SELECT edge_id, class_level_id, class_level_name, subject_id, subject_name, subject_code FROM (SELECT id AS edge_id, in.id AS class_level_id, in.name AS class_level_name, out.id AS subject_id, out.name AS subject_name, out.code AS subject_code, ${class_stage_rank("in.tier")} AS class_rank FROM has_subject WHERE active = true) ORDER BY class_rank, class_level_name, subject_name;"
+                    res = SurrealDB.query_read!(query, context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
@@ -2893,7 +2916,7 @@ respond! = |request, context| {
                     if Str.is_empty(teacher_id) {
                         Ok(json_response(400, "{\"error\":\"teacher_id is required\"}"))
                     } else {
-                        query = "SELECT teacher_id, has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${bare_id(teacher_id)}') AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC;"
+                        query = "SELECT teacher_id, edge_id, class_level_id, class_level_name, subject_id, subject_name, subject_code FROM (SELECT teacher_id, has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code, ${class_stage_rank("has_subject.in.tier")} AS class_rank FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${bare_id(teacher_id)}') AND deleted_at IS NONE) ORDER BY class_rank, class_level_name, subject_name;"
                         res = SurrealDB.query_read!(query, context.surreal)
                         match res {
                             Ok(body) => Ok(json_response(200, body))
@@ -3303,12 +3326,14 @@ respond! = |request, context| {
                     }
                 } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/teacher/classes" {
                     # The teacher's own My Classes list: the pairs assigned to the caller for the
-                    # active term, which is what the teacher's subject cards render.
+                    # active term, which is what the teacher's subject cards render. In the school's
+                    # own order — stage first, then the class's name, then the subject's — so the
+                    # cards read Year 1-5, JSS 1-3, SSS 1-3 with each class's subjects alphabetical.
                     term_id = active_session_term_id!(context.surreal)
                     if Str.is_empty(term_id) {
                         Ok(json_response(200, "{\"result\":[]}"))
                     } else {
-                        query = "SELECT has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${caller_id!(user_json)}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE ORDER BY class_level_name ASC, subject_name ASC;"
+                        query = "SELECT edge_id, class_level_id, class_level_name, subject_id, subject_name, subject_code FROM (SELECT has_subject.id AS edge_id, has_subject.in.id AS class_level_id, has_subject.in.name AS class_level_name, has_subject.out.id AS subject_id, has_subject.out.name AS subject_name, has_subject.out.code AS subject_code, ${class_stage_rank("has_subject.in.tier")} AS class_rank FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${caller_id!(user_json)}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE) ORDER BY class_rank, class_level_name, subject_name;"
                         res = SurrealDB.query_read!(query, context.surreal)
                         match res {
                             Ok(body) => Ok(json_response(200, body))

@@ -153,7 +153,11 @@ file stale. What belongs here is the shape and the rules:
   generation needs it: a senior lesson is not a junior lesson with harder words, and the generator cannot tell
   the two apart from `JSS 3` and `SSS 1` alone. `lessons.context` is the same idea on the other side: a
   lesson row carries the week's own outline (the scheme's "what this topic covers", every prod row has one),
-  which is the context the generator is handed instead of a bare topic title.
+  which is the context the generator is handed instead of a bare topic title. **The app's class lists are
+  ordered by it too**: `class_stage_rank` in `roc-backend/main.roc` sorts every list of classes by the stage
+  (primary years, then junior, then senior) and then by name — the admin LMS, the Configuration hub, the pair
+  pickers and a teacher's My Classes all read Year 1-5, JSS 1-3, SSS 1-3 — with a level nobody has staged
+  after the three. Subject lists are alphabetical, and a pair list is class first, subject inside the class.
 - **Maths in lesson text is LaTeX**, typeset in the browser by the vendored KaTeX (`roc-frontend/www/katex/`,
   MIT): `$...$` inline, `$$...$$` display. The stored strings stay plain text, so nothing about the storage
   model changes — but a formula is written in LaTeX by whoever generates the lesson, and a page that cannot

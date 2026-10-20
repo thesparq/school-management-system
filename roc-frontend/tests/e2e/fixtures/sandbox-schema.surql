@@ -1,5 +1,6 @@
 # Throwaway database for the admin check: the prod profile tables (SCHEMAFULL, same fields and
-# assertions) plus the class levels the create path validates against.
+# assertions), the school's eleven class levels with the stage each one belongs to, and the small
+# curriculum the list-order checks read.
 #
 # Self-contained: creates the namespace and database too, so a fresh server accepts it in one pass.
 DEFINE NAMESPACE IF NOT EXISTS main;
@@ -12,6 +13,10 @@ DEFINE FIELD name ON class_levels TYPE string;
 DEFINE FIELD code ON class_levels TYPE string;
 DEFINE FIELD age_range ON class_levels TYPE none | string;
 DEFINE FIELD active ON class_levels TYPE bool DEFAULT true;
+# The stage of school, from `db/schema-v13-class-tier.surql` (prod has it): what the admin and staff
+# class lists are ordered by — the primary years, then the junior school, then the senior school —
+# and what lesson generation reads. Optional: a level nobody has staged yet is NONE.
+DEFINE FIELD tier ON class_levels TYPE option<string> ASSERT $value IN [NONE, "primary", "junior", "senior"];
 
 DEFINE TABLE terms SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON terms TYPE string;
@@ -222,13 +227,24 @@ DEFINE FIELD student ON submissions TYPE record<student_profile> ASSERT $value !
 DEFINE FIELD submitted_at ON submissions TYPE datetime DEFAULT time::now();
 DEFINE FIELD total_mark ON submissions TYPE int;
 
-CREATE class_levels:jss_1 SET name = 'JSS 1', code = 'jss_1', age_range = '10-11 years', active = true;
-CREATE class_levels:jss_2 SET name = 'JSS 2', code = 'jss_2', age_range = '11-12 years', active = true;
-CREATE class_levels:jss_3 SET name = 'JSS 3', code = 'jss_3', age_range = '12-13 years', active = true;
-CREATE class_levels:year_1 SET name = 'Year 1', code = 'year_1', age_range = '5-6 years', active = true;
+CREATE class_levels:year_1 SET name = 'Year 1', code = 'year_1', age_range = '5-6 years', active = true, tier = 'primary';
+CREATE class_levels:year_2 SET name = 'Year 2', code = 'year_2', age_range = '6-7 years', active = true, tier = 'primary';
+CREATE class_levels:year_3 SET name = 'Year 3', code = 'year_3', age_range = '7-8 years', active = true, tier = 'primary';
+CREATE class_levels:year_4 SET name = 'Year 4', code = 'year_4', age_range = '8-9 years', active = true, tier = 'primary';
+CREATE class_levels:year_5 SET name = 'Year 5', code = 'year_5', age_range = '9-10 years', active = true, tier = 'primary';
+CREATE class_levels:jss_1 SET name = 'JSS 1', code = 'jss_1', age_range = '10-11 years', active = true, tier = 'junior';
+CREATE class_levels:jss_2 SET name = 'JSS 2', code = 'jss_2', age_range = '11-12 years', active = true, tier = 'junior';
+CREATE class_levels:jss_3 SET name = 'JSS 3', code = 'jss_3', age_range = '12-13 years', active = true, tier = 'junior';
+# v13's own senior rows, age ranges included (the school has yet to confirm those three).
+CREATE class_levels:sss_1 SET name = 'SSS 1', code = 'sss_1', age_range = '14-15 years', active = true, tier = 'senior';
+CREATE class_levels:sss_2 SET name = 'SSS 2', code = 'sss_2', age_range = '15-16 years', active = true, tier = 'senior';
+CREATE class_levels:sss_3 SET name = 'SSS 3', code = 'sss_3', age_range = '16-17 years', active = true, tier = 'senior';
 CREATE terms:noel_term SET name = 'Noel Term', sort_order = 1, active = true;
 CREATE terms:calvary_term SET name = 'Calvary Term', sort_order = 2, active = true;
 CREATE subjects:agricultural_science SET name = 'Agricultural Science', code = 'AGR', active = true;
+CREATE subjects:basic_science SET name = 'Basic Science', code = 'BSC', active = true;
+CREATE subjects:english_language SET name = 'English Language', code = 'ENG', active = true;
+CREATE subjects:general_mathematics SET name = 'General Mathematics', code = 'MTH', active = true;
 CREATE session_term:session_2026_2027 SET session_name = '2026/2027', term = terms:noel_term, active = true, created_at = time::now();
 
 # The class_levels -> subjects edge students drill through, and one lesson hanging off it.
@@ -237,6 +253,16 @@ CREATE session_term:session_2026_2027 SET session_name = '2026/2027', term = ter
 DEFINE TABLE has_subject TYPE RELATION IN class_levels OUT subjects SCHEMALESS PERMISSIONS FULL;
 DEFINE INDEX idx_hs_unique ON has_subject COLUMNS in, out UNIQUE;
 RELATE class_levels:jss_1->has_subject:test_edge->subjects:agricultural_science SET active = true;
+# The rest of the seeded curriculum: JSS 1 teaches the four seeded subjects (which is the list its
+# student and staff pages show, in the school's order), and Year 1 and SSS 1 hold two pairs each so
+# a list that groups classes by stage has rows in more than one stage to group.
+RELATE class_levels:jss_1->has_subject:jss1_basic_science->subjects:basic_science SET active = true;
+RELATE class_levels:jss_1->has_subject:jss1_english_language->subjects:english_language SET active = true;
+RELATE class_levels:jss_1->has_subject:jss1_general_mathematics->subjects:general_mathematics SET active = true;
+RELATE class_levels:year_1->has_subject:year1_basic_science->subjects:basic_science SET active = true;
+RELATE class_levels:year_1->has_subject:year1_general_mathematics->subjects:general_mathematics SET active = true;
+RELATE class_levels:sss_1->has_subject:sss1_english_language->subjects:english_language SET active = true;
+RELATE class_levels:sss_1->has_subject:sss1_general_mathematics->subjects:general_mathematics SET active = true;
 CREATE lessons:test_lesson SET topic_title = 'Packaging Criteria for Farm Produce', week = 1, term = terms:noel_term, has_subject = has_subject:test_edge, active = true, duration_mins = 40, slug = 'test-lesson', content = {
   introduction: 'Packaging protects farm produce.',
   objectives: [{ objective: 'Define packaging of farm produce.' }],
