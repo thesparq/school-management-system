@@ -1738,6 +1738,40 @@ type; a holder of the permission may; the listing carries type and ticks), `user
 supervisor's own view, in Chromium), `e2e_user_roles.cjs`, `e2e_admin.cjs`, `e2e_admin_config.cjs`,
 `e2e_users_directory.cjs`; `roc check` clean on both sides.
 
+**Applied to prod on 2026-10-20, then deployed.** `db/schema-v14-admin-permissions.surql` ran against
+`db2.johnethel.school` (ns `main`, db `lessons`): both columns exist, and the backfill matched nothing —
+**prod holds no profile rows at all** (0 admins, 0 students, 0 teachers, 0 parents; the curriculum is the
+whole of what is stored there). So the school's administrators were Authentik-only, and the new gate would
+have refused every one of them the LMS and user management with no way back in (setting a type needs
+`permissions.manage`, which needs a row). Read from the school's own Authentik first: nine logins, of which
+exactly one is an admin — `thesparq@johnethel.school` (pk 5, groups *authentik Admins* + *Super Admins*).
+That login's row was seeded as the v14 backfill would have written it, so nothing changes for the school on
+day one:
+
+```sql
+CREATE admin_profile:5 SET display_name = 'Samuel Iyeh', first_name = 'Samuel', surname = 'Iyeh',
+  passport = 'https://r2.johnethel.school/passports/samuel-iyeh.jpg',   -- placeholder; replace from the form
+  admin_type = 'super_admin',
+  permissions = ['users.manage', 'setup.manage', 'lessons.manage', 'assessments.manage', 'assignments.manage', 'permissions.manage'],
+  staff_id = (UPDATE id_sequences:staff SET current_value += 1 RETURN current_value)[0].current_value;
+```
+
+`id_sequences:staff` was at 0, so the row is **EMP-000001** and the next staff create takes 2 — the app's
+own numbering rule, not a number invented for it. The row is the school's own to change: the new screen
+shows it as *Super Admin* with every tick, and any administrator whose login has no row yet appears in the
+Users tab as "No profile yet" to be completed with a type (the workflow a login added in Authentik later
+takes).
+
+**Deployed the same day** (`cbb5974`, six commits: the class-level Stage field, the admin types and
+permissions, the two scanner fixes, the screen and its suites). The rebase onto the school-order work
+(`458d0de`) was a real one: that commit rewrote the `/api/class_levels` query to sort by
+`class_stage_rank`, and the resolution keeps its inner-select rank *and* returns `tier`, which the hub's
+Stage column reads. Running the whole set on a fresh sandbox then caught two gaps, both fixed in `cbb5974`:
+the fixture did not declare v14's columns (they had only ever been applied by hand to the long-lived
+sandbox, so every admin write failed on a fresh one), and `authz.sh` was not idempotent — it left the mock
+admin's row as the school's only super admin, so a second run's first demotion was refused by the lockout
+guard. It now keeps a spare super admin and passes 51/51 twice in a row.
+
 **Deploy order matters**: v14 goes to prod **before** the new code, or the running code would read no type and
 no ticks for the admins that exist and refuse them everything. The backfill inside v14 is what makes the order
 safe.
@@ -1891,10 +1925,14 @@ safe.
   looping — is what the cache now absorbs. If it is ever revisited it is per-**account**, not per-IP (a school
   is usually one NAT address, and a per-IP limit would lock out a whole classroom), and it needs two numbers
   only the school can pick: requests per minute per account, and the burst allowance
-- [ ] Push `main` when the school is ready: the app-side work that is ready now — the class-level **Stage**
-  field in the hub (`526b89e`), the **admin types and permissions** (schema v14 + the enforcement + the form),
-  and the two scanner fixes. **Apply `db/schema-v14-admin-permissions.surql` to prod first** (it backfills every
-  existing admin as `super_admin`), then push: the deploy ships the code that reads the columns.
+- [x] Push `main` — done 2026-10-20 (`cbb5974`): the class-level **Stage** field in the hub, the **admin
+  types and permissions** (schema v14 + enforcement + the screen), and the two scanner fixes. v14 was
+  applied to prod first, and the school's one admin login was seeded as `super_admin` (see the section
+  above) so nobody lost access.
+- [ ] The school's admins are Authentik-only, and a login added there later starts with no row: it can use
+  the shell's open routes (the directory listing, the dashboard) but nothing permission-gated until an
+  administrator gives it a profile and a type from the Users tab. Worth saying to the school when they add
+  staff, and worth a line on that screen if it confuses them.
 - [ ] The teacher lesson picker (`/api/teacher/lessons`, `ORDER BY week LIMIT 50`) is capped without a total
   order: with the senior scheme loaded (4,509 lessons), "week 1" alone fills the page and the rows that come
   back are whatever the database gives first. A teacher's own list is scoped to their assignments and the
