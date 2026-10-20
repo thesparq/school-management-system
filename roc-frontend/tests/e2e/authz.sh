@@ -77,6 +77,45 @@ check "a super admin may write configuration" "$(call mock-admin-token POST /api
 check "a token with no groups is a student" "$(call mock-groupless-token GET /api/student/subjects)" " HTTP 200"
 check "and is refused a teacher route (403)" "$(call mock-groupless-token GET /api/teacher/lessons)" " HTTP 403"
 
+# --- 6. `permissions.manage` decides rights; `users.manage` does not imply it ------------
+# A seat that manages users but may not decide permissions is a type from the catalog with its own
+# ticks (the ticks are what the backend enforces, so this is exactly that seat). Without this rule an
+# admin who could edit users could grant themselves the run of the school.
+curl -s -o /dev/null -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" \
+  -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"supervisor","permissions":["users.manage"]}'
+check "an admin with users.manage may edit a user's own fields" "$(call mock-admin-token PUT /api/users '{"id":"admin_profile:mock_uuid_admin","first_name":"Sandbox"}')" " HTTP 200"
+check "and may create a user" "$(curl -s -o /dev/null -w ' HTTP %{http_code}' -X POST "$B/api/users" -H "Authorization: Bearer mock-admin-token" -H "$C" -d "{\"role\":\"Parent\",\"email\":\"authz_rights_${STAMP}@example.com\",\"first_name\":\"Authz\",\"surname\":\"Rights\",\"passport\":\"https://example.com/a.jpg\"}")" " HTTP 200"
+check "but may not change an admin's type (403)" "$(call mock-admin-token PUT /api/users '{"id":"admin_profile:mock_uuid_admin","admin_type":"super_admin"}')" " HTTP 403"
+check "and the refusal names Manage permissions" "$(call mock-admin-token PUT /api/users '{"id":"admin_profile:mock_uuid_admin","admin_type":"super_admin"}')" "Manage permissions"
+check "nor grant itself permissions (403)" "$(call mock-admin-token PUT /api/users '{"id":"admin_profile:mock_uuid_admin","permissions":["permissions.manage"]}')" " HTTP 403"
+check "nor create an admin with a type (403)" "$(call mock-admin-token POST /api/users '{"role":"Admin","email":"authz_type@example.com","first_name":"Authz","surname":"Type","passport":"https://example.com/a.jpg","admin_type":"supervisor"}')" " HTTP 403"
+# A seat that holds the permission may decide rights — this is the one the school's own screen uses.
+check "a seat with permissions.manage may decide rights" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin","permissions":["users.manage","permissions.manage"]}')" "200"
+check "and that seat may then set a type" "$(call mock-admin-token PUT /api/users '{"id":"admin_profile:mock_uuid_admin","admin_type":"supervisor"}')" " HTTP 200"
+# A payload that names only a type asks for that type's own ticks (its defaults); the screen always sends
+# both, so what it saves is exactly what its checkboxes showed.
+check "naming only a type asks for its default ticks" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"supervisor","permissions":["users.manage","permissions.manage"]}')" "200"
+# What the screen reads a row back from: the listing carries the type and the ticks it was given.
+check "the admin listing carries the type" "$(call dev-skip GET '/api/users?role=Admin')" '"admin_type":"supervisor"'
+check "and the ticks" "$(call dev-skip GET '/api/users?role=Admin')" '"permissions":["users.manage","permissions.manage"]'
+# Leave the seeded seat as the file found it.
+curl -s -o /dev/null -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" \
+  -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"supervisor","permissions":["lessons.manage","assessments.manage"]}'
+
+# --- 7. a row's absent columns read as absent, not as the next field's name ----------------
+# The database answers a selected column the row does not carry as `null`; the listing scans text, so
+# `"middle_name":null,"passport":"…"` used to read "passport" as the middle name and the edit form
+# prefilled it back into the next save.
+CREATED_ADMIN=$(curl -s -X POST "$B/api/users" -H 'Authorization: Bearer dev-skip' -H "$C" \
+  -d "{\"role\":\"Admin\",\"email\":\"authz_null_${STAMP}@example.com\",\"first_name\":\"No\",\"surname\":\"Middle${STAMP}\",\"passport\":\"https://example.com/a.jpg\",\"admin_type\":\"supervisor\"}")
+CREATED_ADMIN_ID=$(echo "$CREATED_ADMIN" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['result'][0]['id'])" 2>/dev/null)
+ADMIN_ROW=$(call dev-skip GET '/api/users?role=Admin')
+check "a row with no middle name answers with none" "$ADMIN_ROW" '"middle_name":"","surname":"Middle'
+check "and no date of birth" "$ADMIN_ROW" '"date_of_birth":""'
+check "and no class" "$ADMIN_ROW" '"class_name":""'
+check "and the created admin carries the type it was made with" "$ADMIN_ROW" "\"admin_type\":\"supervisor\""
+check "cleaning up that admin answers 200" "$(call dev-skip DELETE /api/users "{\"id\":\"$CREATED_ADMIN_ID\"}")" " HTTP 200"
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

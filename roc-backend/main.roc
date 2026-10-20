@@ -1329,8 +1329,10 @@ carries_field = |payload_raw, field| {
 }
 
 # The payload fields whose value is a JSON array rather than a quoted string; extract_field reads
-# between quotes, so an array's presence is decided by the key itself (see carries_field).
-array_update_fields = ["qualifications", "students"]
+# between quotes, so an array's presence is decided by the key itself (see carries_field). Every field the
+# app sends as an array belongs here — a value that starts with `[` is not a quoted one, so leaving one out
+# is how `carries_field` answers "not sent" about an array the caller did send.
+array_update_fields = ["qualifications", "students", "permissions", "pairs"]
 
 # `field = 'value'` for a value already read out of the payload, or "" when the value is empty — an
 # empty clause is dropped from a list of them, which is how an update writes only what it was given.
@@ -1845,6 +1847,11 @@ user_row_with_identity! = |row, users, role| {
         "\"qualifications\":${qualifications_json!(row)}",
         "\"date_employed\":\"${sanitize_json_text(extract_field(row, "date_employed"))}\"",
         "\"students\":${students_json!(row)}",
+        # The admin's own two columns (db/schema-v14): the type the school gave them and the ticks the
+        # backend enforces. Read back by the admin form, which starts from the row's own values rather
+        # than from the type's defaults — the row is what the backend will answer with next request.
+        "\"admin_type\":\"${sanitize_json_text(extract_field(row, "admin_type"))}\"",
+        "\"permissions\":${permissions_json!(row)}",
         "\"school_number\":\"${sanitize_json_text(row_number!(row, role))}\"",
         "\"has_profile\":true",
     ]
@@ -1865,6 +1872,15 @@ qualifications_json! = |row| {
 students_json! : Str => Str
 students_json! = |row| {
     text = extract_json_array(row, "students")
+
+    if Str.is_empty(text) { "[]" } else { text }
+}
+
+# And an admin's granted permissions (`["users.manage", …]`), or `[]` when the row carries none — the
+# state a login Authentik calls an admin is in until the school gives it a type.
+permissions_json! : Str => Str
+permissions_json! = |row| {
+    text = extract_json_array(row, "permissions")
 
     if Str.is_empty(text) { "[]" } else { text }
 }
@@ -2351,10 +2367,20 @@ extract_field = |json_str, field| {
             # before looking for the opening quote. Either way the value is the text between the
             # first two quotes after the field name.
             trimmed = Str.trim(rest)
-            val_parts = Str.split_on(trimmed, "\"")
-            match List.get(val_parts, 1) {
-                Ok(val) => val
-                Err(_) => ""
+            # A column the database has no value for comes back as `null`, and a number or a boolean
+            # is not a string either: only text that *starts* with a quote is this field's value.
+            # Answering "" for the rest is what every caller reads as "not there" — and it is the
+            # only correct answer: in `"middle_name":null,"passport":"…"` the next quoted text is
+            # the *name of the next field*, which is how a listing row read "passport" as a middle
+            # name and the form prefilled it back into the next save.
+            if !Str.starts_with(trimmed, "\"") {
+                ""
+            } else {
+                val_parts = Str.split_on(trimmed, "\"")
+                match List.get(val_parts, 1) {
+                    Ok(val) => val
+                    Err(_) => ""
+                }
             }
         }
         Err(_) => ""
@@ -2732,16 +2758,26 @@ admin_rights! = |body, config| {
     }
 }
 
-# Whether this admin may use this route: the route asks for no permission, or the caller is a DEV_MODE token
-# (the developer's own key), or the caller's row carries it. A super admin carries every permission by
-# definition, so their stored list is not consulted.
+# Whether this admin may use this route: the route asks for no permission, or the permission it names is
+# one this caller holds.
 permitted_admin! : { body : Str, role : Str, dev : Bool }, Method, Str, SurrealDB.Config => Bool
 permitted_admin! = |caller, method, target, config| {
     needed = required_permission(method, target)
 
     if Str.is_empty(needed) {
         Bool.True
-    } else if caller.role != "admin" or caller.dev {
+    } else {
+        permission_gate_opens!(caller, needed, config)
+    }
+}
+
+# Whether a permission lets this caller through. Only a member of staff with the admin shell has a
+# permission list at all, so a teacher or a student is not held back by one — their routes are their
+# role's own, and `required_role` has already said which those are. A DEV_MODE caller is the
+# developer's own key; "super admin" is every permission at once, so its stored list is not consulted.
+permission_gate_opens! : { body : Str, role : Str, dev : Bool }, Str, SurrealDB.Config => Bool
+permission_gate_opens! = |caller, needed, config| {
+    if caller.dev or caller.role != "admin" {
         Bool.True
     } else {
         match admin_rights!(caller.body, config) {
@@ -2749,6 +2785,19 @@ permitted_admin! = |caller, method, target, config| {
             Ok(rights) => rights.is_super or List.contains(rights.permissions, needed),
         }
     }
+}
+
+# Whether a write that sets an admin's `admin_type`/`permissions` may land. A payload that says nothing
+# about them (a name edit, a profile completion) needs nothing beyond the route's own permission; one that
+# does is deciding what another admin may do, which is `permissions.manage` — deliberately not implied by
+# `users.manage`, or an admin who could edit users could grant themselves the run of the school.
+# `is_admin_row` is the create's `role == "Admin"` and the patch's profile table, so one rule reads the
+# same at both writes.
+may_write_admin_rights! : Bool, Str, { body : Str, role : Str, dev : Bool }, SurrealDB.Config => Bool
+may_write_admin_rights! = |is_admin_row, payload_raw, caller, config| {
+    speaks_about_rights = carries_field(payload_raw, "admin_type") or carries_field(payload_raw, "permissions")
+
+    !is_admin_row or !speaks_about_rights or permission_gate_opens!(caller, "permissions.manage", config)
 }
 
 # The name of a permission for a message: the key itself when nobody labelled it.
@@ -3356,7 +3405,11 @@ respond! = |request, context| {
                         (Err(message), _) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
                         (Ok(_), Err(message)) => Ok(json_response(400, "{\"error\":\"${message}\"}"))
                         (Ok(extra), Ok(_)) =>
-                            if !Str.is_empty(admin_values_error) {
+                            # Deciding an admin's type and ticks is `permissions.manage`, not `users.manage`:
+                            # the check is here, on the payload, because it is the payload that decides them.
+                            if !may_write_admin_rights!(role == "Admin", payload_raw, caller, context.surreal) {
+                                Ok(permission_forbidden_response("permissions.manage"))
+                            } else if !Str.is_empty(admin_values_error) {
                                 Ok(json_response(400, "{\"error\":\"${admin_values_error}\"}"))
                             } else if !Str.is_empty(password_val) and password_ok(password_val) == Bool.False {
                                 Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
@@ -3455,11 +3508,13 @@ respond! = |request, context| {
                     number_select = number_select_for(role_param)
                     # The role's own extra columns: a teacher listing also selects `qualifications`
                     # and `date_employed` (the row's Edit form reads them back), a parent listing
-                    # `students` (the linked-student picker's prefill); no other role's query names
-                    # them.
+                    # `students` (the linked-student picker's prefill), an admin listing `admin_type`
+                    # and `permissions` (the type the row shows and the ticks its form prefills); no
+                    # other role's query names them.
                     role_extra_select =
                         if role_param == "Teacher" { ", qualifications, date_employed" }
                         else if role_param == "Parent" { ", students" }
+                        else if role_param == "Admin" { ", admin_type, permissions" }
                         else { "" }
                     query = "SELECT id, display_name, first_name, middle_name, surname, passport, created_at, date_of_birth, role_title, current_class, current_class.name AS class_name${number_select}${role_extra_select} FROM ${profile_table_for(role_param)} WHERE deleted_at IS NONE ORDER BY created_at DESC;"
                     match db_body_read!(query, context.surreal) {
@@ -4142,11 +4197,13 @@ respond! = |request, context| {
                                                         create_only_clauses!(table, pk, payload_raw, creating, context.surreal),
                                                     )
 
-                                                # An admin's type or ticks can be taken away, but the school keeps
-                                                # one super admin: a write that would leave none is refused before
-                                                # it happens. A lookup that fails refuses it too — the rule is too
-                                                # important to fail open.
-                                                if loses_last_super_admin_guard!(table, id_val, payload_raw, context.surreal) {
+                                                # An admin's type or ticks can be taken away, but only by someone who
+                                                # may set them, and the school keeps one super admin either way: a
+                                                # write that would leave none is refused before it happens. A lookup
+                                                # that fails refuses it too — the rule is too important to fail open.
+                                                if !may_write_admin_rights!(table == "admin_profile", payload_raw, caller, context.surreal) {
+                                                    Ok(permission_forbidden_response("permissions.manage"))
+                                                } else if loses_last_super_admin_guard!(table, id_val, payload_raw, context.surreal) {
                                                     Ok(json_response(400, "{\"error\":\"${sanitize_json_text(last_super_admin_message)}\"}"))
                                                 } else {
                                                     Ok(update_user_response!(table, id_val, payload_raw, creating, all_clauses, context.surreal))
