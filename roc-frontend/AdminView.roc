@@ -310,7 +310,10 @@ admin_users_view = |model| {
                     UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
                     Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
                 ]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")])
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")]),
+                # What happens next is the point of handing a generated password over at all: the person is
+                # made to replace it before the account can be used (`db/schema-v15`).
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("They will be asked to choose their own password the first time they sign in.")])
             ])
         },
     ])
@@ -506,7 +509,7 @@ user_form_body = |model, form_mode| {
                     ]),
                     Html.div([Attribute.class("flex items-center gap-2")], [
                         UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
-                        Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once after the account is created, with a Copy button.")])
+                        Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once, with a Copy button. The person is asked to choose their own the next time they sign in.")])
                     ])
                 ]))
             ])

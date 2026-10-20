@@ -101,6 +101,15 @@
       const headers = new Headers(init && init.headers);
       if (!headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + currentToken());
       const first = await __origFetch(input, { ...init, headers });
+      if (first.status === 403) {
+        // A refusal that says "change your password first": whatever asked, the answer is the Settings
+        // page. Reading a clone keeps the caller's own response untouched.
+        first.clone().json().then((body) => {
+          if (body && body.code === "password_change_required" && window.app && window.app.sendUrl) {
+            window.app.sendUrl("/settings");
+          }
+        }).catch(() => {});
+      }
       if (first.status !== 401) return first;
       const refreshed = await tryRefreshToken();
       if (!refreshed) { startAuthFlow(); return first; }
@@ -435,6 +444,7 @@
         // mount resolves, so the first payload can be handed over now (each navigation refreshes
         // it again).
         refreshActiveSessionTerm();
+        refreshPasswordState();
         armTokenPreRefresh();
 
         // Browser back/forward support. The admin LMS drill-down lives in the query string, so the
@@ -494,6 +504,7 @@
                 window.history.pushState(null, '', url);
                 refreshActiveSessionTerm();
                 refreshAdminRights();
+                refreshPasswordState();
                 setupPageJS();
             }, 0);
         });
@@ -1042,6 +1053,25 @@
             .catch(() => { /* keep the last answer; the next navigation or tick tries again */ });
     }
     setInterval(refreshAdminRights, 60000);
+
+    // ─── The caller's own password requirement ───
+    // The backend refuses every route but two while a password change is pending (a password an
+    // administrator chose — at creation or at a reset — must be replaced before the account is used).
+    // This feeds the app that state through the same hidden input every other payload uses, and answers
+    // 403s that carry `password_change_required` by sending the app to Settings — one rule, in the one
+    // place every /api response passes through, rather than a check in each of the page's callers.
+    function refreshPasswordState() {
+        if (!document.getElementById("password_state_data_input")) return;
+        fetch("/api/me/password-state", { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                const data = await res.json();
+                return okPayload([`${data.required === true}|${data.reason || ""}`]);
+            })
+            .then((payload) => dispatchToInput("password_state_data_input", payload))
+            .catch(() => { /* the app keeps the state it has; the next navigation tries again */ });
+    }
+    setInterval(refreshPasswordState, 60000);
 
     // ========================================================
     // Page-specific JS (re-runs on every navigation)

@@ -974,7 +974,15 @@ create_profile_from_journal! = |pk, payload, config| {
                 }
             create_sql = profile_create_sql!(role, number_clause, pk, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students, admin_clause)
             match db_body!(create_sql, config) {
-                Ok(_) => Ok({})
+                Ok(_) => {
+                    # A create that carried a password and got this far had it set before the crash (the
+                    # journal's own `password` step is what says so), so the person still owes the change
+                    # `db/schema-v15` records — the create path sets the same thing when it is not replaying.
+                    if wants_password(payload) {
+                        _ = set_password_required!(pk, "created", config)
+                    }
+                    Ok({})
+                }
                 # The row already exists (the create landed, the journal was behind): that is a settle.
                 Err(detail) => if Str.contains(detail, "already exists") { Ok({}) } else { Err(detail) }
             }
@@ -2863,6 +2871,84 @@ forbidden_response = |role, required| {
     json_response(403, "{\"error\":\"Forbidden: this route requires the ${required} role; your role is ${role}\"}")
 }
 
+# --- A password somebody else chose has to be replaced before the account is used --------------
+#
+# Passwords live in Authentik and this backend never holds one. What it knows is when a password was set by
+# somebody other than its owner: an account created with a password (the admin generates one and hands it
+# over) and an admin's reset both leave the person holding a password somebody else knows. `password_state`
+# (`db/schema-v15`) records that, and this gate refuses every request from such a login except the two that
+# answer the state — so nothing at all can be done with a password an administrator chose, which is the point
+# of asking for a change on the first login (or the first after a reset).
+
+# Whether this caller's login still owes a password change. A missing row, or a database that will not
+# answer, reads as "no requirement": the writes that *set* it are the ones that must be sure, and a gate that
+# locked working accounts out on a hiccup would be worse than the requirement it enforces.
+password_change_pending! : Str, SurrealDB.Config => Bool
+password_change_pending! = |pk, config| {
+    query = "SELECT required_at, reason, changed_at FROM ${record_ref!(pk, "password_state")};"
+
+    match db_body!(query, config) {
+        Err(_) => Bool.False,
+        # A pending row is `{"changed_at":null,…}`; a met one carries the moment it was met, and an empty
+        # result is a login this never applied to.
+        Ok(body) => Str.contains(body, "\"required_at\"") and Str.is_empty(extract_field(body, "changed_at")),
+    }
+}
+
+# Why the change is owed (`created` or `reset`), for the message the page shows. "" when nothing is pending.
+password_state_reason! : Str, SurrealDB.Config => Str
+password_state_reason! = |pk, config| {
+    query = "SELECT reason, changed_at FROM ${record_ref!(pk, "password_state")};"
+
+    match db_body!(query, config) {
+        Err(_) => "",
+        Ok(body) => if Str.is_empty(extract_field(body, "changed_at")) { extract_field(body, "reason") } else { "" },
+    }
+}
+
+# Record that this login's password was just set by somebody else — the create that carried one, or an
+# admin's reset. Best effort, like the identity cache: the write it follows already succeeded, so a failure
+# here is swallowed rather than reported as an error the admin cannot act on.
+set_password_required! : Str, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+set_password_required! = |pk, reason, config| {
+    db_body!(
+        "UPSERT ${record_ref!(pk, "password_state")} SET required_at = time::now(), reason = '${surreal_literal(reason)}', changed_at = NONE;",
+        config,
+    )
+}
+
+# The person has set their own: the requirement is met, and the row stays as the record of when.
+clear_password_required! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+clear_password_required! = |pk, config| {
+    db_body!("UPDATE ${record_ref!(pk, "password_state")} SET changed_at = time::now();", config)
+}
+
+# Whether this request may proceed while a change is pending: the two routes that answer the state, and
+# nothing else. A caller with no pending requirement — every login whose password was not set here — is
+# unaffected, and the developer's own key is never gated.
+password_change_cleared! : { body : Str, role : Str, dev : Bool }, Str, SurrealDB.Config => Bool
+password_change_cleared! = |caller, target, config| {
+    if caller.dev {
+        Bool.True
+    } else if target == "/api/me/password-state" or target == "/api/me/password" {
+        Bool.True
+    } else {
+        !password_change_pending!(caller_id!(caller.body), config)
+    }
+}
+
+# The refusal: a 403 that says what to do about it, with a machine-readable code the page routes on.
+password_change_required_response = |reason| {
+    message =
+        if reason == "reset" {
+            "Your password was reset by an administrator. Choose your own before using the school system."
+        } else {
+            "Choose your own password before using the school system: the one you signed in with was set for you by an administrator."
+        }
+
+    json_response(403, "{\"error\":\"${message}\",\"code\":\"password_change_required\"}")
+}
+
 # --- The token cache ---
 #
 # Every /api request validates its bearer token against Authentik's userinfo endpoint (`Authentik.roc`),
@@ -3140,6 +3226,11 @@ respond! = |request, context| {
                 Ok(forbidden_response(caller.role, required))
             Ok(caller) if !permitted_admin!(caller, request.method, request_target_text(request), context.surreal) =>
                 Ok(permission_forbidden_response(needs))
+            # A login whose password an administrator chose can reach only the two routes that answer that
+            # state (see `password_change_cleared!`): the page reads it, the person sets their own, and
+            # nothing else in the school's data is opened with a password somebody else knows.
+            Ok(caller) if !password_change_cleared!(caller, request_target_text(request), context.surreal) =>
+                Ok(password_change_required_response(password_state_reason!(caller_id!(caller.body), context.surreal)))
             Ok(caller) => {
                 user_json = caller.body
                 if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/students" {
@@ -3528,6 +3619,12 @@ respond! = |request, context| {
                                                 }
                                                 Ok(_) => {
                                                     _ = journal_mark!(row_id, "password", context.surreal)
+                                                    # The password was chosen by the admin who made the account:
+                                                    # the person is asked to replace it on their first login
+                                                    # (`db/schema-v15`, `password_change_cleared!`).
+                                                    if !Str.is_empty(password_val) {
+                                                        _ = set_password_required!(user_id, "created", context.surreal)
+                                                    }
                                                     number_clause = school_number_clause!(user_id, role, context.surreal)
                                                     create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students, admin_clause)
                                                     created = db_body!(create_sql, context.surreal)
@@ -4179,8 +4276,39 @@ respond! = |request, context| {
                         Ok(json_response(200, "{\"key\":\"${key_val}\",\"uploadUrl\":\"${upload_url}\",\"publicUrl\":\"${public_url}\",\"expiresIn\":${U64.to_str(expires)}}"))
                     }
 
-                # --- Matrix: where the chat page finds its homeserver ---
-                # The page logs into the homeserver itself, through the SSO provider the homeserver's own
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/me/password-state" {
+                    # Whether this caller owes a password change before doing anything, and why — the state the
+                    # page routes to Settings on. Keyed by the *caller*, so it can only ever be your own.
+                    pk = caller_id!(user_json)
+                    reason = password_state_reason!(pk, context.surreal)
+
+                    if Str.is_empty(reason) {
+                        Ok(json_response(200, "{\"required\":false}"))
+                    } else {
+                        Ok(json_response(200, "{\"required\":true,\"reason\":\"${sanitize_json_text(reason)}\"}"))
+                    }
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/me/password" {
+                    # Setting one's own password. Authentik owns passwords, so the backend does the write with
+                    # the service credential it already holds for an admin's reset — keyed by the caller and
+                    # never by a payload id, so this can only change your own. The requirement the gate was
+                    # holding is cleared by this write, which is the one thing that clears it.
+                    payload_raw = read_body!(request)
+                    new_password = extract_field(payload_raw, "password")
+                    pk = caller_id!(user_json)
+
+                    if password_ok(new_password) == Bool.False {
+                        Ok(json_response(400, "{\"error\":\"password must be 8-72 characters without line breaks\"}"))
+                    } else {
+                        match Authentik.setPassword!(bare_id(pk), new_password) {
+                            Err(msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(msg)}\"}")),
+                            Ok(_) => {
+                                _ = clear_password_required!(pk, context.surreal)
+                                Ok(json_response(200, "{\"ok\":true}"))
+                            },
+                        }
+                    }
+
+                # --- Matrix: where the chat page finds its homeserver ---                # The page logs into the homeserver itself, through the SSO provider the homeserver's own
                 # config names (Authentik — see devops/matrix-config/homeserver.yaml), and holds the token
                 # that login returns. So this backend needs no credential for chat at all: the admin token
                 # that used to mint one is gone, along with the proxy that used it (`devops/README.md`
@@ -4349,7 +4477,12 @@ respond! = |request, context| {
                     } else {
                         match Authentik.setPassword!(bare_id(id_val), password_val) {
                             Err(msg) => Ok(json_response(502, "{\"error\":\"Authentik error: ${sanitize_json_text(msg)}\"}")),
-                            Ok(_) => Ok(json_response(200, "{\"ok\":true}")),
+                            Ok(_) => {
+                                # An admin chose this password, so the person has to replace it before using
+                                # the account again — the same requirement a create with a password leaves.
+                                _ = set_password_required!(bare_id(id_val), "reset", context.surreal)
+                                Ok(json_response(200, "{\"ok\":true}"))
+                            },
                         }
                     }
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/users/activate" {

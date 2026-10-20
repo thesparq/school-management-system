@@ -15,6 +15,7 @@ import State exposing [Route, list_state]
 import UI
 
 import DashboardView
+import SettingsView
 import AdminView
 import TeacherView
 import StudentView
@@ -86,7 +87,14 @@ render = |model| {
 
 	# Sidebar Navigation Items
 	sidebar_navs =
-		List.concat(
+	if model.passwordRequired {
+		# A password change is owed: the shell offers one page, because the backend refuses every
+		# other route (see password_change_cleared! in main.roc). Signing out stays in the avatar menu.
+		[
+			UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Settings, on_click: Click(NavigateTo(Settings)) }, [text("Settings")])
+		]
+	} else {
+				List.concat(
 			[
 				UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("Dashboard")])
 			],
@@ -130,6 +138,7 @@ render = |model| {
 				Unauthenticated => []
 			}
 		)
+	}
 
 	# User initials for avatar
 	user_initial =
@@ -339,6 +348,9 @@ render = |model| {
 					                                                                p([class("text-xs text-muted-foreground truncate")], [text(if Str.is_empty(model.userEmail) { "no address on the token" } else { model.userEmail })])
 					                                                        ]),
 					                                                        div([class("border-t my-1")], []),
+					                                                        UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(NavigateTo(Settings)) }, [
+					                                                        	text("Settings")
+					                                                        ]),
 					                                                        UI.button({ ..UI.default_button, variant: Ghost, classes: "w-full justify-start rounded-none px-4 py-2", on_click: Click(SignOut) }, [
 					                                                                text("Sign Out")
 					                                                        ])
@@ -351,6 +363,7 @@ render = |model| {
 	# Main Content Area dispatched by Route
 	content =
 		match model.route {
+			Settings => SettingsView.view(model)
 			Dashboard => DashboardView.view(model)
 			AdminUserManagement | AdminConfigurationHub | AdminLMS => AdminView.view(model)
 			TeacherLessonViewer | TeacherAssessments => TeacherView.view(model)
@@ -384,6 +397,16 @@ render = |model| {
 		                Attribute.id("admin_types_data_input"),
 		                Attribute.value(model.adminTypesData),
 		                Attribute.on_input(|s| GotAdminTypesData(s))
+		        ]),
+
+		        # Whether this login owes a password change: fetched by the page on boot and on every navigation
+		        # (see refreshPasswordState in www/index.html), and the first thing the shell reads before it draws
+		        # its navigation — while it stands, Settings is the only page offered.
+		        Html.input([
+		        	Attribute.type("hidden"),
+		        	Attribute.id("password_state_data_input"),
+		        	Attribute.value(model.passwordStateData),
+		        	Attribute.on_input(|s| GotPasswordState(s))
 		        ]),
 	# The avatar menu closes when the page's own listener sees a click outside it (www/index.html
 	# dispatches this input), so it never stays open behind a navigation.

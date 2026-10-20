@@ -1872,6 +1872,52 @@ blocked its own empty state, so an account with no rooms never saw "No channels 
 `e2e_notifications_lms.cjs` 26/26, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 53/53,
 `token_cache.sh` 32/32, `list_order.sh` 23/23, `roc check` clean on both sides.
 
+### A password an administrator chose has to be replaced before the account is used (2026-10-20)
+
+Passwords live in Authentik and this app never holds one. What it *can* know is when a password was set by
+somebody other than its owner — an account created with one (the school's onboarding: the admin generates a
+password and hands it over) and an admin's reset both leave the person holding a password somebody else
+knows. `db/schema-v15-password-state.surql` records that per login, and the backend refuses every request
+from such a login except the two that answer the state:
+
+- **`GET /api/me/password-state`** — whether a change is owed and why (`created` or `reset`), keyed by the
+  caller, which is what the page routes on;
+- **`POST /api/me/password`** — the person's own new password, written to Authentik with the service
+  credential the backend already holds for an admin's reset, keyed by the caller and never by a payload id,
+  so it can only ever change your own. That write is the one thing that clears the requirement.
+
+Everything else answers `403` with `{"error":"…","code":"password_change_required"}` — including reads, which
+is the point: a password the admin knows is not one to browse the school's data with. The flag is set by the
+create that carried a password, by `/api/users/set-password`, and by a reconciler replay of a create that got
+past its password step; a create that carried none (the admin sets it in Authentik) leaves nothing to ask
+about, and a missing table or a database hiccup reads as "no requirement" — the writes that set it are the
+ones that must be sure, and a gate that locked working accounts out would be worse than the rule.
+
+**The page follows the same rule.** A `Settings` route (`/settings`, in the avatar menu for every role) holds
+the one form; while the change is owed the shell renders only that item, every navigation is held to it, and
+the fetch wrapper sends the app there on any `password_change_required` refusal — one rule, in the one place
+every `/api` answer passes through, instead of a check in each caller. The form validates the rules the
+backend enforces (8–72 characters, no line breaks, both fields equal) so the common mistakes are answered
+without a round trip, and the backend's own message is what shows when it refuses.
+
+The school's own text comes with it: the one-time credentials panel now says the person will be asked to
+choose their own password on their first sign-in, and the reset hint says the same.
+
+**Deploy order**: apply `db/schema-v15` before the code for the requirement to exist at all — but nothing
+breaks without it, because the missing table reads as "nothing pending". Unlike v14 there is no way for this
+one to lock anybody out.
+
+**Verified**: `password_change.sh` 19/19 (the gate, the code the page routes on, the reasons, the change, the
+reset putting it back, a login created *without* a password staying ungated, and the developer's key
+unaffected) and `e2e_password_change.cjs` in Chromium (the app moves to Settings on its own, the sidebar
+offers nothing else, the form refuses a short and a mismatched password, the real change opens the app
+again). Plus the whole set re-run: `authz.sh` 60/60, `users_api.sh` 99/99, `e2e_admin.cjs` 16/16,
+`e2e_admin_permissions.cjs` 30/30, `e2e_user_roles.cjs` 19/19, `e2e_users_directory.cjs` 30/30,
+`e2e_matrix_sso.cjs` 18/18, `e2e_nav_fixes.cjs` 6/6, `e2e_loading.cjs` 20/20, `e2e_student.cjs` 7/7,
+`smoke_teacher_role.cjs` 9/9, `smoke_assignments_lms.cjs` 18/18, `e2e_notifications_lms.cjs` 26/26,
+`assessment_flow.sh` 41/41, `general_assessment_flow.sh` 53/53, `token_cache.sh` 32/32, `list_order.sh`
+23/23, `roc check` clean on both sides.
+
 ---
 
 ## Completed Work

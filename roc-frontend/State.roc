@@ -25,6 +25,7 @@ Route : [
 	StudentLesson,
 	TeacherMyClasses,
 	Messaging,
+	Settings,
 	NotFound,
 ]
 
@@ -91,6 +92,16 @@ Model : {
 	dashboardData : Str,
 	# A parent dashboard's children: one "name|class" line each, fed by /api/parent/children.
 	parentChildrenData : Str,
+	# Whether this login owes a password change before it may do anything, and why: the payload is
+	# /api/me/password-state, "required|reason", and the backend refuses every other route while it stands
+	# (a password an administrator chose — at creation or at a reset — has to be replaced first). The page
+	# holds itself to the same rule: Settings is the only page until the change is made.
+	passwordStateData : Str,
+	passwordRequired : Bool,
+	passwordReason : Str,
+	newPassword : Str,
+	confirmPassword : Str,
+	passwordResult : [None, Success(Str), Error(Str)],
 	        newUserDateOfBirth : Str,
 	        newUserClassLevel : Str,
 	        # An administrator's own two facts, and the catalog they come from. `adminTypesData` is
@@ -258,6 +269,12 @@ Msg : [
 	        ToggleNewUserPermission(Str),
 	        GotAdminTypesData(Str),
 	        GotAdminRightsData(Str),
+	        # The password-change screen: the state the backend answers, the two fields, and the write.
+	        GotPasswordState(Str),
+	        UpdateNewPassword(Str),
+	        UpdateConfirmPassword(Str),
+	        SubmitPasswordChange,
+	        PasswordChangeCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	UpdateNewUserEmail(Str),
 	UpdateNewUserPassword(Str),
 	# Fill the password field with a generated one. The page's own generator answers through the
@@ -422,6 +439,7 @@ Msg : [
 	                    "/student/lesson" => StudentLesson
 	                    "/teacher/classes" => TeacherMyClasses
 	                    "/messaging" => Messaging
+	                    "/settings" => Settings
 	                    "/" => Dashboard
 	                    _ => NotFound
 	            }
@@ -534,6 +552,12 @@ init = |flags| {
 		sessionTermData: "",
 		dashboardData: "",
 		parentChildrenData: "",
+		passwordStateData: "",
+		passwordRequired: Bool.False,
+		passwordReason: "",
+		newPassword: "",
+		confirmPassword: "",
+		passwordResult: None,
 		usersData: "",
 		termsData: "",
 		subjectsData: "",
@@ -974,8 +998,26 @@ notification_for = |result, title| {
 	}
 }
 
+# The page's own gate, in front of every message: while a password change is owed, Settings is the only
+# page (the backend refuses every other route anyway, so navigating would land on a shell of errors).
+# Signing out, and the write that meets the requirement, still go through.
 update : Model, Msg -> (Model, List(Effect(Msg)))
-update = |model, msg|
+update = |model, msg| {
+	is_navigation = match msg {
+		NavigateTo(_) => Bool.True
+		UrlChanged(_) => Bool.True
+		_ => Bool.False
+	}
+
+	if model.passwordRequired and is_navigation and model.route != Settings {
+		({ ..model, route: Settings, mobileMenuOpen: Bool.False }, [Port.send("push_state", "/settings")])
+	} else {
+		dispatch(model, msg)
+	}
+}
+
+dispatch : Model, Msg -> (Model, List(Effect(Msg)))
+dispatch = |model, msg|
 	match msg {
 		UrlChanged(url) => {
 			newRoute = parse_route(url)
@@ -1087,6 +1129,7 @@ update = |model, msg|
 				StudentLesson => "/student/lesson"
 				TeacherMyClasses => "/teacher/classes"
 				Messaging => "/messaging"
+				Settings => "/settings"
 				NotFound => "/404"
 			}
 			({ ..model, route: route, mobileMenuOpen: Bool.False }, [Port.send("push_state", urlStr)])
@@ -1954,6 +1997,85 @@ update = |model, msg|
 		           GotSessionTermData(s) => ({ ..model, sessionTermData: s }, [])
 		           GotDashboardData(s) => ({ ..model, dashboardData: s }, [])
            GotParentChildrenData(s) => ({ ..model, parentChildrenData: s }, [])
+
+           # The backend answered whether a password change is owed. While it is, the page is Settings and
+           # nothing else: the shell hides its navigation (app.roc) and every navigation is held here.
+           GotPasswordState(s) => {
+           	parts = Str.split_on(s, "\n")
+           	line = match List.get(parts, 1) { Ok(value) => value, Err(_) => "" }
+           	fields = Str.split_on(line, "|")
+           	required = match List.get(fields, 0) { Ok(value) => value == "true", Err(_) => Bool.False }
+           	reason = match List.get(fields, 1) { Ok(value) => value, Err(_) => "" }
+           
+           	# The state only ever *arrives* here; the route follows it, and a login with nothing owed
+           	# stays exactly where it is.
+           	if required and model.route != Settings {
+           		({ ..model, passwordStateData: s, passwordRequired: required, passwordReason: reason, route: Settings }, [Port.send("push_state", "/settings")])
+           	} else {
+           		({ ..model, passwordStateData: s, passwordRequired: required, passwordReason: reason }, [])
+           	}
+           }
+           UpdateNewPassword(s) => ({ ..model, newPassword: s }, [])
+           UpdateConfirmPassword(s) => ({ ..model, confirmPassword: s }, [])
+           SubmitPasswordChange => {
+           	# The rules the backend enforces, said here first so the form answers without a round trip;
+           	# the backend checks them again and its own message is what the form shows when it refuses.
+           	problem =
+           		if Str.is_empty(model.newPassword) {
+           			"Choose a password"
+           		} else if Str.count_utf8_bytes(model.newPassword) < 8 {
+           			"The password must be at least 8 characters"
+           		} else if Str.count_utf8_bytes(model.newPassword) > 72 {
+           			"The password must be at most 72 characters"
+           		} else if Str.contains(model.newPassword, "\n") or Str.contains(model.newPassword, "\r") {
+           			"The password may not contain line breaks"
+           		} else if model.newPassword != model.confirmPassword {
+           			"The two passwords do not match"
+           		} else {
+           			""
+           		}
+           
+           	if !Str.is_empty(problem) {
+           		({ ..model, passwordResult: Error(problem) }, [])
+           	} else {
+           		# The password is sent in the body and never kept: the backend hands it to Authentik and
+           		# answers; nothing here stores it beyond the keystrokes.
+           		req = {
+           			method: POST,
+           			uri: "${model.appOrigin}/api/me/password",
+           			headers: [
+           				{ name: "Authorization", value: "Bearer ${model.authToken}" },
+           				{ name: "Content-Type", value: "application/json" }
+           			],
+           			body: Str.to_utf8("{\"password\":\"${model.newPassword}\"}"),
+           			timeout_ms: NoTimeout,
+           		}
+           		({ ..model, isSubmitting: Bool.True, passwordResult: None }, [Http.request(req, |res| PasswordChangeCompleted(res))])
+           	}
+           }
+           PasswordChangeCompleted(res) => {
+           	result : [None, Success(Str), Error(Str)]
+           	result = match res {
+           		Ok(response) =>
+           			if response.status == 200 {
+           				Success("Your password is set. You can use the school system now.")
+           			} else {
+           				Error(backend_error_message(Str.from_utf8_lossy(response.body)))
+           			}
+           		Err(HttpErr(Timeout)) => Error("The request timed out")
+           		Err(HttpErr(NetworkError)) => Error("Could not reach the server")
+           	}
+           
+           	# A success clears the requirement here too, so the shell comes back without waiting for the
+           	# next state fetch; a failure keeps everything as it was so the form can be corrected.
+           	cleared = match result {
+           		Success(_) => Bool.True
+           		Error(_) => Bool.False
+           		None => Bool.False
+           	}
+           
+           	({ ..model, isSubmitting: Bool.False, passwordResult: result, passwordRequired: if cleared { Bool.False } else { model.passwordRequired }, newPassword: if cleared { "" } else { model.newPassword }, confirmPassword: if cleared { "" } else { model.confirmPassword } }, [])
+           }
 		UpdateNewUserRole(s) => ({ ..model, newUserRole: s }, [])
 		SetPassportKey(k) => ({ ..model, newUserPassportKey: k }, [])
 		GotStudentsData(s) => ({ ..model, usersStudentsData: s }, [])

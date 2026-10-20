@@ -333,3 +333,13 @@ DEFINE FIELD IF NOT EXISTS expires_at ON token_cache TYPE datetime;
 DEFINE FIELD IF NOT EXISTS created_at ON token_cache TYPE datetime DEFAULT time::now();
 DEFINE INDEX IF NOT EXISTS idx_token_cache_subject ON token_cache COLUMNS subject;
 DEFINE INDEX IF NOT EXISTS idx_token_cache_expiry ON token_cache COLUMNS expires_at;
+
+-- --- V15: the password-change requirement (db/schema-v15-password-state.surql, statement for statement) ---
+-- A login whose password an administrator chose has to replace it before doing anything: the backend
+-- refuses every other route until it is met (see `password_change_cleared!` in main.roc). Mirrored here so
+-- a fresh sandbox can run the create-with-password and reset flows — without the table, the gate reads
+-- "nothing pending" and the requirement silently does not exist.
+DEFINE TABLE IF NOT EXISTS password_state SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD IF NOT EXISTS required_at ON password_state TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS reason ON password_state TYPE string DEFAULT 'created';
+DEFINE FIELD IF NOT EXISTS changed_at ON password_state TYPE none | datetime;
