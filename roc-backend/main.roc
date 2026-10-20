@@ -2634,6 +2634,21 @@ signing_timestamp! = |pinned, dev_mode| {
     }
 }
 
+# --- The school's chat channels ---------------------------------------------------------------
+#
+# The app's own directory of the school's channels (db/schema-v16): the Matrix rooms themselves live on the
+# homeserver, the page creates one with the administrator's own token, and the backend is told about it
+# afterwards. It is the page that reads this list rather than the homeserver's room directory — see the
+# schema's note on why (Synapse publishes to that directory for server admins only), and the note is also
+# why "only an administrator makes a channel" is checked at the route instead of trusted to the button.
+
+# The visibility a payload asked for. Anything that is not exactly `public` reads as `private`: a payload
+# that named something else makes a channel nobody can find, not one everybody can.
+chat_visibility : Str -> Str
+chat_visibility = |raw| {
+    if raw == "public" { "public" } else { "private" }
+}
+
 # --- Route authorization ---
 
 # The role each route needs, as one matrix rather than a check inside every branch: everything
@@ -2676,6 +2691,11 @@ required_role = |method, target| {
     } else if target == "/api/upload-url" {
         # The passport signer behind the admin's create-user form.
         "admin"
+    } else if Str.starts_with(target, "/api/chat/channels") {
+        # The school's channel directory. Reading it is every role's business (the page lists what the
+        # person may join); listing a channel is the administrator's. That is the whole of "only an
+        # administrator makes a channel", and it is enforced here rather than by not drawing a button.
+        if Method.is_eq(method, GET) { "" } else { "admin" }
     } else if List.any(config_route_prefixes, |prefix| Str.starts_with(target, prefix)) {
         # The lookup tables and the curriculum edge: every role reads them (the pickers, the
         # student cards, the hub's lists), only the admin writes (creates, the PUT patches, the
@@ -4374,6 +4394,89 @@ respond! = |request, context| {
                         Ok(json_response(200, "{\"homeserver\":\"${trim_trailing_slash(matrix_url)}\"}"))
                     }
 
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/chat/channels" {
+                    # The channel directory the page lists in its sidebar: everyone sees the public
+                    # channels, and an administrator also sees the private ones — with the codes, since
+                    # an administrator is who hands them out and a private room is not in anyone's room
+                    # list until they have been let in.
+                    scope =
+                        if caller.role == "admin" {
+                            " WHERE deleted_at IS NONE"
+                        } else {
+                            " WHERE deleted_at IS NONE AND visibility = 'public'"
+                        }
+                    res = SurrealDB.query_read!("SELECT room_id, name, visibility, code FROM chat_channel${scope} ORDER BY name;", context.surreal)
+                    match res {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(err) => Ok(db_read_error!(err))
+                    }
+                } else if Method.is_eq(request.method, GET) and Str.starts_with(request_target_text(request), "/api/chat/channels/lookup") {
+                    # One code, one channel: what the page's "join with a code" asks. Any authenticated
+                    # role may ask — holding the code is the whole of the permission — and a code that
+                    # names nothing is a 404, so the page can say which of the two happened. Matched by
+                    # prefix because the query is part of the target text (see `query_param`).
+                    # the database's (`string::uppercase`): this Roc has no case folding, and normalising
+                    # on both sides of the comparison is what makes a hand-typed code match.
+                    code = query_param(request_target_text(request), "code") |> sanitize
+                    if Str.is_empty(code) {
+                        Ok(json_response(400, "{\"error\":\"code is required\"}"))
+                    } else {
+                        match SurrealDB.query_read!("SELECT room_id, name, visibility FROM chat_channel WHERE code = string::uppercase('${surreal_literal(code)}') AND deleted_at IS NONE LIMIT 1;", context.surreal) {
+                            Err(err) => Ok(db_read_error!(err)),
+                            Ok(body) =>
+                                if Str.contains(body, "\"room_id\"") {
+                                    Ok(json_response(200, body))
+                                } else {
+                                    Ok(json_response(404, "{\"error\":\"No channel is open with that code.\"}"))
+                                }
+                        }
+                    }
+                } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/chat/channels" {
+                    # An administrator listing the room they have just made (the role gate above is what
+                    # makes that a rule of the server, not of the button). The same call re-lists a
+                    # channel that is already there, which is how its code is renewed: the row is kept and
+                    # the code replaced, so a code that leaked can be retired. The room itself is never
+                    # touched — the backend holds no chat credential, by design.
+                    payload_raw = read_body!(request)
+                    room_id = extract_field(payload_raw, "room_id") |> sanitize
+                    name = extract_field(payload_raw, "name") |> sanitize
+                    code = extract_field(payload_raw, "code") |> sanitize
+                    visibility = chat_visibility(extract_field(payload_raw, "visibility") |> sanitize)
+                    if Str.is_empty(room_id) or Str.is_empty(name) or Str.is_empty(code) {
+                        Ok(json_response(400, "{\"error\":\"room_id, name and code are required\"}"))
+                    } else if !Str.starts_with(room_id, "!") or !Str.contains(room_id, ":") {
+                        Ok(json_response(400, "{\"error\":\"room_id must be a Matrix room id, like !abcdef:matrix.johnethel.school\"}"))
+                    } else if Str.count_utf8_bytes(name) > 120 or Str.count_utf8_bytes(code) > 24 {
+                        Ok(json_response(400, "{\"error\":\"the channel name or the code is too long\"}"))
+                    } else {
+                        # A code belongs to one channel and a room is listed once. The page draws a new
+                        # code whenever this answers `code_taken`; the unique indexes behind both are the
+                        # backstop for the race between the check and the write.
+                        code_taken =
+                            match SurrealDB.query_read!("SELECT id FROM chat_channel WHERE code = string::uppercase('${surreal_literal(code)}') AND room_id != '${surreal_literal(room_id)}' LIMIT 1;", context.surreal) {
+                                Ok(body) => Str.contains(body, "\"id\""),
+                                Err(_) => Bool.False,
+                            }
+                        existing =
+                            match SurrealDB.query_read!("SELECT id FROM chat_channel WHERE room_id = '${surreal_literal(room_id)}' LIMIT 1;", context.surreal) {
+                                Ok(body) => bare_id(extract_field(body, "id")),
+                                Err(_) => "",
+                            }
+
+                        if code_taken {
+                            Ok(json_response(409, "{\"error\":\"code_taken\"}"))
+                        } else if Str.is_empty(existing) {
+                            match db_body!("CREATE chat_channel SET room_id = '${surreal_literal(room_id)}', name = '${surreal_literal(name)}', visibility = '${visibility}', code = string::uppercase('${surreal_literal(code)}'), created_by = '${caller_id!(caller.body)}', created_at = time::now(), updated_at = time::now();", context.surreal) {
+                                Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                Ok(_) => Ok(json_response(200, "{\"ok\":true,\"code\":\"${code}\",\"visibility\":\"${visibility}\"}")),
+                            }
+                        } else {
+                            match db_body!("UPDATE ${record_ref!(existing, "chat_channel")} SET name = '${surreal_literal(name)}', visibility = '${visibility}', code = string::uppercase('${surreal_literal(code)}'), updated_at = time::now();", context.surreal) {
+                                Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                Ok(_) => Ok(json_response(200, "{\"ok\":true,\"code\":\"${code}\",\"visibility\":\"${visibility}\"}")),
+                            }
+                        }
+                    }
                 } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/users" {
                     # Update the profile row the id names. The table comes from the id's own prefix
                     # (`student_profile:<uuid>`, as the listings return it). A row that is not there

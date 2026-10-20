@@ -32,6 +32,13 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   exp: Math.floor(Date.now() / 1000) + 3600,
   email: 'chat@example.com', name: 'Chat Check', groups: ['administrators'],
 })}.sig`;
+// A pupil's token: no group the page maps to Administrator, so its view of the chat sidebar is a pupil's
+// (see the pupil phase at the end).
+const pupilToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
+  iss: 'https://auth.johnethel.school/application/o/school-management-system/',
+  exp: Math.floor(Date.now() / 1000) + 3600,
+  email: 'pupil@example.com', name: 'Pupil Check', groups: ['students'],
+})}.sig`;
 
 (async () => {
   const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-sso-'));
@@ -126,6 +133,10 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   check('the page now holds that token', !!(await matrixToken()), await matrixToken());
   check('and it connected: the room list is the empty state, not an error',
     await hasText('No channels yet'), (await page.evaluate(() => (document.getElementById('matrix-rooms-list') || {}).innerText || '')).slice(0, 120));
+  // A channel on this server is the school's, so making one is offered to an administrator only; joining a
+  // public one stays everyone's (the pupil phase below holds the other half of that rule).
+  check('an administrator is offered a new channel', await page.evaluate(() => !!document.getElementById('matrix-new-channel-btn')));
+  check('and the sidebar offers joining a public one', await page.evaluate(() => !!document.getElementById('matrix-join-channel-btn')));
   check('the loginToken is gone from the address', !page.url().includes('loginToken'), page.url());
   check('nothing in the flow called the homeserver admin API', countMatching('/_synapse/admin/') === 0, JSON.stringify(mockLines()));
 
@@ -166,6 +177,29 @@ const appToken = `${b64u({ alg: 'RS256', typ: 'JWT' })}.${b64u({
   check('still without touching the admin API', countMatching('/_synapse/admin/') === 0);
   check('no page errors', errors.length === 0, JSON.stringify(errors));
   await spentCtx.close();
+
+  // --- A pupil's own sidebar: join a public channel, but not make one ---
+  // The other half of `renderMatrixChannelControls`' rule, driven with a token whose groups map to the
+  // pupil role. Its own context, so the administrator's stored chat token cannot answer for it.
+  const pupilCtx = await browser.newContext();
+  await pupilCtx.addInitScript(t => localStorage.setItem('auth_token', t), pupilToken);
+  const pupilPage = await pupilCtx.newPage();
+  pupilPage.on('pageerror', e => errors.push(e.message.slice(0, 160)));
+  await pupilPage.route('**/api/**', route => route.continue({
+    headers: { ...route.request().headers(), authorization: 'Bearer dev-skip' },
+  }));
+  await pupilPage.goto(`${appUrl}/messaging`, { waitUntil: 'load' });
+  await pupilPage.waitForTimeout(6000);
+  check('a pupil is not offered a way to make a channel',
+    !(await pupilPage.evaluate(() => !!document.getElementById('matrix-new-channel-btn'))),
+    (await pupilPage.evaluate(() => (document.getElementById('matrix-rooms') || {}).innerText || 'no sidebar')).slice(0, 160));
+  check('but is offered joining a public one',
+    await pupilPage.evaluate(() => !!document.getElementById('matrix-join-channel-btn')));
+  check('and the empty sidebar says what a pupil can do',
+    await pupilPage.evaluate(() => document.body.innerText.includes('join a public one, or wait for an invitation')));
+  check('the pupil connected all the same',
+    await pupilPage.evaluate(() => document.body.innerText.includes('No channels yet')));
+  await pupilCtx.close();
 
   // --- A homeserver that offers no provider at all: said plainly, and no trip into a 404 ---
   // The state the deployed homeserver was in for the page's old, pinned id: an unknown provider answers

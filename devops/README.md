@@ -135,6 +135,24 @@ Notes on how the session behaves:
 
 - The token lives in the tab's **session storage**: reloading keeps it (no second login), closing the tab
   ends it, and signing out clears it.
+- **Channels are the administrator's to make.** The sidebar offers *＋ New channel* to the app's Admin role
+  only, and the backend is where that is a rule rather than a missing button: `POST /api/chat/channels`
+  answers 403 to anyone else. Everyone keeps the room list, the composer, invitations and *Join*.
+- **The two kinds of channel.** A *public* one is listed for the whole school to find and join. A *private*
+  one is listed to administrators only and entered with the six-character code its creator is shown — the
+  code is typed in the join box, and the room's `matrix.to` link works there too. A re-listing draws a
+  **new** code, which is how a code that leaked is retired.
+- **How they differ in Matrix terms.** Both are created with the administrator's own token and
+  `preset: public_chat`, so the room can be entered by whoever holds its address; `visibility`
+  (`public`/`private`) is what decides whether the homeserver *also* publishes it. So a private channel's
+  code is a pointer, not a permission — whoever has it can enter, and nobody else can find the room. A room
+  that has to be tighter than that is **invited** to (the composer's ＋ Invite), not coded.
+- **Why the app keeps its own list.** A channel's row in `chat_channel` (`db/schema-v16-chat-channels.sql`)
+  is what the page lists. The homeserver's own room directory would not do: since Synapse 1.126 only server
+  admins may publish to it (`room_list_publication_rules`), so the app's rooms would be created but stay
+  unlisted and *Join* would come up empty — and that directory is the homeserver's, not the school's.
+  **Deploy order**: v16 before the code that reads it (a missing table answers 500 to the directory and the
+  page says so rather than pretending the school has no channels).
 - A connect attempt that fails leaves a note in that storage, and the Messaging panel shows the reason
   with a **Try again** button — instead of bouncing the browser through Authentik again in a loop.
 - A 401 on a client call (a token revoked server-side) drops the stored token and runs the login once more.

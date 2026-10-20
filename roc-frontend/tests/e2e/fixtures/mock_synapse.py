@@ -7,7 +7,9 @@ Answers the calls the page itself makes when it logs in and reads its room list:
     GET  /_matrix/client/v3/login/sso/redirect/oidc-authentik?redirectUrl=…
                                                                          -> 302 back with ?loginToken=
     POST /_matrix/client/v3/login                                        -> 200 access_token (m.login.token)
-    GET  /_matrix/client/v3/sync                                         -> 200 an empty sync
+    POST /_matrix/client/v3/createRoom                                   -> 200 a new room id
+    POST /_matrix/client/v3/rooms/<roomId>/join                          -> 200 the same id, now joined
+    GET  /_matrix/client/v3/sync                                         -> 200 the rooms this token has joined
     GET  /_matrix/client/v3/account/whoami                               -> the user a token belongs to
 
 A redirect naming a provider this homeserver does not offer answers 404
@@ -67,12 +69,24 @@ def providers():
 _state_lock = threading.Lock()
 _login_counter = 0
 _unspent_login_tokens = set()
+_session_counter = 0
+# The rooms this stub has been asked to make, and which token has joined which. Everything the page does
+# with rooms is local to the homeserver, so a suite that creates a channel and then joins it as somebody
+# else is driving the two calls the real Synapse would receive.
+_room_counter = 0
+_rooms = {}
+_joined = {}
 
 
 def user_for_token(token):
-    # A minted token carries the urlencoded user id after "syt_mock_".
+    # A minted token carries a session number and the urlencoded user id: `syt_mock_<session>_<user id>`.
+    # The session is what makes two logins two *sessions* even though this stub has one user — without it,
+    # a room an administrator joined would read as joined for the pupil too, and every membership check in
+    # a suite would pass for the wrong reason.
     if token.startswith("syt_mock_"):
-        return urllib.parse.unquote(token[len("syt_mock_") :])
+        parts = token[len("syt_mock_") :].split("_", 1)
+        if len(parts) == 2:
+            return urllib.parse.unquote(parts[1])
     return None
 
 
@@ -148,16 +162,54 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(401, '{"errcode":"M_UNKNOWN_TOKEN","error":"Unrecognised access token"}')
             return self._send(200, '{"user_id":"%s","is_guest":false}' % user)
         if self.path.startswith("/_matrix/client/v3/sync"):
-            if user_for_token(self._bearer()) is None:
+            token = self._bearer()
+            if user_for_token(token) is None:
                 return self._send(401, '{"errcode":"M_UNKNOWN_TOKEN","error":"Unrecognised access token"}')
-            # An empty room list: the page renders its own "no channels yet" state, which is what a
-            # freshly connected account sees.
-            return self._send(200, '{"next_batch":"mock_batch","rooms":{"join":{},"invite":{}}}')
+            # The rooms this token has joined, each with the name it was made with: what the page's own room
+            # list is built from. A token that has joined nothing gets the empty list a freshly connected
+            # account sees, which is what the page renders its "no channels yet" state for.
+            with _state_lock:
+                mine = sorted(_joined.get(token, set()))
+                rooms = {
+                    room_id: {
+                        "state": {"events": [{"type": "m.room.name", "state_key": "", "content": {"name": _rooms.get(room_id, room_id)}}]},
+                        "timeline": {"events": []},
+                        "unread_notifications": {"notification_count": 0},
+                    }
+                    for room_id in mine
+                }
+            return self._send(200, json.dumps({"next_batch": "mock_batch", "rooms": {"join": rooms, "invite": {}}}))
         self._send(404, '{"errcode":"M_UNRECOGNIZED","error":"no such endpoint"}')
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         self._record(body)
+        if self.path == "/_matrix/client/v3/createRoom":
+            # A channel being made. The request body is in the log for a suite to read — that is where a
+            # private channel (the same call with `visibility: private`) is told apart from a public one.
+            try:
+                parsed = json.loads(body or b"{}")
+            except ValueError:
+                parsed = {}
+            token = self._bearer()
+            with _state_lock:
+                global _room_counter
+                _room_counter += 1
+                room_id = f"!mockroom{_room_counter}:matrix.johnethel.school"
+                _rooms[room_id] = parsed.get("name") or room_id
+                _joined.setdefault(token, set()).add(room_id)
+            return self._send(200, json.dumps({"room_id": room_id, "room_alias": None}))
+        if self.path.startswith("/_matrix/client/v3/rooms/") and self.path.endswith("/join"):
+            # Joining by address: a public channel from the school's list, or an unlisted one whose code the
+            # person was given. Whether a room is joinable is the homeserver's business (its join rules), not
+            # this stub's — but the room does then show in this token's next sync, which is what puts it in
+            # the page's sidebar.
+            room_id = urllib.parse.unquote(self.path[len("/_matrix/client/v3/rooms/") : -len("/join")])
+            token = self._bearer()
+            with _state_lock:
+                _rooms.setdefault(room_id, room_id)
+                _joined.setdefault(token, set()).add(room_id)
+            return self._send(200, json.dumps({"room_id": room_id}))
         if self.path == "/_matrix/client/v3/login":
             try:
                 parsed = json.loads(body or b"{}")
@@ -170,12 +222,16 @@ class Handler(BaseHTTPRequestHandler):
                     _unspent_login_tokens.discard(token)
             if parsed.get("type") != "m.login.token" or not known:
                 return self._send(401, '{"errcode":"M_UNKNOWN_TOKEN","error":"Invalid login token"}')
+            with _state_lock:
+                global _session_counter
+                _session_counter += 1
+                session = _session_counter
             return self._send(
                 200,
                 json.dumps(
                     {
                         "user_id": USER_ID,
-                        "access_token": "syt_mock_" + urllib.parse.quote(USER_ID),
+                        "access_token": "syt_mock_%d_%s" % (session, urllib.parse.quote(USER_ID)),
                         "device_id": "MOCKDEV",
                         "home_server": "matrix.johnethel.school",
                     }

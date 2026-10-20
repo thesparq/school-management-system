@@ -343,3 +343,19 @@ DEFINE TABLE IF NOT EXISTS password_state SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD IF NOT EXISTS required_at ON password_state TYPE datetime DEFAULT time::now();
 DEFINE FIELD IF NOT EXISTS reason ON password_state TYPE string DEFAULT 'created';
 DEFINE FIELD IF NOT EXISTS changed_at ON password_state TYPE none | datetime;
+
+-- --- V16: the chat channel directory (db/schema-v16-chat-channels.surql, statement for statement) ---
+-- The school's own list of chat channels and the codes that open the private ones. Mirrored here so a
+-- fresh sandbox can run the channel flows — without the table, listing a channel answers 500 and the
+-- page's create reads as a failure after the room itself was made.
+DEFINE TABLE IF NOT EXISTS chat_channel SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD IF NOT EXISTS room_id ON chat_channel TYPE string;
+DEFINE FIELD IF NOT EXISTS name ON chat_channel TYPE string;
+DEFINE FIELD IF NOT EXISTS visibility ON chat_channel TYPE string DEFAULT 'private';
+DEFINE FIELD IF NOT EXISTS code ON chat_channel TYPE string;
+DEFINE FIELD IF NOT EXISTS created_by ON chat_channel TYPE string DEFAULT '';
+DEFINE FIELD IF NOT EXISTS created_at ON chat_channel TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at ON chat_channel TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS deleted_at ON chat_channel TYPE none | datetime;
+DEFINE INDEX IF NOT EXISTS idx_chat_channel_code ON chat_channel COLUMNS code UNIQUE;
+DEFINE INDEX IF NOT EXISTS idx_chat_channel_room ON chat_channel COLUMNS room_id UNIQUE;

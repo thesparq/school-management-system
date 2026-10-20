@@ -2790,8 +2790,9 @@
             } else if (roomsList) {
                 // An account with no rooms yet: say so, replacing whatever the panel held — the view's own
                 // "Loading channels…" placeholder included, which used to stay on screen forever because this
-                // branch only ran while the list was still empty of *children*.
-                roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">No channels yet — create or join one above.</p>`;
+                // branch only ran while the list was still empty of *children*. What is offered to do about
+                // it follows the same rule the sidebar's own buttons do (see renderMatrixChannelControls).
+                roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">${_viewerRole === "Admin" ? "No channels yet — create one above, or join a public one." : "No channels yet — join a public one, or wait for an invitation."}</p>`;
             }
 
             // If a room is selected, update its messages
@@ -2837,20 +2838,30 @@
         } catch(e) { console.error("Accept invite failed:", e); }
     };
 
-    // --- Sidebar actions: create a channel, or browse and join public ones ---
+    // --- Sidebar actions: create a channel (administrators), or browse and join public ones ---
+    // Who is signed in comes from the app token's groups (`_viewerRole`, set at boot). A channel on this
+    // server is the school's, so making one is the administrator's act and the page does not offer the
+    // button to anyone else. Everything else in the sidebar stays everyone's: the room list, joining a
+    // public channel, and accepting an invitation.
     function renderMatrixChannelControls() {
         const roomsDiv = document.getElementById("matrix-rooms");
         if (!roomsDiv || document.getElementById("matrix-channel-actions")) return;
+        const isAdmin = _viewerRole === "Admin";
         const actions = document.createElement("div");
         actions.id = "matrix-channel-actions";
         actions.className = "flex gap-1.5 mb-3";
-        actions.innerHTML = `
-            <button id="matrix-new-channel-btn" class="flex-1 text-xs px-2 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer">＋ New channel</button>
+        actions.innerHTML = `${isAdmin ? `<button id="matrix-new-channel-btn" class="flex-1 text-xs px-2 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer">＋ New channel</button>` : ``}
             <button id="matrix-join-channel-btn" class="flex-1 text-xs px-2 py-1.5 rounded-md border border-border hover:bg-muted transition-colors cursor-pointer">Join</button>`;
         roomsDiv.prepend(actions);
 
-        document.getElementById("matrix-new-channel-btn").addEventListener("click", () => toggleChannelForm("matrix-new-channel-form", buildNewChannelForm));
-        document.getElementById("matrix-join-channel-btn").addEventListener("click", () => toggleChannelForm("matrix-join-channel-form", buildJoinChannelForm));
+        if (isAdmin) document.getElementById("matrix-new-channel-btn").addEventListener("click", () => toggleChannelForm("matrix-new-channel-form", buildNewChannelForm));
+        // The directory is re-read every time the panel is *opened*: what the school has listed changes as
+        // channels are made, and a list read once and never again would show yesterday's school.
+        document.getElementById("matrix-join-channel-btn").addEventListener("click", () => {
+            toggleChannelForm("matrix-join-channel-form", buildJoinChannelForm);
+            const form = document.getElementById("matrix-join-channel-form");
+            if (form && !form.classList.contains("hidden")) loadChannelDirectory();
+        });
         bindInviteControl();
     }
 
@@ -2860,7 +2871,22 @@
         form.classList.toggle("hidden");
     }
 
-    // Public preset: the channel appears in the directory, so anyone can find and join it.
+    // The code that opens a channel: six characters from an alphabet with no O/0 or I/1 to misread, drawn
+    // from the page's own crypto (the backend has no random source, so it stores what this sends). It is
+    // handed out with the channel and typed in by whoever is being let in.
+    function generateChannelCode() {
+        const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const bytes = new Uint8Array(6);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes).map(b => alphabet[b % alphabet.length]).join("");
+    }
+
+    // A channel's two kinds, told apart by one field: a *public* channel is listed for everyone in the
+    // school to find and join, a *private* one is unlisted — nobody sees it unless they are given its code.
+    // Both are made the same way, with the person's own Matrix token: `preset: public_chat` makes the room
+    // joinable by whoever holds its address, and `visibility` is what decides whether the homeserver also
+    // publishes it to a directory. The page does not use that directory (see the join form below); the
+    // school's own list is the backend's, where listing a channel is an administrator's act.
     function buildNewChannelForm(id) {
         const roomsList = document.getElementById("matrix-rooms-list");
         const form = document.createElement("div");
@@ -2868,27 +2894,92 @@
         form.className = "mb-3 space-y-1.5 hidden";
         form.innerHTML = `
             <input id="matrix-new-name" placeholder="Channel name" class="w-full text-sm border rounded-md px-2 py-1.5 bg-background"/>
-            <button id="matrix-new-create" class="w-full text-xs px-2 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Create channel</button>`;
+            <select id="matrix-new-visibility" class="w-full text-xs border rounded-md px-2 py-1.5 bg-background">
+                <option value="public">Public — anyone in the school can find it</option>
+                <option value="private">Private — only people you give the code to</option>
+            </select>
+            <button id="matrix-new-create" class="w-full text-xs px-2 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Create channel</button>
+            <p id="matrix-new-status" class="text-xs text-muted-foreground"></p>`;
         roomsList.parentElement.insertBefore(form, roomsList);
         document.getElementById("matrix-new-create").addEventListener("click", async () => {
             const name = document.getElementById("matrix-new-name").value.trim();
-            if (!name) return;
+            const visibility = document.getElementById("matrix-new-visibility").value;
+            const status = document.getElementById("matrix-new-status");
+            const say = (text) => { if (status) status.textContent = text || ""; };
+            if (!name) { say("Give the channel a name first."); return; }
             try {
+                say("Making the channel…");
                 const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/createRoom`, {
                     method: "POST",
                     headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
-                    body: JSON.stringify({ name, preset: "public_chat", visibility: "public", topic: "School channel" })
+                    body: JSON.stringify({ name, preset: "public_chat", visibility, topic: "School channel" })
                 });
                 const data = await res.json();
-                if (!res.ok) { showMatrixError(data.error || "Failed to create the channel."); return; }
+                if (!res.ok || !data.room_id) { say(data.error || "The chat server refused to make the channel."); return; }
+                // The room exists; listing it in the school's directory is a second, separate act — and the
+                // one the backend checks is an administrator's (POST /api/chat/channels). A failure here is
+                // said plainly rather than swallowed: the channel works, but nobody would find it.
+                say("Listing it for the school…");
+                const listed = await listChannel({ room_id: data.room_id, name, visibility });
                 form.remove();
                 await matrixSync();
-                if (data.room_id) await window.selectRoom(data.room_id, name);
-            } catch(e) { console.error("Create channel failed:", e); }
+                await window.selectRoom(data.room_id, name);
+                if (listed.ok) {
+                    showChannelCode(name, listed.code, visibility);
+                } else {
+                    showMatrixError(listed.error);
+                }
+            } catch(e) { say("Could not create the channel."); console.error("Create channel failed:", e); }
         });
         return form;
     }
 
+    // List a channel in the school's directory, drawing a code for it. The code has to be one nothing else
+    // holds, and the backend answers `code_taken` when it is not: draw another and ask again. Returns
+    // `{ ok, code, error }` — the caller says the error, because the room itself already exists.
+    async function listChannel(channel) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const code = generateChannelCode();
+            const res = await fetch("/api/chat/channels", {
+                method: "POST",
+                headers: Object.assign({ "Content-Type": "application/json" }, appAuthHeaders()),
+                body: JSON.stringify({ room_id: channel.room_id, name: channel.name, visibility: channel.visibility, code }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) return { ok: true, code: data.code || code };
+            if (res.status === 409) continue;
+            return { ok: false, error: data.error || "The channel was made, but could not be listed for the school." };
+        }
+        return { ok: false, error: "The channel was made, but no free code could be drawn for it." };
+    }
+
+    // The code an administrator hands out, with the one thing they need to do to it. Shown where the create
+    // form was, and dismissible — it is a receipt, not a permanent part of the sidebar.
+    function showChannelCode(name, code, visibility) {
+        const roomsList = document.getElementById("matrix-rooms-list");
+        if (!roomsList || !roomsList.parentElement) return;
+        const box = document.createElement("div");
+        box.className = "mb-3 rounded-md border border-border p-2 space-y-1";
+        box.innerHTML = `
+            <p class="text-xs font-medium">${escHtml(name)} — ${visibility === "private" ? "private" : "public"}</p>
+            <p class="text-xs text-muted-foreground">${visibility === "private" ? "Only people you give this code to can open it:" : "Anyone in the school can find it; its code opens it too:"}</p>
+            <div class="flex items-center gap-1.5">
+                <code class="flex-1 text-sm font-semibold tracking-widest">${escHtml(code)}</code>
+                <button data-copy="1" class="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted cursor-pointer">Copy</button>
+            </div>
+            <button data-dismiss="1" class="text-xs text-muted-foreground underline cursor-pointer">Dismiss</button>`;
+        roomsList.parentElement.insertBefore(box, roomsList);
+        const copy = box.querySelector("[data-copy]");
+        copy.addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(code); copy.textContent = "Copied"; }
+            catch (e) { copy.textContent = "Copy it by hand"; }
+        });
+        box.querySelector("[data-dismiss]").addEventListener("click", () => box.remove());
+    }
+
+    // The two ways in, side by side: the school's channel list, and a code or link someone was handed. The
+    // homeserver's own room directory is deliberately not consulted — since Synapse 1.126 only server
+    // admins may publish to it, so it is empty here and would stay empty however the app created rooms.
     function buildJoinChannelForm(id) {
         const roomsList = document.getElementById("matrix-rooms-list");
         const form = document.createElement("div");
@@ -2896,50 +2987,109 @@
         form.className = "mb-3 space-y-1.5 hidden";
         form.innerHTML = `
             <div class="flex gap-1.5">
-                <input id="matrix-join-search" placeholder="Find a channel…" class="flex-1 text-sm border rounded-md px-2 py-1.5 bg-background"/>
-                <button id="matrix-join-go" class="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted cursor-pointer">Browse</button>
+                <input id="matrix-join-code" placeholder="Code or link…" class="flex-1 text-sm border rounded-md px-2 py-1.5 bg-background"/>
+                <button id="matrix-join-go" class="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted cursor-pointer">Join</button>
             </div>
+            <p id="matrix-join-status" class="text-xs text-muted-foreground"></p>
             <div id="matrix-join-results" class="space-y-1"></div>`;
         roomsList.parentElement.insertBefore(form, roomsList);
-        document.getElementById("matrix-join-go").addEventListener("click", () => searchPublicRooms());
-        const input = document.getElementById("matrix-join-search");
-        input.addEventListener("keydown", (e) => { if (e.key === "Enter") searchPublicRooms(); });
+        document.getElementById("matrix-join-go").addEventListener("click", () => joinByCodeOrLink());
+        const input = document.getElementById("matrix-join-code");
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") joinByCodeOrLink(); });
+        loadChannelDirectory();
         return form;
     }
 
-    async function searchPublicRooms() {
-        const term = (document.getElementById("matrix-join-search").value || "").trim();
+    // What the backend will list for this person: the public channels, plus — for an administrator — the
+    // private ones with their codes (an administrator is who hands them out). A public one is joined from
+    // here; a private one is opened with its code, which is what the code is for.
+    async function loadChannelDirectory() {
         const results = document.getElementById("matrix-join-results");
         if (!results) return;
         try {
-            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/publicRooms`, {
-                method: "POST",
-                headers: matrixAuthHeaders({ "Content-Type": "application/json" }),
-                body: JSON.stringify({ limit: 20, filter: { generic_search_term: term } })
-            });
-            const data = await res.json();
-            const rooms = (data.chunk || []).filter(r => r.name || r.canonical_alias);
-            results.innerHTML = rooms.length
-                ? rooms.map(r => {
-                    const label = r.name || r.canonical_alias || r.room_id;
-                    return `<div class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
-                        <span class="truncate text-sm"># ${escHtml(label)}</span>
-                        <button onclick="joinPublicRoom('${escHtml(r.room_id)}', '${escHtml(label)}')" class="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Join</button>
-                    </div>`;
-                }).join("")
-                : `<p class="text-xs text-muted-foreground italic">No public channels match.</p>`;
-        } catch(e) { console.error("Browse channels failed:", e); }
+            const res = await fetch("/api/chat/channels", { headers: appAuthHeaders() });
+            const rows = await res.json();
+            // The envelope SurrealDB answers with, unwrapped like every other list the page reads.
+            const channels = res.ok ? unwrapRows(rows) : [];
+            results.innerHTML = channels.length ? channels.map(c => {
+                const name = c.name || c.room_id;
+                const isPrivate = c.visibility === "private";
+                return `<div class="rounded-md px-2 py-1.5 hover:bg-muted">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm"># ${escHtml(name)}</span>
+                        ${isPrivate
+                            ? `<span class="text-xs text-muted-foreground whitespace-nowrap">code <span class="font-semibold tracking-widest">${escHtml(c.code || "")}</span></span>`
+                            : `<button data-join="${escHtml(c.room_id)}" data-name="${escHtml(name)}" class="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">Join</button>`}
+                    </div>
+                    ${isPrivate ? `<div class="flex items-center gap-2 mt-0.5">
+                        <button data-join="${escHtml(c.room_id)}" data-name="${escHtml(name)}" class="text-xs underline cursor-pointer">Open it myself</button>
+                        <button data-renew="${escHtml(c.room_id)}" data-name="${escHtml(name)}" class="text-xs text-muted-foreground underline cursor-pointer">New code</button>
+                    </div>` : ``}
+                </div>`;
+            }).join("") : `<p class="text-xs text-muted-foreground italic">No channels are listed for the school yet.</p>`;
+            results.querySelectorAll("[data-join]").forEach(btn => btn.addEventListener("click", () => joinRoomById(btn.getAttribute("data-join"), btn.getAttribute("data-name"))));
+            results.querySelectorAll("[data-renew]").forEach(btn => btn.addEventListener("click", async () => {
+                btn.textContent = "…";
+                const renewed = await listChannel({ room_id: btn.getAttribute("data-renew"), name: btn.getAttribute("data-name"), visibility: "private" });
+                if (renewed.ok) { showChannelCode(btn.getAttribute("data-name"), renewed.code, "private"); btn.textContent = "New code"; }
+                else { btn.textContent = "New code"; showMatrixError(renewed.error); }
+            }));
+        } catch(e) {
+            results.innerHTML = `<p class="text-xs text-red-500">Could not read the school's channel list.</p>`;
+        }
     }
 
-    window.joinPublicRoom = async (roomId, name) => {
+    // Join a room by its address — a listed public channel, or an unlisted one somebody was handed the link
+    // to. A private channel is unlisted but joinable, which is exactly what its code stands for.
+    async function joinRoomById(roomId, name) {
+        if (!roomId) return;
         try {
-            await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`, {
+            const res = await fetch(`${_matrixClient.homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/join`, {
                 method: "POST", headers: matrixAuthHeaders(), body: "{}"
             });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { showMatrixError(data.error || "The chat server refused the join."); return; }
             await matrixSync();
-            await window.selectRoom(roomId, name);
-        } catch(e) { console.error("Join failed:", e); }
-    };
+            await window.selectRoom(roomId, name || roomId);
+        } catch(e) { showMatrixError("Could not reach the chat server."); console.error("Join failed:", e); }
+    }
+
+    // What someone was given: a code from the school's list, a room id, an alias, or a matrix.to link. Only
+    // the code needs the backend — it is what turns a code into the room that is behind it.
+    async function joinByCodeOrLink() {
+        const input = document.getElementById("matrix-join-code");
+        const status = document.getElementById("matrix-join-status");
+        const say = (text) => { if (status) status.textContent = text || ""; };
+        const raw = ((input && input.value) || "").trim();
+        if (!raw) return;
+        const address = roomAddressFrom(raw);
+        if (address) { say(""); await joinRoomById(address, ""); return; }
+        const code = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (code.length < 4) { say("That is neither a channel code nor a room link."); return; }
+        try {
+            say("Looking that code up…");
+            const res = await fetch(`/api/chat/channels/lookup?code=${encodeURIComponent(code)}`, { headers: appAuthHeaders() });
+            const data = await res.json().catch(() => ({}));
+            const row = res.ok ? unwrapRows(data)[0] : null;
+            if (!row || !row.room_id) { say(data.error || "No channel is open with that code."); return; }
+            say("");
+            await joinRoomById(row.room_id, row.name || "");
+        } catch(e) { say("Could not reach the school's server."); }
+    }
+
+    // The room address out of whatever was pasted: a room id (`!abc:server`), an alias (`#room:server`), or a
+    // matrix.to link carrying either. A code has no such shape and falls through to the lookup.
+    function roomAddressFrom(raw) {
+        let text = raw.trim();
+        if (/^https?:\/\//i.test(text)) {
+            const at = text.indexOf("#/");
+            if (at < 0) return "";
+            text = text.slice(at + 2);
+        }
+        text = text.replace(/[?#].*$/, "").replace(/\/+$/, "");
+        if ((text.startsWith("!") || text.startsWith("#")) && text.includes(":")) return text;
+        return "";
+    }
 
     // --- Invite a member into the selected room, by display name or user id ---
     function bindInviteControl() {

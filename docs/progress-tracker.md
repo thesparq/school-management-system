@@ -1976,6 +1976,96 @@ tidying the next time that screen is touched.
 
 ---
 
+### Channels are the administrator's to make — and what the sidebar's *Join* is for (2026-10-20)
+
+Messaging went live and the sidebar offered every role "＋ New channel" and "Join". The first is now the
+administrator's: `renderMatrixChannelControls` draws that button only for the Admin role (the same
+token-group role the rest of the page reads as `_viewerRole`), and the empty channel list says what the role
+holding it can do. The room list, the composer, invitations and joining stay everyone's.
+
+*Join* is not a door out of the school: it posts to the local `/_matrix/client/v3/publicRooms` (no `server`
+field, so the **local** directory) and joins a room from it. Federation is off here, so there is no outside
+directory it could reach — it lists public channels made on this homeserver, nothing else.
+
+**A related thing found while answering that — worth a decision.** Since Synapse 1.126 the default is that
+only *server admins* may publish a room to the public directory (`room_list_publication_rules`; this
+homeserver is 1.161 and its config names no rule), and a create that violates that "results in the room being
+created but not published". The page's create asks for `preset: public_chat` + `visibility: public`, so a
+channel an administrator makes from the app is created **unlisted** — which is the directory *Join*
+searches. Two coherent directions, neither taken here:
+
+- **Invite-only school channels**: create them privately (no publishing) and drop *Join* for members,
+  keeping the flows that need no directory — "Invitations" → Accept, and the composer's ＋ Invite;
+- **Published school channels**: allow the school's admin account to publish, with a
+  `room_list_publication_rules` entry, so *Join* finds the channels that were meant to be public.
+
+**Verified**: `e2e_matrix_sso.cjs` 31/31 (new: an administrator is offered *＋ New channel*, a pupil is not —
+driven with a token whose groups map to that role — while *Join* stays both and the pupil's empty list says
+"No channels yet — join a public one, or wait for an invitation."). Both sidebars looked at as screenshots at
+1280×900. `index.html` only, so no wasm rebuild: the page is served as a file.
+
+**True of the app, not of the homeserver**: hiding the button is a page rule, and any account can still
+create a room from Element. Refusing that at the source is Synapse's `on_create_room` module hook (v1.39+),
+which would need a way to recognise the school's own admins — the app no longer mirrors the role onto
+Synapse's server-admin flag, so `is_requester_admin` is not that answer.
+
+---
+
+### Two kinds of chat channel, both made by an administrator, and the codes that open the private ones (2026-10-20)
+
+The school asked for both: public channels that everyone can see, private rooms shared by a link and a code,
+and neither creatable by anyone but an administrator. That is now the shape of the Messaging sidebar.
+
+**The app keeps its own channel list** (`db/schema-v16-chat-channels.surql`) instead of reading the
+homeserver's room directory, for two reasons that came out of the question that started this: Synapse 1.126+
+lets only *server admins* publish a room to that directory, so a channel made here would be created unlisted
+and an app-side *Join* would come up empty; and that directory is the homeserver's, while what the school
+wants listed is what its administrators added. One row per channel — the Matrix room id, the name, the
+visibility, the code, who added it — with unique indexes on the room and the code.
+
+- **`POST /api/chat/channels`** (administrators only, which is where "only an administrator makes a channel"
+  is enforced rather than merely not offered) lists a room and returns the code. The same call is a
+  **re-listing**: the row is kept and the code replaced, which is how a code that leaked is retired.
+- **`GET /api/chat/channels`** — the public channels for everyone; the private ones too for an administrator,
+  with their codes, since an administrator is who hands them out.
+- **`GET /api/chat/channels/lookup?code=…`** — one code, one channel, for the join box. Any authenticated
+  role may ask; a code nobody holds is a 404, and the case is the database's (`string::uppercase` on both
+  sides of the comparison — this Roc has no case folding).
+
+**The two kinds are one field apart in Matrix terms.** Both rooms are created with the administrator's own
+Matrix token and `preset: public_chat` (enterable by whoever holds the address — the app still holds no chat
+credential, by design); `visibility: public`/`private` is what decides whether the homeserver also publishes
+it. So a private channel's code is a pointer, not a permission: whoever is given it can enter, and nobody
+else can find the room. A room that has to be tighter than that is **invited** to — the composer's ＋ Invite,
+and the invitations the Messaging page already accepts — and the code flow deliberately does not replace it.
+
+**In the page** (`www/index.html`, so no wasm rebuild): the create form grew the public/private choice and
+shows the code it gets back with a copy button (and a *New code* action on a private channel the administrator
+is looking at); the join panel is the school's list — re-read every time it is opened, so a channel added a
+minute ago is there — plus one box that takes a code, a room id, an alias or a `matrix.to` link. The
+six-character codes are drawn in the page from its own crypto (the backend has no random source) and the
+backend refuses one another channel holds, which the page answers by drawing another.
+
+**Verified**: `chat_channels.sh` 26/26 (the role gates, the two visibilities, the code lookup and its case
+folding, uniqueness, retirement, and every shape a listing will not accept) and `e2e_chat_channels.cjs`
+16/16 in Chromium — an administrator makes a public channel (`"visibility":"public"` on the wire) and
+gets a code; a pupil finds it in *Join*, the join is a real `POST /rooms/<id>/join`, and the channel lands in
+their own list; a private channel is made unlisted (`"visibility":"private"`), is *not* in the pupil's
+directory, is not opened by a code nobody holds, and is opened by its code. The mock homeserver grew
+`createRoom`/`join` and a stateful sync for this, and it now mints a token **per login** — with one shared
+token, the pupil read as already in the administrator's rooms and every membership check passed for the wrong
+reason.
+
+**Deploy order**: `db/schema-v16-chat-channels.surql` **before** the code that reads it. Without the table
+the directory answers 500 (the page says it could not read the list rather than showing an empty school) and
+a create makes the room but cannot list it — the page says that too.
+
+Left for later: the page can list and re-code a channel but not delete one (`deleted_at` and the `IS NONE`
+filter are in place for when it can), and rooms already on the homeserver are not listed by the app until an
+administrator lists them.
+
+---
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
