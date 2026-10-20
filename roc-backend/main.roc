@@ -1863,6 +1863,11 @@ user_row_with_identity! = |row, users, role| {
         "\"qualifications\":${qualifications_json!(row)}",
         "\"date_employed\":\"${sanitize_json_text(extract_field(row, "date_employed"))}\"",
         "\"students\":${students_json!(row)}",
+        # Whether the login this row is keyed by is in the directory at all. A row whose pk no login has is an
+        # orphan — a login deleted and made again (which gets a new pk), or a row written by hand with a
+        # different record-id form — and every other signal about it is silent: it renders like a normal row
+        # that happens to have no email. The page badges it, because nothing else would say so.
+        "\"in_directory\":${if Str.is_empty(user) { "false" } else { "true" }}",
         # The admin's own two columns (db/schema-v14): the type the school gave them and the ticks the
         # backend enforces. Read back by the admin form, which starts from the row's own values rather
         # than from the type's defaults — the row is what the backend will answer with next request.
@@ -2414,6 +2419,19 @@ read_body! = |request| {
                 Err(_) => "{}"
             }
         Err(_) => "{}"
+    }
+}
+
+# The message a failed Matrix admin call is answered with. A 401 from the homeserver on an *admin* call
+# means exactly one thing: the token the app holds (`MATRIX_ADMIN_TOKEN`) is not a Synapse server admin's.
+# The homeserver's own words ride along, and the hint is added only for that status — an unreachable
+# homeserver or a malformed user id is its own failure and says so.
+matrix_failure : Str -> Str
+matrix_failure = |message| {
+    if Str.contains(message, "(HTTP 401") {
+        "${message} — the app's MATRIX_ADMIN_TOKEN is not accepted by the homeserver; set a server admin's token (devops/generate_matrix_admin.sh)"
+    } else {
+        message
     }
 }
 
@@ -4202,13 +4220,13 @@ respond! = |request, context| {
                             Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${cached_token |> sanitize_json_text}\"}"))
                         } else {
                             match Matrix.ensure_user!(matrix_url, admin_token, matrix_user_id, display_name) {
-                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
                                 Ok(_) =>
                                     match Matrix.ensure_admin!(matrix_url, admin_token, matrix_user_id, caller.role == "admin") {
-                                        Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                        Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
                                         Ok(_) =>
                                             match Matrix.get_user_token!(matrix_url, admin_token, matrix_user_id) {
-                                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(message)}\"}")),
+                                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
                                                 Ok(fresh_token) => Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${fresh_token |> sanitize_json_text}\"}")),
                                             }
                                     }

@@ -30,7 +30,7 @@ MOCK_PID=$!
 python3 roc-frontend/tests/e2e/fixtures/mock_authentik_unique.py >/tmp/matrix-mock-auth.log 2>&1 &
 MOCK_AUTH_PID=$!
 
-trap 'kill "$BACKEND_A" "$BACKEND_B" "$MOCK_PID" "$MOCK_AUTH_PID" 2>/dev/null || true; rm -rf "$BIN" "$LOG" "$MOCK_LOG"' EXIT INT TERM
+trap 'kill "$BACKEND_A" "$BACKEND_B" "$BACKEND_C" "$MOCK_PID" "$MOCK_AUTH_PID" 2>/dev/null || true; rm -rf "$BIN" "$LOG" "$MOCK_LOG"' EXIT INT TERM
 
 # --- Build the backend once, run it twice -----------------------------------
 # A dead database URL so the sandbox can never reach prod; the matrix route touches no database.
@@ -49,11 +49,19 @@ if [ -z "${APP_URL:-}" ]; then
     "$BIN" >"$LOG-2" 2>&1 &
   BACKEND_B=$!
 
+  # A token the homeserver does not know: the real Synapse answers 401 `M_UNKNOWN_TOKEN` for one (as a
+  # deployment whose MATRIX_ADMIN_TOKEN is a placeholder or stale does), and the proxy must name the cause
+  # rather than leaving the homeserver's words to be decoded by hand.
+  env $COMMON PORT=8125 PUBLIC_MATRIX_URL=http://127.0.0.1:9010 MATRIX_ADMIN_TOKEN=wrong-token \
+    "$BIN" >"$LOG-3" 2>&1 &
+  BACKEND_C=$!
+
   B_A=http://127.0.0.1:8123
   B_B=http://127.0.0.1:8124
+  B_C=http://127.0.0.1:8125
 
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    curl -s -o /dev/null "$B_A/api/students" && break || sleep 0.5
+    curl -s -o /dev/null "$B_A/api/students" && curl -s -o /dev/null "$B_C/api/students" && break || sleep 0.5
   done
 else
   B_A=${APP_URL}
@@ -125,6 +133,17 @@ check "the login call used the userinfo's own sub" "$(grep 'POST /_synapse/admin
 if [ -n "$B_B" ]; then
   check "missing MATRIX_ADMIN_TOKEN is a 503 naming it" "$(curl -s -w ' %{http_code}' "$B_B/api/matrix/token" -H 'Authorization: Bearer dev-skip')" "MATRIX_ADMIN_TOKEN is not set"
   check "and that 503 is really a 503" "$(curl -s -o /dev/null -w '%{http_code}' "$B_B/api/matrix/token" -H 'Authorization: Bearer dev-skip')" "503"
+fi
+
+# --- A token the homeserver refuses names the cause ---------------------------
+# The deployment that prompted this: MATRIX_ADMIN_TOKEN held a placeholder, the real homeserver answered
+# 401 `M_UNKNOWN_TOKEN`, and the app showed only the homeserver's own words — so a person had to read the
+# environment and the homeserver by hand to find out why the Messaging page was dead. The 502 now says it.
+if [ -n "${B_C:-}" ]; then
+  REFUSED=$(curl -s "$B_C/api/matrix/token" -H 'Authorization: Bearer dev-skip')
+  check "a refused admin token is a 502 naming MATRIX_ADMIN_TOKEN" "$REFUSED" "MATRIX_ADMIN_TOKEN is not accepted"
+  check "and it keeps the homeserver's own words" "$REFUSED" "Invalid access token passed."
+  check "and points at the script that sets it" "$REFUSED" "generate_matrix_admin.sh"
 fi
 
 # --- A missing homeserver URL is a 503 naming it too -------------------------

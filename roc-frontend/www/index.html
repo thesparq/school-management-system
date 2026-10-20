@@ -617,7 +617,7 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions.
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions|in_directory.
     // The first six fields are what the table renders today; the next seven are what the row's Edit
     // action loads into the form above (the backend's PUT patches the row, so the form has to start
     // with the values that are there). date_of_birth arrives with a time on it, but the form's date
@@ -645,7 +645,8 @@
                 + "|" + String(u.date_employed || "").slice(0, 10) + "|" + String((u.students || []).join(","))
                 + "|" + (u.class_name || "")
                 + "|" + (u.admin_type || "")
-                + "|" + String((u.permissions || []).join(","));
+                + "|" + String((u.permissions || []).join(","))
+                + "|" + String(u.in_directory !== false);
         });
     }
 

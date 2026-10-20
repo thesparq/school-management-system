@@ -833,6 +833,11 @@ user_row = |model, line| {
     email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
     is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
     has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
+    # Whether the login this row is keyed by is in the directory at all (the listing's own flag). A row whose
+    # pk no login has is an orphan: it renders like a normal row that happens to have no email, and nothing
+    # else about it says so. Lines written before the field existed (a login with no profile yet) are not
+    # orphaned by definition — they are the directory side of the join.
+    in_directory = match List.get(parts, 19) { Ok(s) => s != "false", Err(_) => Bool.True }
     school_number = match List.get(parts, 5) { Ok(v) => v, Err(_) => "" }
     selected = List.contains(model.selectedUserIds, id)
     initial =
@@ -860,12 +865,15 @@ user_row = |model, line| {
         UI.table_cell({ classes: "font-medium" }, [
             Html.div([Attribute.class("flex items-center gap-2")], [
                 Html.text(name),
-                # A login the directory has and the profile tables do not: the row is real, its school
-                # data is what is missing.
-                if has_profile {
-                    Html.div([], [])
-                } else {
+                # The two ways a row can be half a record: a login the profile tables have nothing for
+                # (amber), and a profile row no login in the directory answers to (red) — the second is the
+                # state a re-created login or a hand-written row leaves behind, and it is otherwise silent.
+                if !has_profile {
                     Html.span([Attribute.class("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400")], [Html.text("No profile yet")])
+                } else if !in_directory {
+                    Html.span([Attribute.class("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400")], [Html.text("Not in the directory")])
+                } else {
+                    Html.div([], [])
                 }
             ])
         ]),
@@ -878,15 +886,19 @@ user_row = |model, line| {
             Html.text(if Str.is_empty(school_number) { "—" } else { school_number })
         ]),
         UI.table_cell({ classes: "" }, [
+            # A row with no login behind it has no login state to report: "Active" would be a claim about an
+            # account that is not there.
             Html.span([
                 Attribute.class(
-                    if is_active {
+                    if !in_directory {
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
+                    } else if is_active {
                         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                     } else {
                         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
                     }
                 )
-            ], [Html.text(if is_active { "Active" } else { "Inactive" })])
+            ], [Html.text(if !in_directory { "Unknown" } else if is_active { "Active" } else { "Inactive" })])
         ]),
         UI.table_cell({ classes: "text-right" }, [
             Html.div([Attribute.class("flex items-center justify-end gap-1")], [

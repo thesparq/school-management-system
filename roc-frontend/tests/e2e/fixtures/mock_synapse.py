@@ -56,12 +56,12 @@ class Handler(BaseHTTPRequestHandler):
         self._record(body)
         if self.path.startswith("/_synapse/admin/v1/users/") and self.path.endswith("/admin"):
             if not self._admin_ok():
-                return self._send(403, '{"errcode":"M_FORBIDDEN","error":"admin required"}')
+                return self._unknown_admin_token()
             return self._send(200, "{}")
         if not self.path.startswith("/_synapse/admin/v2/users/"):
             return self._send(404, '{"errcode":"M_UNRECOGNIZED","error":"no such endpoint"}')
         if not self._admin_ok():
-            return self._send(403, '{"errcode":"M_FORBIDDEN","error":"admin required"}')
+            return self._unknown_admin_token()
         self._send(200, "{}")
 
     def do_POST(self):
@@ -70,9 +70,17 @@ class Handler(BaseHTTPRequestHandler):
         if not self.path.startswith("/_synapse/admin/v1/users/"):
             return self._send(404, '{"errcode":"M_UNRECOGNIZED","error":"no such endpoint"}')
         if not self._admin_ok():
-            return self._send(403, '{"errcode":"M_FORBIDDEN","error":"admin required"}')
+            return self._unknown_admin_token()
         user_id = self.path.removeprefix("/_synapse/admin/v1/users/").removesuffix("/login")
         self._send(200, '{"access_token":"syt_mock_%s","device_id":"MOCKDEV","home_server":"mock"}' % user_id)
+
+    def _unknown_admin_token(self):
+        """What the real homeserver answers for an admin token it does not know: 401 with
+        `M_UNKNOWN_TOKEN` and "Invalid access token passed." — the exact pair a deployment with a
+        placeholder or stale `MATRIX_ADMIN_TOKEN` meets, and what the app's own error text carries
+        (the backend adds its hint to that 401, so the mock has to answer the same status the real
+        server does rather than 403)."""
+        return self._send(401, '{"errcode":"M_UNKNOWN_TOKEN","error":"Invalid access token passed.","soft_logout":false}')
 
     def do_GET(self):
         self._record(b"")

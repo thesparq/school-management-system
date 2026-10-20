@@ -248,6 +248,37 @@ const summary = () => {
 
   // --- The modal closed on the edit's success; the page is back to the table ---
   check('the modal is closed after a write', (await page.locator('#app h3').count()) === 0);
+
+  // --- A row whose login is gone says so -------------------------------------------------
+  // A profile row is keyed by the login's pk; a row whose pk no login has looks exactly like a normal
+  // row with no email, which is how the school's own admin spent a day with a row nothing could see.
+  // The listing flags it and the row badges it.
+  const orphanPk = `orphan_${stamp}`;
+  await fetch(`${appUrl}/api/users`, {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${authToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ id: `student_profile:${orphanPk}`, first_name: 'Orphan', surname: `Row${stamp}`, date_of_birth: '2011-01-01', class_level: 'class_levels:jss_1', passport: 'https://example.com/orphan.jpg' }),
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('text=Add New User', { timeout: 45000 });
+  await page.waitForFunction((name) => [...document.querySelectorAll('#app table tbody tr')].some(r => r.innerText.includes(name)), `Row${stamp}`, { timeout: 20000 }).catch(() => {});
+  check('a row whose login is gone is badged, not silent', await hasText('Not in the directory'));
+  check('and its status reads Unknown rather than a login state it has none of',
+    await page.evaluate((name) => {
+      const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(name));
+      return !!r && r.innerText.includes('Unknown');
+    }, `Row${stamp}`));
+  check("while the directory's own row keeps its Active badge",
+    await page.evaluate((email) => {
+      const r = [...document.querySelectorAll('#app table tbody tr')].find(x => x.innerText.includes(email));
+      return !!r && r.innerText.includes('Active') && !r.innerText.includes('Not in the directory');
+    }, LOGIN_EMAIL));
+  await fetch(`${appUrl}/api/users`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${authToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ id: `student_profile:${orphanPk}` }),
+  });
+
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 
   await browser.close();

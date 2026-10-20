@@ -368,6 +368,22 @@ check "and the listing shows the row again" "$(listing Student | row_of "$PW_PK"
 # --- 18. the listing carries the richer profile fields ---
 check "the listing row carries middle_name and class_name" "$(listing Student | row_of "$PW_PK")" '"class_name"'
 
+# --- 18b. a row whose login is gone says so ------------------------------------------------
+# A profile row is keyed by the login's pk, and nothing about a row whose pk no login has *looks*
+# wrong: it renders like a normal row that happens to have no email. The listing flags it instead,
+# because the school's own admin spent a day with a row that no lookup could see (it had been
+# written by hand with a different record-id form) and every signal about it was silent.
+ORPHAN_PK="orphan_${STAMP}"
+curl -s -o /dev/null -X PUT "$B/api/users" -H "$T" -H "$C" \
+  -d "{\"id\":\"student_profile:${ORPHAN_PK}\",\"first_name\":\"Orphan\",\"surname\":\"Row${STAMP}\",\"date_of_birth\":\"2011-01-01\",\"class_level\":\"class_levels:jss_1\",\"passport\":\"https://example.com/orphan.jpg\"}"
+check "a row whose login is not in the directory is flagged" "$(listing Student | row_of "$ORPHAN_PK")" '"in_directory":false'
+check "and a row whose login is there is not" "$(listing Student | row_of "$PW_PK")" '"in_directory":true'
+check "and a login with no profile yet is not flagged as an orphan" "$(listing Student | row_of "$SEED_PK" | python3 -c "
+import sys
+row = sys.stdin.read().strip()
+print('flagged' if row and '\"in_directory\":false' in row else 'not flagged')")" "not flagged"
+check "cleaning up the orphan row answers 200" "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$B/api/users" -H "$T" -H "$C" -d "{\"id\":\"student_profile:${ORPHAN_PK}\"}")" "200"
+
 # --- 19. the two-system write journal (pending_ops) ---
 # Every create/delete is journaled first and a reconciler settles anything left running; these
 # checks prove the happy path lands `done` and that a crash between the password and the profile
