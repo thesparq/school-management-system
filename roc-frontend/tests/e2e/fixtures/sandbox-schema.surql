@@ -105,6 +105,12 @@ DEFINE FIELD first_name ON admin_profile TYPE string ASSERT $value != NONE;
 DEFINE FIELD middle_name ON admin_profile TYPE none | string;
 DEFINE FIELD passport ON admin_profile TYPE string ASSERT $value != NONE AND $value != '';
 DEFINE FIELD role_title ON admin_profile TYPE none | string;
+# What the admin may actually do (`db/schema-v14-admin-permissions.surql`, applied to prod on
+# 2026-10-20): the type is the school's label and the ticks are what the backend enforces. The fixture
+# declares them so a *fresh* sandbox can run the admin-permission flows — without them every admin write
+# answers "Found field 'admin_type', but no such field exists for table 'admin_profile'".
+DEFINE FIELD admin_type ON admin_profile TYPE option<string>;
+DEFINE FIELD permissions ON admin_profile TYPE array<string> DEFAULT [];
 # The admin's staff number, out of the same `id_sequences:staff` series as a teacher's
 # (`db/schema-v8-ids.surql`).
 DEFINE FIELD staff_id ON admin_profile TYPE option<int>;

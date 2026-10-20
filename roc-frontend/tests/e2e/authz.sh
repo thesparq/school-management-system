@@ -59,6 +59,18 @@ check "a student's token is refused a teacher route (403)" "$(call mock-student-
 check "a student's token may read the directory listing" "$(call mock-student-token GET '/api/users?role=Student')" " HTTP 200"
 check "a teacher's token is allowed a teacher route" "$(call mock-teacher-token GET /api/teacher/lessons)" " HTTP 200"
 check "a teacher's token is refused an admin write (403)" "$(call mock-teacher-token POST /api/terms "{\"name\":\"Authz denied3 ${STAMP}\",\"sort_order\":96}")" " HTTP 403"
+# The cases below demote and promote this login's row, and the school keeps one super admin: a spare is
+# kept in the sandbox (created once, never deleted) so the file can run again against the same sandbox.
+# Without one, a second run's first demotion is refused by the lockout guard — the guard working, not a
+# failed check — and every later case would then be read against the wrong seat.
+SPARES=$(curl -s "$B/api/users?role=Admin" -H 'Authorization: Bearer dev-skip')
+case "$SPARES" in
+  *"Authz Spare"*) ;;
+  *)
+    curl -s -o /dev/null -X POST "$B/api/users" -H 'Authorization: Bearer dev-skip' -H "$C" \
+      -d "{\"role\":\"Admin\",\"email\":\"authz_spare_${STAMP}@example.com\",\"first_name\":\"Authz\",\"surname\":\"Spare\",\"passport\":\"https://example.com/spare.jpg\",\"admin_type\":\"super_admin\"}"
+    ;;
+esac
 # The admin role comes from the group; what the admin may *do* comes from their school-side profile
 # (`admin_type` + `permissions`, db/schema-v14). The mock's admin login has no profile, so it starts with
 # no permissions at all — which is the point: an Authentik admin nobody has set up in the school can see
