@@ -2722,8 +2722,10 @@ required_permission = |method, target| {
     } else if target == "/api/class-subjects" or Str.starts_with(target, "/api/teacher-assignments") {
         "assignments.manage"
     } else if target == "/api/permissions" or target == "/api/admin-types" {
-        # The catalog the admin form renders its ticks from.
-        "users.manage"
+        # The catalog the admin form and its messages are built from: static text about the permission
+        # model, with no school data in it, so any admin may read it — a supervisor is told which
+        # permission a screen needs in the school's own words rather than by its key.
+        ""
     } else if target == "/api/admin-rights" {
         # A caller's own rights: every admin may read their own.
         ""
@@ -2966,8 +2968,9 @@ token_cache_status! = |config| {
 }
 
 # The catalog the admin form is built from: the permissions there are, and the admin types with the ticks
-# each one starts with. It is answered to an admin with `users.manage` (the form lives on the user screens);
-# it is static text, so it carries nothing a lower permission could not see.
+# each one starts with. Any admin may read it (see `required_permission`): it is static text about the
+# permission model, and the screens and messages that name a permission in the school's own words are
+# drawn from it.
 admin_catalog_json : Str
 admin_catalog_json = {
     permissions = Str.join_with(
