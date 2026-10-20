@@ -1749,12 +1749,21 @@ That login's row was seeded as the v14 backfill would have written it, so nothin
 day one:
 
 ```sql
-CREATE admin_profile:5 SET display_name = 'Samuel Iyeh', first_name = 'Samuel', surname = 'Iyeh',
+CREATE type::record('admin_profile', '5') SET display_name = 'Samuel Iyeh', first_name = 'Samuel', surname = 'Iyeh',
   passport = 'https://r2.johnethel.school/passports/samuel-iyeh.jpg',   -- placeholder; replace from the form
   admin_type = 'super_admin',
   permissions = ['users.manage', 'setup.manage', 'lessons.manage', 'assessments.manage', 'assignments.manage', 'permissions.manage'],
   staff_id = (UPDATE id_sequences:staff SET current_value += 1 RETURN current_value)[0].current_value;
 ```
+
+> **A profile row's id is the *string* form of the pk.** The app addresses rows as
+> `type::record('<table>', '<pk>')` — that is what `record_ref!` builds for every lookup and every create —
+> and SurrealDB keeps a numeric id apart from a string one: `admin_profile:5` is a *different record* from
+> `admin_profile:⟨'5'⟩`, and only the latter is what the backend finds (it renders back with backticks,
+> ``admin_profile:`5` ``, which is how the app's own rows always look). The first version of this seed used
+> the bare form, so the school's admin had a row that every lookup missed: the shell rendered, the role came
+> from the group claim, and every screen answered "it needs 'Manage users'". Hand-written SQL has to build
+> the id the same way the app does; the API's own create path already does.
 
 `id_sequences:staff` was at 0, so the row is **EMP-000001** and the next staff create takes 2 — the app's
 own numbering rule, not a number invented for it. The row is the school's own to change: the new screen
@@ -1775,6 +1784,35 @@ guard. It now keeps a spare super admin and passes 51/51 twice in a row.
 **Deploy order matters**: v14 goes to prod **before** the new code, or the running code would read no type and
 no ticks for the admins that exist and refuse them everything. The backfill inside v14 is what makes the order
 safe.
+
+### The day the school's admin was locked out — three separate causes (2026-10-20, same day)
+
+The gate shipped, the deploy landed, and the school's only administrator could not open a single screen:
+the shell rendered, and every admin route answered "it needs 'Manage users'". Three independent faults were
+behind it, found one at a time because each fix moved the symptom rather than clearing it:
+
+1. **The subject claim is not the pk.** Authentik's userinfo answers `sub` as the provider's *hashed* user id
+   (`sub_mode = hashed_user_id`, the default) — `addd0ec4…`, not `5` — while every school-side row is keyed by
+   the directory pk. So the caller's own row was never found. Fixed in `c64472a`: the identity path resolves
+   the login through the directory (by email, then username) once per validated token and writes the pk in as
+   `uid`, which is what `caller_id!` prefers. This was never admin-specific — a teacher's own assignments, a
+   student's own class and a parent's own children all read the same id — and the sandbox hid it because the
+   mock answers `sub` and `uid` as the pk.
+2. **The row was keyed the wrong way** (see the box above): the seed used `admin_profile:5`, a *number* id,
+   while the app addresses rows as `type::record('admin_profile','5')`. The lookup missed it. Re-keyed.
+3. **An open page never re-read its permissions.** A page fetched them once, on boot, so the fix could not
+   reach the tab that was already open — a reload was the only way, and an in-app click did nothing. Fixed in
+   `c1bf8d1`: the page re-asks `/api/admin-rights` on every navigation and once a minute, the shape the
+   session-term badge already had; a failed refresh keeps the last good answer rather than widening the
+   shell. Verified in Chromium with a deliberately stale first answer — one sidebar click widens the shell
+   with no reload.
+
+What the day taught, for the next person: **verify the real provider's claim shapes** before keying anything
+on them (the mock agreeing with the sandbox's convention is not evidence), **never hand-write a record id**
+without the app's own `type::record(...)` form, and treat "the UI still refuses" and "the server refuses" as
+two different bugs until one of them is proven — the console one-liner
+(`fetch('/api/admin-rights', {headers:{Authorization:'Bearer '+localStorage.auth_token}}).then(r=>r.json()).then(console.log)`)
+settles which in ten seconds.
 
 ---
 
