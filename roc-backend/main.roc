@@ -19,7 +19,6 @@ import Url
 import R2
 import Golem
 import Authentik
-import Matrix
 
 Context : { surreal: SurrealDB.Config, dev_mode: Bool, static_dir: Str }
 
@@ -126,16 +125,6 @@ get_token = |headers| {
             }
         }
         Err(_) => Err("No Authorization header")
-    }
-}
-
-# The Matrix token the page already holds, if it sent one (the chat proxy validates it and only
-# mints a fresh token — a new Synapse device — when the old one is gone or invalid).
-matrix_header_token = |headers| {
-    matrix_headers = List.keep_if(headers, |h| h.name == "X-Matrix-Token" or h.name == "x-matrix-token")
-    match List.first(matrix_headers) {
-        Ok(h) => h.value
-        Err(_) => ""
     }
 }
 
@@ -2422,18 +2411,31 @@ read_body! = |request| {
     }
 }
 
-# The message a failed Matrix admin call is answered with. A 401 from the homeserver on an *admin* call
-# means exactly one thing: the token the app holds (`MATRIX_ADMIN_TOKEN`) is not a Synapse server admin's.
-# The homeserver's own words ride along, and the hint is added only for that status — an unreachable
-# homeserver or a malformed user id is its own failure and says so.
-matrix_failure : Str -> Str
-matrix_failure = |message| {
-    if Str.contains(message, "(HTTP 401") {
-        "${message} — the app's MATRIX_ADMIN_TOKEN is not accepted by the homeserver; set a server admin's token (devops/generate_matrix_admin.sh)"
+# A URL with its trailing slashes removed, so a deployment value pasted with one (`…/`) does not turn
+# into `…//_matrix/client/…` on the page. The scheme's own `//` is untouched: only the end is trimmed.
+trim_trailing_slash : Str -> Str
+trim_trailing_slash = |url| {
+    trimmed = Str.trim(url)
+
+    if Str.ends_with(trimmed, "/") {
+        match Str.from_utf8(drop_last_byte(Str.to_utf8(trimmed), [])) {
+            Ok(shorter) => trim_trailing_slash(shorter)
+            Err(_) => trimmed
+        }
     } else {
-        message
+        trimmed
     }
 }
+
+# Every byte but the last. `[_]` comes before `[byte, .. as rest]` so a one-byte list is dropped whole,
+# not recursed into.
+drop_last_byte : List(U8), List(U8) -> List(U8)
+drop_last_byte = |remaining, out|
+    match remaining {
+        [] => out
+        [_] => out
+        [byte, .. as rest] => drop_last_byte(rest, List.append(out, byte))
+    }
 
 # --- Response helpers ---
 
@@ -4177,61 +4179,20 @@ respond! = |request, context| {
                         Ok(json_response(200, "{\"key\":\"${key_val}\",\"uploadUrl\":\"${upload_url}\",\"publicUrl\":\"${public_url}\",\"expiresIn\":${U64.to_str(expires)}}"))
                     }
 
-                # --- Matrix token proxy: the chat page's access token ---
-                # The backend talks to the homeserver's admin API with the shared admin token and
-                # hands the page a token for its own account (`@<this user's id>:<server>`). The
-                # account is created on first use, so users initialized before the chat existed get
-                # a Synapse account the first time they open Messaging.
-                #
-                # A token the page already holds (sent back as `X-Matrix-Token`) is validated
-                # against the homeserver and reused when it still works; a fresh token — and with
-                # it a fresh Synapse device — is minted only when the old one is gone or invalid.
-                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/matrix/token" {
-                    # The env values are trimmed: a stray trailing space or carriage return in a
-                    # pasted value looks identical in logs but makes the homeserver URL unparsable
-                    # (and the error below would name no cause).
+                # --- Matrix: where the chat page finds its homeserver ---
+                # The page logs into the homeserver itself, through the SSO provider the homeserver's own
+                # config names (Authentik — see devops/matrix-config/homeserver.yaml), and holds the token
+                # that login returns. So this backend needs no credential for chat at all: the admin token
+                # that used to mint one is gone, along with the proxy that used it (`devops/README.md`
+                # explains the flow). All that is left to hand over is the URL to talk to — deployment
+                # configuration, kept in the environment like every other URL.
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/matrix/config" {
                     matrix_url = match Env.var!("PUBLIC_MATRIX_URL") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "" }
-                    admin_token = match Env.var!("MATRIX_ADMIN_TOKEN") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "" }
-                    server_name = match Env.var!("MATRIX_SERVER_NAME") { Ok(os) => Str.trim(OsStr.display(os)), Err(_) => "matrix.johnethel.school" }
 
                     if Str.is_empty(matrix_url) {
                         Ok(json_response(503, "{\"error\":\"PUBLIC_MATRIX_URL is not set\"}"))
-                    } else if Str.is_empty(admin_token) {
-                        Ok(json_response(503, "{\"error\":\"MATRIX_ADMIN_TOKEN is not set\"}"))
                     } else {
-                        local_part = caller_id!(user_json)
-                        matrix_user_id = Matrix.user_id(local_part, server_name)
-                        display_name = display_name_for(user_json, local_part)
-                        cached_token = matrix_header_token(request.headers)
-
-                        reuse_token =
-                            if Str.is_empty(cached_token) {
-                                Bool.False
-                            } else {
-                                match Matrix.is_token_valid!(matrix_url, matrix_user_id, cached_token) {
-                                    Ok(valid) => valid
-                                    # The validation itself failed (a sick homeserver); fall back
-                                    # to minting — which fails loudly too if it is really down.
-                                    Err(_) => Bool.False
-                                }
-                            }
-
-                        if reuse_token {
-                            Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${cached_token |> sanitize_json_text}\"}"))
-                        } else {
-                            match Matrix.ensure_user!(matrix_url, admin_token, matrix_user_id, display_name) {
-                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
-                                Ok(_) =>
-                                    match Matrix.ensure_admin!(matrix_url, admin_token, matrix_user_id, caller.role == "admin") {
-                                        Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
-                                        Ok(_) =>
-                                            match Matrix.get_user_token!(matrix_url, admin_token, matrix_user_id) {
-                                                Err(message) => Ok(json_response(502, "{\"error\":\"${sanitize_json_text(matrix_failure(message))}\"}")),
-                                                Ok(fresh_token) => Ok(json_response(200, "{\"homeserver\":\"${Matrix.trim_slash(matrix_url)}\",\"token\":\"${fresh_token |> sanitize_json_text}\"}")),
-                                            }
-                                    }
-                            }
-                        }
+                        Ok(json_response(200, "{\"homeserver\":\"${trim_trailing_slash(matrix_url)}\"}"))
                     }
 
                 } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/users" {

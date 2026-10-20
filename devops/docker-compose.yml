@@ -47,13 +47,10 @@ services:
     - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
     - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
     - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
-    # The chat page's token proxy (`/api/matrix/token`): PUBLIC_MATRIX_URL is the homeserver the
-    # page talks to (same host `main.roc` calls for the admin API), and MATRIX_ADMIN_TOKEN is a
-    # Synapse admin access token (see devops/generate_matrix_admin.sh — 
-    # get one without password login by temporarily enabling it, or reuse the token injected for the
-    # retired Golem stack). Missing token: the route answers 503 naming it, like R2.
+    # The chat page's own homeserver (`/api/matrix/config` hands this URL to the page, which logs in
+    # there directly through the homeserver's Authentik provider — see devops/README.md). No admin
+    # token is involved anywhere: nothing in the app mints chat tokens any more.
     - PUBLIC_MATRIX_URL=${PUBLIC_MATRIX_URL:-https://matrix.johnethel.school}
-    - MATRIX_ADMIN_TOKEN=${MATRIX_ADMIN_TOKEN:-}
     labels:
     - traefik.enable=true
     - traefik.docker.network=dokploy-network

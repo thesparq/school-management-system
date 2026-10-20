@@ -1824,6 +1824,54 @@ The uuid would be a different keying convention (and userinfo does not even carr
 it would mean migrating every row and every link that points at one; the pk is what the directory answers, what
 the create path receives and what the existing links already use.
 
+### The chat page logs into Matrix itself — the admin token is gone (2026-10-20)
+
+Messaging was the last thing in the deployment that depended on a shared privileged credential:
+`/api/matrix/token` called Synapse's **admin** API with `MATRIX_ADMIN_TOKEN` to create each person's chat
+account and mint them a token. That token was a placeholder in prod, so chat had never worked, and the fix
+for *that* would have been to set one — a homeserver master key living in the app's environment, able to mint
+a token for anyone, with nothing to narrow it.
+
+It is gone instead. The Messaging tab now opens the homeserver's own SSO entry point
+(`/_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…`), Synapse hands the browser to **Authentik**
+(the provider already configured in `devops/matrix-config/homeserver.yaml`), and comes back to the page with
+a one-time `loginToken` that the page exchanges for an access token it keeps for the tab session. What that
+buys, in the order that matters:
+
+- **No chat credential in the deployment at all** — nothing for the backend to hold, rotate, or have go
+  stale; the failure mode that cost a day is structurally gone, not fixed.
+- **One account per person**, and it is the *same* account Element uses: both are created by Synapse from the
+  same Authentik identity (`localpart_template: {{ user.preferred_username }}` → `@thesparq:…`), where the
+  proxy's accounts were keyed by the Authentik **pk** (`@5:…`) — a second identity nobody could log into.
+- **Who may chat is Authentik's decision** (the `matrix` application's policy), not the app's.
+- The backend keeps one small job: `/api/matrix/config` answers the homeserver URL from `PUBLIC_MATRIX_URL`.
+  `Matrix.roc`, the proxy route, `matrix_header_token`, `MATRIX_ADMIN_TOKEN`, `MATRIX_SERVER_NAME` and
+  `devops/generate_matrix_admin.sh` are all deleted.
+
+What the page does when a connect fails is the part worth knowing: a refused or already-spent `loginToken`
+leaves a note in the tab's session storage, and the Messaging panel shows the reason with a **Try again**
+button — rather than bouncing the browser through Authentik again in a loop. A reload keeps the token (no
+second login); a 401 on a client call drops it and runs the login once more. The app also no longer mirrors
+the Authentik admin role onto Synapse's server-admin flag: that flag is now a deliberate act (needed for
+moderation, not for chatting) and `devops/README.md` says how.
+
+**Deployment**: the homeserver needs one new line (`sso.client_whitelist` with the app's URL, so Synapse
+accepts it as a return address instead of showing a confirmation page) and a restart; the app's deploy carries
+the rest. Nothing changes in Authentik — the OIDC callback there is Synapse's, as it already was. Then
+`MATRIX_ADMIN_TOKEN` can be deleted from the environment.
+
+**Verified** by `node roc-frontend/tests/e2e/e2e_matrix_sso.cjs` (18/18 in Chromium, self-contained: it builds
+the backend, boots it **without** any admin token plus a mock Synapse): the redirect and the exchange, the
+token kept across a reload with no second login, a replayed token refused without a loop, **Try again**
+working, and — the assertion that matters most — the mock never receiving a single `/_synapse/admin/` call.
+The suite also caught a real pre-existing UI bug on the way: the room list's "Loading channels…" placeholder
+blocked its own empty state, so an account with no rooms never saw "No channels yet". Plus the whole set:
+`authz.sh` 60/60, `users_api.sh` 99/99, `e2e_admin.cjs` 16/16, `e2e_admin_permissions.cjs` 30/30,
+`e2e_user_roles.cjs` 19/19, `e2e_users_directory.cjs` 30/30, `e2e_nav_fixes.cjs` 6/6, `e2e_loading.cjs` 20/20,
+`e2e_student.cjs` 7/7, `smoke_teacher_role.cjs` 9/9, `smoke_assignments_lms.cjs` 18/18,
+`e2e_notifications_lms.cjs` 26/26, `assessment_flow.sh` 41/41, `general_assessment_flow.sh` 53/53,
+`token_cache.sh` 32/32, `list_order.sh` 23/23, `roc check` clean on both sides.
+
 ---
 
 ## Completed Work

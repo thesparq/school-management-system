@@ -63,13 +63,11 @@ Synapse authenticates through Authentik:
    `SYNAPSE_CLIENT_ID`/`SYNAPSE_CLIENT_SECRET` environment.
 3. Restart Synapse.
 
-**Server admin follows the Authentik admin group.** On every token mint, the proxy calls
-`PUT /_synapse/admin/v1/users/<id>/admin` with the same role decision the app's authorization
-uses: a caller whose Authentik groups map to admin is (re)made a Synapse server admin, anyone
-else is kept a non-admin — a demotion in Authentik strips it at the next request. Server admin
-is still a Synapse-internal flag (stock Synapse has no group→admin mapping), so this app-level
-sync is what keeps the two authorities in step. The one user it never touches is `system_admin`
-(the service account that issues `MATRIX_ADMIN_TOKEN`), which has no Authentik identity.
+**The app no longer mirrors the Authentik admin role onto Synapse.** It used to, by calling
+`PUT /_synapse/admin/v1/users/<id>/admin` on every token mint — which needed exactly the admin token this
+flow removed. Server admin is still a Synapse-internal flag (stock Synapse has no group→admin mapping),
+so it is now a deliberate act: make the person a server admin once with
+`register_new_matrix_user -a` or the admin API. Nobody needs it to chat — it is for moderation.
 
 ## coturn (voice/video calls)
 
@@ -96,39 +94,44 @@ After either change: `docker compose -f devops/docker-compose.yml up -d coturn`,
 `python3 devops/stun_probe.py` should report the advertised server as `Coturn-…` on both tcp and
 udp (before the fix it reports the leftover `eturnal`).
 
-## In-app chat (Matrix token proxy)
+## In-app chat (the page logs into Matrix itself)
 
-The app's Messaging page talks to Synapse directly from the browser, with an access token the
-backend mints per request: `GET /api/matrix/token` (any authenticated role) calls Synapse's admin
-API as **the homeserver's admin account** — `PUT /_synapse/admin/v2/users/<id>` so the account
-exists, then `POST /_synapse/admin/v1/users/<id>/login` — and returns
-`{"homeserver","token"}` for `@<the user's own id>:matrix.johnethel.school`. No Matrix
-credentials live in the browser or the app; only the backend holds the admin token.
+The app's Messaging page talks to Synapse directly from the browser, and it logs in **as the person
+using it**: the page opens the homeserver's own SSO entry point
+(`/_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…`), Synapse hands the browser to
+Authentik — the provider in `devops/matrix-config/homeserver.yaml` — and comes back to the page with a
+one-time `loginToken`, which the page exchanges for an access token it keeps for the tab session.
 
-To set it up once:
+So the deployment holds **no chat credential at all**. There is no admin token for the backend to keep
+valid, no account for it to create, and nothing that can silently stop working when a shared secret goes
+stale — the failure mode that a minting proxy has and this flow does not. The account is the same one
+Element uses, because both are created by Synapse from the same Authentik identity
+(`localpart_template: {{ user.preferred_username }}` → `@thesparq:matrix.johnethel.school`).
 
-1. Put the homeserver URL and the admin token in the environment (`devops/.env.example`):
-   `PUBLIC_MATRIX_URL` and `MATRIX_ADMIN_TOKEN`. The compose passes both to the `app` service;
-   without the token, `/api/matrix/token` answers 503 naming it (same convention as R2).
-2. Get the admin token with `devops/generate_matrix_admin.sh` (register a server admin, grab its
-   access token during a one-line temporary enable of password login, restore). If the retired
-   Golem stack already injected a `MATRIX_ADMIN_TOKEN`, reuse that.
-3. Deploy, then a user opening **Messaging** gets their account (created on first use) and can
-   create a channel (public, appears in the room directory), browse and join channels, invite
-   people by name or user id, and accept invites — see `roc-frontend/www/index.html`
-   (`renderMatrixChannelControls` and friends).
+What is left to configure:
 
-Two notes on how tokens and devices work:
+1. `PUBLIC_MATRIX_URL` in the environment (the compose passes it to the `app` service). `/api/matrix/config`
+   hands it to the page; unset, that route answers 503 naming it, same convention as R2.
+2. The app's URL in the homeserver's `sso.client_whitelist` (`devops/matrix-config/homeserver.yaml`), so
+   Synapse accepts it as a return address instead of showing a confirmation page.
+3. Nothing else. `MATRIX_ADMIN_TOKEN` (and `MATRIX_SERVER_NAME`) are no longer read by anything: delete
+   them from the environment where they were set.
 
-- The proxy **reuses** a token the page already holds: the page caches it for the tab session and
-  sends it back as `X-Matrix-Token`; the proxy validates it via the homeserver's `whoami` and
-  only mints a fresh token — and with it a fresh Synapse device — when the old one is gone or
-  invalid. So repeated visits do not pile up devices (the minted token is the *admin*'s, acting
-  as the user, so each mint is a new device of the admin account).
-- A 401 on any client call (a token revoked server-side) makes the page drop the cache and mint
-  exactly once more.
+Notes on how the session behaves:
 
-Verified by `sh roc-frontend/tests/e2e/matrix_token.sh` against a mock Synapse (21 checks:
-auth gate, all roles allowed, caller's encoded user id on both admin calls, the display name,
-token reuse vs. re-mint, the 503 for a missing admin token).
+- The token lives in the tab's **session storage**: reloading keeps it (no second login), closing the tab
+  ends it, and signing out clears it.
+- A connect attempt that fails leaves a note in that storage, and the Messaging panel shows the reason
+  with a **Try again** button — instead of bouncing the browser through Authentik again in a loop.
+- A 401 on a client call (a token revoked server-side) drops the stored token and runs the login once more.
+- **The app no longer syncs a Synapse server-admin flag.** It used to mirror the Authentik admin role onto
+  the chat account; nothing does that now, because nothing holds a credential to do it with. If someone
+  needs server-admin powers for moderation, make them one deliberately: `docker compose -f
+  devops/docker-compose.yml exec synapse register_new_matrix_user -c /data/homeserver.yaml -a -u <name> -p
+  <password> http://localhost:8008` (or the admin API), once.
+
+Verified by `node roc-frontend/tests/e2e/e2e_matrix_sso.cjs` in Chromium against `fixtures/mock_synapse.py`:
+the redirect and the exchange, the token kept across a reload (and no second login), a replayed
+`loginToken` refused without a loop, **Try again** working, and — the point of the whole change — the
+mock never receiving a single `/_synapse/admin/` call.
 

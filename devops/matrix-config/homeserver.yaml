@@ -46,6 +46,14 @@ registration_shared_secret: "${SYNAPSE_REGISTRATION_SECRET}"
 password_config:
   enabled: false
 
+# The app's own page is where a login started there comes back to (see `roc-frontend/www/index.html`:
+# it opens `/_matrix/client/v3/login/sso/redirect/authentik?redirectUrl=…`). Synapse shows a
+# confirmation page for a return address it does not know, so the app's URL is named here — with the
+# trailing slash, because the match is on the prefix.
+sso:
+  client_whitelist:
+    - "https://app.johnethel.school/"
+
 turn_uris:
   - "turn:matrix.johnethel.school?transport=udp"
   - "turn:matrix.johnethel.school?transport=tcp"

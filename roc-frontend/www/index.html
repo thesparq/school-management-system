@@ -259,6 +259,90 @@
         }
     }
 
+    // ─── Matrix: the state and helpers the boot needs ─────────────────────
+    // These sit above the boot because `completeMatrixSso` runs *during* it: a declaration made
+    // below would still be in its temporal dead zone when the chat login comes back.
+    let _matrixClient = { token: null, homeserver: null, nextBatch: null, members: {} };
+    let _matrixRefreshingToken = false;
+
+    // The page talks to the homeserver **as the person signed in to it**: the Messaging tab sends them
+    // to the homeserver's own SSO login, which hands off to Authentik (the provider named in the
+    // homeserver's config, `devops/matrix-config/homeserver.yaml`) and comes back to this page with a
+    // one-time `loginToken` that is exchanged for an access token. So there is no credential for the
+    // chat server anywhere in this deployment — no admin token for the app's backend to hold and keep
+    // valid, which is what the proxy this replaces needed and what broke silently when it went stale.
+    // The token lives in the tab's session storage: reloading keeps it, closing the tab ends it.
+    const MATRIX_TOKEN_KEY = "matrix_token";
+    const MATRIX_USER_KEY = "matrix_user_id";
+    // Set when a connect attempt fails, so the tab offers to try again instead of bouncing the browser
+    // through the identity provider in a loop (a spent `loginToken`, or a homeserver that is down).
+    const MATRIX_CONNECT_FAILED_KEY = "matrix_connect_failed";
+    // The homeserver's OIDC provider id (its config's `idp_id`). Naming it skips the provider picker; a
+    // deployment with several providers would leave this out and let the person choose.
+    const MATRIX_SSO_IDP = "authentik";
+    const MATRIX_REDIRECT_PATH = "/messaging";
+
+    // The backend proxy is authenticated with the app's own token; every client-API call against
+    // the homeserver carries the person's Matrix token instead. Two helpers, so they cannot be
+    // confused.
+    function appAuthHeaders() {
+        return { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
+    }
+
+    function matrixAuthHeaders(extra) {
+        const headers = { "Authorization": "Bearer " + (_matrixClient.token || "") };
+        return extra ? Object.assign(headers, extra) : headers;
+    }
+
+    // The homeserver to talk to: deployment configuration, fetched from the app's own backend (which
+    // holds PUBLIC_MATRIX_URL) rather than hardcoded, so the URL lives in one place.
+    async function fetchMatrixConfig() {
+        const res = await fetch("/api/matrix/config", { headers: appAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok || data.error || !data.homeserver) throw new Error(data.error || "Messaging is not configured. Contact your administrator.");
+        return data.homeserver;
+    }
+
+    // Send the person to the homeserver's SSO login. They are already signed in to Authentik — that is
+    // how they are in this app at all — so the trip out and back is a bounce rather than a second login.
+    function startMatrixSso(homeserver) {
+        const back = window.location.origin + MATRIX_REDIRECT_PATH;
+        const url = `${homeserver}/_matrix/client/v3/login/sso/redirect/${MATRIX_SSO_IDP}?redirectUrl=${encodeURIComponent(back)}`;
+        window.location.assign(url);
+    }
+
+    // Exchange the one-time login token the SSO redirect carries for the access token the client API
+    // takes. Runs once per redirect, before the app mounts, and strips the parameter from the address
+    // first: a `loginToken` is single-use, so a reload must not try to spend it again.
+    async function completeMatrixSso() {
+        const params = new URLSearchParams(window.location.search);
+        const loginToken = params.get("loginToken");
+        if (!loginToken) return false;
+        params.delete("loginToken");
+        const rest = params.toString();
+        window.history.replaceState(null, "", window.location.pathname + (rest ? "?" + rest : "") + window.location.hash);
+
+        try {
+            const homeserver = await fetchMatrixConfig();
+            const res = await fetch(`${homeserver}/_matrix/client/v3/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type: "m.login.token", token: loginToken }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.access_token) throw new Error(data.error || "The chat server refused the login.");
+            sessionStorage.setItem(MATRIX_TOKEN_KEY, data.access_token);
+            sessionStorage.setItem(MATRIX_USER_KEY, data.user_id || "");
+            sessionStorage.removeItem(MATRIX_CONNECT_FAILED_KEY);
+            _matrixClient.token = data.access_token;
+            _matrixClient.homeserver = homeserver;
+            return true;
+        } catch (e) {
+            sessionStorage.setItem(MATRIX_CONNECT_FAILED_KEY, e.message || "Could not connect to chat.");
+            return false;
+        }
+    }
+
     // ─── Main auth flow ──────────────────────────────────────────────────
     const savedTheme2 = localStorage.getItem('theme') || 'light';
     let finalToken = localStorage.getItem('auth_token') || '';
@@ -329,6 +413,12 @@
 
         // The lesson renderer shows different sections to a pupil than to staff; it reads this.
         _viewerRole = role;
+
+        // A chat login that just came back from the homeserver carries a one-time `loginToken` in the
+        // address: exchange it for the tab's access token before the app mounts, and strip the parameter
+        // (the exchange also cleans it up on the failure paths) so nothing tries to spend it twice.
+        await completeMatrixSso();
+
         const currentPath = (window.location.pathname + window.location.search) || '/';
         const flags = `${savedTheme2}|${finalToken}|${role}|${email}|${name}|${currentPath}|${window.location.origin}`;
         
@@ -471,9 +561,12 @@
             // to have run before this navigation starts, and a sign-out that leaves a usable token in
             // storage is not a sign-out.
             localStorage.removeItem("auth_token");
-            // The chat token belongs to the account that is signing out; a stale one would merely be
-            // validated and rejected for the next account, but there is no reason to carry it.
+            // The chat session belongs to the account that is signing out: the token, who it is for, and
+            // any note from a failed connect. A stale token would only be rejected for the next account,
+            // but there is no reason to carry it.
             sessionStorage.removeItem("matrix_token");
+            sessionStorage.removeItem("matrix_user_id");
+            sessionStorage.removeItem("matrix_connect_failed");
             const back = window.location.origin + "/auth/callback";
             window.location.href = AUTH_HOST + "/application/o/school-management-system/end-session/?post_logout_redirect_uri=" + encodeURIComponent(back);
         });
@@ -2515,56 +2608,31 @@
     // MATRIX / SYNAPSE MESSAGING
     // ========================================================
 
-    let _matrixClient = { token: null, homeserver: null, nextBatch: null, members: {} };
-    let _matrixRefreshingToken = false;
-    // The minted token is cached for the tab session: every visit sends it back as X-Matrix-Token,
-    // the proxy validates it against the homeserver and reuses it, and a fresh token (a fresh
-    // Synapse device) is minted only when the old one is gone or invalid.
-    const MATRIX_TOKEN_KEY = "matrix_token";
-
-    // The backend proxy is authenticated with the app's own token; every client-API call against
-    // the homeserver carries the minted Matrix token instead. Two helpers, so they cannot be
-    // confused.
-    function appAuthHeaders() {
-        return { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") };
-    }
-
-    function matrixAuthHeaders(extra) {
-        const headers = { "Authorization": "Bearer " + (_matrixClient.token || "") };
-        return extra ? Object.assign(headers, extra) : headers;
-    }
-
-    // Ask the backend for a chat token; the cached one rides along so it can be validated and
-    // reused instead of minting a new Synapse device.
-    async function fetchMatrixToken() {
-        const headers = appAuthHeaders();
-        const cached = sessionStorage.getItem(MATRIX_TOKEN_KEY);
-        if (cached) headers["X-Matrix-Token"] = cached;
-        const res = await fetch("/api/matrix/token", { headers });
-        const data = await res.json();
-        // A rejected proxy (503 naming the missing env var, a 401 for a bad app token) carries
-        // the backend's own error text — say that instead of the generic "not configured" line.
-        if (!res.ok || data.error) throw new Error(data.error || "Matrix authentication not configured. Contact your administrator.");
-        sessionStorage.setItem(MATRIX_TOKEN_KEY, data.token || "");
-        return data;
-    }
-
     async function setupMessaging() {
         if (_matrixSyncInterval) { clearInterval(_matrixSyncInterval); _matrixSyncInterval = null; }
         _matrixRefreshingToken = false;
         _currentMatrixRoom = null;
 
+        const roomsList = document.getElementById("matrix-rooms-list");
         try {
-            const data = await fetchMatrixToken();
-            _matrixClient.token = data.token;
-            _matrixClient.homeserver = data.homeserver || "https://matrix.johnethel.school";
+            const homeserver = await fetchMatrixConfig();
+            _matrixClient.homeserver = homeserver;
+            const token = sessionStorage.getItem(MATRIX_TOKEN_KEY);
 
-            if (!_matrixClient.token) {
-                showMatrixError("Matrix authentication not configured. Contact your administrator.");
+            if (!token) {
+                const failed = sessionStorage.getItem(MATRIX_CONNECT_FAILED_KEY);
+                if (failed) {
+                    // A connect attempt already failed in this tab: offer it again instead of redirecting
+                    // straight back out (which is how a broken setup becomes a redirect loop).
+                    showMatrixReconnect(failed);
+                    return;
+                }
+                if (roomsList) roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">Connecting to chat…</p>`;
+                startMatrixSso(homeserver);
                 return;
             }
 
-            // Start sync
+            _matrixClient.token = token;
             await matrixSync();
             _matrixSyncInterval = setInterval(matrixSync, 5000);
 
@@ -2581,6 +2649,20 @@
         if (roomsList) roomsList.innerHTML = `<p class="text-xs text-red-500">${escHtml(msg)}</p>`;
     }
 
+    // A failed connect, with the way back: the same SSO trip, tried again.
+    function showMatrixReconnect(msg) {
+        const roomsList = document.getElementById("matrix-rooms-list");
+        if (!roomsList) return;
+        roomsList.innerHTML = `<p class="text-xs text-red-500">${escHtml(msg)}</p>` +
+            `<button onclick="connectMatrixChat()" class="mt-2 text-xs underline cursor-pointer">Try again</button>`;
+    }
+
+    window.connectMatrixChat = async () => {
+        sessionStorage.removeItem(MATRIX_CONNECT_FAILED_KEY);
+        sessionStorage.removeItem(MATRIX_TOKEN_KEY);
+        await setupMessaging();
+    };
+
     function bindMatrixComposer() {
         const sendBtn = document.getElementById("matrix-send-btn");
         const inputEl = document.getElementById("matrix-input");
@@ -2590,17 +2672,22 @@
         });
     }
 
-    // A 401 on a client call means the cached token died server-side: drop it and mint once more.
+    // A 401 on a client call means the stored token died server-side (a sign-out elsewhere, a token the
+    // homeserver no longer honours): drop it and let the SSO login issue a new one. Rare — Synapse
+    // tokens do not expire on their own — and a failed attempt leaves the note that stops the loop.
     async function refreshMatrixTokenOnce() {
         if (_matrixRefreshingToken) return;
         _matrixRefreshingToken = true;
+        sessionStorage.removeItem(MATRIX_TOKEN_KEY);
+        _matrixClient.token = null;
         try {
-            sessionStorage.removeItem(MATRIX_TOKEN_KEY);
-            const data = await fetchMatrixToken();
-            _matrixClient.token = data.token;
-            await matrixSync();
+            if (_matrixClient.homeserver) {
+                startMatrixSso(_matrixClient.homeserver);
+            } else {
+                showMatrixReconnect("Your chat session ended. Connect again.");
+            }
         } catch(e) {
-            showMatrixError(e.message || "Failed to reconnect to messaging server.");
+            showMatrixReconnect(e.message || "Failed to reconnect to messaging server.");
         }
     }
 
@@ -2633,7 +2720,10 @@
                         ${unread ? `<span class="text-xs bg-primary text-primary-foreground rounded-full px-1.5 min-w-5 text-center">${unread}</span>` : ""}
                     </button>`;
                 }).join("");
-            } else if (roomsList && !roomsList.children.length) {
+            } else if (roomsList) {
+                // An account with no rooms yet: say so, replacing whatever the panel held — the view's own
+                // "Loading channels…" placeholder included, which used to stay on screen forever because this
+                // branch only ran while the list was still empty of *children*.
                 roomsList.innerHTML = `<p class="text-xs text-muted-foreground italic">No channels yet — create or join one above.</p>`;
             }
 
