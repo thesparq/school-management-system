@@ -2556,6 +2556,17 @@ a `Curriculum` branch for match exhaustiveness, and it is unreachable.
 | GET | /* (SPA) | SPA fallback to index.html | ✅ |
 
 ## Remaining Work (Backlog)
+- [x] Push `main` — done 2026-10-21 (`81d1936`, a merge of the identity work `ef520b6` and the keyboard
+  thread's `ccc2d56`, with the password-session and qualification-rename changes in the same tree): the
+  login is the school's own number, every form answers the keyboard, a password that lands ends the
+  session that set it, and a qualification's name is editable from the hub. Deployed by Dokploy's own
+  build from `Dockerfile.app`.
+- [ ] The identity change's two open decisions, both the school's to make: whether the leading zeros are
+  wanted exactly as printed (`JES-000123` is what the app issues today — a change of format is a change
+  of the rendering, not of any stored row), and what to do about accounts made *before* it, whose logins
+  are still their addresses. Their numbers are already in the rows, so moving those logins onto them is a
+  one-off, authorized change; nothing in the app depends on a login's spelling (every row is keyed by pk).
+- [ ] A CSV import for a September intake: the app still creates one account at a time.
 - [x] Subject → Term → Lesson navigation drill-down (multi-level routing; each drill step is its own URL)
 - [x] Real passport photo upload (presigned PUT to R2 from browser)
 - [x] Edit user dialog/form
