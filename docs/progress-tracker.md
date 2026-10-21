@@ -1907,6 +1907,11 @@ choose their own password on their first sign-in, and the reset hint says the sa
 breaks without it, because the missing table reads as "nothing pending". Unlike v14 there is no way for this
 one to lock anybody out.
 
+**Applied to prod on 2026-10-20** (the school's go-ahead): `password_state` exists with its three fields and
+**zero rows** — nothing backfilled, so no existing login is gated, and the rule starts biting with the next
+account created or reset. Read back afterwards: the school admin's row is still `super_admin` with all six
+permissions, untouched.
+
 **Verified**: `password_change.sh` 19/19 (the gate, the code the page routes on, the reasons, the change, the
 reset putting it back, a login created *without* a password staying ungated, and the developer's key
 unaffected) and `e2e_password_change.cjs` in Chromium (the app moves to Settings on its own, the sidebar
@@ -2059,6 +2064,12 @@ reason.
 **Deploy order**: `db/schema-v16-chat-channels.surql` **before** the code that reads it. Without the table
 the directory answers 500 (the page says it could not read the list rather than showing an empty school) and
 a create makes the room but cannot list it — the page says that too.
+
+**Applied to prod on 2026-10-20** (the school's go-ahead), read back afterwards: `chat_channel` exists with
+all eight fields (`visibility` defaults to `'private'`, so a payload that names nothing fails closed) and both
+unique indexes (`idx_chat_channel_code`, `idx_chat_channel_room`), with **zero rows** — nothing to backfill.
+SurrealDB applies schema live, so no redeploy was needed; the app had already shipped the code, which is what
+made the order safe to finish afterwards.
 
 Left for later: the page can list and re-code a channel but not delete one (`deleted_at` and the `IS NONE`
 filter are in place for when it can), and rooms already on the homeserver are not listed by the app until an
