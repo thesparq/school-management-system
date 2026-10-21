@@ -672,17 +672,62 @@ staff_id_in! = |table, pk, config| {
     }
 }
 
+# The next number in a role's series, drawn and rendered the way the school writes it: `JES-000123` for
+# a pupil, `EMP-000045` for staff. Drawn *before* the login is created, because the number is the username
+# Authentik is asked to make (`login_name_for`) — so a create that fails later leaves a gap in the series
+# rather than a number handed out twice. "" for a role with no number (a parent: their login is their
+# address, which is why the form insists on one for them) and for a series that answered nothing, which
+# the create refuses on rather than falling back to an address.
+reserve_number! : Str, SurrealDB.Config => Str
+reserve_number! = |role, config| {
+    if Str.is_empty(number_column(role)) {
+        ""
+    } else {
+        query = "UPDATE id_sequences:${number_sequence(role)} SET current_value += 1 RETURN current_value;"
+
+        match db_body!(query, config) {
+            Err(_) => "",
+            Ok(body) => extract_number_field(body, "current_value"),
+        }
+    }
+}
+
+# The name a new login signs in with: the school's number when the role has one, the address otherwise (a
+# parent). The form shows the same value back, read-only, so what the admin hands over is what the person types.
+login_name_for : Str, Str, Str => Str
+login_name_for = |role, reserved, email| {
+    if Str.is_empty(reserved) { email } else { number_text(role, reserved) }
+}
+
+# The create's answer: the row's id and the login the account now signs in with. That name is drawn by
+# this write (`reserve_number!`), so no page can know it before the answer arrives — the form's own field
+# is read-only and empty until the account exists, and this is what the credentials panel hands over.
+# The envelope is the one the listings answer with (`[{"result":[…],"status":"OK"}]`), so the pk stays
+# where the page and the suites read it (`[0].result[0].id`), and it is *rebuilt* from the values this
+# write knows rather than edited out of the database's own answer — the rule `merge_identity!` follows
+# for the listing, and the reason both exist: reading JSON text back is fine, rewriting it in place is not.
+create_answer! : Str, Str, Str => Str
+create_answer! = |table, user_id, username| {
+    "[{\"result\":[{\"id\":\"${table}:${sanitize_json_text(user_id)}\",\"username\":\"${sanitize_json_text(username)}\"}],\"status\":\"OK\"}]"
+}
+
 # The `SET` entry that hands a new profile row its number, or "" for a role that has none (a parent).
-# The allocation is part of the profile write's own statement — the counter is bumped and read by the
-# same `CREATE` — so a rejected or duplicate create cannot burn a number and a retry allocates the next
-# one. A teacher or an admin whose pk already has a staff number reuses it as a literal instead, and
-# only a pk with none draws from the counter.
-school_number_clause! : Str, Str, SurrealDB.Config => Str
-school_number_clause! = |pk, role, config| {
+# `reserved` is the number `reserve_number!` drew, and it is written as a literal: the login already signs
+# in with those digits, so the row has to carry the same ones rather than drawing a second number for the
+# same person. It is "" on the attach path (`create_only_clauses!`), which belongs to a login that already
+# exists and whose number was therefore never reserved — there the clause draws from the counter inside
+# the profile's own statement, so a rejected write cannot burn one. A teacher or an admin whose pk already
+# has a staff number reuses it as a literal instead, and only a pk with none draws from the counter.
+school_number_clause! : Str, Str, Str, SurrealDB.Config => Str
+school_number_clause! = |pk, role, reserved, config| {
     column = number_column(role)
 
     if Str.is_empty(column) {
         ""
+    } else if !Str.is_empty(reserved) {
+        # The digits were drawn before the login was made (see `reserve_number!`), because the login *is* the
+        # number: the row has to carry the same one, so it is written as a literal rather than drawn again.
+        "${column} = ${reserved}"
     } else {
         # Only staff numbers are shared between the two staff tables; a student's number is always a
         # fresh one (a student who becomes staff is given a staff number, not their admission number).
@@ -939,7 +984,9 @@ create_profile_from_journal! = |pk, payload, config| {
     role_title = journal_field(payload, "role_title") |> sanitize
     passport = journal_field(payload, "passport") |> sanitize
     display_name = if Str.is_empty(middle_name) { "${first_name} ${surname}" } else { "${first_name} ${middle_name} ${surname}" }
-    number_clause = school_number_clause!(pk, role, config)
+    # The number the create drew is journaled, because the login already signs in with it: a replay writes the
+    # same digits rather than drawing a second number for the same person.
+    number_clause = school_number_clause!(pk, role, journal_field(payload, "login_number") |> sanitize, config)
     # The journaled qualifications, linked students and date of employment ride the payload as
     # comma-joined tokens (no comma or semicolon can appear in a record id), rebuilt into the array
     # texts the clause builders validate — the same create_extra_clauses! the live create uses.
@@ -1048,8 +1095,9 @@ validate_profile_fields! = |role, first_name, surname, date_of_birth, class_leve
 
 # The create path's own check: a login needs an email, and the profile row needs the fields above.
 validate_new_user! = |role, email, first_name, surname, date_of_birth, class_level, passport| {
-    if Str.is_empty(email) {
-        Err("email is required")
+    if Str.is_empty(email) and role == "Parent" {
+        # A parent has no school number, so their address *is* their login: the one role that has to have one.
+        Err("email is required for a parent — it is their login")
     } else {
         validate_profile_fields!(role, first_name, surname, date_of_birth, class_level, passport)
     }
@@ -1539,7 +1587,10 @@ create_only_clauses! = |table, pk, payload_raw, creating, config| {
             }
         # "" for a table whose role has no number (a parent profile), and dropped rather than written
         # as an empty `SET` entry.
-        number = school_number_clause!(pk, role_of_table(table), config)
+        # A row made by the PUT-attach path belongs to a login that already exists (an administrator made it
+        # in Authentik), so no number was reserved for it: this path draws its own, as it always has. Such a
+        # login keeps the username Authentik gave it — the app only sets one when it makes the login itself.
+        number = school_number_clause!(pk, role_of_table(table), "", config)
         number_clauses = List.keep_if([number], |clause| !Str.is_empty(clause))
 
         List.concat(number_clauses, List.concat(enrolled, ["created_at = time::now()"]))
@@ -1826,9 +1877,9 @@ directory_user_pages! = |collected, page| {
 # (`student_profile:<pk>`), which is what PUT and DELETE resolve their table from.
 # `school_number` is the profile's number in the one form the page shows (`JES-000123`, `EMP-000045`),
 # or "" when the row has none: the integer is what the database holds, and the rendering happens here.
-# A row whose pk is not in Authentik's list carries neither identity field: nothing is known about
+# A row whose pk is not in Authentik's list carries none of the identity fields: nothing is known about
 # that login, and answering `"is_active":false` would report an account that was never switched
-# off. The frontend renders an empty email there and a missing `is_active` as active.
+# off. The frontend renders an empty email and login there and a missing `is_active` as active.
 # `has_profile` is what tells the page this row has school data behind it: a row built from the
 # directory alone is rendered as a login with no profile yet.
 user_row_with_identity! = |row, users, role| {
@@ -1841,6 +1892,11 @@ user_row_with_identity! = |row, users, role| {
             [
                 "\"email\":\"${sanitize_json_text(extract_field(user, "email"))}\"",
                 "\"is_active\":${json_bool(user, "is_active")}",
+                # The login itself — Authentik's own `username`, which is the school's number for every
+                # account this app makes (`createUser!` is handed one) and the address for an account made
+                # before that was so. The page shows it read-only beside the role, so an administrator can
+                # say what a person types at the sign-in screen.
+                "\"username\":\"${sanitize_json_text(extract_field(user, "username"))}\"",
             ]
         }
     fields = [
@@ -3734,16 +3790,36 @@ respond! = |request, context| {
                                     Ok(json_response(400, "{\"error\":\"class_level '${class_level}' does not exist\"}"))
                                 } else {
                                     wants_pw = if Str.is_empty(password_val) { "0" } else { "1" }
+                                    # The number is drawn before the login exists, because the number *is*
+                                    # the login (`reserve_number!`); the journal carries it, the login is named
+                                    # with it, and the profile row is given the same digits — so what the admin
+                                    # hands over is what the row shows. A create that fails from here on leaves a
+                                    # gap in the series rather than a number handed out twice.
+                                    login_number = reserve_number!(role, context.surreal)
+                                    login_name = login_name_for(role, login_number, email_val)
                                     # Quote-free delimiter format on purpose: the JSON scanners in this
                                     # file read a value up to the first double quote, so a payload that
                                     # itself contains quotes could never be read back. One token per
                                     # field, none of the values may contain ";".
-                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};students=${students_journal};date_employed=${date_employed};wants_password=${wants_pw};${admin_journal}"
-                                    journal_res = journal_begin!("create_user", email_val, payload_journal, context.surreal)
+                                    payload_journal = "role=${role};first_name=${first_name};middle_name=${middle_name};surname=${surname};date_of_birth=${date_of_birth};class_level=${class_level};role_title=${role_title};passport=${passport};email=${email_val};qualifications=${quals_journal};students=${students_journal};date_employed=${date_employed};wants_password=${wants_pw};login_number=${login_number};${admin_journal}"
+                                    # A login is never made without a name, and a role that has a number is
+                                    # never named by its address: `reserve_number!` answers "" only when the
+                                    # series itself answered nothing (a deleted `id_sequences` row, a database
+                                    # error), and falling back to the address there would make a login the
+                                    # school never issued — for a pupil with no address, one with no name at
+                                    # all, which Authentik would take and nobody could sign into. The refusal
+                                    # rides the journal's own error arm, and nothing has been written yet.
+                                    number_missing = !Str.is_empty(number_column(role)) and Str.is_empty(login_number)
+                                    journal_res =
+                                        if number_missing {
+                                            Err("the ${number_sequence(role)} number series answered no number")
+                                        } else {
+                                            journal_begin!("create_user", email_val, payload_journal, context.surreal)
+                                        }
                                     match journal_res {
-                                        Err(detail) => Ok(json_response(500, "{\"error\":\"Could not record this operation before it started\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                                        Err(detail) => Ok(json_response(500, "{\"error\":\"The account was not created\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                                         Ok(row_id) => {
-                                    auth_res = Authentik.createUser!(email_val, display_name)
+                                    auth_res = Authentik.createUser!(login_name, email_val, display_name)
                                     match auth_res {
                                         Ok(user_id) => {
                                             pending_table = "pending_ops"
@@ -3768,19 +3844,19 @@ respond! = |request, context| {
                                                     if !Str.is_empty(password_val) {
                                                         _ = set_password_required!(user_id, "created", context.surreal)
                                                     }
-                                                    number_clause = school_number_clause!(user_id, role, context.surreal)
+                                                    number_clause = school_number_clause!(user_id, role, login_number, context.surreal)
                                                     create_sql = profile_create_sql!(role, number_clause, user_id, first_name, middle_name, surname, display_name, date_of_birth, class_level, role_title, passport, extra.quals, extra.date, extra.students, admin_clause)
                                                     created = db_body!(create_sql, context.surreal)
 	                                                    match created {
 	                                                        # The pairs a teacher create carries are written after the row they belong to,
 	                                                        # through the same statement the Assign dialog saves with. A failure here leaves
 	                                                        # the journal open, so the reconciler can finish the job.
-	                                                        Ok(body) =>
+	                                                        Ok(_) =>
 	                                                            match teacher_pairs_from_payload!(profile_table_for(role), user_id, payload_raw, context.surreal) {
 	                                                                Err(detail) => Ok(json_response(500, "{\"error\":\"The account was created but its class-subject pairs were not\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
 	                                                                Ok(_) => {
 	                                                                    _ = journal_done!(row_id, "profile", context.surreal)
-	                                                                    Ok(json_response(200, body))
+	                                                                    Ok(json_response(200, create_answer!(profile_table_for(role), user_id, login_name)))
 	                                                                }
 	                                                            }
                                                         Err(detail) => {
@@ -4446,9 +4522,9 @@ respond! = |request, context| {
                     # field after the array resolves each link, which is how the card shows "B.Ed" rather than
                     # `credentials:xyz`. A student's class is the same trick on a single link.
                     extras =
-                        if table == "teacher_profile" { ", qualifications.name AS qualification_names, date_employed" }
+                        if table == "teacher_profile" { ", qualifications.name AS qualification_names, date_employed, staff_id" }
                         else if table == "parent_profile" { ", students.name AS student_names" }
-                        else if table == "admin_profile" { ", admin_type, permissions" }
+                        else if table == "admin_profile" { ", admin_type, permissions, staff_id" }
                         else { ", date_of_birth, current_class.name AS class_name, admission_number" }
                     query = "SELECT display_name, passport${extras} FROM ${table} WHERE id = type::record('${table}', '${pk}') AND deleted_at IS NONE LIMIT 1;"
 
@@ -4471,6 +4547,7 @@ respond! = |request, context| {
                                 if table == "teacher_profile" {
                                     [
                                         profile_row("qualifications", join_json_names(extract_json_array(row, "qualification_names")) |> sanitize_json_text),
+                                        profile_row("staff_number", row_number!(row, "Teacher") |> sanitize_json_text),
                                         profile_row("date_employed", date_part(extract_field(row, "date_employed")) |> sanitize_json_text),
                                         profile_row("pairs", teacher_pairs_text!(pk, context.surreal) |> sanitize_json_text),
                                     ]
@@ -4480,6 +4557,7 @@ respond! = |request, context| {
                                     ]
                                 } else if table == "admin_profile" {
                                     [
+                                        profile_row("staff_number", row_number!(row, "Admin") |> sanitize_json_text),
                                         profile_row("admin_type", extract_field(row, "admin_type") |> sanitize_json_text),
                                         profile_row("permissions", join_json_names(extract_json_array(row, "permissions")) |> sanitize_json_text),
                                     ]

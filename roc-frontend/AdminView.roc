@@ -294,27 +294,35 @@ admin_users_view = |model| {
             ])
         ]),
 
-        # The one-time credentials handoff, shown only right after a create that carried a password:
-        # the form has been cleared by then (the password is never stored anywhere), so this panel is
-        # the single place the value exists on the page, and it clears the moment the form starts
-        # another write. It sits at the END of the view on purpose: its contents change count
-        # (hidden vs four rows) and Joy's renderer patches attributes against a flat ref list, so a
+        # The one-time credentials handoff, shown only right after a create (or a password reset): the
+        # form has been cleared by then (the password is never stored anywhere), so this panel is the
+        # single place the value exists on the page, and it clears the moment the form starts another
+        # write. It hands over the *login* first — the number the person types — and the password under
+        # it, or says there is none yet. It sits at the END of the view on purpose: its contents change
+        # count (hidden vs four rows) and Joy's renderer patches attributes against a flat ref list, so a
         # subtree whose size changes shifts the refs of everything after it — keeping it after the
         # form and the table means their refs never move and a value-input patch cannot land on a
         # text node (`node.setAttribute is not a function`).
         match model.lastCredentials {
             None => Html.div([Attribute.class("hidden")], [])
-            Credentials(email, password) => Html.div([Attribute.class("rounded-md border border-primary bg-primary/10 p-4 space-y-2")], [
+            Credentials(login, password) => Html.div([Attribute.class("rounded-md border border-primary bg-primary/10 p-4 space-y-2")], [
                 Html.p([Attribute.class("text-sm font-medium")], [Html.text("Account created — copy the credentials to hand over")]),
                 Html.div([Attribute.class("text-sm font-mono space-y-1")], [
-                    Html.p([], [Html.text(email)]),
-                    Html.p([], [Html.text(password)])
+                    Html.p([], [Html.text("Login: ${login}")]),
+                    if Str.is_empty(password) { Html.div([], []) } else { Html.p([], [Html.text("Password: ${password}")]) }
                 ]),
                 Html.div([Attribute.class("flex items-center gap-2")], [
                     UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
                     Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
                 ]),
-                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")]),
+                if Str.is_empty(password) {
+                    # An account made without a password cannot be signed into yet: nothing in the app sets
+                    # one but this form and the row's Reset password action, so the panel says what is left
+                    # to do rather than implying the account is ready to hand over.
+                    Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("No password yet — set one with the row's Reset password when you are ready to hand the account over.")])
+                } else {
+                    Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")])
+                },
                 # What happens next is the point of handing a generated password over at all: the person is
                 # made to replace it before the account can be used (`db/schema-v15`).
                 Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("They will be asked to choose their own password the first time they sign in.")])
@@ -407,6 +415,80 @@ user_form_field = |label_text, field| {
     ])
 }
 
+# The address field. It is the one field whose *necessity* changes with the role: a parent has no
+# school number, so their address is the login they sign in with and the form insists on one; for
+# every other role it is optional — nothing in this deployment sends mail (passwords are handed over
+# in person), and the number is the login. The hint under the input says which of the two this field is.
+user_email_field = |model| {
+    is_parent = model.newUserRole == "Parent"
+    user_form_field(
+        if is_parent { "Email address (*)" } else { "Email address (optional)" },
+        Html.div([Attribute.class("space-y-2")], [
+            UI.input({
+                type: "email",
+                value: model.newUserEmail,
+                placeholder: "e.g. adamu@johnethel.school",
+                on_input: Input(|s| UpdateNewUserEmail(s)),
+                is_disabled: model.isSubmitting,
+                classes: ""
+            }),
+            Html.p([Attribute.class("text-xs text-muted-foreground")], [
+                Html.text(
+                    if is_parent {
+                        "A parent is not given a school number, so this is their login."
+                    } else {
+                        "Optional — the school does not send mail. The login beside it is the number."
+                    }
+                )
+            ])
+        ])
+    )
+}
+
+# The login the account signs in with, read-only: the school issues it, so nothing here can change it.
+# A create has none yet — the number is drawn by the write that makes the account — so the field is
+# empty and says so; the credentials panel hands the number over once the write lands. An account whose
+# login is *not* its school number (one made before the school began signing people in with one) shows
+# the login it really has, and the hint names the number rather than letting the field claim a login the
+# person cannot type.
+user_login_field = |model| {
+    noun = if model.newUserRole == "Student" { "Admission number" } else { "Staff ID" }
+    login = model.newUserLogin
+    number = model.newUserSchoolNumber
+    # An account whose login is not the school's number: one made before this app named logins after the
+    # number. A row with no number yet (a login the directory lists that has no profile behind it — the
+    # Complete profile form) is not that case: its number is drawn by the write the form is about to make.
+    older_account = !Str.is_empty(login) and !Str.is_empty(number) and login != number
+    user_form_field(
+        if older_account { "Login" } else { noun },
+        Html.div([Attribute.class("space-y-2")], [
+            # The input carries an id of its own so a suite can read it and check that it is disabled: the
+            # school's number is not the form's to set.
+            Html.div([Attribute.id("new-user-login-field")], [
+                UI.input({
+                    type: "text",
+                    value: login,
+                    placeholder: "Assigned when you save",
+                    on_input: None,
+                    is_disabled: Bool.True,
+                    classes: "font-mono"
+                })
+            ]),
+            Html.p([Attribute.class("text-xs text-muted-foreground")], [
+                Html.text(
+                    if Str.is_empty(login) {
+                        "Drawn when the account is saved: this is what they sign in with, with their password."
+                    } else if older_account {
+                        "Made before the school signed people in by number: this account uses its address. Its ${noun} is ${number}."
+                    } else {
+                        "Their login — the school issues it, and they sign in with it and their password."
+                    }
+                )
+            ])
+        ])
+    )
+}
+
 # The banner inside the modal (and, after a write, on the page itself): the backend's own text for
 # a refusal, or the success line for a write that landed.
 form_banner = |model| {
@@ -444,17 +526,12 @@ user_form_body = |model, form_mode| {
             user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
             user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
         ]),
-        # Contact row: the address and the role sit together; the fields that follow change with
-        # the role.
-        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
-            user_form_field("Email address", UI.input({
-                type: "email",
-                value: model.newUserEmail,
-                placeholder: "e.g. adamu@johnethel.school",
-                on_input: Input(|s| UpdateNewUserEmail(s)),
-                is_disabled: model.isSubmitting,
-                classes: ""
-            })),
+        # Contact row: the address, the login the school issues, and the role sit together; the fields
+        # that follow change with the role. A parent has no school number, so there is no login field
+        # for them: their address *is* their login, and the field beside it says so.
+        Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
+            user_email_field(model),
+            if model.newUserRole == "Parent" { Html.div([], []) } else { user_login_field(model) },
             user_form_field("Role", user_role_select(model))
         ]),
         # The role's own fields. Each role's block fills the row it gets, so nothing sits
@@ -556,7 +633,7 @@ reset_password_body = |model| {
     Html.div([Attribute.class("space-y-6")], [
         Html.div([Attribute.class("space-y-2")], [
             UI.label({ classes: "" }, [Html.text("Login")]),
-            Html.p([Attribute.class("text-sm font-mono text-muted-foreground")], [Html.text(model.resetPasswordEmail)])
+            Html.p([Attribute.class("text-sm font-mono text-muted-foreground")], [Html.text(model.resetPasswordLogin)])
         ]),
         user_form_field("New password", Html.div([Attribute.class("space-y-2")], [
             Html.div([Attribute.id("new-user-password-field")], [
@@ -838,6 +915,14 @@ user_row = |model, line| {
     id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
     name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Unknown" }
     email = match List.get(parts, 2) { Ok(v) => v, Err(_) => "" }
+    # The login itself (field 20, which is Authentik's `username`): what the row's actions name the
+    # account by. It is the school's number for every account this app made and the address for one
+    # made before that was so; a row the directory could not be asked about has neither, and the
+    # address is the closest thing the row knows.
+    login = match List.get(parts, 20) {
+        Ok(v) => if Str.is_empty(v) { email } else { v },
+        Err(_) => email,
+    }
     is_active = match List.get(parts, 3) { Ok(s) => s == "true", Err(_) => Bool.True }
     has_profile = match List.get(parts, 4) { Ok(s) => s == "true", Err(_) => Bool.True }
     # Whether the login this row is keyed by is in the directory at all (the listing's own flag). A row whose
@@ -946,7 +1031,7 @@ user_row = |model, line| {
                             )
                         },
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, login)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Reset password")]
                         )
                     ])
@@ -954,7 +1039,7 @@ user_row = |model, line| {
                     Html.div([Attribute.class("flex items-center justify-end max-sm:justify-start max-sm:flex-wrap gap-1")], [
                         if is_active {
                             UI.button(
-                                { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
+                                { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email, login)), is_disabled: busy, classes: "text-xs" },
                                 [Html.text("Complete profile")]
                             )
                         } else {
@@ -964,7 +1049,7 @@ user_row = |model, line| {
                             )
                         },
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, login)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Reset password")]
                         )
                     ])

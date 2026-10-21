@@ -128,13 +128,27 @@ file stale. What belongs here is the shape and the rules:
   `option<int>` — no prefix, no padding — drawn from one counter per class of member in `id_sequences`
   (`student`, `staff`). Teachers and admins share the `staff` counter, and a pk that already holds a staff
   number on either staff table *reuses* it rather than allocating a second one, which is what keeps a teacher
-  made an admin holding their own number (a student who becomes staff is given a fresh staff number). The row
-  gets its number in the write that makes it — the counter is bumped and read inside the profile statement
-  itself, so a rejected or duplicate create cannot burn one and a retry allocates the next — and the written
+  made an admin holding their own number (a student who becomes staff is given a fresh staff number). The written
   form (`JES-000123`, `EMP-000045`) is rendered by the backend in one place, into the listing's
   `school_number` field: the prefix is in no stored row and in no page. Once set it is immutable — a `PUT`
   payload carrying either field is a 400 naming it, the same refusal `class_enrolled` gets.
-- **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username.
+- **The number is the login.** A create draws the number *first* (`reserve_number!`, its own statement)
+  and then asks Authentik for a login whose `username` is that rendered number; the profile row is given
+  the same digits, and the create's answer carries the login so the page can hand it over (nothing on the
+  page can know a counter's next value). Validation runs before the draw, so a refused create burns
+  nothing; a failure *after* it leaves a gap in the series rather than handing a number out twice — the
+  series is monotonic and a number is never reused. The draw is journaled (`login_number`), so a profile
+  the reconciler replays is written with the number its login already has. A parent has no number, so their
+  address is their login and the create insists on one; for every other role the address is optional and may
+  be empty (nothing in this deployment sends mail, and a password is handed over in person). Authentik is
+  content with an address-less account — its own service logins are.
+- **The login reaches the page as Authentik's own `username`**: the listing merges it beside `email` and
+  `is_active` (an address-less account is normal), the row's form shows it read-only — the school issues it —
+  and the Reset password modal names the account by it. An account made before logins were numbers still
+  signs in with its address: the form shows the login it really has, and names its school number beside it
+  rather than showing a number the person cannot type.
+- **Profiles are keyed by the Authentik pk** (`student_profile:<pk>`), never by email or username. Changing
+  what a login signs in with therefore moves nothing: no row, no assignment, no lesson is keyed by it.
 - **A teacher's reach is `teacher_assignment`** — one row per (teacher, `has_subject` edge, `session_term`),
   soft-deleted, unique on the triple. The admin's `POST /api/teacher-assignments` replaces the whole set for
   the active session term in one call (hiding dropped pairs, reviving or creating kept ones — the unique index

@@ -171,8 +171,12 @@ Authentik := [].{
         }
     }
 
-    createUser! : Str, Str => [Ok(Str), Err(Str)]
-    createUser! = |email, name| {
+    ## Create a login. `username` is what the person signs in with — the school's own number for a pupil or
+    ## a member of staff (`JES-000123`), the address for a parent — and `email` may be empty: an account with
+    ## no address is normal here (nothing in this deployment sends mail; passwords are handed over in person),
+    ## and Authentik is happy with one, as its own service logins show.
+    createUser! : Str, Str, Str => [Ok(Str), Err(Str)]
+    createUser! = |username, email, name| {
         token = api_token!("")
         api_url = api_url!("")
 
@@ -181,7 +185,7 @@ Authentik := [].{
                 |> Request.with_uri(api_url)
                 |> Request.add_header("Authorization", "Bearer ${token}")
                 |> Request.add_header("Content-Type", "application/json")
-                |> Request.with_body(Str.to_utf8("{\"username\": \"${email}\", \"name\": \"${name}\", \"email\": \"${email}\"}"))
+                |> Request.with_body(Str.to_utf8("{\"username\": \"${username}\", \"name\": \"${name}\", \"email\": \"${email}\"}"))
 
         res = Http.send!(req)
 

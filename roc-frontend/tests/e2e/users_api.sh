@@ -279,7 +279,10 @@ check "a student without a passport is refused" "$REFUSED" "HTTP 400"
 check "and the student counter did not move" "$(counter student)" "$NUM_TWO"
 FAILED=$(post_user "{\"role\":\"Student\",\"email\":\"users_api_baddate_${STAMP}@example.com\",\"first_name\":\"Bad\",\"surname\":\"Date${STAMP}\",\"date_of_birth\":\"2011-13-45\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/bad-date.jpg\"}")
 check "a create the database rejects is a 500, not a success" "$FAILED" "HTTP 500"
-check "and that failure left the counter where it was" "$(counter student)" "$NUM_TWO"
+# The number is drawn *before* the login is made — the login is named with it — so a create that
+# fails after that point leaves a gap in the series. What must not happen is the number being
+# handed out twice: the counter only moves forward, so the skipped number is never reused.
+check "and that failure left a gap, not a reused number" "$(counter student)" "$((NUM_TWO + 1))"
 
 # A duplicate number is refused by the column's unique index, whatever write made it: the number is a
 # person's school identity, so two rows cannot share one.
@@ -326,10 +329,14 @@ check "and the stored student number is what creation gave it" "$(listing Studen
 # The row is real and its login lists on its own tab; it is not a school member, so there is nothing to
 # hand out and the listing renders the empty form of the field.
 P_EMAIL="users_api_parent_${STAMP}@example.com"
+# The counters are read on either side of the write: a number drawn by an earlier, failed
+# create (see section 13) leaves the series one ahead, so the comparison is against what
+# the parent's own write saw rather than against a figure from earlier in the run.
+P_COUNTERS_BEFORE="$(counter student),$(counter staff)"
 P_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Parent\",\"email\":\"$P_EMAIL\",\"first_name\":\"Api\",\"surname\":\"Parent${STAMP}\",\"passport\":\"https://example.com/api-parent.jpg\"}")
 P_PK=$(pk_of "$P_CREATE")
 check "a parent is created without a number" "$(listing Parent | row_of "$P_PK")" '"school_number":""'
-check "and neither counter moved for them" "$(counter student),$(counter staff)" "$NUM_TWO,$STAFF_TWO"
+check "and neither counter moved for them" "$(counter student),$(counter staff)" "$P_COUNTERS_BEFORE"
 
 # --- 16b. a profile-less parent login is completed the way the form sends it ---
 # The Parents tab's Complete profile form sends the name as the three parts (first/middle/surname),
@@ -402,6 +409,72 @@ db_query "DELETE type::record('student_profile', '$J_PK'); UPDATE pending_ops:$J
 curl -s -X POST "$B/api/users/reconcile" -H "$T" > /dev/null
 check "the reconciler replays the missing profile" "$(listing Student | row_of "$J_PK")" '"school_number":'
 check "and finishes the journal row" "$(db_query "SELECT state FROM pending_ops WHERE id = pending_ops:$J_RID;")" '"state":"done"'
+
+# --- 20. the login is the school's own number ---
+# A create draws the number *before* the login exists and names the login with it, so what an
+# administrator hands over is the same string the row shows. Nothing on the page can know the number
+# before the answer arrives, so the write answers with it (`username`), and the listing carries the
+# login itself — Authentik's own `username` — beside the rendered number, which is what the form shows
+# read-only and the Reset password modal names the account by. An address is optional for a pupil and
+# for a member of staff (nothing in this deployment sends mail, and the number is the login); a parent
+# has no number, so their address *is* their login and the create insists on one.
+LOGIN_BEFORE=$(counter student)
+LOGIN_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"first_name\":\"Log\",\"surname\":\"In${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/login.jpg\"}")
+LOGIN_PK=$(pk_of "$LOGIN_CREATE")
+LOGIN_NUMBER=$(counter student)
+check "a pupil with no address is still created" "$LOGIN_CREATE" "\"username\":\"JES-"
+check "and the create answers with the login it made" "$LOGIN_CREATE" "\"username\":\"JES-$(padded "$LOGIN_NUMBER")\""
+check "and the student counter moved exactly once" "$LOGIN_NUMBER" "$((LOGIN_BEFORE + 1))"
+check "the number it answered with is the number the row carries" "$(listing Student | row_of "$LOGIN_PK")" "\"school_number\":\"JES-$(padded "$LOGIN_NUMBER")\""
+check "and the listing hands the form that login" "$(listing Student | row_of "$LOGIN_PK")" "\"username\":\"JES-$(padded "$LOGIN_NUMBER")\""
+check "so the row's login and its number are one string" "$(listing Student | row_of "$LOGIN_PK" | python3 -c "
+import json,sys
+row = json.load(sys.stdin)
+print(row.get('username') == row.get('school_number'))")" "True"
+check "and the row carries no address at all" "$(listing Student | row_of "$LOGIN_PK")" '"email":""'
+check "Authentik holds the login under the number" "$(mock_user "$LOGIN_PK")" "\"username\":\"JES-$(padded "$LOGIN_NUMBER")\""
+check "with no address on the account" "$(mock_user "$LOGIN_PK")" '"email":""'
+
+# A member of staff is the same story on the staff series.
+T3_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Teacher\",\"first_name\":\"No\",\"surname\":\"Mail${STAMP}\",\"passport\":\"https://example.com/no-mail-teacher.jpg\"}")
+T3_PK=$(pk_of "$T3_CREATE")
+T3_NUMBER=$(counter staff)
+check "a member of staff with no address is created too" "$T3_CREATE" "\"username\":\"EMP-"
+check "and signs in with their staff id" "$T3_CREATE" "\"username\":\"EMP-$(padded "$T3_NUMBER")\""
+check "which is the row's own number" "$(listing Teacher | row_of "$T3_PK")" "\"username\":\"EMP-$(padded "$T3_NUMBER")\""
+
+# A parent has no number to be named by, so the address is the login and is required.
+NO_MAIL_PARENT=$(post_user "{\"role\":\"Parent\",\"first_name\":\"No\",\"surname\":\"Mail${STAMP}\",\"passport\":\"https://example.com/no-mail-parent.jpg\"}")
+check "a parent with no address is refused" "$NO_MAIL_PARENT" "HTTP 400"
+check "and the refusal says the address is their login" "$NO_MAIL_PARENT" "it is their login"
+check "while a parent created with one signs in by it" "$P_CREATE" "\"username\":\"${P_EMAIL}\""
+
+# --- 21. a login is never made with no name ---
+# The number series is what names a login. If it answers nothing — the row was deleted, or the database
+# refused the read — the create has to refuse too: falling back to the address would make a login the
+# school never issued, and for a pupil with no address a login with no name at all, which Authentik would
+# take and nobody could sign into. The series is put back exactly as it was, so this runs again on the
+# same sandbox.
+GUARD_BEFORE=$(counter student)
+GUARD_JOURNAL_BEFORE=$(db_query "SELECT count() FROM pending_ops GROUP ALL;" | python3 -c "
+import json,sys
+rows = json.load(sys.stdin)[0]['result']
+print(rows[0]['count'] if rows else 0)")
+db_query "DELETE id_sequences:student;" > /dev/null
+GUARD=$(post_user "{\"role\":\"Student\",\"first_name\":\"No\",\"surname\":\"Series${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/no-series.jpg\"}")
+check "a create whose number series is gone is refused" "$GUARD" "HTTP 500"
+check "and the refusal names the series" "$GUARD" "number series"
+check "and no login was made for it" "$(curl -s "$MOCK/api/v3/core/users/?page_size=200" | python3 -c "
+import json,sys
+users = json.load(sys.stdin)['results']
+print('made' if any(u.get('name') == 'No Series${STAMP}' for u in users) else 'none')")" "none"
+check "and nothing was journaled for it" "$(db_query "SELECT count() FROM pending_ops GROUP ALL;" | python3 -c "
+import json,sys
+rows = json.load(sys.stdin)[0]['result']
+print(rows[0]['count'] if rows else 0)")" "$GUARD_JOURNAL_BEFORE"
+db_query "UPSERT id_sequences:student SET type = 'student', current_value = ${GUARD_BEFORE};" > /dev/null
+check "the series is back where it was" "$(counter student)" "$GUARD_BEFORE"
+check "and the next create draws from it again" "$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"first_name\":\"After\",\"surname\":\"Series${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/after-series.jpg\"}")" "\"username\":\"JES-$(padded "$((GUARD_BEFORE + 1))")\""
 
 echo ""
 echo "$pass passed, $fail failed"

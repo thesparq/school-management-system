@@ -2216,6 +2216,82 @@ the older page padding/title size — the admin LMS, the four dashboards, the st
 the rule the three admin pages already had. `SettingsView.roc` is the one exception: it is another
 workstream's working copy, so the rule reaches it when their change lands.
 
+### The login is the school's own number (2026-10-21)
+
+The school's decision: a pupil or a member of staff signs in with the number the school issues them —
+`JES-000123`, `EMP-000045` — and their address becomes optional, because nothing in this deployment
+sends mail (passwords are handed over in person, and the first sign-in is a forced change, so the login
+is a card number rather than a secret). A parent is the one role with no number, so their address *is*
+their login and the create insists on one.
+
+**The number is drawn before the login exists, because the login *is* the number.**
+
+- `reserve_number!` (its own statement) draws and renders the next number, then `Authentik.createUser!`
+  is asked for a login whose `username` is that rendered form, and the profile row is written with the
+  same digits as a literal. Nothing on the page can know a counter's next value, so the create's answer
+  carries the login: `create_answer!` rebuilds the envelope the listings use
+  (`[{"result":[{"id":"student_profile:…","username":"JES-000123"}],"status":"OK"}]`) — rebuilt
+  from known values rather than edited out of the database's own answer, the rule `merge_identity!`
+  follows. (An insertion into that answer was tried first and crashed the server: `Str.split_on` splits
+  on *every* occurrence, so the "insert" truncated the body at `"result":`.)
+- Validation runs before the draw, so a refused create burns nothing. A failure *after* it — the
+  journal, Authentik, the profile statement, the pairs — leaves a gap in the series, because the number
+  has already been handed to a login. That is the trade for the login being the number: monotonic, never
+  reused, gaps allowed. `users_api.sh` asserts both halves (a no-passport create moves no counter; a
+  create the database rejects moves it exactly once).
+- The draw is journaled as `login_number`, so a profile the reconciler replays is written with the
+  number its login already has instead of drawing a second one for the same person.
+- **A login is never made without a name, and a role with a number is never named by its address.** If the
+  series answers nothing (a deleted `id_sequences` row, a database error) the create is refused before the
+  journal is written, because the fallback — the address — is a login the school never issued, and for a
+  pupil with no address a login with no name at all, which Authentik would take and nobody could sign into.
+- `GET /api/users` merges Authentik's own `username` beside `email`/`is_active` and the page carries it
+  as field 20 of the row line; `GET /api/me/profile` carries `staff_number` (teacher, admin) or
+  `student_number` (student), which the Settings card labels *Staff ID* / *Admission number*.
+
+**The page.** The add/edit form's contact row is three columns: the address, the login, the role. The
+login is a disabled field (`#new-user-login-field`) labelled with the school's word for the number
+(*Admission number* / *Staff ID*), empty in create mode with the hint that the save draws it. An account
+made before logins were numbers still signs in with its address: the form then labels the field *Login*,
+shows the login it really has, and names the school number beside it, so the field never claims a login
+the person cannot type. The email field says which of the two it is — *optional* for a pupil or a member
+of staff, *required* for a parent, with a line under it saying why. The one-time credentials panel now
+hands over the **login** (it appears after any create, not only one that carried a password) and says
+"no password yet" when there is none; the Copy button copies `login\npassword`. The Reset password modal
+names the account by its login (`resetPasswordLogin`, was `resetPasswordEmail`), and the row's actions
+pass it (`part(20)`, falling back to the school number, then the address).
+
+**Verified.** `roc check` clean on both (`main.roc`, `app.roc`). Against the sandbox: `users_api.sh`
+**120/0** — including its new section 20 (a pupil with no address is created and answers with
+`JES-000081`, the row carries the same string as both `username` and `school_number`, the mock's record
+holds it with an empty address, a teacher signs in by `EMP-…`, a parent without an address is refused
+with "it is their login", and a parent made with one signs in by it) and section 21 (with
+`id_sequences:student` deleted the create is refused naming the series, makes no login, journals
+nothing, and the next create draws from the restored series) — `authz.sh` 60/0, `me_profile.sh`
+27/0, `password_change.sh` 26/0. In Chromium, against the rebuilt bundle: `e2e_admin.cjs` **22/22**
+(the number field is disabled and empty in create mode, the panel hands over the number the school
+issued plus the once-visible password, the clipboard holds both, the Edit form shows the same number
+still read-only, the backdrop closes it, and the Reset password modal names the account by the number),
+`e2e_users_directory.cjs` 30/30 (the completing form shows the login and still sends the address — the
+suite caught a swapped argument pair there before this landed), `e2e_admin_responsive.cjs` 43/43,
+`e2e_user_roles.cjs` 19/19, `e2e_loading.cjs` 20/20, `e2e_admin_permissions.cjs` 30/30 and
+`smoke_assignments_lms.cjs` 18/18.
+
+**One environment note for the next build**: `roc run build.roc` was killed twice mid-compile on this
+machine (its `build.log` ended without the summary line, so it reported "roc build failed" while
+`roc check` was clean) — three workstreams were compiling at once on a 15 GiB box. The compile itself is
+fine; it needs the machine to itself. The bundle in `www/` was then completed by hand from the same
+compiler invocation (`roc build --target=wasm32 --opt=size --output=www/app.wasm app.roc`), the runtime
+copied out of the package cache, and `build-id.txt` written with `build.roc`'s own command — all three
+files are gitignored, so nothing of that is in the commit.
+
+**Left for the school to decide** (asked, not yet answered): whether the leading zeros are wanted exactly
+as printed (`JES-000123` is what the app issues today) — and what to do about accounts made *before*
+this change, whose logins are still their addresses. Their numbers are already in the rows, so moving
+those logins onto them is a one-off, authorized change; nothing in the app depends on a login's spelling
+(every row is keyed by the pk). Also worth doing before a September intake: a CSV import, because the app
+still creates one account at a time.
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired
@@ -2312,6 +2388,11 @@ workstream's working copy, so the rule reaches it when their change lands.
 - Joy framework WASM crash on `NavigateTo` for Teacher/Student routes when triggered via sidebar click
 - Root cause: Chromium renderer process crash during WASM execution — not a code bug, framework-level issue
 - **Does NOT affect real browser usage** — only Playwright headless Chromium
+- `e2e_admin_permissions.cjs` can report 29/30 on a slow run: its "so does the configuration hub" check
+  reads the page as soon as the *screen* has rendered, and the message names the permission from the
+  catalog the page fetches at boot — if that fetch has not landed yet the same message names the key
+  (`setup.manage`) instead of the school's words. Re-running it is green (30/30), and the check would be
+  honest with a wait on the label rather than on the screen.
 
 ## Backend API Endpoints
 | Method | Path | Description | Status |

@@ -828,7 +828,7 @@
 
     // --- One row per list, in the "|"-separated line format the views split back apart ---
 
-    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions|in_directory.
+    // id|name|email|is_active|has_profile|school_number|first_name|middle_name|surname|date_of_birth|current_class|role_title|passport|qualifications|date_employed|students|class_name|admin_type|permissions|in_directory|username.
     // The first six fields are what the table renders today; the next seven are what the row's Edit
     // action loads into the form above (the backend's PUT patches the row, so the form has to start
     // with the values that are there). date_of_birth arrives with a time on it, but the form's date
@@ -842,10 +842,13 @@
     // never builds it, so the prefix lives in one place. The trailing fields are the role-specific
     // ones the lists and the edit form call: a teacher's qualification ids (comma-joined — a record
     // id has no comma) and date employed, a parent's linked-student ids (comma-joined), and the
-    // student's class name. The last two are an administrator's own: the type the school gave the row
+    // student's class name. The next two are an administrator's own: the type the school gave the row
     // (`admin_type`, a catalog key the view labels) and the permissions the backend enforces for it
     // (comma-joined — the edit form starts its ticks from exactly these, so what is stored is what the
-    // form shows). Every other role's rows carry them empty.
+    // form shows). Every other role's rows carry them empty. The last is `username`, the login itself
+    // (Authentik's own word for it): the form shows it read-only and the Reset password action names
+    // the account by it, because for every account this app makes it is the school's number rather
+    // than an address the person may not have.
     function formatUsers(data) {
         return unwrapRows(data).map(u => {
             const name = u.display_name || ((u.first_name || "") + " " + (u.surname || "")).trim() || u.name || u.username || "Unknown";
@@ -857,7 +860,8 @@
                 + "|" + (u.class_name || "")
                 + "|" + (u.admin_type || "")
                 + "|" + String((u.permissions || []).join(","))
-                + "|" + String(u.in_directory !== false);
+                + "|" + String(u.in_directory !== false)
+                + "|" + (u.username || "");
         });
     }
 

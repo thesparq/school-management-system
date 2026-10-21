@@ -100,7 +100,8 @@ profile_label = |key| {
     else if key == "passport" { "Passport photograph" }
     else if key == "class" { "Class level" }
     else if key == "date_of_birth" { "Date of birth" }
-    else if key == "student_number" { "Student number" }
+    else if key == "student_number" { "Admission number" }
+    else if key == "staff_number" { "Staff ID" }
     else if key == "qualifications" { "Qualifications" }
     else if key == "date_employed" { "Date employed" }
     else if key == "pairs" { "Classes & subjects (this term)" }

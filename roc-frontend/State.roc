@@ -120,6 +120,15 @@ Model : {
 	        # any payload that sets either.
 	        adminTypesData : Str,
 	        adminRightsData : Str,
+	        # The login this account signs in with, as the directory spells it (`JES-000123` for an account
+	        # this app made, an address for one made before the school began handing numbers out): read-only
+	        # in the form, because it is the account's identity and the school's to issue. A fresh form has
+	        # none — the write that makes the account draws it — and an edit shows the row's own.
+	        newUserLogin : Str,
+	        # The row's own school number, which is not always its login: an account made before this app
+	        # named logins after the number still signs in with its address, and the form says so rather
+	        # than showing a number the person cannot type.
+	        newUserSchoolNumber : Str,
 	        newUserAdminType : Str,
 	        newUserPermissions : List(Str),
 	# The id of the login whose profile is being completed, empty while the form is creating a new
@@ -141,10 +150,12 @@ Model : {
 	    # The user form (add / complete / edit / reset password) lives in a modal; this flag plus the
 	    # two modes below say it is on screen. Closing it clears the modes.
 	    userFormOpen : Bool,
-	    # The id and address of the row whose login's password is being reset, empty otherwise: a
-	    # modal mode that shows only the password field and posts /api/users/set-password.
+	    # The id and login of the row whose login's password is being reset, empty otherwise: a
+	    # modal mode that shows only the password field and posts /api/users/set-password. The login is
+	    # what the modal names the account by — the number the person types, not an address they may not
+	    # have.
 	    resetPasswordId : Str,
-	    resetPasswordEmail : Str,
+	    resetPasswordLogin : Str,
 	    # The rows ticked for a bulk delete, as their record ids. A delete works for every row now -
 	    # including one with no login behind it, which the backend treats as deletable by the profile
 	    # hide alone - and the Delete button above the table removes the whole selection.
@@ -290,13 +301,14 @@ Msg : [
 	# input event, exactly like typing, so the value lands in the model the same way a typed one
 	# does.
 	GenerateUserPassword,
-	# The one-time credentials panel's copy button: copies `email\npassword` to the clipboard.
+	# The one-time credentials panel's copy button: copies `login\npassword` (the password line only
+	# when one was set) to the clipboard.
 	CopyLastCredentials,
 	SubmitNewUser,
 	# A user row the directory lists without a profile: load that login into the form so the admin can
 	# fill in the school data and attach it (PUT /api/users). The id is what the write names the row
-	# by; the email is shown so the form says which login it is completing.
-	CompleteProfile(Str, Str),
+	# by; the login and address are shown so the form says which login it is completing.
+	CompleteProfile(Str, Str, Str),
 	CancelCompleteProfile,
 	# A row's working actions: load an existing profile into the form for patching (PUT — the line
 	# is the row's own, so the form starts prefilled), and the two toggles, deactivate (DELETE
@@ -309,9 +321,9 @@ Msg : [
 	    # or any completed write). The row actions open it through their own modes.
 	    OpenUserForm,
 	    CloseUserForm,
-	    # Reset a login's password from its row: the modal switches to the password-only mode,
-	    # posts /api/users/set-password, and hands the new value over once through the credentials
-	    # panel — the backend sets it in Authentik and never returns it.
+	    # Reset a login's password from its row: the modal switches to the password-only mode, names the
+	    # account by its login, posts /api/users/set-password, and hands the new value over once through
+	    # the credentials panel — the backend sets it in Authentik and never returns it.
 	    OpenResetPassword(Str, Str),
 	    SubmitResetPassword,
 	    ResetPasswordCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
@@ -581,6 +593,8 @@ init = |flags| {
 		                newUserClassLevel: "",
 		                adminTypesData: "",
 		                adminRightsData: "",
+		                newUserLogin: "",
+		                newUserSchoolNumber: "",
 		                newUserAdminType: "",
 		                newUserPermissions: [],
 		                            completingProfileId: "",
@@ -589,7 +603,7 @@ init = |flags| {
 		            lastCredentials: None,
 		            userFormOpen: Bool.False,
 		            resetPasswordId: "",
-		            resetPasswordEmail: "",
+		            resetPasswordLogin: "",
 		            selectedUserIds: [],
 		            appOrigin: originStr,
 		usersStudentsData: "",
@@ -1246,10 +1260,10 @@ dispatch = |model, msg|
 		CopyLastCredentials =>
 			match model.lastCredentials {
 				None => (model, [])
-				Credentials(email, password) =>
+				Credentials(login, password) =>
 					(
 						model,
-						[Port.send("copy_to_clipboard", if Str.is_empty(email) { password } else { "${email}\n${password}" })]
+						[Port.send("copy_to_clipboard", if Str.is_empty(password) { login } else { "${login}\n${password}" })]
 					)
 			}
 		GotUsersData(str) => ({ ..model, usersData: str }, [])
@@ -1674,7 +1688,7 @@ dispatch = |model, msg|
 		}
 		# A row the directory lists without a profile: the form loads that login (its name and address are
 		# shown, and are not the form's to edit), and the role comes from the tab the row was on.
-		                CompleteProfile(id, email) => {
+		                CompleteProfile(id, email, login) => {
 		                        # Agreeing to give a profile to a login the directory lists is a create in effect, so the
 		                        # admin panel starts where a fresh admin form does (see OpenUserForm).
 		                        kind = admin_default_type(model.adminTypesData)
@@ -1690,6 +1704,12 @@ dispatch = |model, msg|
 		                                        newUserMiddleName: "",
 		                                        newUserSurname: "",
 		                                        newUserEmail: email,
+		                                        # A login the directory already lists has a username of its own (the number, for one the
+		                                        # school made in Authentik itself) and this form is about the profile behind it: the login
+		                                        # is shown, never written. It has no number yet — the write that attaches the profile draws
+		                                        # one, exactly as a create does.
+		                                        newUserLogin: login,
+		                                        newUserSchoolNumber: "",
 		                                        newUserDateOfBirth: "",
 		                                        newUserClassLevel: "",
 		                                        newUserAdminType: kind,
@@ -1710,7 +1730,7 @@ dispatch = |model, msg|
 		                                [Port.send("fetch_data", "/api/users?role=Student")]
 		                        )
 		                }
-		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
+		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		                # Open the form in add mode: the header's Add User button. Everything the completing and
 		                # editing modes set is cleared, so the modal opens empty — and the role starts on the tab the
 		                # admin is looking at, because the fields that follow the picker (a teacher's date employed and
@@ -1723,11 +1743,11 @@ dispatch = |model, msg|
 		                        # depends on the boot fetch having landed.
 		                        kind = admin_default_type(model.adminTypesData)
 		                        (
-		                                { ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" },
+		                                { ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" },
 		                                [Port.send("fetch_data", "/api/users?role=Student"), Port.send("fetch_data", "/api/admin-types")]
 		                        )
 		                }
-		CloseUserForm => ({ ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
+		CloseUserForm => ({ ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
@@ -1752,6 +1772,14 @@ dispatch = |model, msg|
 					                                        # appends after the class name — every other role's rows carry none. The form
 					                                        # starts from the row rather than from the type's own defaults, so an edit
 					                                        # that only fixes a name cannot silently reset what the school set.
+					                                        # The account's own login (field 20 of the line, which is Authentik's `username`), and the
+					                                        # row's school number beside it (field 5): the form shows the login read-only — the
+					                                        # school issues it — and keeps the number so it can say when the two differ (an account
+					                                        # made before logins were the school's numbers). A login the directory could not be asked
+					                                        # about (Authentik unreachable) falls back to the number, which is the login for every
+					                                        # account this app makes.
+					                                        newUserLogin: if Str.is_empty(part(20)) { part(5) } else { part(20) },
+					                                        newUserSchoolNumber: part(5),
 					                                        newUserAdminType: if user_tab_role(model.activeUserTab) == "Admin" { part(17) } else { "" },
 					                                        newUserPermissions: if user_tab_role(model.activeUserTab) == "Admin" {
 					                                                List.keep_if(Str.split_on(part(18), ","), |key| !Str.is_empty(key))
@@ -1812,17 +1840,29 @@ dispatch = |model, msg|
 				Err(HttpErr(Timeout)) => Error("The request timed out")
 				Err(HttpErr(NetworkError)) => Error("Could not reach the server")
 			}
-			# A create that carried a password hands it over once: the form is cleared right below (the
-			# value is never stored anywhere), so capture the credentials here, before the clear.
+			# The login the account now signs in with, read out of the write's own answer: the number is
+			# drawn by the backend (`reserve_number!`), so the answer is the only place the page can
+			# learn it. An answer carrying none — a parent, whose login is the address the form sent —
+			# falls back to that address.
+			answered_login = match res {
+				# A multi-statement arm needs its braces in Roc (the block's value is the answer).
+				Ok(response) => {
+					from_answer = json_string_field(Str.from_utf8_lossy(response.body), "username")
+					if Str.is_empty(from_answer) { model.newUserEmail } else { from_answer }
+				}
+				Err(_) => model.newUserEmail
+			}
+			# The create's handoff: the login it made and the password it carried, shown once in the panel
+			# below — the form is cleared right after (the password is never stored anywhere), so both
+			# are captured here, before the clear. A create that carried no password still hands the
+			# login over: that is what the person types, and the panel says what to do about the rest.
 			handoff : [None, Credentials(Str, Str)]
 			handoff =
 				if was_editing or was_completing {
 					None
 				} else {
 					match newResult {
-						Success(_) =>
-							if Str.is_empty(model.newUserPassword) { None }
-							else { Credentials(model.newUserEmail, model.newUserPassword) }
+						Success(_) => Credentials(answered_login, model.newUserPassword)
 						_ => None
 					}
 				}
@@ -1902,11 +1942,11 @@ dispatch = |model, msg|
 			({ ..model, isSubmitting: Bool.False, submitResult: newResult }, List.concat(notification_for(newResult, "User management"), refresh))
 		}
 		# --- Reset a login's password (the row's Reset password action) ---
-		OpenResetPassword(id, email) => (
+		OpenResetPassword(id, login) => (
 			{ ..model,
 				userFormOpen: Bool.True,
 				resetPasswordId: id,
-				resetPasswordEmail: email,
+				resetPasswordLogin: login,
 				newUserPassword: "",
 				completingProfileId: "",
 				userEditing: Bool.False,
@@ -1956,10 +1996,10 @@ dispatch = |model, msg|
 			handoff = match newResult {
 				Success(_) =>
 					if Str.is_empty(model.newUserPassword) { None }
-					else { Credentials(model.resetPasswordEmail, model.newUserPassword) }
+					else { Credentials(model.resetPasswordLogin, model.newUserPassword) }
 				_ => None
 			}
-			({ ..model, isSubmitting: Bool.False, submitResult: newResult, resetPasswordId: "", resetPasswordEmail: "", newUserPassword: "", userFormOpen: Bool.False, lastCredentials: handoff }, List.concat(notification_for(newResult, "Password"), []))
+			({ ..model, isSubmitting: Bool.False, submitResult: newResult, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", newUserPassword: "", userFormOpen: Bool.False, lastCredentials: handoff }, List.concat(notification_for(newResult, "Password"), []))
 		}
 		# --- Bulk delete: tick rows, then remove the selection ---
 		ToggleUserSelected(id) => {
