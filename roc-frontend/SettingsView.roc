@@ -146,7 +146,8 @@ password_notice_title = |reason| {
 }
 
 # The form. Two fields and a button: the value goes to the backend in the request body and is never stored
-# anywhere in the page's own state beyond the keystrokes that put it there.
+# anywhere in the page's own state beyond the keystrokes that put it there. It is a real `<form>`
+# (see UI.form), so Enter in any of the fields sets the password — the same thing the button does.
 password_card = |model| {
     card = [
         Html.h2([Attribute.class("text-lg font-semibold")], [Html.text("Password")]),
@@ -171,13 +172,15 @@ password_card = |model| {
         result_banner(model.passwordResult),
         Html.div([], [
             UI.button(
-                { variant: Primary, size: Default, on_click: Click(SubmitPasswordChange), is_disabled: model.isSubmitting, classes: "" },
+                { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "" },
                 [Html.text(if model.isSubmitting { "Saving…" } else { "Set my password" })]
             )
         ]),
     ]
 
-    Html.div([Attribute.class("rounded-lg border bg-card p-6 space-y-4 max-w-2xl")], card)
+    Html.div([Attribute.class("rounded-lg border bg-card p-6 max-w-2xl")], [
+        UI.form("space-y-4", SubmitPasswordChange, card)
+    ])
 }
 
 password_field = |label, field_id, value, is_disabled, to_msg| {

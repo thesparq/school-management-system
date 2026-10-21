@@ -87,7 +87,7 @@ admin_users_view = |model| {
                 Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
                 Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage all user accounts across Students, Teachers, Parents, and Administrators.")])
             ]),
-            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "gap-2 shrink-0 whitespace-nowrap" }, [UI.icon("plus", "w-4 h-4"), Html.text("Add New User")])
+            UI.button({ ..UI.default_button, variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "gap-2 shrink-0 whitespace-nowrap" }, [UI.icon("plus", "w-4 h-4"), Html.text("Add New User")])
         ]),
 
         # Submit feedback banner
@@ -109,7 +109,16 @@ admin_users_view = |model| {
         # the x or when a write lands (the credentials panel then shows inline beneath the table).
         if model.userFormOpen {
               Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4 md:p-8 backdrop-blur-sm modal-backdrop"), Attribute.data("close-input", "user_form_close_input")], [
-                  Html.div([Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-2xl border border-border bg-card text-card-foreground shadow-2xl")], [
+                  # The panel says what it is (`role`/`aria-modal`, and its own title as the name) and
+                  # is marked as a dialog, which is what the page's own JavaScript reads to move the
+                  # focus into it and keep Tab inside it while it is up.
+                  Html.div([
+                      Attribute.class("w-full max-w-2xl mx-auto my-4 md:my-10 rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"),
+                      Attribute.role("dialog"),
+                      Attribute.aria("modal", "true"),
+                      Attribute.aria("label", form_title),
+                      Attribute.data("dialog", "")
+                  ], [
                       UI.card_header({ classes: "" }, [
                           Html.div([Attribute.class("flex items-start justify-between gap-4")], [
                               Html.div([], [
@@ -117,40 +126,49 @@ admin_users_view = |model| {
                                   Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(form_description)])
                               ]),
                               Html.div([Attribute.title("Close")], [
-                                  UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseUserForm), is_disabled: model.isSubmitting, classes: "text-muted-foreground" }, [UI.icon("x", "w-4 h-4")])
+                                  UI.button({ ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(CloseUserForm), is_disabled: model.isSubmitting, classes: "text-muted-foreground" }, [UI.icon("x", "w-4 h-4")])
                               ])
                           ])
                       ]),
 
-	              UI.card_content({ classes: "space-y-6" }, [
-        	                  form_banner(model),
-        	                  if resetting {
-        	                      reset_password_body(model)
-        	                  } else {
-        	                      user_form_body(model, form_mode)
-        	                  }
-        	              ]),
-        	              # The modal's single action: create / complete / save / set password. Two
-        	              # explicit buttons rather than one with a conditional on_click: Joy's runtime
-        	              # attaches handlers per message, and a conditional expression as the handler
-        	              # value did not dispatch from every branch.
-        	              Html.div([Attribute.class("px-6 pb-6 pt-0")], [
-        	                  Html.div([Attribute.class("flex justify-end border-t pt-4")], [
-        	                      if resetting {
-        	                          UI.button(
-        	                              { variant: Primary, size: Default, on_click: Click(SubmitResetPassword), is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
-        	                              [Html.text(if model.isSubmitting { "Setting..." } else { "Set password" })]
-        	                          )
-        	                      } else {
-        	                          UI.button(
-        	                              { variant: Primary, size: Default, on_click: Click(SubmitNewUser), is_disabled: model.isSubmitting or user_form_waiting(model), classes: "w-full sm:w-auto" },
-        	                              [Html.text(user_form_submit_label(model.isSubmitting, form_mode))]
-        	                          )
-        	                      }
-        	                  ])
-        	              ])
-        	          ])
-        	      ])
+		              # The fields and the button that sends them are one form, so Enter in any field
+		              # submits it (see UI.form). One explicit form per mode rather than one whose
+		              # message is a conditional: Joy's runtime attaches handlers per message, and a
+		              # conditional expression as the handler value did not dispatch from every branch
+		              # — the same reason the two buttons are written out.
+		              if resetting {
+		                  UI.form("", SubmitResetPassword, [
+		                      UI.card_content({ classes: "space-y-6" }, [
+		                          form_banner(model),
+		                          reset_password_body(model)
+		                      ]),
+		                      Html.div([Attribute.class("px-6 pb-6 pt-0")], [
+		                          Html.div([Attribute.class("flex justify-end border-t pt-4")], [
+		                              UI.button(
+		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+		                                  [Html.text(if model.isSubmitting { "Setting..." } else { "Set password" })]
+		                              )
+		                          ])
+		                      ])
+		                  ])
+		              } else {
+		                  UI.form("", SubmitNewUser, [
+		                      UI.card_content({ classes: "space-y-6" }, [
+		                          form_banner(model),
+		                          user_form_body(model, form_mode)
+		                      ]),
+		                      Html.div([Attribute.class("px-6 pb-6 pt-0")], [
+		                          Html.div([Attribute.class("flex justify-end border-t pt-4")], [
+		                              UI.button(
+		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or user_form_waiting(model), classes: "w-full sm:w-auto" },
+		                                  [Html.text(user_form_submit_label(model.isSubmitting, form_mode))]
+		                              )
+		                          ])
+		                      ])
+		                  ])
+		              }
+		          ])
+		      ])
 	        } else {
 	              Html.div([], [])
 	        },
@@ -245,7 +263,7 @@ admin_users_view = |model| {
             # switcher across the app rather than two styling languages.
             # `w-full` on a phone so the strip scrolls inside its own box: `w-fit` sized itself to
             # every tab at once, which pushed the later ones off the screen edge with nothing to scroll.
-            Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit")], [
+            Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit"), Attribute.role("tablist")], [
                 user_tab(model.activeUserTab, Students, "Students", "graduation-cap"),
                 user_tab(model.activeUserTab, Teachers, "Teachers", "presentation"),
                 user_tab(model.activeUserTab, Parents, "Parents", "users"),
@@ -259,8 +277,8 @@ admin_users_view = |model| {
                 Html.div([Attribute.class("flex items-center justify-between flex-wrap gap-2 rounded-md border border-border bg-muted/30 px-4 py-2")], [
                     Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("${selected_count} selected")]),
                     Html.div([Attribute.class("flex items-center gap-2")], [
-                        UI.button({ variant: Ghost, size: Sm, on_click: Click(ClearUserSelection), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Clear")]),
-                        UI.button({ variant: Destructive, size: Sm, on_click: Click(DeleteSelectedUsers), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Delete selected")])
+                        UI.button({ ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(ClearUserSelection), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Clear")]),
+                        UI.button({ ..UI.default_button, variant: Destructive, size: Sm, on_click: Click(DeleteSelectedUsers), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Delete selected")])
                     ])
                 ])
             } else {
@@ -311,7 +329,7 @@ admin_users_view = |model| {
                     Html.p([], [Html.text(password)])
                 ]),
                 Html.div([Attribute.class("flex items-center gap-2")], [
-                    UI.button({ variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
+                    UI.button({ ..UI.default_button, variant: Outline, size: Sm, on_click: Click(CopyLastCredentials), is_disabled: Bool.False, classes: "text-xs" }, [Html.text("Copy credentials")]),
                     Html.span([Attribute.id("copy-credentials-feedback"), Attribute.class("text-xs text-muted-foreground")], [])
                 ]),
                 Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Shown once — the password is not stored anywhere after this.")]),
@@ -335,6 +353,10 @@ user_tab = |active_tab, this_tab, label, icon_name| {
     Html.button([
         Attribute.class("${classes} inline-flex items-center gap-1.5"),
         Attribute.type("button"),
+        # A tab, and said so: the role and the selected state are what a screen reader reads (the
+        # group around these is the tablist). A button answers Enter and Space on its own.
+        Attribute.role("tab"),
+        Attribute.aria("selected", if is_active { "true" } else { "false" }),
         # A tab switch is a view change of its own: data-nav is what starts the top border
         # progress bar for one (see www/index.html).
         Attribute.data("nav", ""),
@@ -355,7 +377,7 @@ user_linked_students_field = |model| {
 			Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |id| {
 				Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
 					Html.text(student_name_for(model.usersStudentsData, id)),
-					Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveLinkedStudent(id))], [Html.text("✕")])
+					UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-destructive", label: "Remove ${student_name_for(model.usersStudentsData, id)}" }, RemoveLinkedStudent(id), [Html.text("✕")])
 				])
 			}))
 		},
@@ -379,10 +401,13 @@ user_linked_students_field = |model| {
 				}), |line| {
 					parts = Str.split_on(line, "|")
 					id = config_field(parts, 0, "")
-					Html.div([
-						Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
-						Attribute.on_click(AddLinkedStudent(id))
-					], [Html.text(config_field(parts, 1, "Student"))])
+					student_name = config_field(parts, 1, "Student")
+					# One student to link: a button in everything but tag (see UI.pressable).
+					UI.pressable(
+						{ ..UI.default_pressable, classes: "px-3 py-2 text-sm hover:bg-muted", label: "Link ${student_name}" },
+						AddLinkedStudent(id),
+						[Html.text(student_name)]
+					)
 				})
 			)
 		}
@@ -512,7 +537,7 @@ user_form_body = |model, form_mode| {
                         })
                     ]),
                     Html.div([Attribute.class("flex items-center gap-2")], [
-                        UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
+                        UI.button({ ..UI.default_button, variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
                         Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is shown once, with a Copy button. The person is asked to choose their own the next time they sign in.")])
                     ])
                 ]))
@@ -570,7 +595,7 @@ reset_password_body = |model| {
                 })
             ]),
             Html.div([Attribute.class("flex items-center gap-2")], [
-                UI.button({ variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
+                UI.button({ ..UI.default_button, variant: Outline, size: Sm, on_click: Click(GenerateUserPassword), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Generate")]),
                 Html.span([Attribute.class("text-xs text-muted-foreground")], [Html.text("8-72 characters. Shown once on this page after it is set, with a Copy button.")])
             ])
         ]))
@@ -703,22 +728,22 @@ admin_permissions_field = |model| {
         ])
 }
 
-# One permission as a tick: the label and the hint under it, and a button that toggles it. A button rather
-# than an `<input type=checkbox>`, so the click is a Joy message like every other control in the app.
+# One permission as a tick: the label and the hint under it, and a tick that toggles it (a button
+# with the checkbox's own role and state — see UI.tick), so the click is a Joy message like every
+# other control in the app and Enter or Space does the same thing.
 admin_permission_tick = |model, line, holder, is_super| {
         key = catalog_field(line, 1)
         ticked = List.contains(model.newUserPermissions, key)
 
         Html.div([Attribute.class("flex items-start gap-3"), Attribute.id("permission-tick-${key}")], [
-                UI.button(
-                        {
-                                variant: Ghost,
-                                size: Sm,
-                                on_click: Click(ToggleNewUserPermission(key)),
+                UI.tick(
+                        { ..UI.default_tick,
                                 is_disabled: model.isSubmitting or !holder or is_super,
-                                classes: "text-base leading-none"
+                                classes: "text-base",
+                                label: catalog_field(line, 2)
                         },
-                        [Html.text(if ticked { "☑" } else { "☐" })]
+                        ticked,
+                        ToggleNewUserPermission(key)
                 ),
                 Html.div([Attribute.class("space-y-0.5")], [
                         Html.p([Attribute.class("text-sm font-medium")], [Html.text(catalog_field(line, 2))]),
@@ -861,9 +886,10 @@ user_row = |model, line| {
         UI.table_stack_cell({ classes: "stack-inline", label: "" }, [
             # The selection tick for the bulk delete above the table. A button rather than a real
             # checkbox so the click is a Joy message like the row's other actions.
-            UI.button(
-                { variant: Ghost, size: Sm, on_click: Click(ToggleUserSelected(id)), is_disabled: busy, classes: "text-xs" },
-                [Html.text(if selected { "☑" } else { "☐" })]
+            UI.tick(
+                { ..UI.default_tick, is_disabled: busy, classes: "text-xs", label: "Select ${name}" },
+                selected,
+                ToggleUserSelected(id)
             )
         ]),
         UI.table_stack_cell({ classes: "stack-inline", label: "" }, [
@@ -924,29 +950,29 @@ user_row = |model, line| {
                         # teaching scope. The dialog replaces the whole set when it saves.
                         if model.activeUserTab == Teachers {
                             UI.button(
-                                { variant: Ghost, size: Sm, on_click: Click(OpenTeacherAssign(id)), is_disabled: busy, classes: "text-xs" },
+                                { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(OpenTeacherAssign(id)), is_disabled: busy, classes: "text-xs" },
                                 [Html.text("Assign")]
                             )
                         } else {
                             Html.div([], [])
                         },
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: Click(StartUserEdit(line)), is_disabled: busy, classes: "text-xs" },
+                            { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(StartUserEdit(line)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Edit")]
                         ),
                         if is_active {
                             UI.button(
-                                { variant: Ghost, size: Sm, on_click: Click(SubmitDeactivateUser(id)), is_disabled: busy, classes: "text-xs text-destructive hover:text-destructive" },
+                                { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(SubmitDeactivateUser(id)), is_disabled: busy, classes: "text-xs text-destructive hover:text-destructive" },
                                 [Html.text("Delete")]
                             )
                         } else {
                             UI.button(
-                                { variant: Ghost, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs text-primary" },
+                                { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs text-primary" },
                                 [Html.text("Activate")]
                             )
                         },
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Reset password")]
                         )
                     ])
@@ -954,17 +980,17 @@ user_row = |model, line| {
                     Html.div([Attribute.class("flex items-center justify-end max-sm:justify-start max-sm:flex-wrap gap-1")], [
                         if is_active {
                             UI.button(
-                                { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
+                                { ..UI.default_button, variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
                                 [Html.text("Complete profile")]
                             )
                         } else {
                             UI.button(
-                                { variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
+                                { ..UI.default_button, variant: Primary, size: Sm, on_click: Click(SubmitActivateUser(id)), is_disabled: busy, classes: "text-xs" },
                                 [Html.text("Activate")]
                             )
                         },
                         UI.button(
-                            { variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
+                            { ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(OpenResetPassword(id, email)), is_disabled: busy, classes: "text-xs" },
                             [Html.text("Reset password")]
                         )
                     ])
@@ -1001,7 +1027,7 @@ admin_config_view = |model| {
 		Html.input([Attribute.type("hidden"), Attribute.id("credentials_data_input"), Attribute.value(model.credentialsData), Attribute.on_input(|s| GotCredentialsData(s))]),
 
 		Html.div([Attribute.class("flex flex-col space-y-4")], [
-			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit")], [
+			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit"), Attribute.role("tablist")], [
 				config_tab(model.activeConfigTab, Terms, "Academic Terms"),
 				config_tab(model.activeConfigTab, ClassLevels, "Class Levels"),
 				config_tab(model.activeConfigTab, Curriculum, "Curriculum"),
@@ -1037,6 +1063,9 @@ config_tab = |active_tab, this_tab, label| {
     Html.button([
         Attribute.class(classes),
         Attribute.type("button"),
+        # A tab, and said so — see the note on `user_tab`.
+        Attribute.role("tab"),
+        Attribute.aria("selected", if is_active { "true" } else { "false" }),
         # A section switch is a view change of its own: data-nav is what starts the top border
         # progress bar for one (see www/index.html).
         Attribute.data("nav", ""),
@@ -1059,8 +1088,21 @@ config_card = |title, description, content| {
 	])
 }
 
-config_form_row = |fields, button| {
-	Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4 items-end")], List.concat(fields, [button]))
+# The create form of a configuration section: its fields and the button that sends them are one
+# real `<form>`, so Enter in any field creates the row (see UI.form) and the button — the form's
+# submit button — does the same with Enter, Space or a click. One helper for all six sections, so
+# every one of them is filled the same way.
+config_create_form = |model, tab, label, fields| {
+	UI.form(
+		"grid grid-cols-1 md:grid-cols-3 gap-4 items-end",
+		SubmitConfigCreate(tab),
+		List.concat(fields, [
+			UI.button(
+				{ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isConfigSubmitting, classes: "w-full" },
+				[Html.text(if model.isConfigSubmitting { "Saving..." } else { label })]
+			)
+		])
+	)
 }
 
 config_labeled_input = |label, placeholder, input_type, value, is_disabled, to_msg| {
@@ -1125,13 +1167,6 @@ config_row_select = |select_id, value, options, to_msg| {
 	])
 }
 
-config_submit_button = |model, tab, label| {
-	UI.button(
-		{ variant: Primary, size: Default, on_click: Click(SubmitConfigCreate(tab)), is_disabled: model.isConfigSubmitting, classes: "w-full" },
-		[Html.text(if model.isConfigSubmitting { "Saving..." } else { label })]
-	)
-}
-
 # The feedback from this tab's last create; SetConfigTab clears it.
 config_create_banner = |model| {
 	match model.configSubmitResult {
@@ -1191,15 +1226,21 @@ config_edit_input = |placeholder, input_type, value, is_disabled, to_msg| {
 
 # A cell holding one control of an open editor, named by the column it edits so a phone can print
 # that name beside the control.
-config_edit_cell = |label, input| {
-	UI.table_stack_cell({ classes: "min-w-40", label: label }, [input])
+config_edit_cell = |tab, label, input| {
+   # Enter saves the row. The editor lives in a table row, where a real `<form>` cannot go (a form
+   # is not allowed between a table's rows), so the key handler rides the cell instead and catches
+   # the Enter pressed in the field inside it — key events bubble — with the same message the row's
+   # Save button carries.
+   UI.table_stack_cell({ classes: "min-w-40", label: label }, [
+       Html.div([Attribute.prevent_default(Attribute.on_key("keydown", ["Enter"], |_| SubmitConfigUpdate(tab)))], [input])
+   ])
 }
 
 # The Edit control of a row: it opens that row's own fields in place, so the values being changed
 # sit next to the row they belong to. The fetched line is what prefills the draft.
 config_edit_button = |model, line| {
 	UI.button(
-		{ variant: Ghost, size: Sm, on_click: Click(StartConfigEdit(line)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+		{ ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(StartConfigEdit(line)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
 		[Html.text("Edit")]
 	)
 }
@@ -1208,7 +1249,7 @@ config_edit_button = |model, line| {
 # row stays in the list, badge and all, so a deactivation can be undone.
 config_active_button = |model, tab, id, is_active| {
 	UI.button(
-		{
+		{ ..UI.default_button,
 			variant: Ghost,
 			size: Sm,
 			on_click: Click(ToggleConfigActive(tab, id, !is_active)),
@@ -1240,11 +1281,11 @@ config_toggle_actions = |model, tab, id, is_active| {
 config_edit_actions = |model, tab| {
 	config_actions_cell([
 		UI.button(
-			{ variant: Primary, size: Sm, on_click: Click(SubmitConfigUpdate(tab)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+			{ ..UI.default_button, variant: Primary, size: Sm, on_click: Click(SubmitConfigUpdate(tab)), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
 			[Html.text(if model.isConfigSubmitting { "Saving..." } else { "Save" })]
 		),
 		UI.button(
-			{ variant: Outline, size: Sm, on_click: Click(CancelConfigEdit), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
+			{ ..UI.default_button, variant: Outline, size: Sm, on_click: Click(CancelConfigEdit), is_disabled: model.isConfigSubmitting, classes: "text-xs" },
 			[Html.text("Cancel")]
 		)
 	])
@@ -1256,9 +1297,9 @@ config_edit_actions = |model, tab| {
 
 credentials_config_view = |model| {
 	config_card("Qualifications", "The catalogue of teacher qualifications (e.g. B.Ed. Mathematics). A qualification an admin deactivates leaves the catalog but is no longer offered; teacher profiles keep their links either way — nothing here is hard-deleted.", [
-		config_form_row([
+		config_create_form(model, Credentials, "Create Qualification", [
 			config_labeled_input("Qualification name", "e.g. B.Ed. Mathematics", "text", model.newCredentialName, model.isConfigSubmitting, |s| UpdateNewCredentialName(s)),
-		], config_submit_button(model, Credentials, "Create Qualification")),
+		]),
 		config_create_banner(model),
 		config_table(["Qualification", "Status", "Actions"], credentials_rows(model))
 	])
@@ -1286,7 +1327,7 @@ credentials_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell("Qualification", config_edit_input("Qualification name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(Credentials, "Qualification", config_edit_input("Qualification name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
 			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Credentials)
 		])
@@ -1390,7 +1431,7 @@ user_qualifications_field = |model| {
 			Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |id| {
 				Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
 					Html.text(credential_name_for(model.credentialsData, id)),
-					Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveQualification(id))], [Html.text("✕")])
+					UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-destructive", label: "Remove ${credential_name_for(model.credentialsData, id)}" }, RemoveQualification(id), [Html.text("✕")])
 				])
 			}))
 		},
@@ -1415,10 +1456,13 @@ user_qualifications_field = |model| {
 				}), |line| {
 					parts = Str.split_on(line, "|")
 					id = config_field(parts, 0, "")
-					Html.div([
-						Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
-						Attribute.on_click(AddQualification(id))
-					], [Html.text(config_field(parts, 1, "Qualification"))])
+					qualification = config_field(parts, 1, "Qualification")
+					# One qualification to add: a button in everything but tag (see UI.pressable).
+					UI.pressable(
+						{ ..UI.default_pressable, classes: "px-3 py-2 text-sm hover:bg-muted", label: "Add ${qualification}" },
+						AddQualification(id),
+						[Html.text(qualification)]
+					)
 				})
 			)
 		}
@@ -1431,16 +1475,25 @@ user_qualifications_field = |model| {
 assign_form = |model| {
 	if model.assignDialogOpen {
 	        	      Html.div([Attribute.class("fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8 modal-backdrop"), Attribute.data("close-input", "assign_close_input")], [
-			Html.div([Attribute.class("w-full max-w-lg mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl")], [
+			Html.div([
+				Attribute.class("w-full max-w-lg mx-auto my-4 md:my-10 rounded-xl border border-border bg-card text-card-foreground shadow-xl"),
+				Attribute.role("dialog"),
+				Attribute.aria("modal", "true"),
+				Attribute.aria("label", "Assign Classes"),
+				Attribute.data("dialog", "")
+			], [
 				UI.card_header({ classes: "" }, [
 					Html.div([Attribute.class("flex items-start justify-between gap-4")], [
 						Html.div([], [
 							UI.card_title({ classes: "" }, [Html.text("Assign Classes")]),
 							Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Choose the class-subject pairs this teacher teaches. Saving replaces the current set.")])
 						]),
-						UI.button({ variant: Ghost, size: Sm, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Cancel")])
+						UI.button({ ..UI.default_button, variant: Ghost, size: Sm, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Cancel")])
 					])
 				]),
+				# The picker's fields and the Save that sends them are one form: Enter in the search box
+				# saves the set, the same thing the button does (see UI.form).
+				UI.form("", SubmitTeacherAssign, [
 				UI.card_content({ classes: "space-y-4" }, [
 					# The assignment is scoped to the active session term, so the dialog says which term
 					# the save will write into (the backend refuses the save when there is none).
@@ -1458,7 +1511,7 @@ assign_form = |model| {
 						Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(model.assignSelectedEdges, |edge| {
 							Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
 								Html.text(pair_badge_text(model.subjectPairsData, edge)),
-								Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(RemoveAssignPair(edge))], [Html.text("✕")])
+								UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-destructive", label: "Remove ${pair_badge_text(model.subjectPairsData, edge)}" }, RemoveAssignPair(edge), [Html.text("✕")])
 							])
 						}))
 					},
@@ -1479,9 +1532,10 @@ assign_form = |model| {
 				]),
 				Html.div([Attribute.class("px-6 pb-6 pt-0")], [
 					Html.div([Attribute.class("flex justify-end border-t pt-4 gap-2")], [
-						UI.button({ variant: Outline, size: Default, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Cancel")]),
-						UI.button({ variant: Primary, size: Default, on_click: Click(SubmitTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text(if model.isSubmitting { "Saving..." } else { "Save Assignments" })])
+						UI.button({ ..UI.default_button, variant: Outline, size: Default, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Cancel")]),
+						UI.button({ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "" }, [Html.text(if model.isSubmitting { "Saving..." } else { "Save Assignments" })])
 					])
+				])
 				])
 			])
 		])
@@ -1506,10 +1560,9 @@ pair_options = |model, selected, query, on_pick| {
 			parts = Str.split_on(line, "|")
 			edge = config_field(parts, 0, "")
 			haystack = Str.join_with([config_field(parts, 2, ""), config_field(parts, 4, "")], " / ")
-			Html.div([
-				Attribute.class("px-3 py-2 text-sm hover:bg-muted cursor-pointer"),
-				Attribute.on_click(on_pick(edge))
-			], [Html.text(haystack)])
+			# One choice: a button in everything but tag (see UI.pressable), so Tab reaches it
+			# after the search box and Enter picks it.
+			UI.pressable({ ..UI.default_pressable, classes: "px-3 py-2 text-sm hover:bg-muted", label: "" }, on_pick(edge), [Html.text(haystack)])
 		})
 	)
 }
@@ -1522,7 +1575,7 @@ pair_badges = |model, selected, on_remove| {
 		Html.div([Attribute.class("flex flex-wrap gap-1.5")], List.map(selected, |edge| {
 			Html.span([Attribute.class("inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium")], [
 				Html.text(pair_badge_text(model.subjectPairsData, edge)),
-				Html.span([Attribute.class("cursor-pointer hover:text-destructive"), Attribute.on_click(on_remove(edge))], [Html.text("✕")])
+				UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-destructive", label: "Remove ${pair_badge_text(model.subjectPairsData, edge)}" }, on_remove(edge), [Html.text("✕")])
 			])
 		}))
 	}
@@ -1569,11 +1622,10 @@ admin_class_picker = |model| {
 							parts = Str.split_on(line, "|")
 							id = config_field(parts, 0, "")
 							name = config_field(parts, 1, "Class")
-							Html.div([
-								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-								Attribute.data("nav", ""),
-								Attribute.on_click(SelectAdminClass(id, name))
-							], [
+							UI.pressable(
+								{ classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+								SelectAdminClass(id, name),
+								[
 								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("🏫")]),
 								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
 								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view its subjects")])
@@ -1589,7 +1641,7 @@ admin_class_picker = |model| {
 admin_subjects_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminClasses, [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_class_label(model))])
 		]),
@@ -1612,11 +1664,10 @@ admin_subjects_view = |model| {
 							parts = Str.split_on(line, "|")
 							subject_id = config_field(parts, 3, "")
 							subject_name = config_field(parts, 4, "Subject")
-							Html.div([
-								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-								Attribute.data("nav", ""),
-								Attribute.on_click(SelectAdminSubject(subject_id, subject_name))
-							], [
+							UI.pressable(
+								{ classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+								SelectAdminSubject(subject_id, subject_name),
+								[
 								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
 								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(subject_name)]),
 								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view terms")])
@@ -1632,9 +1683,9 @@ admin_subjects_view = |model| {
 admin_terms_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminClasses, [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(lms_class_label(model))]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminSubjects, [Html.text(lms_class_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_subject_label(model))])
 		]),
@@ -1654,11 +1705,10 @@ admin_terms_view = |model| {
 							parts = Str.split_on(line, "|")
 							id = config_field(parts, 0, "")
 							name = config_field(parts, 1, "Term")
-							Html.div([
-								Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-								Attribute.data("nav", ""),
-								Attribute.on_click(SelectAdminTerm(id, name))
-							], [
+							UI.pressable(
+								{ classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+								SelectAdminTerm(id, name),
+								[
 								Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📅")]),
 								Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
 								Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Click to view lessons")])
@@ -1674,11 +1724,11 @@ admin_terms_view = |model| {
 admin_lessons_view = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminClasses)], [Html.text("← All classes")]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminClasses, [Html.text("← All classes")]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminSubjects)], [Html.text(lms_class_label(model))]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminSubjects, [Html.text(lms_class_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
-			Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminTerms)], [Html.text(lms_subject_label(model))]),
+			UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminTerms, [Html.text(lms_subject_label(model))]),
 			Html.span([Attribute.class("text-border")], [Html.text("›")]),
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_term_label(model))])
 		]),
@@ -1700,11 +1750,10 @@ admin_lessons_view = |model| {
 							id = config_field(parts, 0, "")
 							title = config_field(parts, 1, "Lesson")
 							week = config_field(parts, 2, "")
-							Html.div([
-								Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
-								Attribute.data("nav", ""),
-								Attribute.on_click(OpenAdminLesson(id))
-							], [
+							UI.pressable(
+								{ classes: "group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all", label: "Open ${title}", is_nav: Bool.True },
+								OpenAdminLesson(id),
+								[
 								Html.div([Attribute.class("flex-1 min-w-0")], [
 									Html.h3([Attribute.class("font-medium text-foreground group-hover:text-primary transition-colors truncate")], [Html.text(title)]),
 									Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(if Str.is_empty(week) { "Lesson" } else { "Week ${week}" })])
@@ -1731,7 +1780,7 @@ admin_lesson_view = |model| {
 					Attribute.on_input(|s| GotLessonContent(s))
 				]),
 				Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
-					Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(BackAdminLessons)], [Html.text("← Back to lessons")]),
+					UI.pressable_span({ ..UI.default_pressable, classes: "hover:text-foreground", label: "", is_nav: Bool.True }, BackAdminLessons, [Html.text("← Back to lessons")]),
 					Html.span([Attribute.class("text-border")], [Html.text("›")]),
 					Html.span([Attribute.class("text-foreground font-medium")], [Html.text("Lesson")])
 				]),
@@ -1912,10 +1961,10 @@ config_record_options = |list_data, placeholder| {
 
 terms_config_view = |model| {
 	config_card("Academic Terms", "Terms run in order within the school year; every term is listed here, active or not. Editing rewrites the row, deactivating keeps it.", [
-		config_form_row([
+		config_create_form(model, Terms, "Create Term", [
 			config_labeled_input("Term name", "e.g. Summer Term", "text", model.newTermName, model.isConfigSubmitting, |s| UpdateNewTermName(s)),
 			config_labeled_input("Sort order", "e.g. 3", "number", model.newTermSortOrder, model.isConfigSubmitting, |s| UpdateNewTermSortOrder(s)),
-		], config_submit_button(model, Terms, "Create Term")),
+		]),
 		config_create_banner(model),
 		config_table(["Term", "Sort order", "Status", "Actions"], terms_rows(model))
 	])
@@ -1947,8 +1996,8 @@ terms_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell("Term", config_edit_input("Term name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell("Sort order", config_edit_input("Sort order", "number", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			config_edit_cell(Terms, "Term", config_edit_input("Term name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(Terms, "Sort order", config_edit_input("Sort order", "number", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
 			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Terms)
 		])
@@ -1966,11 +2015,11 @@ terms_row = |model, line| {
 
 class_levels_config_view = |model| {
 	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); a deactivated level stays listed so it can be switched back on. The stage says which part of the school a level is (primary, junior, senior) and is what lessons are written for: a senior class gets exam-level lessons, a junior one does not.", [
-		config_form_row([
+		config_create_form(model, ClassLevels, "Create Class Level", [
 			config_labeled_input("Class level name", "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
 			config_labeled_input("Code", "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
 			config_labeled_select_value("Stage", "new-class-level-tier-select", if Str.is_empty(model.newClassLevelTier) { "none" } else { model.newClassLevelTier }, config_stage_options, |s| UpdateNewClassLevelTier(s)),
-		], config_submit_button(model, ClassLevels, "Create Class Level")),
+		]),
 		config_create_banner(model),
 		config_table(["Class level", "Code", "Age range", "Stage", "Status", "Actions"], class_levels_rows(model))
 	])
@@ -2007,10 +2056,10 @@ class_levels_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell("Class level", config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell("Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
-			config_edit_cell("Age range", config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
-			config_edit_cell("Stage", config_row_select("edit-class-level-tier-select", if Str.is_empty(model.editField4) { "none" } else { model.editField4 }, config_stage_options, |s| UpdateEditField4(s))),
+			config_edit_cell(ClassLevels, "Class level", config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(ClassLevels, "Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			config_edit_cell(ClassLevels, "Age range", config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
+			config_edit_cell(ClassLevels, "Stage", config_row_select("edit-class-level-tier-select", if Str.is_empty(model.editField4) { "none" } else { model.editField4 }, config_stage_options, |s| UpdateEditField4(s))),
 			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, ClassLevels)
 		])
@@ -2055,10 +2104,10 @@ tier_label = |tier| match tier {
 
 curriculum_config_view = |model| {
 	config_card("Curriculum", "Link subjects to class levels to define what each level studies. A link switched off stays listed (and keeps its lessons) so it can be restored.", [
-		config_form_row([
+		config_create_form(model, Curriculum, "Link Subject", [
 			config_labeled_select("Class level", "new-curriculum-class-level-select", config_record_options(model.classLevelsData, "No class levels yet"), |s| UpdateNewCurriculumClassLevel(s)),
 			config_labeled_select("Subject", "new-curriculum-subject-select", config_record_options(model.subjectsData, "No subjects yet"), |s| UpdateNewCurriculumSubject(s)),
-		], config_submit_button(model, Curriculum, "Link Subject")),
+		]),
 		config_create_banner(model),
 		config_table(["Class level", "Subject", "Status", "Actions"], curriculum_rows(model))
 	])
@@ -2095,10 +2144,10 @@ curriculum_row = |model, line| {
 
 session_terms_config_view = |model| {
 	config_card("Session Terms", "Pairs a school session (e.g. 2026/2027) with one of the terms above. New session terms start inactive; activating one is what makes it usable.", [
-		config_form_row([
+		config_create_form(model, SessionTerms, "Create Session Term", [
 			config_labeled_input("Session name", "e.g. 2026/2027", "text", model.newSessionTermName, model.isConfigSubmitting, |s| UpdateNewSessionTermName(s)),
 			config_labeled_select("Term", "new-session-term-select", config_record_options(model.termsData, "No terms yet"), |s| UpdateNewSessionTermTerm(s)),
-		], config_submit_button(model, SessionTerms, "Create Session Term")),
+		]),
 		config_create_banner(model),
 		config_table(["Session", "Term", "Status", "Actions"], session_terms_rows(model))
 	])
@@ -2126,8 +2175,8 @@ session_terms_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell("Session", config_edit_input("Session name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell("Term", config_row_select("edit-session-term-select", model.editField2, config_record_options(model.termsData, "No terms yet"), |s| UpdateEditField2(s))),
+			config_edit_cell(SessionTerms, "Session", config_edit_input("Session name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(SessionTerms, "Term", config_row_select("edit-session-term-select", model.editField2, config_record_options(model.termsData, "No terms yet"), |s| UpdateEditField2(s))),
 			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, SessionTerms)
 		])
@@ -2145,10 +2194,10 @@ session_terms_row = |model, line| {
 
 subjects_config_view = |model| {
 	config_card("Subjects", "The subjects the school offers, active or not. Deactivating one takes it off the students' cards without deleting it, and it stays listed here.", [
-		config_form_row([
+		config_create_form(model, Subjects, "Create Subject", [
 			config_labeled_input("Subject name", "e.g. Mathematics", "text", model.newSubjectName, model.isConfigSubmitting, |s| UpdateNewSubjectName(s)),
 			config_labeled_input("Code", "e.g. MTH", "text", model.newSubjectCode, model.isConfigSubmitting, |s| UpdateNewSubjectCode(s)),
-		], config_submit_button(model, Subjects, "Create Subject")),
+		]),
 		config_create_banner(model),
 		config_table(["Subject", "Code", "Status", "Actions"], subjects_rows(model))
 	])
@@ -2174,8 +2223,8 @@ subjects_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell("Subject", config_edit_input("Subject name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell("Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			config_edit_cell(Subjects, "Subject", config_edit_input("Subject name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell(Subjects, "Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
 			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Subjects)
 		])

@@ -5,7 +5,8 @@
 //   node tests/e2e/e2e_nav_fixes.cjs
 
 const { chromium } = require('playwright');
-const appUrl = 'http://127.0.0.1:8000';
+// `APP_URL` like the other browser suites, so a build under test can be driven on its own port.
+const appUrl = process.env.APP_URL || 'http://127.0.0.1:8000';
 const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const mk = (groups, name) => `${b64u({alg:'RS256',typ:'JWT'})}.${b64u({iss:'https://auth.johnethel.school/application/o/school-management-system/',exp:Math.floor(Date.now()/1000)+3600,email:name+'@example.com',name,groups})}.sig`;
 const results = [];

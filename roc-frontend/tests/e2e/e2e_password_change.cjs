@@ -50,7 +50,7 @@ const api = async (method, path, body) => {
     headers: { ...route.request().headers(), authorization: `Bearer ${studentToken}` },
   }));
   const hasText = (t) => page.evaluate((s) => document.body.innerText.includes(s), t);
-  const navLabels = () => page.$$eval('#app div[data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
+  const navLabels = () => page.$$eval('#app aside [data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
 
   // The dashboard is where a student lands; the requirement moves them to Settings.
   await page.goto(`${appUrl}/`, { waitUntil: 'load' });
@@ -85,7 +85,7 @@ const api = async (method, path, body) => {
   check('the sidebar comes back', after.includes('My Subjects') && !after.includes('Settings only'), JSON.stringify(after));
 
   // And the data the requirement was holding is open.
-  await page.click('#app div[data-nav]:has-text("My Subjects")');
+  await page.click('#app aside [data-nav]:has-text("My Subjects")');
   await page.waitForTimeout(3500);
   check('and the pages work again', await page.evaluate(() => !document.body.innerText.includes('password_change_required')), page.url());
 

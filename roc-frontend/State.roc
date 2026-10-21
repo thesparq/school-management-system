@@ -1,4 +1,4 @@
-module [Model, Msg, init, update, Route, Role, AdminConfigTab, AdminUserTab, ListState, list_state, catalog_field, admin_catalog_permissions, admin_catalog_types, caller_has_permission, can_manage_admin_rights, admin_type_permissions, admin_default_type]
+module [Model, Msg, init, update, Route, Role, route_path, AdminConfigTab, AdminUserTab, ListState, list_state, catalog_field, admin_catalog_permissions, admin_catalog_types, caller_has_permission, can_manage_admin_rights, admin_type_permissions, admin_default_type]
 
 import pf.Effect
 import pf.Http
@@ -30,6 +30,30 @@ Route : [
 ]
 
 Role : [Admin, Teacher, Student, Parent, Unauthenticated]
+
+# The address a route lives at. One place, because two readers need the same answer: the
+# navigation pushes it (`NavigateTo`) and the views put it on the links themselves
+# (`UI.link`/`UI.sidebar_nav_item`), so what the browser shows on hover, what Ctrl-click opens in
+# a second tab and what the app pushes on a click are the same URL.
+route_path : Route -> Str
+route_path = |route| {
+        match route {
+                Dashboard => "/"
+                AdminUserManagement => "/admin/users"
+                AdminConfigurationHub => "/admin/config"
+                AdminLMS => "/admin/lms"
+                TeacherLessonViewer => "/teacher/lessons"
+                TeacherAssessments => "/teacher/assessments"
+                StudentLessonViewer => "/student/lessons"
+                StudentAssignments => "/student/assignments"
+                StudentSubjects => "/student/subjects"
+                StudentLesson => "/student/lesson"
+                TeacherMyClasses => "/teacher/classes"
+                Messaging => "/messaging"
+                Settings => "/settings"
+                NotFound => "/404"
+        }
+}
 
 # What one hidden input's payload says about a list. The page's JavaScript answers every fetch —
 # a request that failed answers `error` with the backend's own message — so a list is never left
@@ -251,7 +275,12 @@ Model : {
 Msg : [
 	UrlChanged(Str),
 	NavigateTo(Route),
-	    ToggleTheme,
+	# Escape, wherever the focus is: the app's own subscription (see app.roc). It backs out of the
+	# transient layer — the topmost thing that is open over the page: a modal, then the avatar menu,
+	# the bell, the phone's sidebar — which is the keyboard's way to do what a click outside or on the
+	# backdrop does.
+	EscapePressed,
+	ToggleTheme,
 	    ToggleMobileMenu,
 	    # The avatar menu: toggled by the avatar, and closed by a click anywhere outside it (the page's
 	    # own listener sends CloseUserMenu) so it never stays open behind a navigation.
@@ -1021,10 +1050,27 @@ update = |model, msg| {
 	}
 
 	if model.passwordRequired and is_navigation and model.route != Settings {
-		({ ..model, route: Settings, mobileMenuOpen: Bool.False }, [Port.send("push_state", "/settings")])
+		({ ..model, route: Settings, mobileMenuOpen: Bool.False }, [Port.send("push_state", route_path(Settings))])
 	} else {
 		dispatch(model, msg)
 	}
+}
+
+# Closers the page and the keyboard share. Both modals are closed from their own ✕/Cancel and
+# from Escape (see the EscapePressed arm), and the two have to leave the model in the same state:
+# every draft the modal carried goes with it, so opening it again starts fresh.
+
+# The user form's modal: create, complete-profile, edit and reset-password all live in it, so the
+# fields, the seat the pairs picker seeded itself from and the once-only credentials panel all go
+# with it.
+close_user_form = |model| {
+        { ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }
+}
+
+# The teacher's Assign dialog: the badges, the search box and the last save's answer all belong to
+# the dialog, and the next open seeds itself from the teacher's own pairs again.
+close_assign_dialog = |model| {
+        { ..model, assignDialogOpen: Bool.False, assignTeacherId: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }
 }
 
 dispatch : Model, Msg -> (Model, List(Effect(Msg)))
@@ -1072,7 +1118,7 @@ dispatch = |model, msg|
 			(
 				{ ..model, route: AdminUserManagement, mobileMenuOpen: Bool.False },
 			                        [
-			                                Port.send("push_state", "/admin/users"),
+			                                Port.send("push_state", route_path(AdminUserManagement)),
 			                                Port.send("fetch_data", active_tab_url),
 			                                # The create form's class-level picker needs the active levels, and
 			                                # fetching them here means the dropdown is ready before a first submit.
@@ -1086,7 +1132,7 @@ dispatch = |model, msg|
 		NavigateTo(AdminLMS) => (
 			{ ..model, route: AdminLMS, mobileMenuOpen: Bool.False, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", currentLessonContent: "" },
 			[
-				Port.send("push_state", "/admin/lms"),
+				Port.send("push_state", route_path(AdminLMS)),
 				Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
 				Port.send("fetch_data", "/api/class-subjects"),
 				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
@@ -1095,7 +1141,7 @@ dispatch = |model, msg|
 		NavigateTo(StudentSubjects) => (
 			{ ..model, route: StudentSubjects, mobileMenuOpen: Bool.False, selectedSubjectId: "", selectedSubjectName: "", selectedTermId: "", selectedTermName: "", selectedLessonId: "", studentTermsData: "", studentLessonsData: "", currentLessonContent: "" },
 			[
-				Port.send("push_state", "/student/subjects"),
+				Port.send("push_state", route_path(StudentSubjects)),
 				# The list's payload can be dropped when the boot fetch answered before this page's
 				# hidden input existed — refetch on entry, like the admin pages do, so a first
 				# navigation after a login never strands the list on its skeleton.
@@ -1105,7 +1151,7 @@ dispatch = |model, msg|
 		NavigateTo(AdminConfigurationHub) => (
 			{ ..model, route: AdminConfigurationHub, mobileMenuOpen: Bool.False },
 			[
-				Port.send("push_state", "/admin/config"),
+				Port.send("push_state", route_path(AdminConfigurationHub)),
 				Port.send("fetch_data", "/api/terms"),
 				Port.send("fetch_data", "/api/subjects"),
 				Port.send("fetch_data", "/api/subjects?all=true"),
@@ -1121,29 +1167,13 @@ dispatch = |model, msg|
 			{ ..model, route: Dashboard, mobileMenuOpen: Bool.False },
 			# A parent's dashboard also lists their children, so that fetch rides the same navigation.
 			if model.role == Parent {
-				[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard"), Port.send("fetch_data", "/api/parent/children")]
+				[Port.send("push_state", route_path(Dashboard)), Port.send("fetch_data", "/api/dashboard"), Port.send("fetch_data", "/api/parent/children")]
 			} else {
-				[Port.send("push_state", "/"), Port.send("fetch_data", "/api/dashboard")]
+				[Port.send("push_state", route_path(Dashboard)), Port.send("fetch_data", "/api/dashboard")]
 			}
 		)
 		NavigateTo(route) => {
-			urlStr = match route {
-				Dashboard => "/"
-				AdminUserManagement => "/admin/users"
-				AdminConfigurationHub => "/admin/config"
-				AdminLMS => "/admin/lms"
-				TeacherLessonViewer => "/teacher/lessons"
-				TeacherAssessments => "/teacher/assessments"
-				StudentLessonViewer => "/student/lessons"
-				StudentAssignments => "/student/assignments"
-				StudentSubjects => "/student/subjects"
-				StudentLesson => "/student/lesson"
-				TeacherMyClasses => "/teacher/classes"
-				Messaging => "/messaging"
-				Settings => "/settings"
-				NotFound => "/404"
-			}
-			({ ..model, route: route, mobileMenuOpen: Bool.False }, [Port.send("push_state", urlStr)])
+			({ ..model, route: route, mobileMenuOpen: Bool.False }, [Port.send("push_state", route_path(route))])
 		}
 		ToggleTheme => {
 			newTheme = match model.theme {
@@ -1164,6 +1194,27 @@ dispatch = |model, msg|
 		}
 		            ToggleNotifications => ({ ..model, notificationsOpen: !(model.notificationsOpen) }, [])
 		            CloseNotifications => ({ ..model, notificationsOpen: Bool.False }, [])
+           # Escape is the keyboard's way out of whatever is layered over the page, in the order
+           # the layers sit: a modal first (the user form or the teacher's Assign dialog), then
+           # the avatar menu, the bell's panel and the phone's sidebar. Nothing open means nothing
+           # to do. A write in flight keeps its modal — the same rule the modal's own ✕ button has
+           # (`isSubmitting` disables it), so Escape can never drop a request someone is waiting
+           # on.
+           EscapePressed => {
+                   if model.userFormOpen and !model.isSubmitting {
+                           (close_user_form(model), [])
+                   } else if model.assignDialogOpen {
+                           (close_assign_dialog(model), [])
+                   } else if model.userMenuOpen {
+                           ({ ..model, userMenuOpen: Bool.False }, [])
+                   } else if model.notificationsOpen {
+                           ({ ..model, notificationsOpen: Bool.False }, [])
+                   } else if model.mobileMenuOpen {
+                           ({ ..model, mobileMenuOpen: Bool.False }, [])
+                   } else {
+                           (model, [])
+                   }
+           }
 		            GotNotificationsData(s) => ({ ..model, notificationsData: s }, [])
 		            ClearNotifications => ({ ..model, notificationsData: "", notificationsOpen: Bool.False }, [Port.send("clear_notifications", "")])
 		                SignOut => {
@@ -1275,7 +1326,7 @@ dispatch = |model, msg|
 				Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${id}"),
 			]
 		)
-		CloseTeacherAssign => ({ ..model, assignDialogOpen: Bool.False, assignTeacherId: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, [])
+		           CloseTeacherAssign => (close_assign_dialog(model), [])
 		GotTeacherAssignmentsData(s) => {
 			# The fetch answers after the dialog opened, so the current pairs seed the badge list once
 			# — never again, or a post-save refetch would undo the admin's edits.
@@ -1361,7 +1412,7 @@ dispatch = |model, msg|
 		BackAdminClasses => (
 			{ ..model, adminLmsClassId: "", adminLmsClassName: "", adminLmsSubjectId: "", adminLmsSubjectName: "", adminLmsTermId: "", adminLmsTermName: "", adminLmsLessonsData: "", selectedLessonId: "", currentLessonContent: "" },
 			[
-				Port.send("push_state", "/admin/lms"),
+				Port.send("push_state", route_path(AdminLMS)),
 				Port.send("fetch_data", "/api/class_levels?admin_lms=1"),
 				Port.send("fetch_data", "/api/class-subjects"),
 				Port.send("fetch_data", "/api/student/terms?admin_lms=1"),
@@ -1727,7 +1778,7 @@ dispatch = |model, msg|
 		                                [Port.send("fetch_data", "/api/users?role=Student"), Port.send("fetch_data", "/api/admin-types")]
 		                        )
 		                }
-		CloseUserForm => ({ ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordEmail: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
+		           CloseUserForm => (close_user_form(model), [])
 		# Edit loads the row's own line into the form (same PUT as completing, prefilled from the row),
 		# so an admin can change the school data of an account that already has it — a mis-typed name,
 		# the wrong class level, a new passport.
@@ -2021,7 +2072,7 @@ dispatch = |model, msg|
            	# The state only ever *arrives* here; the route follows it, and a login with nothing owed
            	# stays exactly where it is.
            	if required and model.route != Settings {
-           		({ ..model, passwordStateData: s, passwordRequired: required, passwordReason: reason, route: Settings }, [Port.send("push_state", "/settings")])
+           		({ ..model, passwordStateData: s, passwordRequired: required, passwordReason: reason, route: Settings }, [Port.send("push_state", route_path(Settings))])
            	} else {
            		({ ..model, passwordStateData: s, passwordRequired: required, passwordReason: reason }, [])
            	}
@@ -2115,7 +2166,7 @@ dispatch = |model, msg|
 				route: StudentLesson,
 			},
 			[
-				Port.send("push_state", "/student/lesson"),
+				Port.send("push_state", route_path(StudentLesson)),
 				Port.send("fetch_data", "/api/student/terms"),
 			]
 		)
@@ -2153,7 +2204,7 @@ dispatch = |model, msg|
 		OpenTeacherSubject(class_id, subject_id, subject_name) => (
 			{ ..model, route: TeacherLessonViewer, teacherClassId: class_id, selectedSubjectId: subject_id, selectedSubjectName: subject_name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
 			[
-				Port.send("push_state", "/teacher/lessons"),
+				Port.send("push_state", route_path(TeacherLessonViewer)),
 				Port.send("fetch_data", "/api/teacher/lessons?class_id=${class_id}&subject_id=${subject_id}"),
 			]
 		)
@@ -2170,7 +2221,7 @@ dispatch = |model, msg|
 				currentLessonContent: "",
 				route: StudentSubjects,
 			},
-			[Port.send("push_state", "/student/subjects")]
+			[Port.send("push_state", route_path(StudentSubjects))]
 		)
 		BackToTerms => (
 			{ ..model,

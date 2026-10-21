@@ -4,6 +4,78 @@
 
 **Status: backend + renderer aligned to prod (`db2.johnethel.school`, ns `main`, db `lessons`); one pre-existing frontend blocker open (see below).**
 
+### The keyboard — every form and every control (2026-10-21)
+
+The school's ask: "the different forms should be keyboard supportive — tabs, spacebar and enter keys
+should work". The rule is now one rule, and it lives in `roc-frontend/UI.roc`:
+
+- **A real control wherever the shape allows.** `<button>`, `<a href>`, `<input>`, `<select>` and a
+  real `<form>` answer the keyboard by themselves, and they are what the app uses: every one of the
+  app's forms is now a `<form>` (`UI.form`) whose submit button is a `<button type=submit>`
+  (`is_submit` on the button config), so **Enter in any field sends it** and the browser's own
+  implicit submission does the work — the user form (create / complete / edit / reset password), the
+  teacher's Assign dialog, the six configuration-hub create forms, the hub's in-row editors (Enter
+  saves: the handler rides the cell, since a `<form>` cannot sit between table rows) and the Settings
+  password form.
+- **`UI.pressable` / `UI.pressable_span`** for the controls whose markup has to be a `div` or a
+  `span`: `role="button"`, `tabindex=0`, a visible focus ring, and `on_key(["Enter", " "])`
+  with `prevent_default`, so **Enter or Space does what a click does** — the role and configuration
+  tabs, the badge ✕s, the search-dropdown rows, the drill-down cards, the LMS breadcrumbs, the
+  student/teacher quick links.
+- **`UI.link`** for anything that goes somewhere: a real `<a href>` (Tab reaches it, Enter follows
+  it, Ctrl-click opens a second tab) whose click the app still owns (`prevent_default`, then the
+  app's own navigation). `State.route_path` is now the one place a route's address is written down —
+  the sidebar items, the breadcrumbs and the pushed URLs all read it from there, so what the browser
+  shows on hover is what the app pushes.
+- **`UI.tick`** for the app's checkboxes: still a `<button>` (the click stays a Joy message), now
+  with `role="checkbox"` and `aria-checked`, and a caller-set glyph size.
+- **Escape backs out of the topmost layer**, which is the app's own subscription
+  (`Keyboard.on_down_keys` in `app.roc`) and its own decision (`State`'s `EscapePressed` arm: the user
+  form or the Assign dialog, then the avatar menu, the bell, the phone's sidebar — a write in flight
+  keeps its modal, exactly like the modal's ✕).
+- **The page's own layer** (`www/index.html`, one block in `setupKeyboardSupport`) does the two
+  things the app cannot: the focus **moves into a dialog when it opens** and **Tab stays inside it**
+  (`data-dialog` marks the app's modals and the two assessment modals the page's JavaScript owns;
+  the focus returns to the control that opened it), and **Enter submits the forms the page builds**
+  (the assessment modals and the chat channel forms name their primary button in
+  `data-enter-submit`, and an empty value there says "this part is fields of its own" — the question
+  rows). A page-owned dialog names its close button in `data-dialog-dismiss`, which is what Escape
+  presses.
+- The JS-owned tab strips (`showTab`, `showGeneralTab`) now set `aria-selected` beside the class
+  they already switched, so the tabs the page draws say which one is on.
+
+The new `e2e_keyboard.cjs` drives all of it in Chromium (see the suites table in
+`roc-frontend/tests/e2e/README.md`). Not changed: the Matrix composer keeps its own Enter-sends
+behaviour (Shift+Enter is a newline) and the invite search keeps Enter-for-search — a chat box and a
+search field are not forms.
+
+**Verified** (a dev build of this worktree served on its own port, sandbox backend, Chromium):
+`e2e_keyboard.cjs` 25/25; and the suites this touches, re-run against the same build —
+`e2e_admin` 16/16, `e2e_admin_config` 56/57 (its documented leftover-duplicate-edge caveat),
+`e2e_admin_permissions` 30/30, `e2e_admin_responsive` 43/43, `e2e_boot_and_cache` 15/15,
+`e2e_loading` 20/20, `e2e_signout` 13/13, `e2e_users_directory` 30/30, `e2e_nav_fixes` 10/10,
+`e2e_password_change` 19/19, `e2e_user_roles` 19/19, `e2e_student` 7/7, `e2e_assessments` 17/17,
+`e2e_general_assessments` 25/25, `e2e_chat_channels` 16/16, `e2e_notifications_lms` 26/26,
+`e2e_list_order` 10/10, `e2e_matrix_sso` 31/31, `e2e_auth_callback` 12/12, `e2e_icons_refresh`
+10/10. `roc check app.roc` and `roc check main.roc` are clean (the one warning is State.roc's
+pre-existing module header). Three suites needed a small fix to read the new markup:
+`e2e_admin_permissions`/`e2e_password_change` looked for the sidebar's items as `div[data-nav]`
+(they are links now, so they read `#app aside [data-nav]`), and `e2e_nav_fixes`/`e2e_icons_refresh`
+hard-coded port 8000 instead of honouring `APP_URL` like every other browser suite.
+
+**Not run here**: `e2e_passport_upload.cjs` (9 checks) needs the R2 upload variables the sandbox
+backend is not started with — it fails on its upload checks before anything the keyboard work
+touches. And `e2e_assessments.cjs`'s "released grade is shown" missed once on a sandbox a partial
+earlier run had left a second submission in, then passed 17/17 on a clean re-run: it is a state
+flake, not this change (the grading list is filled by the page's own JavaScript, which this change
+does not touch beyond its tab button).
+
+**Build note for the next session**: the compiler emits its LLVM objects under `$TMPDIR`, and each
+Delta turn gets a fresh one, so a build that reuses an object from a previous turn fails with
+`object file emit error ... No such file or directory` for a path under the old turn's scratch
+directory. Run the build with a stable `TMPDIR` (`TMPDIR=$HOME/.cache/roc-tmp roc build ...`) —
+that is also how the build here was produced.
+
 ### List ordering — the school's class order, subjects alphabetical (2026-10-20)
 
 The lists the pages render came back in whatever order the query happened to produce: the class lists

@@ -9,6 +9,7 @@ app [Model, Msg, init, update, render, subscriptions] {
 import html.Html exposing [div, h1, p, text, a, span]
 import html.Attribute exposing [class]
 import pf.DOM
+import pf.Keyboard
 import pf.Sub
 
 import State exposing [Route, list_state]
@@ -28,7 +29,12 @@ init = State.init
 
 subscriptions : Model -> List(Sub(Msg))
 subscriptions = |_model| [
-	DOM.on_url_change(|url| UrlChanged(url))
+	DOM.on_url_change(|url| UrlChanged(url)),
+	# Escape is the keyboard's way out of whatever is layered over the page: a modal, the avatar
+	# menu, the bell's panel, the phone's sidebar. The app owns which of those is open, so which
+	# one Escape closes is the update's decision (State's `EscapePressed` arm) — this only says
+	# that the key was pressed.
+	Keyboard.on_down_keys(["Escape"], |_| EscapePressed)
 ]
 
 update = State.update
@@ -77,6 +83,32 @@ notifications_panel_body = |model| {
 	}
 }
 
+# One sidebar item. Its label, the route it goes to, and the address that route lives at: the item
+# is a real link (`UI.sidebar_nav_item`), so Tab reaches it, Enter follows the focused one, the
+# status bar shows where it goes and a Ctrl-click opens a second tab on it — and the click is still
+# the app's own navigation, so the page is never reloaded.
+sidebar_item = |model, route, label| {
+	UI.sidebar_nav_item(
+		{
+			..UI.default_sidebar_nav_item,
+			href: State.route_path(route),
+			is_active: model.route == route,
+			on_click: Click(NavigateTo(route)),
+		},
+		[text(label)],
+	)
+}
+
+# The first breadcrumb on every page: the dashboard. A real link (`UI.link`), so Tab reaches it,
+# Enter follows it, and a Ctrl-click opens the dashboard in a second tab. A function, like the
+# other pieces of a view here: a top-level `Html` value would be inferred as a tag union of its own
+# and could not be one of the app's messages.
+root_crumb = |_model| UI.link(
+	{ classes: "hover:text-foreground transition-colors", href: State.route_path(Dashboard), label: "" },
+	NavigateTo(Dashboard),
+	[text("Dashboard")],
+)
+
 render : Model -> Html(Msg)
 render = |model| {
 	theme_class =
@@ -91,12 +123,12 @@ render = |model| {
 		# A password change is owed: the shell offers one page, because the backend refuses every
 		# other route (see password_change_cleared! in main.roc). Signing out stays in the avatar menu.
 		[
-			UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Settings, on_click: Click(NavigateTo(Settings)) }, [text("Settings")])
+			sidebar_item(model, Settings, "Settings")
 		]
 	} else {
 				List.concat(
 			[
-				UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("Dashboard")])
+				sidebar_item(model, Dashboard, "Dashboard")
 			],
 			match model.role {
 				Admin => {
@@ -114,26 +146,23 @@ render = |model| {
 
 			                                        List.concat(
 			                                                List.map(shown, |item| {
-			                                                        UI.sidebar_nav_item(
-			                                                                { ..UI.default_sidebar_nav_item, is_active: model.route == item.route, on_click: Click(NavigateTo(item.route)) },
-			                                                                [text(item.label)]
-			                                                        )
+			                                                        sidebar_item(model, item.route, item.label)
 			                                                }),
-			                                                [UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])]
+			                                                [sidebar_item(model, Messaging, "Messaging")]
 			                                        )
 			                                }
 				Teacher => [
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherMyClasses, on_click: Click(NavigateTo(TeacherMyClasses)) }, [text("My Classes")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == TeacherAssessments, on_click: Click(NavigateTo(TeacherAssessments)) }, [text("Assessments & Grading")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+					sidebar_item(model, TeacherMyClasses, "My Classes"),
+					sidebar_item(model, TeacherAssessments, "Assessments & Grading"),
+					sidebar_item(model, Messaging, "Messaging")
 				]
 				Student => [
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == StudentSubjects, on_click: Click(NavigateTo(StudentSubjects)) }, [text("My Subjects")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+					sidebar_item(model, StudentSubjects, "My Subjects"),
+					sidebar_item(model, Messaging, "Messaging")
 				]
 				Parent => [
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Dashboard, on_click: Click(NavigateTo(Dashboard)) }, [text("My Children")]),
-					UI.sidebar_nav_item({ ..UI.default_sidebar_nav_item, is_active: model.route == Messaging, on_click: Click(NavigateTo(Messaging)) }, [text("Messaging")])
+					sidebar_item(model, Dashboard, "My Children"),
+					sidebar_item(model, Messaging, "Messaging")
 				]
 				Unauthenticated => []
 			}
@@ -196,7 +225,16 @@ render = |model| {
 	# Mobile Sidebar Overlay
 	mobile_sidebar =
 		if model.mobileMenuOpen {
-			div([class("fixed inset-0 z-50 md:hidden")], [
+			# The phone's drawer is a dialog of its own while it is up: the page's own layer takes the
+			# focus into it and keeps Tab inside it (see www/index.html), and Escape closes it (the
+			# app's own subscription). At `md` and up the drawer is `display:none`, so the page never
+			# treats it as one.
+			div([
+				class("fixed inset-0 z-50 md:hidden"),
+				Attribute.role("dialog"),
+				Attribute.aria("label", "Menu"),
+				Attribute.data("dialog", "")
+			], [
 				div([class("fixed inset-0 bg-black/50"), Attribute.on_click(ToggleMobileMenu)], []),
 				div([class("fixed left-0 top-0 bottom-0 w-64 bg-card border-r shadow-xl flex flex-col z-51")], [
 					sidebar_header_content,
@@ -217,67 +255,67 @@ render = |model| {
 				span([class("text-foreground font-semibold")], [text("Dashboard")])
 			]
 			AdminUserManagement => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("User Management")])
 			]
 			AdminConfigurationHub => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Configuration Hub")])
 			]
 			AdminLMS => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("LMS")])
 			]
 			TeacherLessonViewer => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Lesson Viewer")])
 			]
 			TeacherAssessments => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Assessments & Grading")])
 			]
 			StudentLessonViewer => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("My Lessons")])
 			]
 			StudentAssignments => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Assignments")])
 			]
 			StudentSubjects => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("My Subjects")])
 			]
 			StudentLesson => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Lesson")])
 			]
 			TeacherMyClasses => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("My Classes")])
 			]
 			Messaging => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Messaging")])
 			]
 			Settings => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Settings")])
 			]
 			_ => [
-				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				root_crumb(model),
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Page")])
 			]

@@ -68,12 +68,10 @@ teacher_classes_view = |model| {
 # class id as well as the subject, so the picker it opens lists one class's lessons rather than that
 # subject's lessons across every class level.
 teacher_pair_card = |class_id, subject_id, subject_name, class_name| {
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-        # A view change, so the page starts its top border progress bar for the click.
-        Attribute.data("nav", ""),
-        Attribute.on_click(OpenTeacherSubject(class_id, subject_id, subject_name))
-    ], [
+    UI.pressable(
+        { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+        OpenTeacherSubject(class_id, subject_id, subject_name),
+        [
         Html.div([Attribute.class("flex items-center gap-4")], [
             Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
             Html.div([Attribute.class("flex-1 space-y-0.5")], [
@@ -152,11 +150,10 @@ teacher_lesson_skeleton = |_| {
 }
 
 teacher_lesson_row = |id, title, week| {
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
-        Attribute.data("nav", ""),
-        Attribute.on_click(OpenTeacherLesson(id))
-    ], [
+    UI.pressable(
+        { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+        OpenTeacherLesson(id),
+        [
         Html.div([Attribute.class("flex-1 min-w-0")], [
             Html.h3([Attribute.class("font-medium text-foreground group-hover:text-primary transition-colors truncate")], [Html.text(title)]),
             Html.p([Attribute.class("text-xs text-muted-foreground")], [
@@ -176,7 +173,7 @@ teacher_lesson_view = |model| {
                 # Back + lesson header
                 Html.div([Attribute.id("lesson-header"), Attribute.class("space-y-3")], [
                     Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-                        Html.span([Attribute.class("cursor-pointer hover:text-foreground"), Attribute.on_click(NavigateTo(TeacherMyClasses))], [Html.text("← Back to My Classes")])
+                        UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(TeacherMyClasses) }, NavigateTo(TeacherMyClasses), [Html.text("← Back to My Classes")])
                     ]),
                     Html.div([Attribute.class("flex items-start justify-between gap-6")], [
                         Html.div([Attribute.class("space-y-2")], [
@@ -198,9 +195,11 @@ teacher_lesson_view = |model| {
                 },
 
                 # Tab bar: Lesson | Assessments | Grading
-                Html.div([Attribute.class("flex border-b border-border")], [
+                Html.div([Attribute.class("flex border-b border-border"), Attribute.role("tablist")], [
                     Html.button([
                         Attribute.id("tab-lesson"),
+                        Attribute.role("tab"),
+                        Attribute.aria("selected", "true"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
                         Attribute.type("button"),
                         # A tab switch changes the view: data-nav starts the top border progress bar.
@@ -208,12 +207,16 @@ teacher_lesson_view = |model| {
                     ], [Html.text("Lesson")]),
                     Html.button([
                         Attribute.id("tab-assessments"),
+                        Attribute.role("tab"),
+                        Attribute.aria("selected", "false"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
                         Attribute.type("button"),
                         Attribute.data("nav", "")
                     ], [Html.text("Assessments")]),
                     Html.button([
                         Attribute.id("tab-grading"),
+                        Attribute.role("tab"),
+                        Attribute.aria("selected", "false"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
                         Attribute.type("button"),
                         Attribute.data("nav", "")
@@ -253,8 +256,17 @@ teacher_lesson_view = |model| {
                     ])
                 ]),
 
-                # Create assessment modal (hidden by default)
-                Html.div([Attribute.id("create-assessment-modal"), Attribute.class("hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4")], [
+                # Create assessment modal (hidden by default). The page's own JavaScript opens and
+                # closes it (the ids below are its handles), so what the app adds here is what the
+                # keyboard needs: the dialog markers (focus moves in and Tab stays inside — see
+                # www/index.html) and the form marker naming the button Enter presses.
+                Html.div([
+                    Attribute.id("create-assessment-modal"),
+                    Attribute.class("hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"),
+                    Attribute.data("dialog", ""),
+                    Attribute.data("dialog-dismiss", "close-create-modal"),
+                    Attribute.data("enter-submit", "submit-create-assessment")
+                ], [
                     Html.div([Attribute.class("bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col")], [
                         Html.div([Attribute.class("flex items-center justify-between p-6 border-b")], [
                             Html.h3([Attribute.class("text-lg font-semibold")], [Html.text("Create Assessment")]),
@@ -303,7 +315,13 @@ teacher_lesson_view = |model| {
                                 ]),
                                 Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Leave a field blank for no rule: open now, never closes, unlimited attempts.")])
                             ]),
-                            Html.div([Attribute.id("assessment-questions-area"), Attribute.class("space-y-3")], [
+                            # The bank picker's own rows: fields of their own, so Enter in one of them
+                            # is not the modal's submit (the empty marker says so — see the page's rule).
+                            Html.div([
+                                Attribute.id("assessment-questions-area"),
+                                Attribute.class("space-y-3"),
+                                Attribute.data("enter-submit", "")
+                            ], [
                                 Html.p([Attribute.class("text-sm text-muted-foreground italic")], [Html.text("Question selection from this lesson's bank is not wired up yet, so the assessment is created without questions.")]),
                                 Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is saved as a draft; publish it from the list when you are ready for students to see it.")])
                             ])
@@ -370,15 +388,19 @@ teacher_assessments_view = |_model| {
         ]),
 
         # Tabs: the general assessment surface and the grading list.
-        Html.div([Attribute.class("flex border-b border-border")], [
+        Html.div([Attribute.class("flex border-b border-border"), Attribute.role("tablist")], [
             Html.button([
                 Attribute.id("tab-general-assessments"),
+                Attribute.role("tab"),
+                Attribute.aria("selected", "true"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
                 Attribute.type("button"),
                 Attribute.data("nav", "")
             ], [Html.text("General Assessments")]),
             Html.button([
                 Attribute.id("tab-general-grading"),
+                Attribute.role("tab"),
+                Attribute.aria("selected", "false"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
                 Attribute.type("button"),
                 Attribute.data("nav", "")
@@ -428,7 +450,13 @@ teacher_assessments_view = |_model| {
         ]),
 
         # Create general assessment modal (hidden by default)
-        Html.div([Attribute.id("create-general-assessment-modal"), Attribute.class("hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4")], [
+        Html.div([
+            Attribute.id("create-general-assessment-modal"),
+            Attribute.class("hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"),
+            Attribute.data("dialog", ""),
+            Attribute.data("dialog-dismiss", "close-create-general-modal"),
+            Attribute.data("enter-submit", "ga-submit-create")
+        ], [
             Html.div([Attribute.class("bg-card border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col")], [
                 Html.div([Attribute.class("flex items-center justify-between p-6 border-b")], [
                     Html.h3([Attribute.class("text-lg font-semibold")], [Html.text("Create General Assessment")]),
@@ -506,7 +534,9 @@ teacher_assessments_view = |_model| {
                                 Attribute.type("button")
                             ], [Html.text("+ Add question")])
                         ]),
-                        Html.div([Attribute.id("ga-questions-area"), Attribute.class("space-y-3")], []),
+                        # The question rows the page builds: fields of their own (see the note on the
+                        # lesson modal's questions area).
+                        Html.div([Attribute.id("ga-questions-area"), Attribute.class("space-y-3"), Attribute.data("enter-submit", "")], []),
                         Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Selected: "), Html.span([Attribute.id("ga-question-count")], [Html.text("0")]), Html.text(" · total marks: "), Html.span([Attribute.id("ga-total-marks")], [Html.text("0")])]),
                         Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("It is saved as a draft; publish it from the list when you are ready for students to see it.")])
                     ])
@@ -546,10 +576,10 @@ teacher_dashboard_shortcuts = |model| {
 
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")], [
             # My Classes
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(TeacherMyClasses))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(TeacherMyClasses) },
+                NavigateTo(TeacherMyClasses),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-2xl")], [Html.text("📖")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("LMS")])
@@ -561,10 +591,10 @@ teacher_dashboard_shortcuts = |model| {
             ]),
 
             # Assessments & Grading
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(TeacherAssessments))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(TeacherAssessments) },
+                NavigateTo(TeacherAssessments),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl")], [Html.text("📊")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("Grading")])
@@ -576,10 +606,10 @@ teacher_dashboard_shortcuts = |model| {
             ]),
 
             # Messaging
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(Messaging))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(Messaging) },
+                NavigateTo(Messaging),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-2xl")], [Html.text("💬")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("Messages")])

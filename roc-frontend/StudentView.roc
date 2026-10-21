@@ -73,12 +73,10 @@ subject_skeleton = |_| {
 }
 
 subject_card = |id, name, code| {
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-        # A view change, so the page starts its top border progress bar for the click.
-        Attribute.data("nav", ""),
-        Attribute.on_click(SelectSubject(id, name))
-    ], [
+    UI.pressable(
+        { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+        SelectSubject(id, name),
+        [
         Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📚")]),
         Html.div([Attribute.class("space-y-0.5")], [
             Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
@@ -109,20 +107,14 @@ student_lesson_drilldown = |model| {
         # No state — redirect user back to subjects
         Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-4")], [
             Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-                Html.span([
-                    Attribute.class("cursor-pointer hover:text-foreground"),
-                    Attribute.on_click(BackToSubjects)
-                ], [Html.text("← Back to My Subjects")])
+                UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("← Back to My Subjects")])
             ]),
             Html.div([Attribute.class("text-center py-16 text-muted-foreground space-y-3")], [
                 Html.div([Attribute.class("text-5xl")], [Html.text("📚")]),
                 Html.h3([Attribute.class("font-semibold text-lg")], [Html.text("No subject selected")]),
                 Html.p([Attribute.class("text-sm")], [Html.text("Choose a subject from My Subjects to get started.")]),
                 Html.div([Attribute.class("pt-2")], [
-                    Html.span([
-                        Attribute.class("inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium cursor-pointer hover:bg-primary/90 transition"),
-                        Attribute.on_click(BackToSubjects)
-                    ], [Html.text("Go to My Subjects")])
+                    UI.link({ ..UI.default_link, classes: "inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("Go to My Subjects")])
                 ])
             ])
         ])
@@ -137,10 +129,7 @@ student_terms_view = |model| {
     Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
-            Html.span([
-                Attribute.class("cursor-pointer hover:text-foreground"),
-                Attribute.on_click(BackToSubjects)
-            ], [Html.text("My Subjects")]),
+            UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
             Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.selectedSubjectName)])
         ]),
@@ -200,11 +189,10 @@ term_card = |id, name, num| {
         "3" => "🍂"
         _ => "📅"
     }
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-        Attribute.data("nav", ""),
-        Attribute.on_click(SelectTerm(id, name))
-    ], [
+    UI.pressable(
+        { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+        SelectTerm(id, name),
+        [
         Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text(icon)]),
         Html.div([Attribute.class("space-y-0.5")], [
             Html.h3([Attribute.class("font-semibold text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
@@ -225,15 +213,9 @@ student_lessons_list_view = |model| {
     Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
-            Html.span([
-                Attribute.class("cursor-pointer hover:text-foreground"),
-                Attribute.on_click(BackToSubjects)
-            ], [Html.text("My Subjects")]),
+            UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
-            Html.span([
-                Attribute.class("cursor-pointer hover:text-foreground"),
-                Attribute.on_click(BackToTerms)
-            ], [Html.text(model.selectedSubjectName)]),
+            UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedSubjectName)]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
             Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.selectedTermName)])
         ]),
@@ -320,11 +302,10 @@ idx_to_str = |n| {
 
 lesson_list_row = |id, title, week, idx| {
     n = idx_to_str(idx)
-    Html.div([
-        Attribute.class("group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all cursor-pointer"),
-        Attribute.data("nav", ""),
-        Attribute.on_click(SelectLesson(id))
-    ], [
+    UI.pressable(
+        { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+        SelectLesson(id),
+        [
         Html.div([Attribute.class("flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary")], [
             Html.text(n)
         ]),
@@ -357,20 +338,11 @@ student_lesson_content_view = |model| {
 
                 # Breadcrumb nav
                 Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
-                    Html.span([
-                        Attribute.class("cursor-pointer hover:text-foreground"),
-                        Attribute.on_click(BackToSubjects)
-                    ], [Html.text("My Subjects")]),
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
-                    Html.span([
-                        Attribute.class("cursor-pointer hover:text-foreground"),
-                        Attribute.on_click(BackToTerms)
-                    ], [Html.text(model.selectedSubjectName)]),
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedSubjectName)]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
-                    Html.span([
-                        Attribute.class("cursor-pointer hover:text-foreground"),
-                        Attribute.on_click(BackToTerms)
-                    ], [Html.text(model.selectedTermName)]),
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedTermName)]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
                     Html.span([Attribute.class("text-foreground font-medium truncate max-w-xs")], [Html.text("Lesson")])
                 ]),
@@ -393,14 +365,18 @@ student_lesson_content_view = |model| {
                 ]),
 
                 # Tab bar: Lesson | Assessments
-                Html.div([Attribute.class("flex border-b border-border")], [
+                Html.div([Attribute.class("flex border-b border-border"), Attribute.role("tablist")], [
                     Html.button([
                         Attribute.id("tab-lesson"),
+                        Attribute.role("tab"),
+                        Attribute.aria("selected", "true"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
                         Attribute.type("button")
                     ], [Html.text("Lesson")]),
                     Html.button([
                         Attribute.id("tab-assessments"),
+                        Attribute.role("tab"),
+                        Attribute.aria("selected", "false"),
                         Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
                         Attribute.type("button")
                     ], [Html.text("Assessments")])
@@ -500,9 +476,11 @@ student_assignments_view = |_model| {
 
         # Term-weighted general assessments first, then the assessments attached to individual
         # lessons. Both lists are filled by the JS in www/index.html.
-        Html.div([Attribute.class("flex border-b border-border")], [
+        Html.div([Attribute.class("flex border-b border-border"), Attribute.role("tablist")], [
             Html.button([
                 Attribute.id("tab-general-assessments"),
+                Attribute.role("tab"),
+                Attribute.aria("selected", "true"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-primary text-primary font-medium transition cursor-pointer"),
                 Attribute.type("button"),
                 # A tab switch changes the view: data-nav starts the top border progress bar.
@@ -510,6 +488,8 @@ student_assignments_view = |_model| {
             ], [Html.text("General Assessments")]),
             Html.button([
                 Attribute.id("tab-lesson-assessments"),
+                Attribute.role("tab"),
+                Attribute.aria("selected", "false"),
                 Attribute.class("px-4 py-2 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground transition cursor-pointer"),
                 Attribute.type("button"),
                 Attribute.data("nav", "")
@@ -546,10 +526,10 @@ student_dashboard_shortcuts = |model| {
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Here's your learning overview for today.")])
         ]),
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")], [
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(StudentSubjects))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(StudentSubjects) },
+                NavigateTo(StudentSubjects),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-2xl")], [Html.text("📚")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("LMS")])
@@ -559,10 +539,10 @@ student_dashboard_shortcuts = |model| {
                     Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("Browse lessons, study materials, and section notes.")])
                 ])
             ]),
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(StudentAssignments))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(StudentAssignments) },
+                NavigateTo(StudentAssignments),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl")], [Html.text("📝")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("Assessments")])
@@ -572,10 +552,10 @@ student_dashboard_shortcuts = |model| {
                     Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("View pending assessments and submit your work.")])
                 ])
             ]),
-            Html.div([
-                Attribute.class("group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"),
-                Attribute.on_click(NavigateTo(Messaging))
-            ], [
+            UI.link(
+                { ..UI.default_link, classes: "group rounded-xl border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", href: State.route_path(Messaging) },
+                NavigateTo(Messaging),
+                [
                 Html.div([Attribute.class("flex items-center justify-between")], [
                     Html.div([Attribute.class("w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-2xl")], [Html.text("💬")]),
                     Html.span([Attribute.class("text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5")], [Html.text("Messages")])

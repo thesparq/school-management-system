@@ -1,6 +1,6 @@
 
 import html.Html exposing [div, h3, p, aside, nav, a, input, label, text, element]
-import html.Attribute exposing [class, type, disabled, on_click, href, value, placeholder, on_input, attribute, data]
+import html.Attribute exposing [Attribute, aria, attribute, class, data, disabled, href, on_click, on_input, on_key, on_submit, placeholder, prevent_default, role, tabindex, type, value]
 UI := [].{
 
 # --- ICONS ---
@@ -58,6 +58,9 @@ default_button = {
 	on_click: None,
 	is_disabled: Bool.False,
 	classes: "",
+	# Whether this button submits the form it sits in. A submit button is what the browser's own
+	# Enter key presses, so a form whose fields are typed into needs exactly one (see `form`).
+	is_submit: Bool.False,
 }
 
 button = |config, children| {
@@ -83,7 +86,10 @@ button = |config, children| {
 	
 	final_classes = Str.join_with([base_classes, variant_classes, size_classes, config.classes], " ")
 	
-	attrs = [class(final_classes), type("button")]
+	# A `<button>` unless the form it sits in says otherwise: `is_submit: Bool.True` makes it that
+	# form's submit button — the one the browser's own Enter key presses (see `form`).
+	# `default_button` leaves it False, so only the buttons that send a form set it.
+	attrs = [class(final_classes), type(if config.is_submit { "submit" } else { "button" })]
 	
 	attrs_with_click =
 		match config.on_click {
@@ -191,6 +197,117 @@ input = |config| {
 	Html.input(final_attrs)
 }
 
+# --- KEYBOARD ---
+# Every control a pointer can work has to work from the keyboard too, and the rule is the same
+# everywhere: Tab reaches it, Enter and Space do what a click does, and Escape backs out of
+# whatever is on top of the page (that one is the app's own subscription — see app.roc). Native
+# controls get all of it for free, which is why this app uses a `<button>`, an `<a href>`, an
+# `<input>`, a `<select>` and a real `<form>` wherever it can. The helpers below are for the
+# places where the markup has to be a `div` or a `span`: a card that opens a page, a tab, a
+# badge's ✕, one row of a search dropdown.
+
+# The ring a focused control draws, so a keyboard user can see where they are: the same one the
+# buttons draw, so the whole app marks the keyboard the same way.
+focus_ring = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
+# What Enter and Space mean on a control that is not a `<button>`: the same thing a click means.
+# The filter runs in the browser (the platform's `on_key`), and `prevent_default` stops the two
+# keys' own defaults — Space scrolling the page, Enter submitting the form the control may sit in
+# — so a press can only ever activate the control once.
+activation_keys = ["Enter", " "]
+
+# The attributes of a control that behaves like a button. `label` is its accessible name: set it
+# whenever the children are not already the words of the action (a bare ✕, a badge). `is_nav` marks
+# a control whose press changes the view without a page load, which is what the page's own
+# JavaScript reads to start the top border progress bar (the same marker the sidebar items carry).
+pressable_attrs : Str, Str, Bool, msg -> List(Attribute(msg))
+pressable_attrs = |classes, label, is_nav, msg| {
+	base = [
+		class(Str.join_with([focus_ring, "cursor-pointer", classes], " ")),
+		role("button"),
+		tabindex(0),
+		on_click(msg),
+		prevent_default(on_key("keydown", activation_keys, |_| msg)),
+	]
+	named = if Str.is_empty(label) { base } else { List.append(base, aria("label", label)) }
+	if is_nav { List.append(named, data("nav", "")) } else { named }
+}
+
+default_pressable = { classes: "", label: "", is_nav: Bool.False }
+
+# A `div` that behaves like a button: in the tab order, announced as a button, activated by Enter
+# or Space as well as by a click. `msg` is the message itself, not a `Click(...)` wrapper (see
+# `link`).
+pressable = |config, msg, children| {
+	Html.div(pressable_attrs(config.classes, config.label, config.is_nav, msg), children)
+}
+
+# The same, inline — a badge's ✕, or any small control that has to sit inside a line of text.
+pressable_span = |config, msg, children| {
+	Html.span(pressable_attrs(config.classes, config.label, config.is_nav, msg), children)
+}
+
+default_link = { classes: "", href: "", label: "" }
+
+# A link the app owns: a real `<a href>`. Tab reaches it, Enter follows it, the status bar says
+# where it goes, and Ctrl-click or a middle click opens it in a second tab — all of it the
+# browser's own link behaviour, which a `div` with a click handler cannot have. What the app adds
+# is the click: `prevent_default` keeps the browser from loading that address as a page, because
+# the app owns the URL and pushes it itself (the href and the pushed URL are the same address —
+# State's `route_path` is where both read it from).
+#
+# `msg` is the message itself (`NavigateTo(Dashboard)`), not the `Click(...)` wrapper the button
+# config carries: a link always goes somewhere, so there is no "no handler" case to express.
+link = |config, msg, children| {
+	attr_list = [
+		class(Str.join_with([focus_ring, "cursor-pointer", config.classes], " ")),
+		href(config.href),
+		prevent_default(on_click(msg)),
+	]
+	Html.a(
+		if Str.is_empty(config.label) { attr_list } else { List.append(attr_list, aria("label", config.label)) },
+		children,
+	)
+}
+
+# A real `<form>`. The browser submits it when Enter is pressed in any field inside — which is the
+# whole point of it: every one of the app's forms is a form, so a keyboard can fill and send one
+# without a pointer. `on_submit` already suppresses the browser's own default (a page load, which
+# would throw the model away), and a submit button does the same from the other direction (see
+# `is_submit` on `button`). Give the form's submit button no `on_click` of its own: a click on it
+# fires the click *and* the submit, and the message would land twice.
+form = |classes, msg, children| {
+	Html.form([class(classes), on_submit(msg)], children)
+}
+
+default_tick = { classes: "", label: "", is_disabled: Bool.False }
+
+# One tick — a checkbox this app draws itself. A `<button>` rather than an `<input
+# type=checkbox>`, so the click stays a Joy message like every other control in the app; `role`
+# and `aria-checked` are what carry the on/off state to a screen reader (the glyph says nothing to
+# one), and a button answers Enter and Space on its own. The glyph's size is the caller's
+# (`classes`), because a tick in a table row and a tick in a permission list are not the same size.
+tick = |config, ticked, msg| {
+	classes = Str.join_with([
+		focus_ring,
+		"inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground h-9 px-3 leading-none disabled:opacity-50 disabled:pointer-events-none",
+		config.classes,
+	], " ")
+	base = [
+		class(classes),
+		type("button"),
+		role("checkbox"),
+		aria("checked", if ticked { "true" } else { "false" }),
+		on_click(msg),
+	]
+	attrs = if Str.is_empty(config.label) { base } else { List.append(base, aria("label", config.label)) }
+	Html.button(
+		if config.is_disabled { List.append(attrs, disabled(Bool.True)) } else { attrs },
+		[Html.text(if ticked { "☑" } else { "☐" })],
+	)
+}
+
+
 # --- LABEL ---
 
 default_label = { classes: "" }
@@ -243,6 +360,11 @@ sidebar_nav = |config, children| {
 
 default_sidebar_nav_item = { classes: "", href: "#", is_active: Bool.False, on_click: None }
 
+# One navigation item. It is a real link — the app's pages have addresses, so the sidebar says
+# them: Tab reaches every item, Enter follows the focused one, the status bar shows where it goes,
+# and Ctrl-click opens a second tab on it. The click is still the app's (`prevent_default` stops
+# the browser from loading the page itself, which would throw the model away), and `href` is the
+# address the navigation pushes: State's `route_path` is the one place both read it from.
 sidebar_nav_item = |config, children| {
 	base_classes = "group flex w-full items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer"
 	
@@ -253,18 +375,18 @@ sidebar_nav_item = |config, children| {
 			"text-muted-foreground hover:bg-secondary/10 hover:text-foreground"
 		}
 		
-	final_classes = Str.join_with([base_classes, active_classes, config.classes], " ")
+	final_classes = Str.join_with([base_classes, active_classes, focus_ring, config.classes], " ")
 	
 	# data-nav marks a control that changes the view without a full page load: the page's own
 	# JavaScript starts the top border progress bar on a click that lands on one (and on a
 	# push_state, for the navigation the click leads to).
-	attrs = [class(final_classes), data("nav", "")]
+	attrs = [class(final_classes), data("nav", ""), href(config.href)]
 	final_attrs = match config.on_click {
 		None => attrs
-		Click(msg) => List.append(attrs, on_click(msg))
+		Click(msg) => List.append(attrs, prevent_default(on_click(msg)))
 	}
 	
-	div(final_attrs, children)
+	Html.a(final_attrs, children)
 }
 
 # --- TABLE ---
