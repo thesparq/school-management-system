@@ -73,6 +73,16 @@ Dockerfile.app          the deployment image: frontend bundle + backend binary
 4. `DEV_MODE=true` accepts the tokens that stand in for a login — `dev-skip` and its older `test-token` alias
    (admin), plus `dev-student` and `dev-teacher` — so local work and the sandbox suites need no login.
    Production sets `DEV_MODE=false`, which turns that path off entirely — `deploy_check.cjs` asserts it.
+5. **Passwords are Authentik's, and the app never keeps one.** A create (or an admin's reset) hands a value
+   over once and journals only the fact that it did; a change the person *chooses* has to prove the current
+   password, which the backend checks through the provider's own password grant
+   (`grant_type=password`, discarded afterwards — the answer is the verdict). A wrong one is a **400**, not
+   a 401: the page reads a 401 as "signed out" and would send a mistyped password back through Authentik.
+   A password that lands **ends the session that set it** — the page drops its token and goes to Authentik's
+   end-session endpoint, so the person signs in again with the new password instead of staying in on a
+   session begun with the old one. That ends *that browser*: a token already held on another device keeps
+   working until it expires, since nothing here revokes a login's other sessions in the provider.
+   `e2e_password_change.cjs` and `password_change.sh` hold the two halves (the browser flow, the API).
 
 ## Storage model
 
@@ -159,8 +169,9 @@ file stale. What belongs here is the shape and the rules:
 - **Credentials are the qualifications catalog and teacher qualifications are record links into it**
   (prod's shape from v2; schema-v3's string-array plan never landed). `POST/PUT /api/users` accept
   `qualifications` as an array of `credentials:<id>` ids for a teacher only; the catalog itself is
-  `GET/POST /api/credentials` + toggle-active — deactivated, never hard-deleted, because a teacher profile
-  may hold its link.
+  `GET/POST/PUT /api/credentials` + toggle-active — the PUT patches the name (what a teacher's link
+  displays as), and a row is deactivated rather than hard-deleted, because a teacher profile may hold
+  its link.
 - **Relations are edges**, created with `RELATE`; `has_subject` is the curriculum.
 - **A class level carries a `tier`** — `primary`, `junior` or `senior` (`db/schema-v13`), so the stage of
   school is a property of the data rather than something inferred from a name. It exists because lesson

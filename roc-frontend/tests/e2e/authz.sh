@@ -84,6 +84,9 @@ check "a supervisor may not create a user (403)" "$(call mock-admin-token POST /
 check "and the refusal names Manage users" "$(call mock-admin-token POST /api/users '{}')" "Manage users"
 check "a supervisor may not write configuration (403)" "$(call mock-admin-token POST /api/terms "{\"name\":\"Authz sup ${STAMP}\",\"sort_order\":94}")" " HTTP 403"
 check "and the refusal names Manage school setup" "$(call mock-admin-token POST /api/terms '{}')" "Manage school setup"
+# The qualification catalog is in the same family, and its rename is the write that used to have no
+# route at all: a supervisor's token has to meet the same gate on it as on a term.
+check "a supervisor may not rename a qualification either (403)" "$(call mock-admin-token PUT /api/credentials '{"id":"credentials:none","name":"Authz sup"}')" "Manage school setup"
 check "promoting that login to super admin is accepted" "$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$B/api/users" -H "Authorization: Bearer dev-skip" -H "$C" -d '{"id":"admin_profile:mock_uuid_admin","admin_type":"super_admin"}')" "200"
 check "a super admin may write configuration" "$(call mock-admin-token POST /api/terms "{\"name\":\"Authz admin term ${STAMP}\",\"sort_order\":95}")" " HTTP 200"
 check "a token with no groups is a student" "$(call mock-groupless-token GET /api/student/subjects)" " HTTP 200"

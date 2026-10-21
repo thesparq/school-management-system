@@ -2292,6 +2292,140 @@ those logins onto them is a one-off, authorized change; nothing in the app depen
 (every row is keyed by the pk). Also worth doing before a September intake: a CSV import, because the app
 still creates one account at a time.
 
+---
+
+### A password that is set ends the session that set it (2026-10-21)
+
+The question was whether changing a password throws the person out, and the honest answer was that it did
+not: `/api/me/password` wrote the new password into Authentik and cleared the requirement row, while the
+browser kept the token it had signed in with. So the session that began with the administrator's password
+outlived the change that replaced it — on the first-login gate (`db/schema-v15`) the password the admin chose
+stayed live on that browser, and for a change someone *chose*, a stolen session survived the very act meant
+to end it.
+
+What changed, in `State.roc`'s `PasswordChangeCompleted`: a successful change leaves in the state a sign-out
+does — the token is dropped and the page is sent to Authentik's **end-session** endpoint, which is the part
+that matters. Dropping the app's token alone would let the next page load walk straight back in through the
+provider's session cookie with no password asked; ending the session is what makes the next sign-in a
+sign-in. The person then enters the new password, which is also the only proof that what they typed is what
+got stored. A refused change keeps everything as it was, so the form can still be corrected.
+
+**Verified** against a build of this change (wasm built from this tree, served on its own port so the
+served bytes could be checked against the built file): `e2e_password_change.cjs`, rewritten for the new
+behaviour, **23/23** in Chromium — the forced change sends the browser to
+`/application/o/school-management-system/end-session/` carrying this origin's `/auth/callback` as its
+post-logout target, the token is gone from the browser's storage, and entering the app again opens it (the
+write cleared the requirement); then a change the person *chose*, with a wrong current password refused
+first, signs out the same way. `password_change.sh` 26/26 (the API half is untouched), `roc check app.roc`
+0 errors. The suite intercepts the sign-out navigation — the harness never leaves the app — and reads the
+browser's storage from the Playwright context rather than the page, exactly as `e2e_signout.cjs` does.
+
+Left for later: only *that* browser is signed out. A token already held on another device keeps working
+until it expires, because nothing here revokes a login's other sessions in the provider — that needs an
+Authentik-side revocation call this app does not make, and the endpoint and the service token's permissions
+for it have not been checked against this deployment.
+
+### The keyboard — every form and every control (2026-10-21)
+
+The school's ask: "the different forms should be keyboard supportive — tabs, spacebar and enter keys
+should work". The rule is now one rule, and it lives in `roc-frontend/UI.roc`:
+
+- **A real control wherever the shape allows.** `<button>`, `<a href>`, `<input>`, `<select>` and a
+  real `<form>` answer the keyboard by themselves, and they are what the app uses: every one of the
+  app's forms is now a `<form>` (`UI.form`) whose submit button is a `<button type=submit>`
+  (`is_submit` on the button config), so **Enter in any field sends it** and the browser's own
+  implicit submission does the work — the user form (create / complete / edit / reset password), the
+  teacher's Assign dialog, the six configuration-hub create forms, the hub's in-row editors (Enter
+  saves: the handler rides the cell, since a `<form>` cannot sit between table rows) and the Settings
+  password form.
+- **`UI.pressable` / `UI.pressable_span`** for the controls whose markup has to be a `div` or a
+  `span`: `role="button"`, `tabindex=0`, a visible focus ring, and `on_key(["Enter", " "])`
+  with `prevent_default`, so **Enter or Space does what a click does** — the role and configuration
+  tabs, the badge ✕s, the search-dropdown rows, the drill-down cards, the LMS breadcrumbs, the
+  student/teacher quick links.
+- **`UI.link`** for anything that goes somewhere: a real `<a href>` (Tab reaches it, Enter follows
+  it, Ctrl-click opens a second tab) whose click the app still owns (`prevent_default`, then the
+  app's own navigation). `State.route_path` is now the one place a route's address is written down —
+  the sidebar items, the breadcrumbs and the pushed URLs all read it from there, so what the browser
+  shows on hover is what the app pushes.
+- **`UI.tick`** for the app's checkboxes: still a `<button>` (the click stays a Joy message), now
+  with `role="checkbox"` and `aria-checked`, and a caller-set glyph size.
+- **Escape backs out of the topmost layer**, which is the app's own subscription
+  (`Keyboard.on_down_keys` in `app.roc`) and its own decision (`State`'s `EscapePressed` arm: the user
+  form or the Assign dialog, then the avatar menu, the bell, the phone's sidebar — a write in flight
+  keeps its modal, exactly like the modal's ✕).
+- **The page's own layer** (`www/index.html`, one block in `setupKeyboardSupport`) does the two
+  things the app cannot: the focus **moves into a dialog when it opens** and **Tab stays inside it**
+  (`data-dialog` marks the app's modals and the two assessment modals the page's JavaScript owns;
+  the focus returns to the control that opened it), and **Enter submits the forms the page builds**
+  (the assessment modals and the chat channel forms name their primary button in
+  `data-enter-submit`, and an empty value there says "this part is fields of its own" — the question
+  rows). A page-owned dialog names its close button in `data-dialog-dismiss`, which is what Escape
+  presses.
+- The JS-owned tab strips (`showTab`, `showGeneralTab`) now set `aria-selected` beside the class
+  they already switched, so the tabs the page draws say which one is on.
+
+The new `e2e_keyboard.cjs` drives all of it in Chromium (see the suites table in
+`roc-frontend/tests/e2e/README.md`). Not changed: the Matrix composer keeps its own Enter-sends
+behaviour (Shift+Enter is a newline) and the invite search keeps Enter-for-search — a chat box and a
+search field are not forms.
+
+**Verified** (a dev build of this worktree served on its own port, sandbox backend, Chromium):
+`e2e_keyboard.cjs` 25/25; and the suites this touches, re-run against the same build —
+`e2e_admin` 16/16, `e2e_admin_config` 56/57 (its documented leftover-duplicate-edge caveat),
+`e2e_admin_permissions` 30/30, `e2e_admin_responsive` 43/43, `e2e_boot_and_cache` 15/15,
+`e2e_loading` 20/20, `e2e_signout` 13/13, `e2e_users_directory` 30/30, `e2e_nav_fixes` 10/10,
+`e2e_password_change` 19/19, `e2e_user_roles` 19/19, `e2e_student` 7/7, `e2e_assessments` 17/17,
+`e2e_general_assessments` 25/25, `e2e_chat_channels` 16/16, `e2e_notifications_lms` 26/26,
+`e2e_list_order` 10/10, `e2e_matrix_sso` 31/31, `e2e_auth_callback` 12/12, `e2e_icons_refresh`
+10/10. `roc check app.roc` and `roc check main.roc` are clean (the one warning is State.roc's
+pre-existing module header). Three suites needed a small fix to read the new markup:
+`e2e_admin_permissions`/`e2e_password_change` looked for the sidebar's items as `div[data-nav]`
+(they are links now, so they read `#app aside [data-nav]`), and `e2e_nav_fixes`/`e2e_icons_refresh`
+hard-coded port 8000 instead of honouring `APP_URL` like every other browser suite.
+
+**Not run here**: `e2e_passport_upload.cjs` (9 checks) needs the R2 upload variables the sandbox
+backend is not started with — it fails on its upload checks before anything the keyboard work
+touches. And `e2e_assessments.cjs`'s "released grade is shown" missed once on a sandbox a partial
+earlier run had left a second submission in, then passed 17/17 on a clean re-run: it is a state
+flake, not this change (the grading list is filled by the page's own JavaScript, which this change
+does not touch beyond its tab button).
+
+**Build note for the next session**: the compiler emits its LLVM objects under `$TMPDIR`, and each
+Delta turn gets a fresh one, so a build that reuses an object from a previous turn fails with
+`object file emit error ... No such file or directory` for a path under the old turn's scratch
+directory. Run the build with a stable `TMPDIR` (`TMPDIR=$HOME/.cache/roc-tmp roc build ...`) —
+that is also how the build here was produced.
+### A qualification could be renamed everywhere but from the hub's own page (2026-10-21)
+
+Reported as "trying to edit a qualification now and get the error not found". The Configuration Hub's
+Qualifications tab draws each row with the same in-place editor every other section has, and that editor
+saves with `PUT /api/<section>` — the backend had PUT routes for terms, subjects, class levels and session
+terms and none for credentials, so the one write this tab offers fell through the dispatch chain to the
+router's 404. The banner read `Not Found` and the row kept the name it had.
+
+- **`PUT /api/credentials`** (`roc-backend/main.roc`, beside the section's other two writes) patches the
+  row's `name` — the catalog's only editable column, and the text a teacher profile's `credentials:<id>`
+  link displays as, so a rename renames it everywhere at once. It is the same `config_text_clause!` +
+  `config_update_response!` pair the four working sections use: a missing id is `id is required`, an absent
+  or blank name is the standard `no updatable fields: send name` 400, and a name the catalog already holds
+  comes back as the unique index's own text. Nothing else about the catalog moved: the flag is still the
+  toggle, and a row is still deactivated rather than deleted.
+- The route inherits the family's gates by prefix (`config_route_prefixes`): every role reads the catalog,
+  an admin writes it, and the write needs **Manage school setup** — a supervisor's rename is a 403 naming
+  that permission, the same as a term's.
+
+**Verified** against a sandbox running this change: `e2e_admin_config.cjs` **66/66** (its new Qualifications
+block creates a qualification, renames it through the page's own Save, reads the catalog back through
+`/api/credentials?all=true`, and drives a rename onto a name the unique index already holds) and `authz.sh`
+**61/61** (its new case: a supervisor's rename is refused, and the refusal names Manage school setup). The
+browser run served a `--opt=size` bundle built from this tree (2,402,734 bytes) and the backend built from
+this change.
+
+Worth knowing for the next reader: `PUT /api/curriculum` has no route either, and needs none — a curriculum
+link has no editable column and the hub only offers its toggle. The page's `config_update_call` still carries
+a `Curriculum` branch for match exhaustiveness, and it is unreachable.
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired

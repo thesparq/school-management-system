@@ -204,6 +204,17 @@
     let _navProgressEnd = null;
     let _navProgressActive = false;
     const SESSION_TERM_CACHE_MS = 60000;
+    // ─── Keyboard: state that has to exist before the app mounts ─────────────
+    // `registerPorts` (called while the app mounts) is what binds the keyboard layer, so anything
+    // it touches has to be initialized before that point: a `let` further down the module would
+    // still be in its temporal dead zone there.
+    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    // The inputs whose Enter means "send the form" (see setupKeyboardSupport).
+    const ENTER_SUBMIT_TYPES = ["text", "search", "email", "number", "password", "tel", "url", "date", "datetime-local", "month", "week", "time"];
+    let _dialogOpen = false;
+    let _dialogOpener = null;
+    let _keyboardBound = false;
+
     let _sessionTermPayload = null;
     let _sessionTermAt = 0;
     let _sessionTermInFlight = false;
@@ -565,6 +576,9 @@
         // before the form does.
         bindPassportUpload();
         setupNavFeedback();
+        // The keyboard's own layer: dialog focus, the tab trap, Escape for the page's dialogs and
+        // Enter for the forms the page builds (see the keyboard block below).
+        setupKeyboardSupport();
 
         // The modals' click-outside close: one document listener, so the app's re-renders cannot
         // drop it. A modal's dark overlay: clicking the backdrop (not the dialog) cancels the
@@ -729,6 +743,140 @@
     function dispatchToInput(id, value) {
         const el = document.getElementById(id);
         if (el) { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
+
+    // ========================================================
+    // Keyboard: the dialog layer and the page's own forms
+    // ========================================================
+
+    // A dialog is any container marked `data-dialog`: the app's own modals carry it, and so do the
+    // two the page's JavaScript opens (the assessment modals). Two of the things a dialog needs
+    // are the page's to do, because the app cannot reach the DOM: the focus has to move into the
+    // dialog when it opens — otherwise Tab walks the page behind it, which is still in the tab
+    // order while a modal is up — and it has to stay inside it until it closes. Escape is the
+    // app's own for the app's modals (State's `EscapePressed` arm); a dialog that names its own
+    // close button in `data-dialog-dismiss` is dismissed here, which is the page's copy of it.
+    //
+    // Enter submits. The app's own forms are real `<form>` elements, so the browser runs their
+    // submit; the forms the page builds are plain divs, and each names the button Enter presses in
+    // `data-enter-submit`. An *empty* value means "this part of the dialog is fields of its own":
+    // the nearest marker wins, which is how the assessment modals' question rows keep Enter for
+    // themselves. (The selector and the input types this rule reads live at the top of the module,
+    // with the rest of the state the mount path touches.)
+
+    // The dialogs on screen right now: `hidden` is how the page's own ones are closed, and the box
+    // test covers the app's (which are simply not rendered when they are closed).
+    function openDialogs() {
+        return Array.from(document.querySelectorAll("[data-dialog]"))
+            .filter((el) => !el.classList.contains("hidden") && el.getClientRects().length > 0);
+    }
+
+    // The first *field* of a dialog if it has one, and its first control otherwise (a modal that is
+    // only a receipt has no field to land on, and focusing its ✕ is still the right place to be).
+    function focusInto(dialog) {
+        const field = dialog.querySelector('input:not([type="hidden"]), select, textarea');
+        const target = field || dialog.querySelector(FOCUSABLE);
+        if (target) {
+            target.focus();
+        } else {
+            dialog.setAttribute("tabindex", "-1");
+            dialog.focus();
+        }
+    }
+
+    // Watched rather than called from one place: the app renders its modals from its own state, and
+    // the page shows its own by dropping a class. What matters is the *transition* — a dialog that
+    // appears takes the focus, and the control that opened it gets it back when it closes — so a
+    // dialog the app re-renders while it is open (every keystroke does) leaves the focus alone.
+    function syncDialogFocus() {
+        const dialogs = openDialogs();
+        const openNow = dialogs.length > 0;
+
+        if (openNow && !_dialogOpen) {
+            const dialog = dialogs[dialogs.length - 1];
+            _dialogOpener = document.activeElement && document.activeElement.isConnected && !dialog.contains(document.activeElement)
+                ? document.activeElement
+                : null;
+            focusInto(dialog);
+        } else if (!openNow && _dialogOpen) {
+            const opener = _dialogOpener;
+            _dialogOpener = null;
+            // The opener may be gone: the app re-renders its DOM, and a row's own button can be
+            // replaced by the write that just landed.
+            if (opener && opener.isConnected) opener.focus();
+        }
+
+        _dialogOpen = openNow;
+    }
+
+    // Tab stays inside the open dialog. Nothing open: the browser's own order, untouched.
+    function trapTab(event) {
+        const dialogs = openDialogs();
+        if (!dialogs.length) return;
+        const dialog = dialogs[dialogs.length - 1];
+        const focusable = Array.from(dialog.querySelectorAll(FOCUSABLE)).filter((el) => el.getClientRects().length > 0);
+        if (!focusable.length) { event.preventDefault(); return; }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (!dialog.contains(active)) { event.preventDefault(); first.focus(); return; }
+        if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); return; }
+        if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+    }
+
+    // Escape, for the dialogs the page itself owns: the same button the modal's own ✕ runs.
+    function dismissPageDialog() {
+        const dialogs = openDialogs();
+        for (let i = dialogs.length - 1; i >= 0; i--) {
+            const id = dialogs[i].getAttribute("data-dialog-dismiss");
+            if (!id) continue;
+            const button = document.getElementById(id);
+            if (button) button.click();
+            return;
+        }
+    }
+
+    function enterSubmits(event) {
+        const field = event.target;
+        if (!field || field.tagName !== "INPUT") return;
+        if (!ENTER_SUBMIT_TYPES.includes(field.type)) return;
+        const container = field.closest("[data-enter-submit]");
+        if (!container) return;
+        const id = container.getAttribute("data-enter-submit");
+        if (!id) return; // a field group of its own, not the form's submit
+        const primary = document.getElementById(id);
+        if (!primary || primary.disabled || primary.getClientRects().length === 0) return;
+        event.preventDefault();
+        primary.click();
+    }
+
+    // One document-level keydown listener and one observer, bound once at mount: the app rebuilds
+    // its DOM on state changes, so anything attached to a node the app owns would be dropped.
+    function setupKeyboardSupport() {
+        if (_keyboardBound) return;
+        _keyboardBound = true;
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Tab") { trapTab(event); return; }
+            if (event.key === "Escape") { dismissPageDialog(); return; }
+            if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                enterSubmits(event);
+            }
+        });
+
+        const root = document.getElementById("app");
+        if (root && window.MutationObserver) {
+            // Child lists for the app's modals (rendered or not), and the class attribute for the
+            // page's own (shown by dropping `hidden`).
+            new MutationObserver(syncDialogFocus).observe(root, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ["class"],
+            });
+        }
+        syncDialogFocus();
     }
 
     // SurrealDB answers with a one-element envelope: [{ result: [...], status: "OK", ... }].
@@ -1519,6 +1667,9 @@
             Object.entries(tabs).forEach(([name, el]) => {
                 if (!el) return;
                 el.className = name === which ? activeTabCls : inactiveTabCls;
+                // The class is what draws the tab; `aria-selected` is what says which one is on —
+                // the views render both, and this is the one place that knows when it changes.
+                el.setAttribute("aria-selected", name === which ? "true" : "false");
             });
             Object.entries(panels).forEach(([name, el]) => {
                 if (!el) return;
@@ -2653,6 +2804,7 @@
         Object.entries(tabs).forEach(([name, el]) => {
             if (!el) return;
             el.className = name === which ? activeTabCls : inactiveTabCls;
+            el.setAttribute("aria-selected", name === which ? "true" : "false");
         });
         Object.entries(panels).forEach(([name, el]) => {
             if (!el) return;
@@ -2999,6 +3151,10 @@
         const form = document.createElement("div");
         form.id = id;
         form.className = "mb-3 space-y-1.5 hidden";
+        // Enter in the name field creates the channel, the same thing the button does: this form
+        // is the page's own, so it names its primary button in `data-enter-submit` (the keyboard
+        // rule in setupKeyboardSupport is what reads it).
+        form.setAttribute("data-enter-submit", "matrix-new-create");
         form.innerHTML = `
             <input id="matrix-new-name" placeholder="Channel name" class="w-full text-sm border rounded-md px-2 py-1.5 bg-background"/>
             <select id="matrix-new-visibility" class="w-full text-xs border rounded-md px-2 py-1.5 bg-background">
@@ -3092,6 +3248,9 @@
         const form = document.createElement("div");
         form.id = id;
         form.className = "mb-3 space-y-1.5 hidden";
+        // The same marker as the create form: Enter in the code field joins, and the keydown
+        // listener this form used to carry is the one keyboard rule's job now.
+        form.setAttribute("data-enter-submit", "matrix-join-go");
         form.innerHTML = `
             <div class="flex gap-1.5">
                 <input id="matrix-join-code" placeholder="Code or link…" class="flex-1 text-sm border rounded-md px-2 py-1.5 bg-background"/>
@@ -3101,8 +3260,6 @@
             <div id="matrix-join-results" class="space-y-1"></div>`;
         roomsList.parentElement.insertBefore(form, roomsList);
         document.getElementById("matrix-join-go").addEventListener("click", () => joinByCodeOrLink());
-        const input = document.getElementById("matrix-join-code");
-        input.addEventListener("keydown", (e) => { if (e.key === "Enter") joinByCodeOrLink(); });
         loadChannelDirectory();
         return form;
     }

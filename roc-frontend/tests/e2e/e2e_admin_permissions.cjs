@@ -166,7 +166,7 @@ const rowsOf = (env) => (Array.isArray(env) ? (env[0] || {}).result : (env || {}
   const sup = await supCtx.newPage();
   const supErrors = [];
   sup.on('pageerror', e => supErrors.push(e.message.slice(0, 120)));
-  const navLabels = () => sup.$$eval('#app div[data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
+  const navLabels = () => sup.$$eval('#app aside [data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
 
   await sup.goto(`${appUrl}/admin/lms`, { waitUntil: 'load' });
   await sup.waitForTimeout(2500);

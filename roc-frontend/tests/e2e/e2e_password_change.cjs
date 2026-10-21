@@ -3,6 +3,11 @@
 // sidebar offers nothing else, the form is the only thing that writes, and the school's data is refused
 // until they set a password of their own (see `db/schema-v15` and `password_change_cleared!` in main.roc).
 //
+// A password that lands ends the session that set it: the app signs the person out (Authentik's own
+// session, so the next sign-in is a sign-in) and they come back in with the new password. The suite
+// reads that from the intercepted end-session request, from the browser's stored token, and — the part
+// that matters — by entering the app again afterwards and finding it open.
+//
 //   node tests/e2e/e2e_password_change.cjs        (against a sandbox backend, see README.md)
 
 const { chromium } = require('playwright');
@@ -49,8 +54,24 @@ const api = async (method, path, body) => {
   await page.route('**/api/**', route => route.continue({
     headers: { ...route.request().headers(), authorization: `Bearer ${studentToken}` },
   }));
+  // The sign-out the app performs when a password lands. It is a real navigation to Authentik's
+  // end-session endpoint, so it is intercepted and answered here: the browser never leaves, and what
+  // the app asked the provider for is read back from the intercepted request.
+  const signoutUrls = [];
+  await page.route('**/application/o/school-management-system/end-session/**', route => {
+    signoutUrls.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'text/html', body: '<p>authentik</p>' });
+  });
   const hasText = (t) => page.evaluate((s) => document.body.innerText.includes(s), t);
-  const navLabels = () => page.$$eval('#app div[data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
+  // The sidebar is a list of real links now, so its items live inside the `aside` (the keyboard work).
+  const navLabels = () => page.$$eval('#app aside [data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
+  // The app's own storage for this origin, read from the context rather than the page: the harness
+  // seeds a token on every navigation, so a `localStorage` read on the page would see its own seed.
+  const storedToken = async () => {
+    const state = await ctx.storageState();
+    const origin = state.origins.find(o => o.origin === appUrl) || { localStorage: [] };
+    return origin.localStorage.filter(i => i.name === 'auth_token' && i.value).length;
+  };
 
   // The dashboard is where a student lands; the requirement moves them to Settings.
   await page.goto(`${appUrl}/`, { waitUntil: 'load' });
@@ -74,18 +95,30 @@ const api = async (method, path, body) => {
   await page.waitForTimeout(1200);
   check('and so is a mismatch', await hasText('do not match'));
 
-  // The real thing: a password of one's own, and the app opens up.
+  // The real thing: a password of one's own — and the session that set it ends with it. The provider's
+  // session is ended, not just the app's token: that is what makes the next sign-in a sign-in, rather
+  // than the page walking back in through the session cookie that is still there.
   await page.fill('#new-password-field input', `My-Own-Password-${stamp}!`);
   await page.fill('#confirm-password-field input', `My-Own-Password-${stamp}!`);
   await page.click('text=Set my password');
-  await page.waitForSelector('text=Your password is set', { timeout: 20000 }).catch(() => {});
-  check('setting one of your own is accepted', await hasText('Your password is set'));
-  await page.waitForTimeout(2500);
+  await page.waitForURL(u => u.href.includes('/end-session/'), { timeout: 20000 }).catch(() => {});
+  check('setting one of your own ends the session', signoutUrls.length === 1, JSON.stringify(signoutUrls));
+  check('and ends Authentik\'s, not just the app\'s token',
+    signoutUrls.length > 0 && signoutUrls[0].includes('/application/o/school-management-system/end-session/'),
+    (signoutUrls[0] || '').slice(0, 90));
+  check('and comes back to this origin\'s callback',
+    decodeURIComponent(signoutUrls[0] || '').includes(`${appUrl}/auth/callback`));
+  check('the token is gone from storage', (await storedToken()) === 0);
+
+  // Back in with the password just set — which is the point of signing out at all — and the app opens
+  // up rather than holding the person on Settings, because the write cleared the requirement.
+  await page.goto(`${appUrl}/`, { waitUntil: 'load' });
+  await page.waitForTimeout(6000);
   const after = await navLabels();
-  check('the sidebar comes back', after.includes('My Subjects') && !after.includes('Settings only'), JSON.stringify(after));
+  check('and signing in again opens the app', after.includes('My Subjects') && !after.includes('Settings only'), JSON.stringify(after));
 
   // And the data the requirement was holding is open.
-  await page.click('#app div[data-nav]:has-text("My Subjects")');
+  await page.click('#app aside [data-nav]:has-text("My Subjects")');
   await page.waitForTimeout(3500);
   check('and the pages work again', await page.evaluate(() => !document.body.innerText.includes('password_change_required')), page.url());
 
@@ -121,8 +154,10 @@ const api = async (method, path, body) => {
   check('and a wrong one is refused by the check', await hasText('not your current password'));
   await page.fill('#current-password-field input', 'mock-current-password');
   await page.click('text=Set my password');
-  await page.waitForSelector('text=Your password is set', { timeout: 20000 }).catch(() => {});
-  check('the right one is accepted', await hasText('Your password is set'));
+  await page.waitForURL(u => u.href.includes('/end-session/'), { timeout: 20000 }).catch(() => {});
+  check('the right one is accepted, and a change you chose signs you out too',
+    signoutUrls.length === 2, JSON.stringify(signoutUrls));
+  check('with the token gone from storage as well', (await storedToken()) === 0);
 
   check('no page errors', errors.length === 0, JSON.stringify(errors));
 

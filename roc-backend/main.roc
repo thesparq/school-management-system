@@ -3638,6 +3638,16 @@ respond! = |request, context| {
                     } else {
                         Ok(db_response!("CREATE credentials CONTENT ${safe_payload};", context.surreal))
                     }
+                } else if Method.is_eq(request.method, PUT) and request_target_text(request) == "/api/credentials" {
+                    # A qualification's name is its only editable column: it is what a teacher profile's
+                    # record link displays as, so a rename renames it everywhere at once. Its flag is the
+                    # toggle below and nothing here is hard-deleted, so this is the whole write.
+                    payload_raw = read_body!(request)
+                    clauses = List.keep_if(
+                        [config_text_clause!("name", payload_raw)],
+                        |clause| !Str.is_empty(clause),
+                    )
+                    Ok(config_update_response!("credentials", clauses, extract_field(payload_raw, "id") |> sanitize, "name", context.surreal))
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/credentials/toggle-active" {
                     payload_raw = read_body!(request)
                     Ok(config_toggle_response!("credentials", payload_raw, context.surreal))

@@ -3,7 +3,8 @@
 // when a create is refused (400 validation text and the database's statement text). The second half
 // covers managing what is already there: a row edited in place (and a rename the unique index
 // refuses), a subject deactivated and reactivated — off `/api/subjects`, still in the hub — and a
-// curriculum link switched off and back on.
+// curriculum link switched off and back on. Every section's in-place edit is driven from its own
+// tab, qualifications included: that section's Save was the one the backend had no route for.
 //
 //   node tests/e2e/e2e_admin_config.cjs
 
@@ -226,6 +227,49 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await page.waitForSelector(`text=${editedLevelName}`, { timeout: 20000 }).catch(() => {});
   check('the edited class level shows its new name and age range', await rowHas(editedLevelName, '13-14 years'));
   check('and its new stage', await rowHas(editedLevelName, 'Primary'));
+
+  // --- A qualification: the catalog row the hub renames in place -------------------------------
+  // The rename is a PUT to /api/credentials, which was the one lookup-table write the backend
+  // never had: this row's Save answered 404 "Not Found" while every other section's saved.
+  await tab('Qualifications');
+  await page.waitForSelector('button:has-text("Create Qualification")', { timeout: 20000 }).catch(() => {});
+  const qualName = `Sandbox Qualification ${stamp % 100000}`;
+  await fill('e.g. B.Ed. Mathematics', qualName);
+  await page.click('button:has-text("Create Qualification")');
+  await page.waitForSelector('text=Qualification created', { timeout: 20000 }).catch(() => {});
+  check('created qualification reports success', await hasText('Qualification created'));
+  await page.waitForSelector(`text=${qualName}`, { timeout: 20000 }).catch(() => {});
+  check('created qualification appears in the list', await rowHas(qualName, 'Active'));
+
+  const editedQualName = `${qualName} renamed`;
+  await page.click(`tr:has-text("${qualName}") >> button:has-text("Edit")`);
+  const qualEditor = page.locator(`tr:has(input[placeholder="Qualification name"])`);
+  check('a qualification row opens its name in place', await qualEditor.count() === 1);
+  await qualEditor.locator('input[placeholder="Qualification name"]').fill(editedQualName);
+  await qualEditor.locator('button:has-text("Save")').click();
+  await page.waitForSelector('text=Qualification updated', { timeout: 20000 }).catch(() => {});
+  check('saving a qualification rename reports success', await hasText('Qualification updated'), await hasText('Not Found') ? 'the page still shows Not Found' : '');
+  await page.waitForSelector(`text=${editedQualName}`, { timeout: 20000 }).catch(() => {});
+  check('the renamed qualification shows its new name after the re-fetch', await rowHas(editedQualName, 'Active'));
+  check('the editor closed once the qualification was saved', await page.locator(`tr:has(input[placeholder="Qualification name"])`).count() === 0);
+  // The catalog is what a teacher's qualification links resolve against, so the stored row is the
+  // thing that has to carry the new name — not just the list the page re-drew.
+  const quals = await api('/api/credentials?all=true');
+  check('the catalog itself holds the new name', quals.some(q => q.name === editedQualName) && !quals.some(q => q.name === qualName), quals.map(q => q.name).join(', ') || 'empty');
+
+  // A rename onto a name the catalog already holds: the unique index refuses it, so the banner
+  // carries the database's own text and the row keeps the name it had.
+  const secondQualName = `${qualName} B`;
+  await fill('e.g. B.Ed. Mathematics', secondQualName);
+  await page.click('button:has-text("Create Qualification")');
+  await page.waitForSelector(`text=${secondQualName}`, { timeout: 20000 }).catch(() => {});
+  await page.click(`tr:has-text("${editedQualName}") >> button:has-text("Edit")`);
+  await page.locator(`tr:has(input[placeholder="Qualification name"]) input`).fill(secondQualName);
+  await page.locator(`tr:has(input[placeholder="Qualification name"]) button:has-text("Save")`).click();
+  await page.waitForSelector('text=already contains', { timeout: 20000 }).catch(() => {});
+  check('a refused qualification rename shows the database message', await hasText('already contains'), await hasText('idx_credentials_name') ? 'idx_credentials_name' : 'no index name');
+  await page.locator(`tr:has(input[placeholder="Qualification name"]) button:has-text("Cancel")`).click();
+  check('the qualification keeps the name it had after the refusal', await rowHas(editedQualName, 'Active'));
 
   // --- A subject: deactivating takes it off the active-only list without removing the row --------
   await tab('Subjects');
