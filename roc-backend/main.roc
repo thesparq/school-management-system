@@ -748,6 +748,45 @@ school_number_clause! = |pk, role, reserved, config| {
     }
 }
 
+# Whether the term a lesson hangs off is switched on. `terms.active` is the school's own switch (the hub's
+# Terms tab), and a lesson in a term that is off is not a pupil's to read — by id as much as by list, which
+# is why the reads check it rather than only filtering their query.
+lesson_term_active! : Str, SurrealDB.Config => Bool
+lesson_term_active! = |lesson_id, config| {
+    query = "SELECT id FROM ${record_ref!(lesson_id, "lessons")} WHERE term.active = true;"
+    match SurrealDB.query_read!(query, config) {
+        Err(_) => Bool.False,
+        Ok(body) => !Str.is_empty(extract_field(body, "id")),
+    }
+}
+
+# Whether a session term is switched on: the same rule one level up, for the general assessments, which hang
+# off a session term rather than a lesson.
+session_term_active! : Str, SurrealDB.Config => Bool
+session_term_active! = |session_id, config| {
+    query = "SELECT id FROM ${record_ref!(session_id, "session_term")} WHERE active = true;"
+    match SurrealDB.query_read!(query, config) {
+        Err(_) => Bool.False,
+        Ok(body) => !Str.is_empty(extract_field(body, "id")),
+    }
+}
+
+# Whether the term an assessment hangs off is switched on: a lesson assessment's lesson's term, or a general
+# assessment's session term. A pupil cannot hand work in for a term the school has turned off — the same rule
+# the lists apply, and the one that decides the answer rather than the page's button.
+assessment_term_active! : Str, Str, SurrealDB.Config => Bool
+assessment_term_active! = |table, assessment_id, config| {
+    link = if table == "general_assessments" { "session_term" } else { "lesson.term" }
+    query = "SELECT id FROM ${record_ref!(assessment_id, table)} WHERE ${link}.active = true;"
+    match SurrealDB.query_read!(query, config) {
+        Err(_) => Bool.False,
+        Ok(body) => !Str.is_empty(extract_field(body, "id")),
+    }
+}
+
+# The refusal a pupil gets for work in a term the school has switched off, in the school's words.
+term_switched_off_response = json_response(403, "{\"error\":\"That term is switched off\",\"detail\":\"The school has turned this term off, so its lessons and assessments are not available.\"}")
+
 # --- The two-system write journal (pending_ops) ---
 #
 # User management spans two systems that share no transaction: Authentik owns the login (and its
@@ -4044,6 +4083,11 @@ respond! = |request, context| {
                              if Str.is_empty(term_param) { "" } else { "term = ${record_ref!(term_param, "terms")}" },
                              if Str.is_empty(class_pk) { "" } else { "has_subject.in = ${record_ref!(class_pk, "class_levels")}" },
                              "active = true",
+                             # A term the school has switched off is off here too: the term list already
+                             # hides it, and this keeps its lessons out of the picker a pupil browses with
+                             # (the admin LMS names its term explicitly and is unaffected — it reads through
+                             # the teacher routes).
+                             "term IN (SELECT VALUE id FROM terms WHERE active = true)",
                          ],
                          |clause| !Str.is_empty(clause),
                      )
@@ -4057,6 +4101,10 @@ respond! = |request, context| {
                      lesson_id = query_param(request_target_text(request), "lesson_id")
                      if Str.is_empty(lesson_id) {
                          Ok(json_response(400, "{\"error\":\"Missing lesson_id\"}"))
+                     } else if caller.role == "student" and !lesson_term_active!(lesson_id, context.surreal) {
+                         # The id is not enough: a lesson in a term the school has switched off is refused
+                         # rather than served to a pupil who remembered the address.
+                         Ok(term_switched_off_response)
                      } else {
                          							# The whole record: lesson content lives in the nested `content` object. The subject and term
                          							# names are resolved here because the viewer's header prints them and the row itself only
@@ -4139,9 +4187,12 @@ respond! = |request, context| {
                     # the wider list rather than an empty one.
                     lesson_id = query_param(request_target_text(request), "lesson_id")
                     scope = if Str.is_empty(lesson_id) or lesson_id == "none" { "" } else { "lesson = ${record_ref!(lesson_id, "lessons")} AND " }
+                    # A switched-off term takes its assessments off the pupils' list — the same rule the
+                    # lesson list applies, one level up, and it covers the named lesson too.
+                    live_terms = "lesson.term IN (SELECT VALUE id FROM terms WHERE active = true) AND "
                     class_pk = if caller.role == "student" and Str.is_empty(scope) { student_class_pk!(caller_id!(user_json), context.surreal) } else { "" }
                     class_scope = if Str.is_empty(class_pk) { "" } else { "lesson.has_subject IN (SELECT VALUE id FROM has_subject WHERE in = ${record_ref!(class_pk, "class_levels")} AND active = true) AND " }
-                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${class_scope}${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
+                    res = SurrealDB.query_read!("SELECT * FROM lesson_assessments WHERE ${class_scope}${live_terms}${scope}active = true AND deleted_at IS NONE ORDER BY created_at DESC;", context.surreal)
                     match res {
                         Ok(body) => Ok(json_response(200, body))
                         Err(err) => Ok(db_read_error!(err))
@@ -4229,6 +4280,9 @@ respond! = |request, context| {
                         [
                             if Str.is_empty(subject_param) { "" } else { "subject = ${record_ref!(subject_param, "subjects")}" },
                             if Str.is_empty(session_param) { "" } else { "session_term = ${record_ref!(session_param, "session_term")}" },
+                            # A session term the school has switched off takes its assessments off the
+                            # pupils' list with it.
+                            "session_term IN (SELECT VALUE id FROM session_term WHERE active = true)",
                             "active = true",
                             "deleted_at IS NONE",
                         ],
@@ -4386,6 +4440,8 @@ respond! = |request, context| {
                     student_id = caller_id!(user_json) |> sanitize
                     if Str.is_empty(assessment_id) {
                         Ok(json_response(400, "{\"error\":\"assessment_id is required\"}"))
+                    } else if caller.role == "student" and !assessment_term_active!(assessment_table, assessment_id, context.surreal) {
+                        Ok(term_switched_off_response)
                     } else if Str.contains(answers, ";") {
                         Ok(json_response(400, "{\"error\":\"answers must be a JSON array without statement separators\"}"))
                     } else {
