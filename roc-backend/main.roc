@@ -2943,6 +2943,58 @@ clear_password_required! = |pk, config| {
     db_body!("UPDATE ${record_ref!(pk, "password_state")} SET changed_at = time::now();", config)
 }
 
+# One `{key, value}` row of the profile card. The caller escapes the value — it comes out of a database
+# response or a userinfo body — so this only assembles the object. Keeping the quotes out of the call sites is
+# also what keeps the rows readable: a value read inline inside the string would need them escaped, twice over.
+profile_row : Str, Str -> Str
+profile_row = |key, value| "{\"key\":\"${key}\",\"value\":\"${value}\"}"
+
+# A JSON array of strings as one comma-joined line, for a row that holds several names ("B.Ed, M.Ed").
+# The elements arrive quoted, so the quotes come off; an empty array is an empty value.
+join_json_names : Str -> Str
+join_json_names = |array_text| {
+    names = List.map(split_json_elements(array_text), |element| json_string_text(element))
+    Str.join_with(List.keep_if(names, |name| !Str.is_empty(name)), ", ")
+}
+
+# The date part of a stored timestamp (`2011-03-04T00:00:00Z` -> `2011-03-04`), for a row a person reads.
+# Anything without a `T` comes back as it was.
+date_part : Str -> Str
+date_part = |value| match List.first(Str.split_on(value, "T")) {
+    Ok(day) => day
+    Err(_) => value
+}
+
+# The caller's class-subject pairs under the active session term, as "JSS 1 · Mathematics" entries: the same
+# rows the Assign dialog writes, read back with the names a person recognises.
+teacher_pairs_text! : Str, SurrealDB.Config => Str
+teacher_pairs_text! = |pk, config| {
+    term_id = active_session_term_id!(config)
+
+    if Str.is_empty(term_id) {
+        ""
+    } else {
+        query = "SELECT has_subject.in.name AS class_name, has_subject.out.name AS subject_name FROM teacher_assignment WHERE teacher_id = type::record('teacher_profile', '${pk}') AND session_term = ${record_ref!(term_id, "session_term")} AND deleted_at IS NONE ORDER BY class_name, subject_name;"
+
+        match db_body!(query, config) {
+            Err(_) => "",
+            Ok(body) => {
+                # One `{"class_name":"…","subject_name":"…"}` object per pair; the two fields are read out of
+                # each and joined, so the row reads like the school writes it.
+                elements = split_json_elements(extract_json_array(body, "result"))
+                pairs = List.map(elements, |element| {
+                    class_name = extract_field(element, "class_name")
+                    subject_name = extract_field(element, "subject_name")
+
+                    if Str.is_empty(class_name) or Str.is_empty(subject_name) { "" } else { "${class_name} · ${subject_name}" }
+                })
+
+                Str.join_with(List.keep_if(pairs, |pair| !Str.is_empty(pair)), ", ")
+            }
+        }
+    }
+}
+
 # Whether this password is the caller's current one, asked of Authentik — with "could not check" told apart
 # from "wrong", because those are different things to say: one is the person mistyping, the other is a
 # deployment whose password grant or client secret needs attention. The username it signed in with is what
@@ -4333,6 +4385,71 @@ respond! = |request, context| {
                     } else {
                         Ok(json_response(200, "{\"required\":true,\"reason\":\"${sanitize_json_text(reason)}\"}"))
                     }
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/me/profile" {
+                    # The caller's own profile, for the Settings page's read-only card: the school's record of
+                    # the person, keyed by the caller and never by a payload id (the same rule as
+                    # `/api/me/password`), so it can only ever be your own. One `{key, value}` row per fact the
+                    # page can show; the page owns the labels, the division the dashboard's cards already use.
+                    # Nothing here is writable — the card's inputs are disabled, and no route takes them.
+                    pk = caller_id!(user_json)
+                    table =
+                        if caller.role == "teacher" { "teacher_profile" }
+                        else if caller.role == "parent" { "parent_profile" }
+                        else if caller.role == "admin" { "admin_profile" }
+                        else { "student_profile" }
+                    # A teacher's qualifications and a parent's children are arrays of record links; naming the
+                    # field after the array resolves each link, which is how the card shows "B.Ed" rather than
+                    # `credentials:xyz`. A student's class is the same trick on a single link.
+                    extras =
+                        if table == "teacher_profile" { ", qualifications.name AS qualification_names, date_employed" }
+                        else if table == "parent_profile" { ", students.name AS student_names" }
+                        else if table == "admin_profile" { ", admin_type, permissions" }
+                        else { ", date_of_birth, current_class.name AS class_name, admission_number" }
+                    query = "SELECT display_name, passport${extras} FROM ${table} WHERE id = type::record('${table}', '${pk}') AND deleted_at IS NONE LIMIT 1;"
+
+                    match db_body!(query, context.surreal) {
+                        Err(detail) => Ok(json_response(500, "{\"error\":\"Database error\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
+                        Ok(row) => {
+                            # The identity half comes from the caller's own userinfo, the school half from the
+                            # row. A row that is not there (a login with no profile yet) still answers the
+                            # identity rows, which is what the page can show for such an account.
+                            name = extract_field(row, "display_name") |> sanitize_json_text
+                            email = extract_field(user_json, "email") |> sanitize_json_text
+                            passport = extract_field(row, "passport") |> sanitize_json_text
+                            rows = [
+                                profile_row("name", name),
+                                profile_row("email", email),
+                                profile_row("role", caller.role),
+                                profile_row("passport", passport),
+                            ]
+                            role_rows =
+                                if table == "teacher_profile" {
+                                    [
+                                        profile_row("qualifications", join_json_names(extract_json_array(row, "qualification_names")) |> sanitize_json_text),
+                                        profile_row("date_employed", date_part(extract_field(row, "date_employed")) |> sanitize_json_text),
+                                        profile_row("pairs", teacher_pairs_text!(pk, context.surreal) |> sanitize_json_text),
+                                    ]
+                                } else if table == "parent_profile" {
+                                    [
+                                        profile_row("students", join_json_names(extract_json_array(row, "student_names")) |> sanitize_json_text),
+                                    ]
+                                } else if table == "admin_profile" {
+                                    [
+                                        profile_row("admin_type", extract_field(row, "admin_type") |> sanitize_json_text),
+                                        profile_row("permissions", join_json_names(extract_json_array(row, "permissions")) |> sanitize_json_text),
+                                    ]
+                                } else {
+                                    [
+                                        profile_row("class", extract_field(row, "class_name") |> sanitize_json_text),
+                                        profile_row("date_of_birth", date_part(extract_field(row, "date_of_birth")) |> sanitize_json_text),
+                                        profile_row("student_number", row_number!(row, "Student") |> sanitize_json_text),
+                                    ]
+                                }
+
+                            Ok(json_response(200, "[${Str.join_with(List.concat(rows, role_rows), ",")}]"))
+                        }
+                    }
+
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/me/password" {
                     # Setting one's own password. Authentik owns passwords, so the backend does the write with
                     # the service credential it already holds for an admin's reset — keyed by the caller and

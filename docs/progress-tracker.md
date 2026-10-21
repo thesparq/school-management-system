@@ -2075,6 +2075,35 @@ Left for later: the page can list and re-code a channel but not delete one (`del
 filter are in place for when it can), and rooms already on the homeserver are not listed by the app until an
 administrator lists them.
 
+### The Settings page shows the school's record of you, read-only (2026-10-21)
+
+Above the password form, the Settings page now carries the person's own details — name, address, role,
+passport, and the role's own rows: a student's class, date of birth and admission number; a teacher's
+qualifications, date employed and **class-subject pairs for the active term**; a parent's children; an
+administrator's type and permissions. Every row is a *disabled input* rather than plain text, so the page looks
+like the rest of the app's forms and shows at a glance that none of it is the person's to change — and there is
+no route that would take a change: `GET /api/me/profile` is the only method it answers, keyed by the caller
+like `/api/me/password`, so it can only ever be your own.
+
+Two query rules make the rows read like the school writes them: naming the field after an array of record links
+resolves each link (`qualifications.name` → `["B.Ed"]`, the same for a parent's `students` and a student's
+`current_class`), and the pairs come from the same `teacher_assignment` rows the Assign dialog writes, joined to
+the curriculum edge for the class and subject names. The values that are catalog *keys* — an administrator's
+type and ticks — are labelled by the view from the catalog it already fetches; the view owns the labels, the
+division the dashboard's cards use.
+
+**Verified**: `me_profile.sh` 27/27 (each role's own rows, the qualification by name rather than by record id,
+the pair matching the assignment it was given, a role's rows staying out of another role's card, and the route
+answering 404 to POST and PUT) and `e2e_password_change.cjs` 19/19 in Chromium (the card's rows carry the
+person's name, address and class, and every field is disabled). Plus `authz.sh` 60/60, `users_api.sh` 99/99,
+`e2e_admin.cjs` 16/16, `e2e_admin_permissions.cjs` 30/30, `e2e_nav_fixes.cjs` 10/10, `e2e_loading.cjs` 20/20,
+`e2e_student.cjs` 7/7, `smoke_teacher_role.cjs` 9/9, `e2e_matrix_sso.cjs` 31/31, `roc check` clean both sides.
+
+Two traps the suite itself had to learn, both worth knowing for the next one: a login created through the API
+carries **no group** in the mock (so its token resolves to the fallback role — a teacher case has to drive the
+*seeded* login), and deleting a seeded login's profile **also switches the login off** in Authentik, so a suite
+that uses one restores it with Activate rather than deleting it.
+
 ---
 
 ## Completed Work

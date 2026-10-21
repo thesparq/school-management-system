@@ -704,6 +704,7 @@
         const routes = [
             { match: (u) => u === "/api/admin-types", input: "admin_types_data_input", format: formatAdminTypes },
             { match: (u) => u === "/api/admin-rights", input: "admin_rights_data_input", format: formatAdminRights },
+            { match: (u) => u === "/api/me/profile", input: "profile_data_input", format: formatProfile },
             { match: (u) => u === "/api/dashboard", input: "dashboard_data_input", format: formatDashboard },
             { match: (u) => u === "/api/parent/children", input: "parent_children_data_input", format: formatChildren },
             { match: (u) => u.includes("/api/credentials"), input: "credentials_data_input", format: formatCredentials },
@@ -833,6 +834,13 @@
         const rights = data && data[0] && data[0].result ? data[0].result : data;
         const row = Array.isArray(rights) ? (rights[0] || {}) : (rights || {});
         return [String(row.is_super === true) + "|" + (row.permissions || []).join(",")];
+    }
+
+    // The Settings page's own details: `{key, value}` rows from /api/me/profile, one "key|value" line each.
+    // The view owns the labels, like the dashboard's cards own theirs.
+    function formatProfile(data) {
+        const rows = Array.isArray(data) ? data : [];
+        return rows.map(r => `${r.key || ""}|${r.value || ""}`);
     }
 
     // The qualifications catalog: id|name|active.
@@ -1085,6 +1093,21 @@
     }
     setInterval(refreshAdminRights, 60000);
 
+    // ─── The caller's own details (the Settings page) ───
+    // Fetched when the Settings page renders: the school's record of the person, shown read-only. Nothing here
+    // writes, and `/api/me/profile` takes no writes either — the card's inputs are disabled because the data
+    // is the school's, not the page's to change.
+    function refreshProfile() {
+        if (!document.getElementById("profile_data_input")) return;
+        fetch("/api/me/profile", { headers: { "Authorization": "Bearer " + (localStorage.getItem("auth_token") || "") } })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await failureMessage(res));
+                return okPayload(formatProfile(await res.json()));
+            })
+            .then((payload) => dispatchToInput("profile_data_input", payload))
+            .catch((err) => dispatchToInput("profile_data_input", errorPayload(err && err.message ? err.message : "Could not load your details")));
+    }
+
     // ─── The caller's own password requirement ───
     // The backend refuses every route but two while a password change is pending (a password an
     // administrator chose — at creation or at a reset — must be replaced before the account is used).
@@ -1169,6 +1192,11 @@
         // --- Messaging ---
         if (path === "/messaging") {
             setupMessaging();
+        }
+
+        // --- Settings ---
+        if (path === "/settings") {
+            refreshProfile();
         }
     }
 

@@ -95,6 +95,19 @@ const api = async (method, path, body) => {
   // for any login it knows). It is what closes the hole a stolen session would otherwise have.
   await page.goto(`${appUrl}/settings`, { waitUntil: 'load' });
   await page.waitForTimeout(4000);
+  // --- The read-only details card above the form ---
+  // The school's record of the person, as disabled inputs: the page looks like the app's other forms and shows
+  // at a glance that none of it is the person's to edit. A student's rows here are the class and the number the
+  // school gave them.
+  check('the details card is on the page', await hasText('Your details'));
+  const fieldValue = (id) => page.$eval(`#${id} input`, el => el.value);
+  const fieldDisabled = (id) => page.$eval(`#${id} input`, el => el.disabled);
+  check('with the person\'s name', (await fieldValue('profile-name')) === 'Pw Browser' + stamp, await fieldValue('profile-name'));
+  check('their own address', (await fieldValue('profile-email')) === `pw_browser_${stamp}@example.com`, await fieldValue('profile-email'));
+  check('their class, in the school\'s words', (await fieldValue('profile-class')) === 'JSS 1', await fieldValue('profile-class'));
+  check('and every one of those fields is read-only',
+    (await fieldDisabled('profile-name')) && (await fieldDisabled('profile-email')) && (await fieldDisabled('profile-class')));
+
   check('Settings offers the current-password field when nothing is owed',
     (await page.locator('#current-password-field input').count()) === 1);
   await page.fill('#new-password-field input', `Chosen-${stamp}!`);

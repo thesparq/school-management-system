@@ -3,7 +3,7 @@ import html.Html
 import html.Attribute
 
 import UI
-import State exposing [Model, Msg]
+import State exposing [Model, Msg, list_state, catalog_field, admin_catalog_types, admin_catalog_permissions]
 
 # The Settings page. It holds one thing today — the password form — and the page exists mostly for the
 # state it is shown in: while a login owes a password change (an administrator set the one it signed in
@@ -31,8 +31,108 @@ view = |model| {
         } else {
             Html.div([], [])
         },
+        profile_card(model),
         password_card(model),
     ])
+}
+
+# The school's record of this person, above the password form: read-only, because it is the school's data and
+# changing it is an administrator's job (the Users screen). Every row is a *disabled input* rather than plain
+# text, so the page looks like the rest of the app's forms and shows at a glance that none of it is the
+# person's to edit. The state input rides here: the payload only lands where the input is rendered, and only
+# this page reads it.
+profile_card = |model| {
+    rows = match list_state(model.profileData) {
+        Ready(lines) => List.map(lines, |line| profile_row(model, line))
+        Pending => [Html.p([Attribute.class("text-xs text-muted-foreground italic")], [Html.text("Loading your details…")])]
+        Failed(message) => [Html.p([Attribute.class("text-xs text-red-500")], [Html.text(message)])]
+    }
+
+    Html.div([Attribute.class("rounded-lg border bg-card p-6 space-y-4 max-w-2xl")], List.concat([
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("profile_data_input"),
+            Attribute.value(model.profileData),
+            Attribute.on_input(|s| GotProfileData(s))
+        ]),
+        Html.h2([Attribute.class("text-lg font-semibold")], [Html.text("Your details")]),
+        Html.p([Attribute.class("text-xs text-muted-foreground")], [
+            Html.text("The school's record of you. These fields are read-only — an administrator changes them from User Management.")
+        ]),
+    ], rows))
+}
+
+# One row: `key|value` from the payload, with the view owning the label. A key this page does not know is
+# skipped, the same rule the dashboard's cards follow.
+profile_row = |model, line| {
+    parts = Str.split_on(line, "|")
+    key = match List.get(parts, 0) { Ok(value) => value, Err(_) => "" }
+    value = match List.get(parts, 1) { Ok(raw) => raw, Err(_) => "" }
+    label = profile_label(key)
+
+    if Str.is_empty(label) {
+        Html.div([], [])
+    } else {
+        # The input carries an id of its own (`profile-<key>`) so a suite can read the row and check that it is
+        # disabled — the card's whole point is that these fields are not the person's to change.
+        Html.div([Attribute.class("space-y-2")], [
+            UI.label({ classes: "" }, [Html.text(label)]),
+            Html.div([Attribute.id("profile-${key}")], [
+                UI.input({
+                    type: "text",
+                    value: profile_value(model, key, value),
+                    placeholder: "",
+                    on_input: None,
+                    is_disabled: Bool.True,
+                    classes: ""
+                })
+            ])
+        ])
+    }
+}
+
+# The label a key carries, in the school's words. "" for a key this page does not show — which is how a row
+# added for one role stays out of the others' cards.
+profile_label = |key| {
+    if key == "name" { "Full name" }
+    else if key == "email" { "Email address" }
+    else if key == "role" { "Role" }
+    else if key == "passport" { "Passport photograph" }
+    else if key == "class" { "Class level" }
+    else if key == "date_of_birth" { "Date of birth" }
+    else if key == "student_number" { "Student number" }
+    else if key == "qualifications" { "Qualifications" }
+    else if key == "date_employed" { "Date employed" }
+    else if key == "pairs" { "Classes & subjects (this term)" }
+    else if key == "students" { "My children" }
+    else if key == "admin_type" { "Admin type" }
+    else if key == "permissions" { "Permissions" }
+    else { "" }
+}
+
+# The value as the card should read: two rows hold catalog *keys* rather than the school's words, so they are
+# looked up (falling back to the key itself when the catalog has not arrived). Everything else is already text.
+profile_value = |model, key, value| {
+    if key == "role" {
+        if value == "admin" { "Administrator" } else if value == "teacher" { "Teacher" } else if value == "parent" { "Parent" } else { "Student" }
+    } else if key == "admin_type" {
+        catalog_label(admin_catalog_types(model.adminTypesData), value)
+    } else if key == "permissions" {
+        keys = List.keep_if(Str.split_on(value, ","), |entry| !Str.is_empty(entry))
+        Str.join_with(List.map(keys, |entry| catalog_label(admin_catalog_permissions(model.adminTypesData), entry)), ", ")
+    } else {
+        value
+    }
+}
+
+# The label a catalog line carries for a key, or the key itself when the catalog has not arrived.
+catalog_label = |lines, key| {
+    look = |remaining| match remaining {
+        [] => key
+        [line, .. as rest] => if catalog_field(line, 1) == key { catalog_field(line, 2) } else { look(rest) }
+    }
+
+    look(lines)
 }
 
 # Why the change is owed, said the way the person met it: an account that was just made, or a password an

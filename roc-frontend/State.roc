@@ -103,8 +103,12 @@ Model : {
 	confirmPassword : Str,
 	# The password they signed in with. Asked only when nothing is owed: a change the person chose has to
 	# prove it, and Authentik is the only party that can check one (see `password_check!` in main.roc).
-	currentPassword : Str,
-	passwordResult : [None, Success(Str), Error(Str)],
+	        currentPassword : Str,
+	        # The school's record of this person, for the Settings page's read-only card: one "key|value" line per
+	        # fact (`/api/me/profile`, fetched by the page when Settings renders). The view owns the labels, the
+	        # same division the dashboard's cards use.
+	        profileData : Str,
+	        passwordResult : [None, Success(Str), Error(Str)],
 	        newUserDateOfBirth : Str,
 	        newUserClassLevel : Str,
 	        # An administrator's own two facts, and the catalog they come from. `adminTypesData` is
@@ -277,6 +281,7 @@ Msg : [
 	        UpdateNewPassword(Str),
 	        UpdateConfirmPassword(Str),
 	        UpdateCurrentPassword(Str),
+	        GotProfileData(Str),
 	        SubmitPasswordChange,
 	        PasswordChangeCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	UpdateNewUserEmail(Str),
@@ -562,6 +567,7 @@ init = |flags| {
 		newPassword: "",
 		confirmPassword: "",
 		currentPassword: "",
+		profileData: "",
 		passwordResult: None,
 		usersData: "",
 		termsData: "",
@@ -2023,6 +2029,7 @@ dispatch = |model, msg|
            UpdateNewPassword(s) => ({ ..model, newPassword: s }, [])
            UpdateConfirmPassword(s) => ({ ..model, confirmPassword: s }, [])
            UpdateCurrentPassword(s) => ({ ..model, currentPassword: s }, []),
+           GotProfileData(s) => ({ ..model, profileData: s }, []),
            SubmitPasswordChange => {
            	# The rules the backend enforces, said here first so the form answers without a round trip;
            	# the backend checks them again and its own message is what the form shows when it refuses.
