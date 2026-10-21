@@ -307,11 +307,39 @@ table_head = |config, children| {
 	Html.th([class(final_classes)], children)
 }
 
+# The classes every cell shares, labelled or not.
+table_cell_classes = "p-4 align-middle [&:has([role=checkbox])]:pr-0"
+
 default_table_cell = { classes: "" }
 
 table_cell = |config, children| {
-	final_classes = Str.join_with(["p-4 align-middle [&:has([role=checkbox])]:pr-0", config.classes], " ")
+	final_classes = Str.join_with([table_cell_classes, config.classes], " ")
 	Html.td([class(final_classes)], children)
+}
+
+# The class a table carries to lay its rows out as stacked cards on a phone: below `sm` the header row
+# is dropped and each cell prints the name of the column it sits in beside its value (see the
+# `stack-rows` rules in www/app.css). It goes on the tables whose columns are too many to read panned
+# sideways inside a phone-width card — the configuration hub's and user management's.
+table_stack_classes = "stack-rows"
+
+default_table_stack_cell = { classes: "", label: "" }
+
+# A cell of a table marked `table_stack_classes`: the same cell as `table_cell`, plus the name of its
+# column, which the phone layout prints beside the value. A `label` of "" says the cell needs no
+# name — a row's tick, its avatar, its buttons — and those cells are the ones a view marks
+# `stack-inline` to keep them together on the row's first line. At `sm` and up both are inert: the
+# table is a table again and the name is never rendered.
+table_stack_cell = |config, children| {
+	final_classes = Str.join_with([table_cell_classes, config.classes], " ")
+	attrs =
+		if Str.is_empty(config.label) {
+			[class(final_classes)]
+		} else {
+			[class(final_classes), attribute("data-label", config.label)]
+		}
+
+	Html.td(attrs, children)
 }
 
 # --- LIST STATES ---

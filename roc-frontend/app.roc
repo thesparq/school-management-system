@@ -271,6 +271,11 @@ render = |model| {
 				span([class("mx-2")], [text("/")]),
 				span([class("text-foreground")], [text("Messaging")])
 			]
+			Settings => [
+				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
+				span([class("mx-2")], [text("/")]),
+				span([class("text-foreground")], [text("Settings")])
+			]
 			_ => [
 				a([class("hover:text-foreground transition-colors cursor-pointer"), Attribute.on_click(NavigateTo(Dashboard))], [text("Dashboard")]),
 				span([class("mx-2")], [text("/")]),
@@ -310,7 +315,7 @@ render = |model| {
 						text("☰")
 					])
 				],
-				[div([class("flex items-center text-sm font-medium text-muted-foreground")], breadcrumb_items)]
+				[div([class("breadcrumb-trail flex items-center min-w-0 text-xs sm:text-sm font-medium text-muted-foreground")], breadcrumb_items)]
 			)),
 			div([class("flex items-center gap-2")], List.concat(
 				[session_term_bar],

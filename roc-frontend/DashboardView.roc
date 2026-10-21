@@ -53,7 +53,7 @@ dashboard_status = |model| {
 welcome_section = |model, subtitle| {
     name = if Str.is_empty(model.userName) { "User" } else { model.userName }
     div([class("mb-8")], [
-        h1([class("text-3xl font-bold tracking-tight")], [text("Welcome back, ${name}")]),
+        h1([class("text-2xl sm:text-3xl font-bold tracking-tight")], [text("Welcome back, ${name}")]),
         p([class("text-muted-foreground mt-1")], [text(subtitle)])
     ])
 }
@@ -73,7 +73,7 @@ stat_card = |title, value, subtitle, icon| {
 
 admin_dashboard = |model| {
     status = dashboard_status(model)
-    div([class("p-6 md:p-8 space-y-8")], [
+    div([class("p-4 sm:p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Here's what's happening in your school today."),
         div([class("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4")], [
             stat_card("Total Students", dashboard_stat(model, "students"), "Enrolled accounts", "🎓"),
@@ -108,7 +108,7 @@ admin_dashboard = |model| {
 }
 
 teacher_dashboard = |model| {
-    div([class("p-6 md:p-8 space-y-8")], [
+    div([class("p-4 sm:p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Manage your classes and assessments."),
         div([class("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4")], [
             stat_card("My Classes", dashboard_stat(model, "classes"), "Assigned class-subject pairs", "📚"),
@@ -132,7 +132,7 @@ teacher_dashboard = |model| {
 }
 
 student_dashboard = |model| {
-    div([class("p-6 md:p-8 space-y-8")], [
+    div([class("p-4 sm:p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Keep up the great work! Here's your learning overview."),
         div([class("grid grid-cols-1 sm:grid-cols-2 gap-4")], [
             stat_card("My Subjects", dashboard_stat(model, "subjects"), "Subjects your class takes", "📚"),
@@ -155,7 +155,7 @@ student_dashboard = |model| {
 }
 
 parent_dashboard = |model| {
-    div([class("p-6 md:p-8 space-y-8")], [
+    div([class("p-4 sm:p-6 md:p-8 space-y-8")], [
         welcome_section(model, "Monitor your children's academic progress."),
         # The children this parent's own row links, read from /api/parent/children. The three states are
         # the same as every other list's: a skeleton until the answer lands, the backend's message with a
@@ -205,7 +205,7 @@ default_dashboard = |_model| {
     # `p-6 pt-0` for content that follows a card header, and a `pt-*` passed in `classes` loses to its
     # `pt-0` by stylesheet order — which is what left this card's icon against its top edge with all the
     # space at the bottom.
-    div([class("p-6 md:p-8 flex items-center justify-center min-h-[calc(100dvh_-_4rem)]")], [
+    div([class("p-4 sm:p-6 md:p-8 flex items-center justify-center min-h-[calc(100dvh_-_4rem)]")], [
         UI.card({ classes: "max-w-md w-full text-center" }, [
             div([class("p-8 sm:p-12 space-y-4")], [
                 div([class("text-5xl mb-4")], [text("🔒")]),

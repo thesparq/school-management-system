@@ -1,5 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import 'tailwindcss';
+/* The webfonts are linked from index.html, not imported here: an `@import` in this sheet blocks its own
+   parsing on a third-party round trip, which is the last thing a school connection needs on first paint. */
 @source "../**/*.roc";
 @source "./index.html";
 
@@ -195,5 +196,76 @@
 	button:disabled,
 	a[aria-disabled="true"] {
 		cursor: not-allowed;
+	}
+}
+
+/* The shell's breadcrumb trail on a phone: one step, the one it ends on. The bar is 64px tall and on
+   390px of screen "Dashboard / Configuration Hub" does not fit beside the menu button and the three
+   icons, so it used to wrap to two lines inside its own bar. The trail's earlier steps (the dashboard
+   link and its separator) are what goes; the page's own name is the part worth the room, and the
+   screens it leads back to are one tap away in the menu. */
+@media (width < 40rem) {
+	.breadcrumb-trail > *:nth-child(-n + 2) {
+		display: none;
+	}
+}
+
+/* --- The administration tables on a phone ---------------------------------------------------
+   The configuration hub and user management draw the app's widest tables (a class level's six
+   columns, an account's eight). Panned sideways inside a phone-width card — which is all the
+   `overflow-auto` wrapper can offer — they read as a broken slice of a table. So below `sm` a table
+   marked `stack-rows` lays each row out as a stacked card instead: the header row is dropped, every
+   cell prints the name of the column it sits in (`data-label`, carried by UI.table_stack_cell)
+   beside its value, and the cells a row leads with — its tick, avatar and name — carry
+   `stack-inline` so they stay together on the first line. At `sm` and up none of this applies. */
+@media (width < 40rem) {
+	.stack-rows,
+	.stack-rows tbody {
+		display: block;
+	}
+	.stack-rows thead {
+		display: none;
+	}
+	.stack-rows tbody tr {
+		display: block;
+		padding: 0.75rem 1rem;
+	}
+	.stack-rows tbody td {
+		display: block;
+		padding: 0.3rem 0;
+		min-width: 0;
+		text-align: left;
+		/* A value with no space in it — an address, a generated login, a long name — has to wrap
+		   rather than widen the card past the screen; a `whitespace-nowrap` cell (a school number,
+		   read character by character) still does not wrap. */
+		overflow-wrap: anywhere;
+	}
+	.stack-rows tbody td[data-label]:not([data-label=""]) {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.stack-rows tbody td[data-label]:not([data-label=""])::before {
+		content: attr(data-label);
+		flex: none;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.stack-rows tbody td.stack-inline {
+		display: inline-flex;
+		align-items: center;
+		vertical-align: middle;
+		padding: 0.25rem 0.5rem 0.25rem 0;
+	}
+	/* The one cell that spans the whole table — an empty, failed or not-yet-loaded list — keeps its own
+	   tall centred box rather than becoming one more stacked line. */
+	.stack-rows tbody td[colspan] {
+		display: block;
+		padding: 2.5rem 1rem;
+		text-align: center;
 	}
 }

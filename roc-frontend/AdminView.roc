@@ -23,7 +23,7 @@ admin_route = |model, permission, content| {
     if caller_has_permission(model, permission) {
         content
     } else {
-        Html.div([Attribute.class("p-6 md:p-8")], [
+        Html.div([Attribute.class("p-4 sm:p-6 md:p-8")], [
             Html.div([Attribute.class("max-w-xl rounded-lg border bg-card p-6 space-y-2")], [
                 Html.h1([Attribute.class("text-xl font-semibold")], [Html.text("This screen needs another permission")]),
                 Html.p([Attribute.class("text-sm text-muted-foreground")], [
@@ -78,14 +78,16 @@ admin_users_view = |model| {
     }
 
 
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
-        # Page header with the entry action: Add opens the modal in create mode.
-        Html.div([Attribute.class("flex items-start justify-between gap-4")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
+        # Page header with the entry action: Add opens the modal in create mode. On a phone the action
+        # sits under the title instead of beside it: side by side, the title takes the width and the
+        # button's own label is clipped by its fixed height.
+        Html.div([Attribute.class("flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4")], [
             Html.div([], [
-                Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
+                Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("User Management")]),
                 Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage all user accounts across Students, Teachers, Parents, and Administrators.")])
             ]),
-            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "gap-2" }, [UI.icon("plus", "w-4 h-4"), Html.text("Add New User")])
+            UI.button({ variant: Primary, size: Default, on_click: Click(OpenUserForm), is_disabled: model.isSubmitting, classes: "gap-2 shrink-0 whitespace-nowrap" }, [UI.icon("plus", "w-4 h-4"), Html.text("Add New User")])
         ]),
 
         # Submit feedback banner
@@ -241,7 +243,9 @@ admin_users_view = |model| {
         Html.div([Attribute.class("space-y-4")], [
             # Tab bar: the same segmented pill control the Configuration hub uses — one tab
             # switcher across the app rather than two styling languages.
-            Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-fit")], [
+            # `w-full` on a phone so the strip scrolls inside its own box: `w-fit` sized itself to
+            # every tab at once, which pushed the later ones off the screen edge with nothing to scroll.
+            Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit")], [
                 user_tab(model.activeUserTab, Students, "Students", "graduation-cap"),
                 user_tab(model.activeUserTab, Teachers, "Teachers", "presentation"),
                 user_tab(model.activeUserTab, Parents, "Parents", "users"),
@@ -252,7 +256,7 @@ admin_users_view = |model| {
             # backend treats a row with no login behind it as removed by the profile hide alone — so
             # anything on the tab can be selected and removed together.
             if !List.is_empty(model.selectedUserIds) {
-                Html.div([Attribute.class("flex items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-2")], [
+                Html.div([Attribute.class("flex items-center justify-between flex-wrap gap-2 rounded-md border border-border bg-muted/30 px-4 py-2")], [
                     Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text("${selected_count} selected")]),
                     Html.div([Attribute.class("flex items-center gap-2")], [
                         UI.button({ variant: Ghost, size: Sm, on_click: Click(ClearUserSelection), is_disabled: model.isSubmitting, classes: "text-xs" }, [Html.text("Clear")]),
@@ -266,7 +270,7 @@ admin_users_view = |model| {
             # Users table
             UI.card({ classes: "" }, [
                 UI.card_content({ classes: "p-0" }, [
-                    UI.table({ classes: "" }, [
+                    UI.table({ classes: UI.table_stack_classes }, [
                         UI.table_header({ classes: "" }, [
                             UI.table_row({ classes: "" }, List.concat([
                                 UI.table_head({ classes: "w-8" }, [Html.text("")]),
@@ -816,14 +820,14 @@ users_extra_headers = |tab| {
 # use, against the already-fetched student list.
 user_role_cells = |model, parts| {
     match model.activeUserTab {
-        Students => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(config_field(parts, 16, "—"))])]
+        Students => [UI.table_stack_cell({ classes: "text-muted-foreground text-sm", label: "Class" }, [Html.text(config_field(parts, 16, "—"))])]
         Parents => {
             ids = List.drop_if(Str.split_on(config_field(parts, 15, ""), ","), Str.is_empty)
             names = List.map(ids, |id| config_record_name(model.usersStudentsData, id))
             text = if List.is_empty(names) { "—" } else { Str.join_with(names, ", ") }
-            [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(text)])]
+            [UI.table_stack_cell({ classes: "text-muted-foreground text-sm", label: "Students" }, [Html.text(text)])]
         }
-        Admins => [UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(admin_type_label(model, config_field(parts, 17, "")))])]
+        Admins => [UI.table_stack_cell({ classes: "text-muted-foreground text-sm", label: "Admin type" }, [Html.text(admin_type_label(model, config_field(parts, 17, "")))])]
         Teachers => []
     }
 }
@@ -851,8 +855,10 @@ user_row = |model, line| {
                 Err(_) => "?"
             }
         }
+    # The row's first line on a phone: the tick, the avatar and the name ride together (`stack-inline`)
+    # instead of each taking a line of its own, and none of the three needs a column's name.
     UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, List.concat([
-        UI.table_cell({ classes: "" }, [
+        UI.table_stack_cell({ classes: "stack-inline", label: "" }, [
             # The selection tick for the bulk delete above the table. A button rather than a real
             # checkbox so the click is a Joy message like the row's other actions.
             UI.button(
@@ -860,12 +866,12 @@ user_row = |model, line| {
                 [Html.text(if selected { "☑" } else { "☐" })]
             )
         ]),
-        UI.table_cell({ classes: "" }, [
+        UI.table_stack_cell({ classes: "stack-inline", label: "" }, [
             Html.div([Attribute.class("w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-sm font-semibold text-primary")], [
                 Html.text(initial)
             ])
         ]),
-        UI.table_cell({ classes: "font-medium" }, [
+        UI.table_stack_cell({ classes: "stack-inline font-medium", label: "" }, [
             Html.div([Attribute.class("flex items-center gap-2")], [
                 Html.text(name),
                 # The two ways a row can be half a record: a login the profile tables have nothing for
@@ -880,15 +886,15 @@ user_row = |model, line| {
                 }
             ])
         ]),
-        UI.table_cell({ classes: "text-muted-foreground text-sm" }, [Html.text(email)]),
+        UI.table_stack_cell({ classes: "text-muted-foreground text-sm", label: "Email" }, [Html.text(email)]),
     ], List.concat(user_role_cells(model, parts), [
         # Read-only, and a dash when the row has no number (a parent, or a login with no profile yet):
         # the form above cannot set it and no action here changes it. Monospaced and unbroken, because a
         # number is read character by character.
-        UI.table_cell({ classes: "text-muted-foreground text-sm font-mono whitespace-nowrap" }, [
+        UI.table_stack_cell({ classes: "text-muted-foreground text-sm font-mono whitespace-nowrap", label: "School number" }, [
             Html.text(if Str.is_empty(school_number) { "—" } else { school_number })
         ]),
-        UI.table_cell({ classes: "" }, [
+        UI.table_stack_cell({ classes: "", label: "Status" }, [
             # A row with no login behind it has no login state to report: "Active" would be a claim about an
             # account that is not there.
             Html.span([
@@ -903,15 +909,17 @@ user_row = |model, line| {
                 )
             ], [Html.text(if !in_directory { "Unknown" } else if is_active { "Active" } else { "Inactive" })])
         ]),
-        UI.table_cell({ classes: "text-right" }, [
-            Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+        UI.table_stack_cell({ classes: "text-right", label: "" }, [
+            # On a phone these start at the row's own left edge and wrap; there is no column left to
+            # hang them off the right of.
+            Html.div([Attribute.class("flex items-center justify-end max-sm:justify-start max-sm:flex-wrap gap-1")], [
                 # A profile-less login gets the one completion action: while the login is on, the
                 # modal opens with this login's school data to fill in; once it is off (the delete
                 # that hid the profile also disabled the login), the action is Activate, which
                 # brings both back. Every row also offers Reset password, which opens the modal in
                 # its password-only mode.
                 if has_profile {
-                    Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+                    Html.div([Attribute.class("flex items-center justify-end max-sm:justify-start max-sm:flex-wrap gap-1")], [
                         # Only a teacher row is assigned class-subject pairs; the other roles have no
                         # teaching scope. The dialog replaces the whole set when it saves.
                         if model.activeUserTab == Teachers {
@@ -943,7 +951,7 @@ user_row = |model, line| {
                         )
                     ])
                 } else {
-                    Html.div([Attribute.class("flex items-center justify-end gap-1")], [
+                    Html.div([Attribute.class("flex items-center justify-end max-sm:justify-start max-sm:flex-wrap gap-1")], [
                         if is_active {
                             UI.button(
                                 { variant: Primary, size: Sm, on_click: Click(CompleteProfile(id, email)), is_disabled: busy, classes: "text-xs" },
@@ -972,10 +980,10 @@ user_row = |model, line| {
 # -------------------------------------------------------
 
 admin_config_view = |model| {
-	Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+	Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
 		Html.div([Attribute.class("flex justify-between items-center")], [
 			Html.div([], [
-				Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("Configuration Hub")]),
+				Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("Configuration Hub")]),
 				Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Manage system-wide academic settings and structures.")])
 			])
 		]),
@@ -993,7 +1001,7 @@ admin_config_view = |model| {
 		Html.input([Attribute.type("hidden"), Attribute.id("credentials_data_input"), Attribute.value(model.credentialsData), Attribute.on_input(|s| GotCredentialsData(s))]),
 
 		Html.div([Attribute.class("flex flex-col space-y-4")], [
-			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-fit")], [
+			Html.div([Attribute.class("flex overflow-x-auto p-1 bg-muted rounded-md w-full sm:w-fit")], [
 				config_tab(model.activeConfigTab, Terms, "Academic Terms"),
 				config_tab(model.activeConfigTab, ClassLevels, "Class Levels"),
 				config_tab(model.activeConfigTab, Curriculum, "Curriculum"),
@@ -1038,13 +1046,16 @@ config_tab = |active_tab, this_tab, label| {
 
 # --- Shared pieces of a configuration section ---
 
+# A configuration section: the card every tab is drawn in. Its own padding gives 8px back to each side
+# on a phone — inside a 390px screen the card's 24px and the page's are between the table and its
+# edges, and the stacked rows need the width more than the whitespace.
 config_card = |title, description, content| {
 	UI.card({ classes: "" }, [
-		UI.card_header({ classes: "" }, [
+		UI.card_header({ classes: "max-sm:px-4" }, [
 			UI.card_title({ classes: "" }, [Html.text(title)]),
 			Html.p([Attribute.class("text-sm text-muted-foreground")], [Html.text(description)])
 		]),
-		UI.card_content({ classes: "space-y-6" }, content)
+		UI.card_content({ classes: "space-y-6 max-sm:px-4" }, content)
 	])
 }
 
@@ -1136,10 +1147,12 @@ config_create_banner = |model| {
 	}
 }
 
+# The table a configuration section lists its rows in. `table_stack_classes` is what lays those rows
+# out as cards on a phone; each cell carries its column's name for it (see `config_edit_cell`).
 config_table = |headers, rows| {
 	UI.card({ classes: "" }, [
 		UI.card_content({ classes: "p-0" }, [
-			UI.table({ classes: "" }, [
+			UI.table({ classes: UI.table_stack_classes }, [
 				UI.table_header({ classes: "" }, [
 					UI.table_row({ classes: "" }, List.map(headers, |header| UI.table_head({ classes: "" }, [Html.text(header)])))
 				]),
@@ -1176,9 +1189,10 @@ config_edit_input = |placeholder, input_type, value, is_disabled, to_msg| {
 	})
 }
 
-# A cell holding one control of an open editor.
-config_edit_cell = |input| {
-	UI.table_cell({ classes: "min-w-40" }, [input])
+# A cell holding one control of an open editor, named by the column it edits so a phone can print
+# that name beside the control.
+config_edit_cell = |label, input| {
+	UI.table_stack_cell({ classes: "min-w-40", label: label }, [input])
 }
 
 # The Edit control of a row: it opens that row's own fields in place, so the values being changed
@@ -1272,14 +1286,14 @@ credentials_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell(config_edit_input("Qualification name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_cell("Qualification", config_edit_input("Qualification name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Credentials)
 		])
 	} else {
 		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Qualification"))]),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			UI.table_stack_cell({ classes: "font-medium", label: "Qualification" }, [Html.text(config_field(parts, 1, "Qualification"))]),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_row_actions(model, Credentials, line, id, is_active)
 		])
 	}
@@ -1540,7 +1554,7 @@ assign_save_banner = |model| {
 admin_class_picker = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Browse any class level's curriculum, exactly as a teacher sees it — without gating.")])
 		]),
 		match list_state(model.adminLmsClassesData) {
@@ -1580,7 +1594,7 @@ admin_subjects_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_class_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_class_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_class_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a subject to see its terms and lessons.")])
 		]),
 		match list_state(model.subjectPairsData) {
@@ -1625,7 +1639,7 @@ admin_terms_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_subject_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_subject_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
 		]),
 		match list_state(model.adminLmsTermsData) {
@@ -1669,7 +1683,7 @@ admin_lessons_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_term_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_term_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_term_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_lessons_data_input"), Attribute.value(model.adminLmsLessonsData), Attribute.on_input(|s| GotAdminLmsLessonsData(s))]),
@@ -1834,7 +1848,7 @@ lms_term_label = |model| {
 # screen at a time; the fetch URLs behind each step carry the picked ids, and the class filter is
 # what makes the lesson list exactly one class level.
 admin_lms_view = |model| {
-	Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+	Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
 		# The pair catalog the subjects step reads; hidden, and only present on this page (the JS
 		# dispatches /api/class-subjects into it).
 		Html.input([Attribute.type("hidden"), Attribute.id("subject_pairs_data_input"), Attribute.value(model.subjectPairsData), Attribute.on_input(|s| GotSubjectPairsData(s))]),
@@ -1933,16 +1947,16 @@ terms_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell(config_edit_input("Term name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell(config_edit_input("Sort order", "number", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_cell("Term", config_edit_input("Term name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell("Sort order", config_edit_input("Sort order", "number", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Terms)
 		])
 	} else {
 		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Term"))]),
-			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_field(parts, 2, "—"))]),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			UI.table_stack_cell({ classes: "font-medium", label: "Term" }, [Html.text(config_field(parts, 1, "Term"))]),
+			UI.table_stack_cell({ classes: "text-muted-foreground", label: "Sort order" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_row_actions(model, Terms, line, id, is_active)
 		])
 	}
@@ -1993,20 +2007,20 @@ class_levels_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell(config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell(config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
-			config_edit_cell(config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
-			config_edit_cell(config_row_select("edit-class-level-tier-select", if Str.is_empty(model.editField4) { "none" } else { model.editField4 }, config_stage_options, |s| UpdateEditField4(s))),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_cell("Class level", config_edit_input("Class level name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell("Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			config_edit_cell("Age range", config_edit_input("Age range", "text", model.editField3, model.isConfigSubmitting, |s| UpdateEditField3(s))),
+			config_edit_cell("Stage", config_row_select("edit-class-level-tier-select", if Str.is_empty(model.editField4) { "none" } else { model.editField4 }, config_stage_options, |s| UpdateEditField4(s))),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, ClassLevels)
 		])
 	} else {
 		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Class level"))]),
-			UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(config_field(parts, 2, "—"))]),
-			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_field(parts, 3, "—"))]),
-			UI.table_cell({ classes: "" }, [config_stage_badge(tier)]),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			UI.table_stack_cell({ classes: "font-medium", label: "Class level" }, [Html.text(config_field(parts, 1, "Class level"))]),
+			UI.table_stack_cell({ classes: "text-muted-foreground font-mono text-xs", label: "Code" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_stack_cell({ classes: "text-muted-foreground", label: "Age range" }, [Html.text(config_field(parts, 3, "—"))]),
+			UI.table_stack_cell({ classes: "", label: "Stage" }, [config_stage_badge(tier)]),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_row_actions(model, ClassLevels, line, id, is_active)
 		])
 	}
@@ -2070,9 +2084,9 @@ curriculum_row = |model, line| {
 	is_active = config_field(parts, 3, "true") == "true"
 
 	UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-		UI.table_cell({ classes: "font-medium" }, [Html.text(config_record_name(model.classLevelsData, config_field(parts, 1, "")))]),
-		UI.table_cell({ classes: "" }, [Html.text(config_record_name(model.subjectsData, config_field(parts, 2, "")))]),
-		UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+		UI.table_stack_cell({ classes: "font-medium", label: "Class level" }, [Html.text(config_record_name(model.classLevelsData, config_field(parts, 1, "")))]),
+		UI.table_stack_cell({ classes: "", label: "Subject" }, [Html.text(config_record_name(model.subjectsData, config_field(parts, 2, "")))]),
+		UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 		config_toggle_actions(model, Curriculum, id, is_active)
 	])
 }
@@ -2112,16 +2126,16 @@ session_terms_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell(config_edit_input("Session name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell(config_row_select("edit-session-term-select", model.editField2, config_record_options(model.termsData, "No terms yet"), |s| UpdateEditField2(s))),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_cell("Session", config_edit_input("Session name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell("Term", config_row_select("edit-session-term-select", model.editField2, config_record_options(model.termsData, "No terms yet"), |s| UpdateEditField2(s))),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, SessionTerms)
 		])
 	} else {
 		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Session"))]),
-			UI.table_cell({ classes: "text-muted-foreground" }, [Html.text(config_record_name(model.termsData, config_field(parts, 2, "")))]),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			UI.table_stack_cell({ classes: "font-medium", label: "Session" }, [Html.text(config_field(parts, 1, "Session"))]),
+			UI.table_stack_cell({ classes: "text-muted-foreground", label: "Term" }, [Html.text(config_record_name(model.termsData, config_field(parts, 2, "")))]),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_row_actions(model, SessionTerms, line, id, is_active)
 		])
 	}
@@ -2160,16 +2174,16 @@ subjects_row = |model, line| {
 
 	if !Str.is_empty(id) and model.editId == id {
 		UI.table_row({ classes: "bg-muted/40" }, [
-			config_edit_cell(config_edit_input("Subject name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
-			config_edit_cell(config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			config_edit_cell("Subject", config_edit_input("Subject name", "text", model.editField1, model.isConfigSubmitting, |s| UpdateEditField1(s))),
+			config_edit_cell("Code", config_edit_input("Code", "text", model.editField2, model.isConfigSubmitting, |s| UpdateEditField2(s))),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_edit_actions(model, Subjects)
 		])
 	} else {
 		UI.table_row({ classes: "hover:bg-muted/30 transition-colors" }, [
-			UI.table_cell({ classes: "font-medium" }, [Html.text(config_field(parts, 1, "Subject"))]),
-			UI.table_cell({ classes: "text-muted-foreground font-mono text-xs" }, [Html.text(config_field(parts, 2, "—"))]),
-			UI.table_cell({ classes: "" }, [config_status_badge(is_active)]),
+			UI.table_stack_cell({ classes: "font-medium", label: "Subject" }, [Html.text(config_field(parts, 1, "Subject"))]),
+			UI.table_stack_cell({ classes: "text-muted-foreground font-mono text-xs", label: "Code" }, [Html.text(config_field(parts, 2, "—"))]),
+			UI.table_stack_cell({ classes: "", label: "Status" }, [config_status_badge(is_active)]),
 			config_row_actions(model, Subjects, line, id, is_active)
 		])
 	}

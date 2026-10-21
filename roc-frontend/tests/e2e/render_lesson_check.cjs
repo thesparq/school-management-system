@@ -4,13 +4,16 @@
 //
 //   node tests/e2e/render_lesson_check.cjs
 //   LESSON_ID=lessons:... APP_URL=http://127.0.0.1:8000 AUTH_TOKEN=dev-skip node tests/e2e/render_lesson_check.cjs
+//
+// The lesson under test defaults to the sandbox fixture's own (`fixtures/sandbox-schema.surql` creates
+// `lessons:test_lesson`); LESSON_ID names another one, which is what a check against prod needs.
 
 const fs = require('fs');
 const path = require('path');
 
 const appUrl = process.env.APP_URL || 'http://127.0.0.1:8000';
 const token = process.env.AUTH_TOKEN || 'dev-skip';
-const lessonId = process.env.LESSON_ID || 'lessons:3648pqtmuxopbjp1tyfk';
+const lessonId = process.env.LESSON_ID || 'lessons:test_lesson';
 const root = path.resolve(__dirname, '..', '..');
 
 class El {
