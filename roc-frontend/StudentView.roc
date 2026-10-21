@@ -20,9 +20,9 @@ view = |model| {
 # -------------------------------------------------------
 
 student_subjects_view = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("My Subjects")]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("My Subjects")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Select a subject to browse its terms and lessons.")])
         ]),
 
@@ -107,7 +107,7 @@ student_lesson_drilldown = |model| {
         student_terms_view(model)
     } else {
         # No state — redirect user back to subjects
-        Html.div([Attribute.class("p-6 md:p-8 space-y-4")], [
+        Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-4")], [
             Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
                 Html.span([
                     Attribute.class("cursor-pointer hover:text-foreground"),
@@ -134,7 +134,7 @@ student_lesson_drilldown = |model| {
 # -------------------------------------------------------
 
 student_terms_view = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
             Html.span([
@@ -146,7 +146,7 @@ student_terms_view = |model| {
         ]),
 
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.selectedSubjectName)]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(model.selectedSubjectName)]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
         ]),
 
@@ -222,7 +222,7 @@ term_card = |id, name, num| {
 # -------------------------------------------------------
 
 student_lessons_list_view = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
             Html.span([
@@ -239,7 +239,7 @@ student_lessons_list_view = |model| {
         ]),
 
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(model.selectedTermName)]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(model.selectedTermName)]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [
                 Html.text(model.selectedSubjectName)
             ])
@@ -492,9 +492,9 @@ lesson_content_panel = |model| {
 # -------------------------------------------------------
 
 student_assignments_view = |_model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("My Assignments")]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("My Assignments")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("View and submit your assessments and assignments.")])
         ]),
 
@@ -535,9 +535,9 @@ student_assignments_view = |_model| {
 # -------------------------------------------------------
 
 student_dashboard_shortcuts = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-8")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-8")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [
                 Html.text(
                     if Str.is_empty(model.userName) { "Welcome, Student!" }
                     else { "Welcome, ${model.userName}!" }

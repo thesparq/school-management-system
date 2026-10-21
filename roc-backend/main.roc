@@ -2539,8 +2539,38 @@ content_type_for = |path| {
 
 # --- Static file serving with SPA fallback ---
 
-serve_static! : Str, Str => Server.Outcome
-serve_static! = |target, static_dir| {
+# The ETag every static file is served under: the build's own id, written beside the bundle by build.roc
+# (`www/build-id.txt`). One id for the whole tree, because the id *is* a hash of the tree — any file
+# changing changes it — and the ETag only has to be right about "is this still the build I have". Without
+# that file (a hand-run server, a bare www directory) there is no validator, and every answer is a full
+# one: the old behaviour.
+build_id! = |static_dir| {
+    match Path.unix("${static_dir}/build-id.txt").read_bytes!() {
+        Ok(bytes) => Str.trim(Str.from_utf8_lossy(bytes))
+        Err(_) => ""
+    }
+}
+
+# The validator a conditional request carries (`If-None-Match`), reduced to the token itself: the header
+# may name several validators, may prefix a weak one with `W/`, and quotes the value.
+request_validator = |headers| {
+    carried = List.fold(headers, "", |found, header| {
+        if Str.is_empty(found) and (header.name == "If-None-Match" or header.name == "if-none-match") {
+            header.value
+        } else {
+            found
+        }
+    })
+
+    reduced = carried |> Str.trim |> Str.replace_each("W/", "") |> Str.replace_each("\"", "")
+    match Str.split_on(reduced, ",") |> List.first {
+        Ok(first) => Str.trim(first)
+        Err(_) => ""
+    }
+}
+
+serve_static! : Str, List({ name : Str, value : Str }), Str => Server.Outcome
+serve_static! = |target, headers, static_dir| {
     # Security: prevent directory traversal
     stripped_query = match Str.split_on(target, "?") |> List.first { Ok(v) => v, Err(_) => "/" }
     stripped_hash = match Str.split_on(stripped_query, "#") |> List.first { Ok(v) => v, Err(_) => "/" }
@@ -2559,29 +2589,44 @@ serve_static! = |target, static_dir| {
     actual_path = if file_exists { file_path } else { "${static_dir}/index.html" }
     actual_content_type = if file_exists { content_type_for(file_path) } else { "text/html; charset=utf-8" }
 
-    # Everything is served `no-cache`, the bundle included. `app.wasm` and `runtime.js` carry no content
-    # hash in their names, so caching them by age means a rebuilt bundle keeps being served to anyone who
-    # already has the old one — the page then runs last week's app against today's markup, which looks like
-    # a broken UI rather than a stale file. (The Joy template's own Caddyfile does the same, for the same
-    # reason.) Give the files hashed names if the bundle ever needs to be cached immutably.
+    # Everything is served `no-cache`: nothing carries a content hash in its name, so caching by age would
+    # keep serving a rebuilt bundle to anyone who already had the old one — the page then runs last week's
+    # app against today's markup, which looks like a broken UI rather than a stale file. `no-cache` means
+    # "revalidate before use", and that is what the ETag below is for: the browser asks, the server answers
+    # 304, and the 3.4MB bundle (400KB compressed) crosses the network once per build instead of once per
+    # page load. Answering it before reading the file is the point — a revalidation costs a stat and a
+    # 12-byte read, not 3.4MB off the disk.
+    build_id = build_id!(static_dir)
+    has_validator = !Str.is_empty(build_id)
 
-    bytes_result = Path.read_bytes!(Path.unix(actual_path))
-    match bytes_result {
-        Ok(bytes) =>
-            Server.respond(
-                Response.from_status(200)
-                    |> Response.with_headers([
-                        { name: "Content-Type", value: actual_content_type },
-                        { name: "Cache-Control", value: "no-cache" },
-                    ])
-                    |> Response.with_body(bytes)
-            )
-        Err(_) =>
-            Server.respond(
-                Response.from_status(404)
-                    |> Response.with_headers([{ name: "Content-Type", value: "text/plain" }])
-                    |> Response.with_body(Str.to_utf8("404 Not Found"))
-            )
+    if has_validator and file_exists and request_validator(headers) == build_id {
+        Server.respond(
+            Response.from_status(304)
+                |> Response.with_headers([
+                    { name: "ETag", value: "\"${build_id}\"" },
+                    { name: "Cache-Control", value: "no-cache" },
+                ])
+                |> Response.with_body([])
+        )
+    } else {
+        bytes_result = Path.read_bytes!(Path.unix(actual_path))
+        match bytes_result {
+            Ok(bytes) =>
+                Server.respond(
+                    Response.from_status(200)
+                        |> Response.with_headers(List.concat([
+                            { name: "Content-Type", value: actual_content_type },
+                            { name: "Cache-Control", value: "no-cache" },
+                        ], if has_validator { [{ name: "ETag", value: "\"${build_id}\"" }] } else { [] }))
+                        |> Response.with_body(bytes)
+                )
+            Err(_) =>
+                Server.respond(
+                    Response.from_status(404)
+                        |> Response.with_headers([{ name: "Content-Type", value: "text/plain" }])
+                        |> Response.with_body(Str.to_utf8("404 Not Found"))
+                )
+        }
     }
 }
 
@@ -4729,7 +4774,7 @@ respond! = |request, context| {
 
     # --- Static file serving (SPA with fallback to index.html) ---
     } else {
-        Ok(serve_static!(request_target_text(request), context.static_dir))
+        Ok(serve_static!(request_target_text(request), request.headers, context.static_dir))
     }
 }
 

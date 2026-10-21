@@ -20,9 +20,9 @@ view = |model| {
 # -------------------------------------------------------
 
 teacher_classes_view = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("My Classes")]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("My Classes")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Your teaching assignments for the active session term.")])
         ]),
 
@@ -363,9 +363,9 @@ teacher_lesson_view = |model| {
 # whole surface: pick a subject and term, list (and publish) their general assessments, and grade.
 # The JS in www/index.html fills the pickers and the lists; nothing here depends on model state.
 teacher_assessments_view = |_model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("Assessments & Grading")]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("Assessments & Grading")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Create term-weighted assessments, review submissions, and release grades.")])
         ]),
 
@@ -533,9 +533,9 @@ teacher_assessments_view = |_model| {
 # -------------------------------------------------------
 
 teacher_dashboard_shortcuts = |model| {
-    Html.div([Attribute.class("p-6 md:p-8 space-y-8")], [
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-8")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [
                 Html.text(
                     if Str.is_empty(model.userName) { "Welcome, Teacher!" }
                     else { "Welcome, ${model.userName}!" }

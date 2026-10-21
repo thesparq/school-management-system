@@ -2120,9 +2120,72 @@ gone — and `e2e_admin_config` 57/57,
 `e2e_list_order` 10/10, `e2e_student` 7/7, `smoke_teacher_role` 9/9, `e2e_nav_fixes` 10/10,
 `e2e_password_change` 14/14, `e2e_chat_channels` 16/16, `e2e_matrix_sso` 31/31; `roc check app.roc` 0 errors.
 
-Left for later: the admin LMS page (`/admin/lms`) keeps the older `p-6 md:p-8` and its wide screens — it was not
-one of the three pages this pass was about — and the two pages' cells repeat their column's name as a `label`,
-so a renamed column has to be renamed in the header and in its cells.
+Left for later: the two pages' cells repeat their column's name as a `label`, so renaming a column means
+editing the header and its cells. (The admin LMS page and the rest of the app took the same padding and
+title rule in the load-time pass below.)
+
+---
+
+### Load time — the bundle, the boot screen, and what a second visit costs (2026-10-21)
+
+The complaint was that the site had got slow to load because the wasm bundle is large. Measured against the
+deployed app before changing anything:
+
+- `app.wasm` is **3,408,074 bytes** raw and **407,177** through the proxy — which already compresses it
+  (`content-encoding: br`). Worth knowing before building compression into the server: that half was done.
+- Every static file is served `cache-control: no-cache` **and nothing else** — no `ETag`, no
+  `Last-Modified`. `no-cache` means "revalidate before use", and with no validator the only answer a browser
+  can get is the whole file, so **every page load re-fetched the bundle, the stylesheet and the HTML**. This,
+  more than the bundle's size, was the cost.
+- KaTeX (a stylesheet and two scripts, **80,333 bytes compressed**) sat in the `<head>` of every page, though
+  only lesson and assessment pages typeset maths.
+- The webfonts were an `@import` at the top of `app.css` — a third-party round trip *in front of* first
+  paint.
+- `logo.jpg` is 2027×416 and **83,093 bytes**, drawn 40px tall.
+
+What changed, and what each is worth:
+
+- **`--opt=size` in `build.roc`** (the compiler's default is `speed`): 3,408,074 → **2,402,615 bytes** raw
+  (−30%), brotli under the same conditions 247,144 → 219,065 (−11% — compression eats most of the raw win,
+  which is why the raw figure matters less than it looks). `--opt=speed` is a one-word change back if
+  execution speed ever matters more than the bytes.
+- **A validator on every static file**: `build.roc` writes `www/build-id.txt` (a hash of `www`), the backend
+  serves it as the `ETag`, and answers **304 before reading the file** when `If-None-Match` matches. A second
+  visit to the same page now transfers no bodies at all. `no-cache` stays deliberately: nothing carries a
+  content hash in its name, so caching by age would keep serving last week's bundle after a rebuild.
+- **KaTeX on demand**: out of the `<head>`; `typesetMath` fetches it the first time a container actually holds
+  maths, so an admin screen fetches none (measured: **0 KaTeX requests** on the users page) while lesson pages
+  still typeset (`math_render_check` green).
+- **The fonts no longer block first paint** (`media="print" onload="this.media='all'"` plus preconnect).
+- **`logo.jpg` 83,093 → 7,987 bytes** (480×99) — ten times smaller, still 2.5× the size it is drawn at.
+- **A boot screen** (`www/boot.js` plus inline styles in `index.html`): logo, school name, spinner, "Loading
+  the app…", a slow-connection line after 7s, "check the connection and reload" after 20s, and — for a bundle
+  that cannot be fetched at all — "The app could not start…" with a reload button, instead of the blank page
+  that used to be the whole of it. The screen sits *beside* `#app`, not inside it: the runtime clears that
+  root while it starts, which is exactly when the screen is needed.
+
+**Verified** in Chromium at 390×844 and 1280×800 and by the suites: the new `e2e_boot_and_cache.cjs` 15/15 (the
+boot screen and its three states, no KaTeX on an admin page, the fonts applied without blocking, a validator
+on every static response, 304 to that validator, 200 to one from an older build), `e2e_admin_responsive.cjs`
+43/43, `e2e_admin_config` 57/57, `e2e_users_directory` 30/30, `e2e_loading` 20/20, `e2e_admin` 16/16,
+`e2e_user_roles` 19/19, `e2e_admin_permissions` 30/30, `e2e_signout` 13/13, `e2e_nav_fixes` 10/10,
+`e2e_notifications_lms` 26/26, `smoke_assignments_lms` 18/18, `e2e_list_order` 10/10, `e2e_student` 7/7,
+`smoke_teacher_role` 9/9, `e2e_assessments` 17/17, `e2e_general_assessments` 25/25, `e2e_password_change`
+14/14, `e2e_chat_channels` 16/16 and `e2e_matrix_sso` 31/31 (both build the backend from source, so the
+static-serving change is exercised through a real boot), `render_lesson_check` and `render_lesson_roles_check`
+green, `math_render_check` 7/7, and the API suites the previous pass had left unrun — `authz.sh` 60,
+`users_api.sh` 99, `token_cache.sh` 32, `chat_channels.sh` 26, `list_order.sh` 23, `password_change.sh` 26,
+`assessment_flow.sh` 41, `general_assessment_flow.sh` 53. Ceiling: whether a *browser* reuses the validator is
+not observable in this harness — Chromium as Playwright launches it re-fetches every resource with the
+validator unread — so the suite drives the revalidation through the browser's own HTTP client and asserts the
+server's 304; the browser half is ordinary `no-cache` handling, and a client that ignored it would pay the old
+cost rather than see a broken page.
+
+Also fixed on the way past: `render_lesson_check.cjs` defaulted to a lesson id that no sandbox holds any more
+(it now names the fixture's own `lessons:test_lesson`; `LESSON_ID` still overrides), and every page still on
+the older page padding/title size — the admin LMS, the four dashboards, the student and teacher views — took
+the rule the three admin pages already had. `SettingsView.roc` is the one exception: it is another
+workstream's working copy, so the rule reaches it when their change lands.
 
 ## Completed Work
 

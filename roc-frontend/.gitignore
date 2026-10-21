@@ -13,6 +13,8 @@ www/app.wasm
 www/runtime.js
 # build.roc's compiler log: the last build's own diagnostics, written by its shell redirect
 build.log
+# the build's own id, written by build.roc and served as every static file's ETag
+www/build-id.txt
 
 node_modules/
 .zig-cache/

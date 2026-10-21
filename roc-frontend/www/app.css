@@ -1,5 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import 'tailwindcss';
+/* The webfonts are linked from index.html, not imported here: an `@import` in this sheet blocks its own
+   parsing on a third-party round trip, which is the last thing a school connection needs on first paint. */
 @source "../**/*.roc";
 @source "./index.html";
 

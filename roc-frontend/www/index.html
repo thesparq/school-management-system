@@ -7,9 +7,22 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/dist.css" />
-  <!-- Typeset maths the lessons carry as LaTeX (`$x^2$`, `$$\int x\,dx$$`). Vendored, not a CDN: the app
-       is served from one origin and has to render maths on a school network. See www/katex/README.md. -->
-  <link rel="stylesheet" href="/katex/katex.min.css" />
+  <!-- The fonts are a third-party stylesheet, and on a school connection they must not hold up the first
+       paint: the print-media trick fetches them alongside the page and switches them on when they arrive,
+       with the system font showing until then (`display=swap` in the URL is the other half of that). KaTeX
+       — the maths the senior lessons carry — is no longer in the head at all: it is ~80KB compressed of
+       scripts and stylesheet that only a lesson page or an assessment needs, and every admin screen was
+       paying for it. `typesetMath` pulls it in the first time it has maths to set (see `ensureKatex`).
+       Both are vendored rather than served from a CDN, so the app renders on a school network. See
+       www/katex/README.md. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" media="print" onload="this.media='all'"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <noscript>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  </noscript>
   <script>
     // Blocking script to prevent flash of unstyled content (FOUC)
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -19,15 +32,56 @@
       document.documentElement.classList.remove('dark');
     }
   </script>
+  <!-- The boot screen's own styles, inline and ahead of every stylesheet: it has to paint on the first
+       frame, on a phone, while the bundle comes down behind it — a blank page for that long reads as a
+       broken site. The colours are the app's own (see www/app.css), written out rather than inherited so
+       the screen does not depend on a stylesheet that is itself still loading. -->
+  <style>
+    #boot {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1.1rem; padding: 2rem; text-align: center;
+      background: hsl(40 40% 97%); color: hsl(220 40% 18%);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    .dark #boot { background: hsl(220 40% 15%); color: hsl(40 40% 97%); }
+    #boot img { height: 3.25rem; width: auto; }
+    #boot .boot-spinner {
+      width: 1.75rem; height: 1.75rem; border-radius: 9999px;
+      border: 3px solid hsl(220 20% 85%); border-top-color: hsl(220 85% 25%);
+      animation: boot-spin .9s linear infinite;
+    }
+    .dark #boot .boot-spinner { border-color: hsl(220 20% 25%); border-top-color: hsl(220 85% 65%); }
+    #boot .boot-title { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.01em; }
+    #boot .boot-status { font-size: 0.8125rem; line-height: 1.5; color: hsl(220 15% 40%); max-width: 22rem; }
+    .dark #boot .boot-status { color: hsl(220 15% 70%); }
+    #boot .boot-retry {
+      font-size: 0.8125rem; font-weight: 600; color: hsl(220 85% 25%);
+      background: none; border: 0; text-decoration: underline; cursor: pointer;
+    }
+    .dark #boot .boot-retry { color: hsl(220 85% 65%); }
+    @media (prefers-reduced-motion: reduce) { #boot .boot-spinner { animation-duration: 2.6s; } }
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body class="bg-background text-foreground antialiased font-sans">
+  <!-- Shown until the app mounts. It sits beside `#app`, not inside it: the runtime clears the mount root
+       while it is starting, so a screen in there would be wiped exactly when it is most needed (a bundle
+       that fails to load leaves a blank page). The screen is the school's own — logo, name, a spinner —
+       and it says what is happening while it waits; www/boot.js moves it along (`Still loading` after a
+       few seconds) and turns it into what went wrong if the app never starts. -->
+  <div id="boot" role="status" aria-live="polite">
+    <img src="/logo.jpg" alt="Johnethel School" width="480" height="99" />
+    <div class="boot-spinner" aria-hidden="true"></div>
+    <div class="boot-title">Johnethel School</div>
+    <p class="boot-status" id="boot-status">Loading the app…</p>
+    <button class="boot-retry" id="boot-retry" type="button" hidden>Check the connection and reload</button>
+  </div>
   <div id="app"></div>
   <!-- The navigation bar the retired SvelteKit app drew while `$navigating` was set: a thin amber
        line across the top. Shown when a navigation or an in-page tab switch starts and hidden once
        the new view has rendered (see beginNavProgress / noteNavProgressRender below). -->
   <div id="nav-progress" class="hidden fixed top-0 left-0 right-0 z-50 h-0.5 bg-secondary-600 dark:bg-secondary-500 animate-pulse shadow-sm"></div>
-  <script defer src="/katex/katex.min.js"></script>
-  <script defer src="/katex/auto-render.min.js"></script>
+  <script type="module" src="/boot.js"></script>
   <script type="module">
     import { mount } from '/runtime.js';
 
@@ -452,14 +506,35 @@
         const currentPath = (window.location.pathname + window.location.search) || '/';
         const flags = `${savedTheme2}|${finalToken}|${role}|${email}|${name}|${currentPath}|${window.location.origin}`;
         
-        window.app = await mount({
-          wasm: '/app.wasm',
-          root: document.getElementById('app'),
-          flags: flags,
-          // Ports must exist before the app starts: State.init sends its first fetch_data
-          // messages right away, and the runtime drops messages for unregistered ports.
-          setup: registerPorts,
-        });
+        try {
+          window.app = await mount({
+            wasm: '/app.wasm',
+            root: document.getElementById('app'),
+            flags: flags,
+            // Ports must exist before the app starts: State.init sends its first fetch_data
+            // messages right away, and the runtime drops messages for unregistered ports.
+            setup: registerPorts,
+          });
+        } catch (err) {
+          // A bundle that cannot be fetched or instantiated is thrown from here, and the boot screen is
+          // still the page — so it is what says so rather than leaving a spinner turning forever (see
+          // www/boot.js). The error is re-thrown: the console keeps the stack.
+          if (typeof window.bootScreenFailed === 'function') {
+            window.bootScreenFailed(err && err.message ? err.message : '');
+          }
+          throw err;
+        }
+
+        // The app owns the page from here, so the boot screen's job is done — it has been saying how the
+        // wait was going since before this module ran. The runtime clears #app when it mounts, so the screen
+        // is usually already gone; removing it here covers the other case, and either way the boot script
+        // needs to know the wait is over so its timers stop talking.
+        if (typeof window.bootScreenDone === 'function') {
+          window.bootScreenDone();
+        } else {
+          const bootScreen = document.getElementById('boot');
+          if (bootScreen) bootScreen.remove();
+        }
 
         // The nav bar's active session term: the app has rendered its hidden inputs by the time
         // mount resolves, so the first payload can be handed over now (each navigation refreshes
@@ -3255,13 +3330,43 @@
         return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
 
+    // KaTeX arrives on demand. The lesson views and the assessments are the only places maths is typeset,
+    // and the three files are ~80KB compressed — a tax every admin screen was paying for a stylesheet and
+    // two scripts it never used. Loaded once, kept for the session; a failure leaves the LaTeX visible
+    // (see typesetMath) rather than blocking anything.
+    let _katexPromise = null;
+    function ensureKatex() {
+        if (typeof window.renderMathInElement === "function") return Promise.resolve();
+        if (_katexPromise) return _katexPromise;
+        const loadScript = (src) => new Promise((resolve) => {
+            const el = document.createElement("script");
+            el.src = src;
+            el.onload = resolve;
+            el.onerror = resolve; // a failed load is not an unhandled rejection; typesetMath stays a no-op
+            document.head.appendChild(el);
+        });
+        const stylesheet = document.createElement("link");
+        stylesheet.rel = "stylesheet";
+        stylesheet.href = "/katex/katex.min.css";
+        document.head.appendChild(stylesheet);
+        _katexPromise = loadScript("/katex/katex.min.js").then(() => loadScript("/katex/auto-render.min.js"));
+        return _katexPromise;
+    }
+
     // Typeset the LaTeX in a rendered container: the senior subjects' lesson bodies, questions and model
     // answers carry maths, and everything else in those containers is already plain text by the time this
     // runs (every interpolation went through escHtml), so `$...$` and `$$...$$` are the only maths markup
-    // and KaTeX only ever reads text nodes. A page without the KaTeX scripts — a DOM stub in a test, or a
-    // failed asset load — leaves the LaTeX visible rather than breaking the render.
+    // and KaTeX only ever reads text nodes. A container with no maths in it loads nothing: the check below
+    // is what keeps the admin screens from paying for KaTeX at all. A page without the KaTeX scripts — a
+    // DOM stub in a test, or a failed asset load — leaves the LaTeX visible rather than breaking the render.
     function typesetMath(el) {
-        if (!el || typeof window.renderMathInElement !== "function") return;
+        if (!el) return;
+        const text = el.textContent || "";
+        if (text.indexOf("$") < 0 && text.indexOf("\\(") < 0 && text.indexOf("\\[") < 0) return;
+        if (typeof window.renderMathInElement !== "function") {
+            ensureKatex().then(() => { if (typeof window.renderMathInElement === "function") typesetMath(el); });
+            return;
+        }
         try {
             window.renderMathInElement(el, {
                 delimiters: [

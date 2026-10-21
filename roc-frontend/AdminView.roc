@@ -23,7 +23,7 @@ admin_route = |model, permission, content| {
     if caller_has_permission(model, permission) {
         content
     } else {
-        Html.div([Attribute.class("p-6 md:p-8")], [
+        Html.div([Attribute.class("p-4 sm:p-6 md:p-8")], [
             Html.div([Attribute.class("max-w-xl rounded-lg border bg-card p-6 space-y-2")], [
                 Html.h1([Attribute.class("text-xl font-semibold")], [Html.text("This screen needs another permission")]),
                 Html.p([Attribute.class("text-sm text-muted-foreground")], [
@@ -1554,7 +1554,7 @@ assign_save_banner = |model| {
 admin_class_picker = |model| {
 	Html.div([Attribute.class("space-y-6")], [
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("LMS")]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Browse any class level's curriculum, exactly as a teacher sees it — without gating.")])
 		]),
 		match list_state(model.adminLmsClassesData) {
@@ -1594,7 +1594,7 @@ admin_subjects_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_class_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_class_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_class_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a subject to see its terms and lessons.")])
 		]),
 		match list_state(model.subjectPairsData) {
@@ -1639,7 +1639,7 @@ admin_terms_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_subject_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_subject_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
 		]),
 		match list_state(model.adminLmsTermsData) {
@@ -1683,7 +1683,7 @@ admin_lessons_view = |model| {
 			Html.span([Attribute.class("text-foreground font-medium")], [Html.text(lms_term_label(model))])
 		]),
 		Html.div([], [
-			Html.h1([Attribute.class("text-3xl font-bold tracking-tight")], [Html.text(lms_term_label(model))]),
+			Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(lms_term_label(model))]),
 			Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text(lms_subject_label(model))])
 		]),
 		Html.input([Attribute.type("hidden"), Attribute.id("admin_lms_lessons_data_input"), Attribute.value(model.adminLmsLessonsData), Attribute.on_input(|s| GotAdminLmsLessonsData(s))]),
@@ -1848,7 +1848,7 @@ lms_term_label = |model| {
 # screen at a time; the fetch URLs behind each step carry the picked ids, and the class filter is
 # what makes the lesson list exactly one class level.
 admin_lms_view = |model| {
-	Html.div([Attribute.class("p-6 md:p-8 space-y-6")], [
+	Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
 		# The pair catalog the subjects step reads; hidden, and only present on this page (the JS
 		# dispatches /api/class-subjects into it).
 		Html.input([Attribute.type("hidden"), Attribute.id("subject_pairs_data_input"), Attribute.value(model.subjectPairsData), Attribute.on_input(|s| GotSubjectPairsData(s))]),

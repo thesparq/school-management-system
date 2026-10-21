@@ -42,7 +42,22 @@ main! = |_args| {
 
 	build_app!()?
 
-	copy_runtime!()
+	copy_runtime!()?
+
+	write_build_id!()
+}
+
+# The build's own id, written beside the bundle as `www/build-id.txt`: a hash of everything in `www`, and
+# what the backend serves every static file under as its ETag. `no-cache` plus a validator is what makes
+# the 3.4MB bundle cross the network once per build rather than once per page load; a tree this size is
+# cheap to hash here and would be expensive to hash per request there.
+write_build_id! = || {
+	command = "cd www && find . -type f ! -name build-id.txt -exec sha256sum {} + | sort | sha256sum | cut -c1-16 > build-id.txt"
+
+	match Cmd.new_str("sh").args_str(["-c", command]).exec_exit_code!() {
+		Err(_) => fail!("could not write www/build-id.txt")
+		Ok(_) => Ok({})
+	}
 }
 
 drop! = |file| {
@@ -94,12 +109,16 @@ platform_url! = || {
 	}
 }
 
+# `--opt=size` rather than the default (`speed`): the bundle is 3.4MB of wasm for what is a CRUD app, and
+# the school loads it over a phone connection, so the bytes it saves are worth more than the last few
+# percent of execution speed. Compressed it is ~400KB on the wire (see the load-time section in the
+# tracker).
 # roc exits 2 when it emits warnings but 0 even when it reports errors, so the
 # summary line decides, not the exit code. An error in that summary, or a module
 # that never got written, fails the build. The compiler runs under `sh` so that
 # both of its streams land in log_path; see that constant for why.
 build_app! = || {
-	command = "roc build --target=wasm32 --no-cache --output=${out_path} app.roc > ${log_path} 2>&1"
+	command = "roc build --target=wasm32 --opt=size --no-cache --output=${out_path} app.roc > ${log_path} 2>&1"
 
 	match Cmd.new_str("sh").args_str(["-c", command]).exec_exit_code!() {
 		Err(_) => fail!("could not run: ${command}")
