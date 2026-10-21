@@ -2443,6 +2443,38 @@ Worth knowing for the next reader: `PUT /api/curriculum` has no route either, an
 link has no editable column and the hub only offers its toggle. The page's `config_update_call` still carries
 a `Curriculum` branch for match exhaustiveness, and it is unreachable.
 
+### The school's record shows the face, and a switched-off term is off for the pupils (2026-10-21)
+
+**The portrait.** The Settings card printed the passport photograph's URL in a disabled field, which told the
+person nothing. It is now a picture: a 112px rounded frame beside the read-only rows (the photograph on the
+left, the details on the right, stacking on a phone), the same camera placeholder the admin form uses when
+there is no photo, and a line under it saying who can add one. A photograph that is *on file but cannot be
+loaded* — the file moved, the bucket answers 404 — falls back to the person's initial in the frame and says
+so, because that is not a hypothetical: prod's own passport URL (`r2.johnethel.school/passports/samuel-iyeh.jpg`)
+answers 404 today, and it does not follow the key shape this app writes (`<type>/passports/<pk>.jpg`), so it was
+set by hand before. Re-saving that photo through User Management → Edit will store it the app's way. The
+fallback is a document-level `error` listener in `www/index.html` (the event does not bubble, so it is bound
+in the capture phase and survives every re-render); the frame carries the letter and the note is marked, so
+the page only supplies the sentence. `e2e_password_change.cjs` 28/28 drives both states (the picture with a
+route-fulfilled image, then a 404 and the initial).
+
+The boot screen's line under the logo is now **"School Management System"** rather than "Johnethel School"
+(`e2e_boot_and_cache.cjs` 15/15 reads it back); the head title and the logo's `alt` are untouched.
+
+**The term rule.** The user's question — "when I deactivate a term, does it become disabled for the students
+and parents?" — had the answer *partly*: the student's term list already filtered `terms.active = true`, but
+the reads behind it did not, so a lesson in a switched-off term was still served **by id** and its assessments
+still listed. Now one rule: a term the school switches off is off for the pupils. `/api/student/lessons` only
+lists lessons in live terms (whether or not the caller names one), `/api/student/lesson` refuses a switched-off
+term's lesson with a 403 in the school's words (admins and teachers keep reading it — that is how a term gets
+switched back on), `/api/student/assessments` drops a switched-off term's assessments, and
+`/api/student/general-assessments` drops those under a switched-off **session** term, and
+`/api/student/submit-assessment` refuses work for one. Parents read only their own children
+(`/api/parent/children`), so there is no separate parent-facing read to guard; a pupil's work all flows
+through those four routes. `term_switch.sh` covers it end to end (**21/0**): on → the term, its lesson and a
+published assessment are readable; off → every one of them is gone or refused; back on → all of it returns,
+with the school's own side readable throughout.
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired

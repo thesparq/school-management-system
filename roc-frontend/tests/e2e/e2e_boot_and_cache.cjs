@@ -39,7 +39,7 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
 
     const html = await (await page.request.get(`${appUrl}/`)).text();
     check('the served page carries the boot screen', /id="boot"/.test(html) && /\/boot\.js/.test(html));
-    check('the boot screen names the school, with the logo and a spinner', /Johnethel School/.test(html) && /\/logo\.jpg/.test(html) && /boot-spinner/.test(html));
+    check('the boot screen names the app, with the logo and a spinner', /School Management System/.test(html) && /\/logo\.jpg/.test(html) && /boot-spinner/.test(html));
     check('its styles are inline, not in a stylesheet', /#boot \{[\s\S]*position: fixed/.test(html));
 
     await page.goto(`${appUrl}/admin/config`, { waitUntil: 'commit' });

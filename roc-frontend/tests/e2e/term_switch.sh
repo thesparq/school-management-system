@@ -34,8 +34,11 @@ TERM=terms:noel_term
 SUBJECT=subjects:agricultural_science
 
 # --- the term is on: the pupil reads its lesson, and an assessment on it ------------------------
-check "the term is listed for a pupil" "$(curl -s "$B/api/student/terms" -H "$S")" '"noel_term"'
-check "and its lesson is listed" "$(curl -s "$B/api/student/lessons?subject_id=${SUBJECT}&term_id=${TERM}" -H "$S")" '"test_lesson"'
+# A run that was cut short leaves the term off; the suite puts it back first so it can be run again
+# and again against one sandbox (the same rule the other API suites follow).
+db_query "UPDATE ${TERM} SET active = true;" > /dev/null
+check "the term is listed for a pupil" "$(curl -s "$B/api/student/terms" -H "$S")" "terms:noel_term"
+check "and its lesson is listed" "$(curl -s "$B/api/student/lessons?subject_id=${SUBJECT}&term_id=${TERM}" -H "$S")" "lessons:test_lesson"
 check "and the lesson itself reads" "$(status "$B/api/student/lesson?lesson_id=${LESSON}" -H "$S")" "200"
 
 AID=$(curl -s -X POST "$B/api/teacher/create-lesson-assessment" -H "$A" -H "$C" -d "{\"lesson_id\":\"${LESSON}\",\"title\":\"Term switch ${STAMP}\",\"questions\":[]}" | python3 -c "
@@ -63,7 +66,7 @@ check "the school's own side still reads the lesson" "$(status "$B/api/teacher/l
 
 # --- back on: the pupil reads it again ----------------------------------------------------------
 check "switching the term back on answers 200" "$(status -X POST "$B/api/terms/toggle-active" -H "$A" -H "$C" -d "{\"id\":\"${TERM}\",\"active\":true}")" "200"
-check "the lesson is listed again" "$(curl -s "$B/api/student/lessons?subject_id=${SUBJECT}&term_id=${TERM}" -H "$S")" '"test_lesson"'
+check "the lesson is listed again" "$(curl -s "$B/api/student/lessons?subject_id=${SUBJECT}&term_id=${TERM}" -H "$S")" "lessons:test_lesson"
 check "and the lesson reads again" "$(status "$B/api/student/lesson?lesson_id=${LESSON}" -H "$S")" "200"
 check "and the assessment is back on the list" "$(curl -s "$B/api/student/assessments?lesson_id=${LESSON}" -H "$S")" "${AID#lesson_assessments:}"
 

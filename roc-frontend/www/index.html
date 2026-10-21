@@ -72,7 +72,7 @@
   <div id="boot" role="status" aria-live="polite">
     <img src="/logo.jpg" alt="Johnethel School" width="480" height="99" />
     <div class="boot-spinner" aria-hidden="true"></div>
-    <div class="boot-title">Johnethel School</div>
+    <div class="boot-title">School Management System</div>
     <p class="boot-status" id="boot-status">Loading the app…</p>
     <button class="boot-retry" id="boot-retry" type="button" hidden>Check the connection and reload</button>
   </div>
@@ -579,6 +579,26 @@
         // The keyboard's own layer: dialog focus, the tab trap, Escape for the page's dialogs and
         // Enter for the forms the page builds (see the keyboard block below).
         setupKeyboardSupport();
+
+        // A passport photograph that cannot be loaded — the file moved, the bucket answers 404 — leaves
+        // the person's initial in its frame instead of a broken-image glyph, the same language the users
+        // table uses for an account with no portrait, and the line under it says what happened. The
+        // `error` event does not bubble, so the listener sits on the document in the capture phase: one
+        // that survives every re-render. The frame carries the letter (`data-photo-initial`, which the
+        // view computes) and the note is marked, so the page only supplies the sentence about failure.
+        document.addEventListener("error", (event) => {
+            const img = event.target;
+            if (!(img instanceof HTMLImageElement) || !img.closest("#profile-passport")) return;
+            const frame = img.parentElement;
+            if (!frame) return;
+            frame.innerHTML = "";
+            const letter = document.createElement("span");
+            letter.className = "text-3xl font-semibold text-muted-foreground";
+            letter.textContent = (frame.getAttribute("data-photo-initial") || "?").slice(0, 1);
+            frame.appendChild(letter);
+            const note = frame.parentElement && frame.parentElement.querySelector("[data-photo-note]");
+            if (note) note.textContent = "The photograph on file could not be loaded — an administrator can upload it again from User Management.";
+        }, true);
 
         // The modals' click-outside close: one document listener, so the app's re-renders cannot
         // drop it. A modal's dark overlay: clicking the backdrop (not the dialog) cancels the

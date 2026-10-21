@@ -62,6 +62,15 @@ const api = async (method, path, body) => {
     signoutUrls.push(route.request().url());
     return route.fulfill({ status: 200, contentType: 'text/html', body: '<p>authentik</p>' });
   });
+  // The Settings card shows the person's passport photograph as a picture, and the browser fetches it from
+  // the URL the row carries. The suite answers that fetch, so both states are reachable deterministically:
+  // a photo that loads, and one that cannot (the frame then falls back to the person's initial).
+  const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+  let photoStatus = 200;
+  await page.route('**/pwb.jpg', route => route.fulfill(
+    photoStatus === 200
+      ? { status: 200, contentType: 'image/png', body: pixel }
+      : { status: 404, contentType: 'text/plain', body: 'gone' }));
   const hasText = (t) => page.evaluate((s) => document.body.innerText.includes(s), t);
   // The sidebar is a list of real links now, so its items live inside the `aside` (the keyboard work).
   const navLabels = () => page.$$eval('#app aside [data-nav]', els => els.map(e => e.textContent.trim()).filter(Boolean));
@@ -140,6 +149,30 @@ const api = async (method, path, body) => {
   check('their class, in the school\'s words', (await fieldValue('profile-class')) === 'JSS 1', await fieldValue('profile-class'));
   check('and every one of those fields is read-only',
     (await fieldDisabled('profile-name')) && (await fieldDisabled('profile-email')) && (await fieldDisabled('profile-class')));
+  // The photograph is a picture in the card rather than the address of a file: the school's record shows
+  // the person their own face, and the row that used to hold the URL is gone (the frame carries no input).
+  const photo = await page.evaluate(() => {
+    const frame = document.querySelector('#profile-passport');
+    const img = frame && frame.querySelector('img');
+    return frame ? { hasImage: !!img, src: img ? img.getAttribute('src') : '', inputs: frame.querySelectorAll('input').length } : null;
+  });
+  check('the passport is shown as a picture', !!photo && photo.hasImage, JSON.stringify(photo));
+  check('at the address the school has on file', !!photo && photo.src === 'https://example.com/pwb.jpg', photo ? photo.src : 'no frame');
+  check('and not as a field holding that address', !!photo && photo.inputs === 0, JSON.stringify(photo));
+
+  // A photograph that cannot be loaded — the file moved, the bucket answers 404 — leaves the person's
+  // initial in the frame and says so underneath, rather than a broken-image glyph.
+  photoStatus = 404;
+  await page.goto(`${appUrl}/settings`, { waitUntil: 'load' });
+  await page.waitForTimeout(4500);
+  const fallback = await page.evaluate(() => {
+    const frame = document.querySelector('#profile-passport');
+    const note = frame && frame.parentElement.querySelector('[data-photo-note]');
+    return frame ? { letter: (frame.innerText || '').trim(), hasImage: !!frame.querySelector('img'), note: note ? note.innerText : '' } : null;
+  });
+  check('a photograph that cannot be loaded falls back to the initial',
+    !!fallback && !fallback.hasImage && fallback.letter === 'P', JSON.stringify(fallback));
+  check('and the card says what happened', !!fallback && fallback.note.includes('could not be loaded'), fallback ? fallback.note : 'no frame');
 
   check('Settings offers the current-password field when nothing is owed',
     (await page.locator('#current-password-field input').count()) === 1);

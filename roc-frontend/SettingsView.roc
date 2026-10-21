@@ -39,16 +39,19 @@ view = |model| {
 # The school's record of this person, above the password form: read-only, because it is the school's data and
 # changing it is an administrator's job (the Users screen). Every row is a *disabled input* rather than plain
 # text, so the page looks like the rest of the app's forms and shows at a glance that none of it is the
-# person's to edit. The state input rides here: the payload only lands where the input is rendered, and only
-# this page reads it.
+# person's to edit. The photograph is the exception and sits beside the rows rather than in them: it is a
+# picture, and printing the address of the file told the person nothing. The state input rides here: the
+# payload only lands where the input is rendered, and only this page reads it.
 profile_card = |model| {
-    rows = match list_state(model.profileData) {
-        Ready(lines) => List.map(lines, |line| profile_row(model, line))
-        Pending => [Html.p([Attribute.class("text-xs text-muted-foreground italic")], [Html.text("Loading your details…")])]
-        Failed(message) => [Html.p([Attribute.class("text-xs text-red-500")], [Html.text(message)])]
+    lines = profile_lines(model)
+    rows = List.map(lines, |line| profile_row(model, line))
+    notice = match list_state(model.profileData) {
+        Ready(_) => Html.div([], [])
+        Pending => Html.p([Attribute.class("text-xs text-muted-foreground italic")], [Html.text("Loading your details…")])
+        Failed(message) => Html.p([Attribute.class("text-xs text-red-500")], [Html.text(message)])
     }
 
-    Html.div([Attribute.class("rounded-lg border bg-card p-6 space-y-4 max-w-2xl")], List.concat([
+    Html.div([Attribute.class("rounded-lg border bg-card p-6 space-y-4 max-w-2xl")], [
         Html.input([
             Attribute.type("hidden"),
             Attribute.id("profile_data_input"),
@@ -59,18 +62,108 @@ profile_card = |model| {
         Html.p([Attribute.class("text-xs text-muted-foreground")], [
             Html.text("The school's record of you. These fields are read-only — an administrator changes them from User Management.")
         ]),
-    ], rows))
+        # The portrait and the details sit side by side where there is room and stack on a phone, the rule
+        # the rest of the app's panels follow.
+        Html.div([Attribute.class("flex flex-col sm:flex-row gap-5 sm:items-start")], [
+            profile_photo(passport_url(lines), profile_initial(lines)),
+            Html.div([Attribute.class("flex-1 min-w-0 space-y-4")], List.concat(rows, [notice])),
+        ]),
+    ])
+}
+
+# The state payload's own lines, or none while it is still coming.
+profile_lines = |model| {
+    match list_state(model.profileData) {
+        Ready(lines) => lines
+        Pending => []
+        Failed(_) => []
+    }
+}
+
+# One field of a `key|value` line, "" when the line has none.
+profile_field = |line, index| {
+    match List.get(Str.split_on(line, "|"), index) { Ok(value) => value, Err(_) => "" }
+}
+
+# The `passport` row's value — the URL of the photograph — or "" when the payload carries none. The row is
+# looked up rather than assumed to be third: the backend owns the order, and a role without a photograph
+# simply has no such row.
+passport_url = |lines| {
+    look = |remaining| match remaining {
+        [] => ""
+        [line, .. as rest] => if profile_field(line, 0) == "passport" { profile_field(line, 1) } else { look(rest) }
+    }
+
+    look(lines)
+}
+
+# The letter the frame falls back to when the photograph cannot be loaded: the first letter of the name the
+# school has, the same language the users table uses for an account with no portrait. "?" for a payload with
+# no name at all.
+profile_initial = |lines| {
+    look = |remaining| match remaining {
+        [] => ""
+        [line, .. as rest] => if profile_field(line, 0) == "name" { profile_field(line, 1) } else { look(rest) }
+    }
+    name = look(lines)
+
+    if Str.is_empty(name) {
+        "?"
+    } else {
+        match Str.to_utf8(name) |> List.first {
+            Ok(byte) => match Str.from_utf8([byte]) { Ok(letter) => letter, Err(_) => "?" },
+            Err(_) => "?",
+        }
+    }
+}
+
+# The photograph, in the place the file's address used to be printed. A person with none keeps the same
+# shape — the camera placeholder the admin form uses while a photo is being chosen, with a line saying who
+# can add one — so the card never collapses and the two states are the same size. A photograph that is on
+# file but cannot be loaded is the page's own fallback (see `www/index.html`): the frame carries the letter
+# to fall back to, and the line below is marked so the page can say what happened.
+profile_photo = |url, initial| {
+    frame = Attribute.class("w-28 h-28 shrink-0 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center")
+    picture =
+        if Str.is_empty(url) {
+            Html.div([Attribute.class("w-full h-full flex items-center justify-center text-muted-foreground")], [
+                UI.icon("camera", "w-8 h-8")
+            ])
+        } else {
+            Html.img([
+                Attribute.src(url),
+                Attribute.alt("Passport photograph"),
+                Attribute.class("w-full h-full object-cover")
+            ])
+        }
+
+    Html.div([Attribute.class("space-y-2")], [
+        UI.label({ classes: "" }, [Html.text("Passport photograph")]),
+        # The frame carries the id a suite reads (`profile-passport`) and the letter for the page's own
+        # fallback, the same naming the rows use.
+        Html.div([Attribute.id("profile-passport"), Attribute.data("photo-initial", initial), frame], [picture]),
+        Html.p([Attribute.data("photo-note", ""), Attribute.class("text-xs text-muted-foreground")], [
+            Html.text(
+                if Str.is_empty(url) {
+                    "No photograph on file yet — an administrator can add one from User Management."
+                } else {
+                    "As the school has it on file."
+                }
+            )
+        ])
+    ])
 }
 
 # One row: `key|value` from the payload, with the view owning the label. A key this page does not know is
-# skipped, the same rule the dashboard's cards follow.
+# skipped, the same rule the dashboard's cards follow — and so is `passport`, whose row is drawn as a picture
+# beside these rather than as the address of a file in the column of fields.
 profile_row = |model, line| {
     parts = Str.split_on(line, "|")
     key = match List.get(parts, 0) { Ok(value) => value, Err(_) => "" }
     value = match List.get(parts, 1) { Ok(raw) => raw, Err(_) => "" }
     label = profile_label(key)
 
-    if Str.is_empty(label) {
+    if Str.is_empty(label) or key == "passport" {
         Html.div([], [])
     } else {
         # The input carries an id of its own (`profile-<key>`) so a suite can read the row and check that it is
