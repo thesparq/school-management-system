@@ -2077,6 +2077,53 @@ administrator lists them.
 
 ---
 
+### The three administration pages at a phone's width — tables as cards, and panels that stack (2026-10-21)
+
+The configuration hub, user management and messaging at 390px. Each was driven in Chromium at that width first,
+and what each did wrong was concrete:
+
+- **A table panned sideways inside its card.** The users table is 1,035px of columns inside a 292px wrapper: the
+  person saw a tick column, an avatar, a name wrapped over three lines and a badge over three more — everything
+  after that was off the right edge, which reads as a broken table rather than a scrollable one. Below `sm` a
+  table marked `stack-rows` now lays each row out as a stacked card: the header row is dropped, every cell
+  prints the name of the column it sits in (`data-label`, carried by the new `UI.table_stack_cell`) beside its
+  value, and the cells a row leads with — a user's tick, avatar and name — carry `stack-inline` so they stay
+  together on its first line. At `sm` and up all three do nothing: the table is a table again. The layout rule
+  lives in one place (`www/app.css`), the two pages' tables opt in through `UI.table_stack_classes`, and the
+  student and teacher tables are untouched — their own mobile pass chose scrolling inside a minimum width, and
+  that still holds for them.
+- **The tab strip ran off the screen edge.** `w-fit` sized the strip to every tab at once, so the later ones sat
+  past the viewport with nothing to scroll: `overflow-x-auto` needs a box narrower than its content, and `w-fit`
+  is never that box. `w-full sm:w-fit` gives it one — on a phone the strip scrolls within itself.
+- **The page header's action button was clipped.** `justify-between` beside a `text-3xl` title left *Add New
+  User* in a fixed-height button wrapping to three lines. The header stacks below `sm`, the titles are
+  `text-2xl sm:text-3xl`, and the button keeps `shrink-0 whitespace-nowrap`.
+- **The shell's breadcrumb wrapped inside its own 64px bar**, and `Settings` had no arm of its own, so its trail
+  read "Dashboard / Page". The trail is `text-xs sm:text-sm` and on a phone keeps only the step it ends on
+  (`breadcrumb-trail`, one rule in `www/app.css`); `Settings` names itself.
+- **Messaging stacked two panels into one `h-96` box.** On a phone that put a scrolling channel list and a
+  conversation into 384px together, with the list's own scrolling left to the page's height. The panels stack
+  below `md` now — the channel list a short strip of its own (`max-h-72`), the conversation a `h-[60vh]` panel
+  whose composer stays inside it — and sit side by side in the same `h-96` from `md` up. Opening a channel
+  scrolls the conversation into view when it is below the fold; the composer wraps instead of pushing
+  *＋ Invite* past the right edge; message bodies break long words.
+- **A cell whose value has no space in it widened the card.** An address like
+  `grace1792569390529@example.com` is one unbreakable word and pushed the row past the screen; the stacked cell
+  now carries `overflow-wrap: anywhere`, while a `whitespace-nowrap` school number still does not wrap.
+
+**Verified** at 390x844 and 1280x800 in Chromium, then by the suites: the new `e2e_admin_responsive.cjs`
+(43/43) walks every configuration section and every users tab for stacked rows, printed column names,
+in-place tab scrolling and nothing past the right edge, then re-checks the desktop where all of it has to be
+gone — and `e2e_admin_config` 57/57,
+`e2e_users_directory` 30/30, `e2e_loading` 20/20, `e2e_admin` 16/16, `e2e_user_roles` 19/19,
+`e2e_admin_permissions` 30/30, `smoke_assignments_lms` 18/18, `e2e_notifications_lms` 26/26,
+`e2e_list_order` 10/10, `e2e_student` 7/7, `smoke_teacher_role` 9/9, `e2e_nav_fixes` 10/10,
+`e2e_password_change` 14/14, `e2e_chat_channels` 16/16, `e2e_matrix_sso` 31/31; `roc check app.roc` 0 errors.
+
+Left for later: the admin LMS page (`/admin/lms`) keeps the older `p-6 md:p-8` and its wide screens — it was not
+one of the three pages this pass was about — and the two pages' cells repeat their column's name as a `label`,
+so a renamed column has to be renamed in the header and in its cells.
+
 ## Completed Work
 
 - [x] Roc basic-webserver backend (main.roc, SurrealDB.roc, Authentik.roc, Golem.roc; the retired

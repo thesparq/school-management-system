@@ -3165,6 +3165,13 @@
         _currentMatrixRoom = roomId;
         const nameEl = document.getElementById("matrix-room-name");
         const messagesEl = document.getElementById("matrix-messages");
+        // A phone stacks the channel list above the conversation, so opening a channel brings the
+        // conversation into view instead of leaving the person to scroll down to what they opened.
+        // On a wide screen the panel is already on screen and this does nothing.
+        const chatPanel = nameEl && nameEl.parentElement;
+        if (chatPanel && chatPanel.getBoundingClientRect().top > window.innerHeight * 0.6) {
+            chatPanel.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
         if (nameEl) nameEl.textContent = "# " + name;
         if (messagesEl) messagesEl.innerHTML = '<div class="text-center text-muted-foreground text-sm py-4">Loading messages...</div>';
 
@@ -3216,7 +3223,7 @@
                     <span class="text-xs font-semibold text-primary">${escHtml(sender)}</span>
                     <span class="text-xs text-muted-foreground">${time}</span>
                 </div>
-                <p class="text-sm leading-relaxed">${escHtml(body)}</p>`;
+                <p class="text-sm leading-relaxed break-words">${escHtml(body)}</p>`;
             messagesEl.appendChild(div);
         });
         messagesEl.scrollTop = messagesEl.scrollHeight;
