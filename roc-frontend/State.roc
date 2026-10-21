@@ -397,6 +397,9 @@ Msg : [
 	GotLessonContent(Str),
 	BackToSubjects,
 	BackToTerms,
+	# Back one step inside the drill-down: from a lesson's page to the lessons list it was opened
+	# from, keeping the subject and the term it belongs to.
+	BackToLessons,
 	    GotClassLevelsData(Str)
     GotUserClassLevels(Str)
 	GotCurriculumData(Str),
@@ -580,6 +583,11 @@ init = |flags| {
 	# own state, which is empty on a load — so without this a reload (or a shared link) of a lesson page
 	# rendered "No subject selected" and the lesson panel the page then fills was never there.
 	initialLessonId = if initialRoute == StudentLesson { query_value(pathStr, "id") } else { initialLmsState.lesson_id }
+	# The pupil's drill step a load arrived on: the subject and term its URL names (empty for a load
+	# that named none). The names themselves come from the fetched lists once they land (see the
+	# drill_name fallbacks in StudentView), because a URL carries ids, not names.
+	student_subject_id = query_value(pathStr, "subject")
+	student_term_id = query_value(pathStr, "term")
 
 	model = {
 		route: initialRoute,
@@ -639,10 +647,10 @@ init = |flags| {
 		usersTeachersData: "",
 		usersParentsData: "",
 		usersAdminsData: "",
-		selectedSubjectId: "",
+		selectedSubjectId: student_subject_id,
 		selectedSubjectName: "",
 		teacherClassId: "",
-		selectedTermId: "",
+		selectedTermId: student_term_id,
 		selectedTermName: "",
 		selectedLessonId: initialLessonId,
 		studentTermsData: "",
@@ -735,8 +743,13 @@ init = |flags| {
 		                        # The sidebar's own two (see the configuration branch above).
 		                        Port.send("fetch_data", "/api/admin-rights"),
 		                        Port.send("fetch_data", "/api/admin-types"),
-		                ])
-			                _ => match initialRole {
+		])
+# A direct load (or reload) of the pupil's drill restores the step from its URL (?subject=,
+# ?term=; the lesson itself is ?id=) and asks for what that step shows: the two name lists
+# always, and the term's lessons when a term is named. A load straight onto a lesson leaves
+# the path to it in the URL, which the page's lesson script reads on the way in.
+StudentLesson => student_drill_effects(student_subject_id, student_term_id),
+		_ => match initialRole {
 		                                    Admin => [
 		                                            Port.send("fetch_data", "/api/users?role=Student"),
 		                                            Port.send("fetch_data", "/api/users?role=Teacher"),
@@ -763,8 +776,10 @@ init = |flags| {
 		                                            Port.send("fetch_data", "/api/teacher/classes"),
 		                                            Port.send("fetch_data", "/api/dashboard"),
 		                                    ]
+		                                    # A pupil's own curriculum: the subjects the pupil's class level is paired with,
+		                                    # not the school's whole list (the backend scopes it by the caller's class).
 		                                    Student => [
-		                                            Port.send("fetch_data", "/api/subjects"),
+		                                            Port.send("fetch_data", "/api/student/subjects"),
 		                                            Port.send("fetch_data", "/api/dashboard"),
 		                                    ]
 		                                    Parent => [
@@ -1052,6 +1067,40 @@ notification_for = |result, title| {
 	}
 }
 
+# The fetches a loaded or back/forward pupil drill step needs: the two name lists (the subjects and
+# the terms) always, and the lessons of the term when a term is named. The lesson content itself is
+# fetched by the page's own script from the lesson id in the URL (?id=), like the teacher's is.
+student_drill_effects : Str, Str -> List(Effect(Msg))
+student_drill_effects = |subject_id, term_id| {
+	List.concat(
+		[
+			Port.send("fetch_data", "/api/student/subjects"),
+			Port.send("fetch_data", "/api/student/terms"),
+		],
+		if Str.is_empty(term_id) {
+			[]
+		} else {
+			[Port.send("fetch_data", "/api/student/lessons?subject_id=${subject_id}&term_id=${term_id}")]
+		}
+	)
+}
+
+# The URL a navigation out of a lesson page lands on: the same address the page's crumbs show, and
+# the drill's own step behind it (`?subject=`, plus the term for the step one deeper), so the reload
+# restores the step from the address bar.
+lesson_exit_url : Model, Msg -> Str
+lesson_exit_url = |model, msg| {
+	match msg {
+		BackToSubjects => route_path(StudentSubjects)
+		# The terms step of the pupil's drill: the subject stays, the term goes.
+		BackToTerms => "/student/lesson?subject=${model.selectedSubjectId}"
+		# The lessons step: subject and term stay, only the lesson goes.
+		BackToLessons => "/student/lesson?subject=${model.selectedSubjectId}&term=${model.selectedTermId}"
+		NavigateTo(route) => route_path(route)
+		_ => route_path(model.route)
+	}
+}
+
 # The page's own gate, in front of every message: while a password change is owed, Settings is the only
 # page (the backend refuses every other route anyway, so navigating would land on a shell of errors).
 # Signing out, and the write that meets the requirement, still go through.
@@ -1065,8 +1114,33 @@ update = |model, msg| {
 
 	if model.passwordRequired and is_navigation and model.route != Settings {
 		({ ..model, route: Settings, mobileMenuOpen: Bool.False }, [Port.send("push_state", route_path(Settings))])
+	} else if lesson_page_up(model) and is_lesson_exit(msg) {
+		# Leaving a lesson page is a real navigation, not an in-app diff: the lesson view is the one
+		# page whose DOM the page's own script paints into after the app renders it (the renderer
+		# fills the panel, the contents rail, the section dots), so an in-app diff that leaves it
+		# merges the page it is going to onto a tree the app no longer fully owns — the "navigation
+		# goes weird" the dashboards reported. A fresh page always renders right, and the URL
+		# carries the step being left to, so the landing page restores itself from the address bar.
+		(model, [Port.send("redirect", lesson_exit_url(model, msg))])
 	} else {
 		dispatch(model, msg)
+	}
+}
+
+# Whether the lesson view is on screen right now: the pupil's lesson content, or the teacher's whole
+# viewer route (its picker and its lesson share one view, and both poison an exit diff the same way).
+lesson_page_up = |model| {
+	model.route == TeacherLessonViewer or (model.route == StudentLesson and !Str.is_empty(model.selectedLessonId))
+}
+
+# Whether a message leaves a lesson page for some other page.
+is_lesson_exit = |msg| {
+	match msg {
+		NavigateTo(_) => Bool.True
+		BackToSubjects => Bool.True
+		BackToTerms => Bool.True
+		BackToLessons => Bool.True
+		_ => Bool.False
 	}
 }
 
@@ -1100,6 +1174,28 @@ dispatch = |model, msg|
 			if newRoute == AdminLMS {
 				lms_state = lms_from_query(url)
 				(lms_model_from_query({ ..model, route: newRoute, mobileMenuOpen: Bool.False }, lms_state), lms_history_effects(lms_state))
+			} else if newRoute == StudentLesson {
+				# Back/forward through the pupil's drill: the URL carries the step, restore it and
+				# refetch what that step shows. The names come from the fetched lists (the same
+				# fallbacks a direct load at this address uses), so they are cleared here.
+				subject_id = query_value(url, "subject")
+				term_id = query_value(url, "term")
+				(
+					{
+						..model,
+						route: StudentLesson,
+						mobileMenuOpen: Bool.False,
+						selectedSubjectId: subject_id,
+						selectedSubjectName: "",
+						selectedTermId: term_id,
+						selectedTermName: "",
+						selectedLessonId: studentLessonId,
+						studentTermsData: "",
+						studentLessonsData: "",
+						currentLessonContent: "",
+					},
+					student_drill_effects(subject_id, term_id)
+				)
 			} else {
 				fetches = match newRoute {
 					AdminConfigurationHub => [
@@ -1112,7 +1208,7 @@ dispatch = |model, msg|
 						Port.send("fetch_data", "/api/credentials"),
 					]
 					StudentSubjects => [
-						Port.send("fetch_data", "/api/subjects"),
+						Port.send("fetch_data", "/api/student/subjects"),
 					]
 					_ => []
 				}
@@ -1156,10 +1252,10 @@ dispatch = |model, msg|
 			{ ..model, route: StudentSubjects, mobileMenuOpen: Bool.False, selectedSubjectId: "", selectedSubjectName: "", selectedTermId: "", selectedTermName: "", selectedLessonId: "", studentTermsData: "", studentLessonsData: "", currentLessonContent: "" },
 			[
 				Port.send("push_state", route_path(StudentSubjects)),
-				# The list's payload can be dropped when the boot fetch answered before this page's
-				# hidden input existed — refetch on entry, like the admin pages do, so a first
-				# navigation after a login never strands the list on its skeleton.
-				Port.send("fetch_data", "/api/subjects"),
+				# The page's cards are the subjects the pupil's class is paired with, and its payload can be
+				# dropped when a boot fetch answered before this page's hidden input existed — so entering
+				# the page asks for the list it shows, exactly as a boot at this URL does.
+				Port.send("fetch_data", "/api/student/subjects"),
 			]
 		)
 		NavigateTo(AdminConfigurationHub) => (
@@ -1185,6 +1281,44 @@ dispatch = |model, msg|
 			} else {
 				[Port.send("push_state", route_path(Dashboard)), Port.send("fetch_data", "/api/dashboard")]
 			}
+		)
+		# The Settings page's card reads /api/me/profile through its own hidden input, so the fetch has to
+		# ride the navigation: a payload that lands while the page is not rendered has nowhere to go
+		# (which is why the card showed empty fields after a click and only filled in after a reload).
+		NavigateTo(Settings) => (
+			{ ..model, route: Settings, mobileMenuOpen: Bool.False },
+			[
+				Port.send("push_state", route_path(Settings)),
+				Port.send("fetch_data", "/api/me/profile"),
+				# The card's labels for an administrator's type and ticks come from the same catalog.
+				Port.send("fetch_data", "/api/admin-types"),
+			]
+		)
+		# The teacher's pages read their lists through hidden inputs too, so each visit fetches its own:
+		# the boot fetch lands before these inputs exist and is dropped, which left a click looking blank
+		# (the skeleton) until a reload ran the boot path with the page already rendered.
+		NavigateTo(TeacherMyClasses) => (
+			{ ..model, route: TeacherMyClasses, mobileMenuOpen: Bool.False },
+			[
+				Port.send("push_state", route_path(TeacherMyClasses)),
+				Port.send("fetch_data", "/api/teacher/classes"),
+			]
+		)
+		NavigateTo(TeacherAssessments) => (
+			{ ..model, route: TeacherAssessments, mobileMenuOpen: Bool.False },
+			[
+				Port.send("push_state", route_path(TeacherAssessments)),
+				Port.send("fetch_data", "/api/teacher/general-assessments"),
+				Port.send("fetch_data", "/api/subjects"),
+			]
+		)
+		NavigateTo(StudentAssignments) => (
+			{ ..model, route: StudentAssignments, mobileMenuOpen: Bool.False },
+			[
+				Port.send("push_state", route_path(StudentAssignments)),
+				Port.send("fetch_data", "/api/student/assessments"),
+				Port.send("fetch_data", "/api/student/general-assessments"),
+			]
 		)
 		NavigateTo(route) => {
 			({ ..model, route: route, mobileMenuOpen: Bool.False }, [Port.send("push_state", route_path(route))])
@@ -2218,7 +2352,9 @@ dispatch = |model, msg|
 				route: StudentLesson,
 			},
 			[
-				Port.send("push_state", route_path(StudentLesson)),
+				# The step goes in the URL as well as in the state, so a reload or a share lands on it
+				# and the lesson page's own crumbs can leave the way they came (?subject= = terms step).
+				Port.send("push_state", "/student/lesson?subject=${id}"),
 				Port.send("fetch_data", "/api/student/terms"),
 			]
 		)
@@ -2230,7 +2366,10 @@ dispatch = |model, msg|
 				studentLessonsData: "",
 				currentLessonContent: "",
 			},
-			[Port.send("fetch_data", "/api/student/lessons?subject_id=${model.selectedSubjectId}&term_id=${id}")]
+			[
+				Port.send("push_state", "/student/lesson?subject=${model.selectedSubjectId}&term=${id}"),
+				Port.send("fetch_data", "/api/student/lessons?subject_id=${model.selectedSubjectId}&term_id=${id}"),
+			]
 		)
 		SelectLesson(id) => (
 			{ ..model,
@@ -2238,9 +2377,10 @@ dispatch = |model, msg|
 				currentLessonContent: "",
 			},
 			# The lesson goes in the URL as the teacher's does, so the page can be reloaded or shared and
-			# still open on the same lesson (the viewer reads ?id= on the way in).
+			# still open on the same lesson (the viewer reads ?id= on the way in); the subject and term
+			# ride along so the page's own crumbs can leave the way they came after a reload.
 			[
-				Port.send("push_state", "/student/lesson?id=${id}"),
+				Port.send("push_state", "/student/lesson?id=${id}&subject=${model.selectedSubjectId}&term=${model.selectedTermId}"),
 				Port.send("fetch_data", "/api/student/lesson?lesson_id=${id}"),
 			]
 		)
@@ -2284,5 +2424,12 @@ dispatch = |model, msg|
 				currentLessonContent: "",
 			},
 			[]
+		)
+		# Back from a lesson's page to the list it was opened from: the subject and the term stay,
+		# only the lesson goes — and the list is asked for again, because the page reads it out of
+		# its own hidden input (the same rule every page's first fetch follows).
+		BackToLessons => (
+			{ ..model, selectedLessonId: "", currentLessonContent: "" },
+			[Port.send("fetch_data", "/api/student/lessons?subject_id=${model.selectedSubjectId}&term_id=${model.selectedTermId}")]
 		)
 	}

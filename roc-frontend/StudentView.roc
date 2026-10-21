@@ -6,13 +6,63 @@ import UI
 import State exposing [Model, Msg, list_state]
 StudentView := [].{
 
+# The name a drill view shows for a record link: read from the fetched list carrying the names
+# (id|name|…), falling back to the name the click that opened the drill already set while the list
+# is on its way. The fallback is what a reload or a back/forward needs: the URL restores the ids,
+# and the names arrive with the lists (see the StudentLesson boot and popstate paths in State).
+drill_name = |list_data, record_id, fallback| {
+    if Str.is_empty(fallback) {
+        drill_lookup(list_data, record_id)
+    } else {
+        fallback
+    }
+}
+
+drill_lookup = |list_data, record_id| {
+    List.fold(Str.split_on(list_data, "\n"), "", |found, line| {
+        parts = Str.split_on(line, "|")
+        id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+        name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "" }
+        if id == record_id { name } else { found }
+    })
+}
+
 view = |model| {
     match model.route {
-        StudentSubjects => student_subjects_view(model)
-        StudentLesson => student_lesson_drilldown(model)
+        StudentSubjects => student_learning_frame(model, student_subjects_view(model))
+        StudentLesson => student_learning_frame(model, student_lesson_drilldown(model))
         StudentAssignments => student_assignments_view(model)
         _ => student_dashboard_shortcuts(model)
     }
+}
+
+# A stable frame for the pupil's two learning pages, in the admin LMS's own shape: the outer div and
+# the lists' hidden inputs stay put while the page or the drill step changes inside. The inputs have
+# to live here rather than in the page that shows them: a step restored from the URL (every exit
+# from the lesson view is a real reload — see the lesson-page rule in State) draws its names from
+# these lists, and a payload for an input that is not on screen is dropped.
+student_learning_frame = |model, step| {
+    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("subjects_data_input"),
+            Attribute.value(model.subjectsData),
+            Attribute.on_input(|s| GotSubjectsData(s))
+        ]),
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("student_terms_data_input"),
+            Attribute.value(model.studentTermsData),
+            Attribute.on_input(|s| GotStudentTermsData(s))
+        ]),
+        Html.input([
+            Attribute.type("hidden"),
+            Attribute.id("student_lessons_data_input"),
+            Attribute.value(model.studentLessonsData),
+            Attribute.on_input(|s| GotStudentLessonsData(s))
+        ]),
+        step
+    ])
 }
 
 # -------------------------------------------------------
@@ -20,18 +70,10 @@ view = |model| {
 # -------------------------------------------------------
 
 student_subjects_view = |model| {
-    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("space-y-6")], [
         Html.div([], [
             Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("My Subjects")]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Select a subject to browse its terms and lessons.")])
-        ]),
-
-        # Hidden input fed by JS when fetch_data returns subjects
-        Html.input([
-            Attribute.type("hidden"),
-            Attribute.id("subjects_data_input"),
-            Attribute.value(model.subjectsData),
-            Attribute.on_input(|s| GotSubjectsData(s))
         ]),
 
         # The subjects list in its three states: skeleton placeholders while it has not been
@@ -94,6 +136,7 @@ subject_card = |id, name, code| {
 # -------------------------------------------------------
 
 student_lesson_drilldown = |model| {
+    # The four steps of the drill, one slot in the pupil's stable frame (see student_learning_frame).
     if !Str.is_empty(model.selectedLessonId) {
         # Step 4 — Lesson content view
         student_lesson_content_view(model)
@@ -126,25 +169,17 @@ student_lesson_drilldown = |model| {
 # -------------------------------------------------------
 
 student_terms_view = |model| {
-    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
             UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
-            Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.selectedSubjectName)])
+            Html.span([Attribute.class("text-foreground font-medium")], [Html.text(drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName))])
         ]),
 
         Html.div([], [
-            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(model.selectedSubjectName)]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName))]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Choose a term to view its lessons.")])
-        ]),
-
-        # Hidden input for terms data
-        Html.input([
-            Attribute.type("hidden"),
-            Attribute.id("student_terms_data_input"),
-            Attribute.value(model.studentTermsData),
-            Attribute.on_input(|s| GotStudentTermsData(s))
         ]),
 
         # The terms list in its three states, like the subjects above it.
@@ -210,29 +245,21 @@ term_card = |id, name, num| {
 # -------------------------------------------------------
 
 student_lessons_list_view = |model| {
-    Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
+    Html.div([Attribute.class("space-y-6")], [
         # Breadcrumb nav
         Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
             UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
-            UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedSubjectName)]),
+            UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName))]),
             Html.span([Attribute.class("text-border")], [Html.text("›")]),
-            Html.span([Attribute.class("text-foreground font-medium")], [Html.text(model.selectedTermName)])
+            Html.span([Attribute.class("text-foreground font-medium")], [Html.text(drill_name(model.studentTermsData, model.selectedTermId, model.selectedTermName))])
         ]),
 
         Html.div([], [
-            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(model.selectedTermName)]),
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text(drill_name(model.studentTermsData, model.selectedTermId, model.selectedTermName))]),
             Html.p([Attribute.class("text-muted-foreground mt-1")], [
-                Html.text(model.selectedSubjectName)
+                Html.text(drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName))
             ])
-        ]),
-
-        # Hidden input for lessons data
-        Html.input([
-            Attribute.type("hidden"),
-            Attribute.id("student_lessons_data_input"),
-            Attribute.value(model.studentLessonsData),
-            Attribute.on_input(|s| GotStudentLessonsData(s))
         ]),
 
         # The lessons list in its three states, like the subjects above it.
@@ -338,11 +365,15 @@ student_lesson_content_view = |model| {
 
                 # Breadcrumb nav
                 Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground flex-wrap")], [
+                    # The crumbs leave the lesson page for real (see the lesson-page navigation rule in
+                    # State): the subject's goes to that subject's terms, the term's to that term's
+                    # lessons, and the hrefs carry the step the reload will restore from the address
+                    # bar.
                     UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentSubjects) }, BackToSubjects, [Html.text("My Subjects")]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
-                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedSubjectName)]),
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: "/student/lesson?subject=${model.selectedSubjectId}" }, BackToTerms, [Html.text(drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName))]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
-                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(StudentLesson) }, BackToTerms, [Html.text(model.selectedTermName)]),
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: "/student/lesson?subject=${model.selectedSubjectId}&term=${model.selectedTermId}" }, BackToLessons, [Html.text(drill_name(model.studentTermsData, model.selectedTermId, model.selectedTermName))]),
                     Html.span([Attribute.class("text-border")], [Html.text("›")]),
                     Html.span([Attribute.class("text-foreground font-medium truncate max-w-xs")], [Html.text("Lesson")])
                 ]),
@@ -358,7 +389,7 @@ student_lesson_content_view = |model| {
                             Html.div([
                                 Attribute.id("lesson-meta"),
                                 Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")
-                            ], [Html.text("${model.selectedSubjectName} · ${model.selectedTermName}")])
+                            ], [Html.text("${drill_name(model.subjectsData, model.selectedSubjectId, model.selectedSubjectName)} · ${drill_name(model.studentTermsData, model.selectedTermId, model.selectedTermName)}")])
                         ]),
                         Html.div([Attribute.id("lesson-week-badge"), Attribute.class("")], [])
                     ])

@@ -1,7 +1,7 @@
 // The lesson renderer's split between viewers, with no browser and no backend: it runs the page's own
 // script against a lesson shaped like the ones prod stores, and reports which sections each viewer is
-// shown. A pupil reads the lesson and their own work around it; staff read the whole record, including
-// the plan, the guidance, the references and the answer keys.
+// shown. A pupil reads the lesson itself; staff read the whole record — the plan, the guidance, the
+// references, the warm-up and practice lines, and the answer keys behind the question banks.
 //
 //   node tests/e2e/render_lesson_roles_check.cjs
 //
@@ -108,13 +108,13 @@ const LESSON = {
   const teacher = headingsFor('Teacher');
   const admin = headingsFor('Admin');
 
-  const STUDENT_SECTIONS = ['Learning Objectives', 'Introduction', 'SIMILE', 'METAPHOR', 'Key Points', 'Conclusion',
-    'Before you start', "What you'll be able to do", 'Extra practice'];
-  const STAFF_ONLY = ['Lesson Plan', 'Instructional Materials', 'Formative Assessment', 'Summative Assessment',
+  const STUDENT_SECTIONS = ['Learning Objectives', 'Introduction', 'SIMILE', 'METAPHOR', 'Key Points', 'Conclusion'];
+  const STAFF_ONLY = ['Before you start', "What you'll be able to do", 'Extra practice',
+    'Lesson Plan', 'Instructional Materials', 'Formative Assessment', 'Summative Assessment',
     'Support for Struggling Learners', "Teacher's Notes", 'Textbook References', 'Primary Sources',
     'Revision Questions (multiple choice)', 'Theoretical Questions'];
 
-  check('a pupil is shown the lesson itself and their own work around it',
+  check('a pupil is shown the lesson itself and nothing the school prepares around it',
     STUDENT_SECTIONS.every(h => student.includes(h)) && student.length === STUDENT_SECTIONS.length, JSON.stringify(student));
   check('a teacher is shown every section the record carries',
     STAFF_ONLY.every(h => teacher.includes(h)) && teacher.length === STUDENT_SECTIONS.length + STAFF_ONLY.length,

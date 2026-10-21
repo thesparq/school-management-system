@@ -699,6 +699,13 @@ reserve_number! = |role, config| {
     }
 }
 
+# The group a role's logins belong to, spelled the way the school's directory spells it. This is the one
+# thing that makes an account the role it was made as: the app reads a caller's role from these groups, and
+# a login in none of them falls back to student (which is what a teacher made in the app used to be).
+role_group_name = |role| {
+    if role == "Teacher" { "Teachers" } else if role == "Parent" { "Parents" } else if role == "Admin" { "Administrators" } else { "Students" }
+}
+
 # The name a new login signs in with: the school's number when the role has one, the address otherwise (a
 # parent). The form shows the same value back, read-only, so what the admin hands over is what the person types.
 login_name_for : Str, Str, Str => Str
@@ -715,7 +722,14 @@ login_name_for = |role, reserved, email| {
 # for the listing, and the reason both exist: reading JSON text back is fine, rewriting it in place is not.
 create_answer! : Str, Str, Str => Str
 create_answer! = |table, user_id, username| {
-    "[{\"result\":[{\"id\":\"${table}:${sanitize_json_text(user_id)}\",\"username\":\"${sanitize_json_text(username)}\"}],\"status\":\"OK\"}]"
+    create_answer_with!(table, user_id, username, "")
+}
+
+# The same answer with the caller's optional warning beside the row (`,"warning":"…"` or ""), so a create
+# that landed but could not set its role group says so in the answer rather than silently making a student.
+create_answer_with! : Str, Str, Str, Str => Str
+create_answer_with! = |table, user_id, username, warning| {
+    "[{\"result\":[{\"id\":\"${table}:${sanitize_json_text(user_id)}\",\"username\":\"${sanitize_json_text(username)}\"}],\"status\":\"OK\"${warning}}]"
 }
 
 # The `SET` entry that hands a new profile row its number, or "" for a role that has none (a parent).
@@ -3911,8 +3925,26 @@ respond! = |request, context| {
 	                                                            match teacher_pairs_from_payload!(profile_table_for(role), user_id, payload_raw, context.surreal) {
 	                                                                Err(detail) => Ok(json_response(500, "{\"error\":\"The account was created but its class-subject pairs were not\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
 	                                                                Ok(_) => {
+	                                                                    # The login joins its role's group before the create is called done: the group is what this
+	                                                                    # app reads a caller's role from, so an account without one is a student to every screen
+	                                                                    # however it was meant. A provider that refuses leaves the account intact and says so in the
+	                                                                    # answer's `warning` rather than failing a create whose profile is already written.
+	                                                                    groups_body = match Authentik.groupsNamed!(role_group_name(role)) {
+	                                                                        Ok(body) => body,
+	                                                                        Err(_) => "",
+	                                                                    }
+	                                                                    group_pk = extract_field(groups_body, "pk")
+	                                                                    grouped = if Str.is_empty(group_pk) {
+	                                                                        Bool.False
+	                                                                    } else {
+	                                                                        match Authentik.updateUser!(user_id, "{\"groups\": [\"${group_pk}\"]}") {
+	                                                                            Ok(_) => Bool.True,
+	                                                                            Err(_) => Bool.False,
+	                                                                        }
+	                                                                    }
+	                                                                    warning = if grouped { "" } else { ",\"warning\":\"the account was made but its role group was not set — an administrator has to put it in ${role_group_name(role)}\" " }
 	                                                                    _ = journal_done!(row_id, "profile", context.surreal)
-	                                                                    Ok(json_response(200, create_answer!(profile_table_for(role), user_id, login_name)))
+	                                                                    Ok(json_response(200, create_answer_with!(profile_table_for(role), user_id, login_name, warning)))
 	                                                                }
 	                                                            }
                                                         Err(detail) => {

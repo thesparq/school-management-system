@@ -2673,3 +2673,72 @@ its output is ~3.4 sections of ~58 words. See the lesson-renderer section above 
 - Messaging uses Matrix/Synapse homeserver at `matrix.johnethel.school`
 - Passport photos stored in Cloudflare R2 (S3-compatible)
 
+
+## Dashboard fix (teacher/student nav jank) — fork `dnrpcb39b23r`
+
+The reported teacher/student dashboard jank, fixed in one fork. The two big causes:
+
+1. **Role from the Authentik group.** The app reads a caller's role from their directory group, and
+   `createUser!` never put a new login in one — so every account made in the app landed as a
+   **student** (no group = student fallback). That alone explained "My Subjects shows all subjects",
+   "the assessment tab says I'm not a teacher", "the teacher's lesson render is the student's", and
+   most of the teacher report. Fix: the create path now looks up the role's group
+   (`Authentik.groupsNamed!` — mock serves `/api/v3/core/groups/`) and PATCHes the new login's
+   groups before the create is done; if the provider refuses, the account is kept and the answer
+   carries a `warning` naming the group. `users_api.sh` 125/0.
+
+2. **Client-side navigation dropping a page's payload.** A list's payload lands in a hidden input
+   that only exists while its page renders; a boot fetch that answered before the first visit
+   renders nothing (the skeleton), which is the blank page needing a refresh. Fixes:
+   - `NavigateTo` now fetches on entry for Settings (`/api/me/profile` + the admin catalog), teacher
+     My Classes, teacher Assessments, student Assignments (four new arms), and the pupil's subject
+     page asks `/api/student/subjects` (was `/api/subjects` — the whole school's list — on the
+     student boot and on entering the page).
+   - **Leaving a lesson page is a real navigation, and the pupil's drill rides the URL.** The
+     lesson view is the one page whose DOM the page's own script paints into after the app renders
+     it (the renderer fills the panel, the contents rail, the section dots), and an in-app diff
+     that leaves it merged the next page onto a tree the app no longer fully owned — the
+     "navigation goes weird" the dashboards reported (confirmed with DOM mutation traces: Joy's
+     diff stopped after a few leaves and left the lesson's rails hanging). The admin LMS never
+     showed it because its drill keeps one stable frame; the student's and teacher's swapped whole
+     roots, and even rendering them inside stable frames did not stop the bad diff. So now: any
+     navigation from a lesson page (the student viewer, the teacher viewer) loads the target URL
+     for real, and the pupil's drill states itself in the URL (`?subject=&term=&id=`), restored at
+     boot and on back/forward like the admin drill — which also makes lesson-step URLs reloadable
+     and shareable, instead of landing on "No subject selected". The teacher's own exit (Back to
+     My Classes) reloads `/teacher/classes`.
+
+Also fixed:
+- **Pupil subject scope**: the page (boot and entry) now asks `/api/student/subjects`; a Year-1
+  pupil sees Year 1's own pairs (2 subjects) rather than the school's whole list. (Backend fallback
+  unchanged: a student with **no profile row keeps the full list** — deliberate, documented; a real
+  pupil has a class.) Note: `dev_student` probe rows were sandbox-only, created and deleted around
+  the checks.
+- **Term isolation**: verified server-side — the student list filters by `term_id` (AGR+Noel → 1
+  row, AGR+Calvary → 0) and the teacher's picker is scoped to the active session term (a different
+  explicit term → 0 rows). "All three terms combined" was the mis-roled account falling through to
+  the no-class unscoped list.
+- **"Only Agric Science lists lessons" is data**: the sandbox seed has one lesson (AGR/JSS1/Noel);
+  Year-1/Basic-Science/Noel returns 0 rows. Most prod subjects likely have lessons only where the
+  generator has run (4,509 of 6,134 lessons). Confirm against prod data; not a code bug.
+- **Student breadcrumb**: the term crumb now goes back to that term's lessons list (`BackToLessons`
+  — subject and term stay, only the lesson drops) instead of clearing the term too and jumping two
+  steps up; the lessons list is refetched on return.
+- **Lesson render split**: "Before you start", "What you'll be able to do" and "Extra practice" are
+  now staff sections — a pupil's page carries the lesson without them; a teacher's page is
+  byte-for-byte the admin's. `render_lesson_roles_check.cjs` updated to pin the new split (14/14).
+- **The invented email**: the shell's user card no longer prints `user@school.com` for an account
+  with no email; the line is omitted.
+- `e2e_student.cjs` now also pins (a) the pupil's subject cards came from `/api/student/subjects`
+  and never the school-wide list, and (b) the term crumb comes back to the term's lessons list.
+
+Sandbox verification (backend built from this fork, static dir = fork's `www`; probes deleted
+afterwards): teacher `/api/teacher/classes` → the assigned pair; teacher lessons class+subject →
+the seed lesson, other term → 0; Year-1 `/api/student/subjects` → 2 subjects; `/api/me/profile`
+for a teacher with a row → named fields incl. `EMP-004444`; `/api/teacher/general-assessments` →
+200 for a teacher role.
+
+Deploy note (for the parent thread / the user): the create-side group join and the frontend bundle
+both land together — backend first (schema unchanged; Authentik needs the service account's "Can
+view Group" permission, already granted). The per-login fix for the two existing mis-roled accounts
+(`EMP-000002`, `JES-000004`) is an Authentik-side group add (the school said they'll do it).

@@ -187,8 +187,14 @@ render = |model| {
 			model.userName
 		}
 
-	user_display_email =
-		if Str.is_empty(model.userEmail) { "user@school.com" } else { model.userEmail }
+	# The login's own address, or nothing at all. Most pupils and teachers sign in with the school's
+	# number and have no email, and an invented one read as if the school had it on file.
+	user_email_line =
+		if Str.is_empty(model.userEmail) {
+			div([], [])
+		} else {
+			div([class("text-xs text-muted-foreground truncate")], [text(model.userEmail)])
+		}
 
 	# Sidebar Header Content
 	sidebar_header_content =
@@ -207,7 +213,7 @@ render = |model| {
 				]),
 				div([class("flex flex-col overflow-hidden")], [
 					div([class("text-sm font-medium leading-tight truncate")], [text(user_display_name)]),
-					div([class("text-xs text-muted-foreground truncate")], [text(user_display_email)])
+					user_email_line
 				])
 			])
 		])

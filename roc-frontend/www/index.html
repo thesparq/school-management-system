@@ -1763,10 +1763,12 @@
 
     // --- The lesson's sections ---
     // Every section a lesson can carry, in reading order, each naming the viewers who may see it.
-    // "all" is the lesson itself and the pupil's own work around it; "staff" is the teacher's side of
-    // the same record — their plan and materials, their guidance, the references behind the lesson,
-    // and the answer keys to the question banks. A section with nothing in the record renders
-    // nothing, so a thin or older lesson simply shows fewer of them.
+    // "all" is the lesson itself — the reading the class gets: objectives, the sections, the key
+    // points, the conclusion. "staff" is the school's own half of the same record: the plan and the
+    // materials, the guidance, the warm-up and practice lines the teacher works from, the references
+    // behind the lesson, and the answer keys to the question banks. A teacher and an administrator
+    // read that half alike; a pupil's page is the lesson without it. A section with nothing in the
+    // record renders nothing, so a thin or older lesson simply shows fewer of them.
     function lessonHeading(text) {
         return `<h2 class="text-xl font-bold text-foreground border-b border-border pb-2">${escHtml(text)}</h2>`;
     }
@@ -1876,17 +1878,19 @@
         const conclusion = str(c.conclusion);
         if (conclusion) add("section-conclusion", "Conclusion", "all", lessonHeading("Conclusion") + lessonProse(conclusion));
 
-        // --- The pupil's own work around the lesson ---
+        // --- The teacher's side of the same record ---
+        // The warm-up, the success criteria and the practice lines sit on this side too: they are what
+        // the teacher opens the lesson with, and a pupil's page is the lesson without them.
         const prior = arr(c.prior_knowledge);
-        if (prior.length) add("section-prior-knowledge", "Before you start", "all", lessonHeading("Before you start") + lessonList(prior));
+        if (prior.length) add("section-prior-knowledge", "Before you start", "staff", lessonHeading("Before you start") + lessonList(prior));
 
         const criteria = arr(c.success_criteria);
-        if (criteria.length) add("section-success-criteria", "What you'll be able to do", "all", lessonHeading("What you'll be able to do") + lessonList(criteria));
+        if (criteria.length) add("section-success-criteria", "What you'll be able to do", "staff", lessonHeading("What you'll be able to do") + lessonList(criteria));
 
         const extension = arr(c.extension_activities);
-        if (extension.length) add("section-extension", "Extra practice", "all", lessonHeading("Extra practice") + lessonList(extension));
+        if (extension.length) add("section-extension", "Extra practice", "staff", lessonHeading("Extra practice") + lessonList(extension));
 
-        // --- The teacher's side of the same record ---
+
         const steps = arr(c.lesson_steps);
         if (steps.length) {
             const rows = steps.map(s => {

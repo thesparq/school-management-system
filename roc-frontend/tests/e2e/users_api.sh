@@ -485,6 +485,13 @@ db_query "UPSERT id_sequences:student SET type = 'student', current_value = ${GU
 check "the series is back where it was" "$(counter student)" "$GUARD_BEFORE"
 check "and the next create draws from it again" "$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Student\",\"first_name\":\"After\",\"surname\":\"Series${STAMP}\",\"date_of_birth\":\"2011-02-03\",\"class_level\":\"jss_1\",\"passport\":\"https://example.com/after-series.jpg\"}")" "\"username\":\"JES-$(padded "$((GUARD_BEFORE + 1))")\""
 
+# --- 22. a create puts the login in its role's group ---
+# The group is what this app reads a caller's role from: a login in none of them falls back to student, so a
+# teacher made in the app used to get the student's screens. `LOGIN_PK` (section 20) is a pupil and `T3_PK` a
+# teacher, and the mock's own records are where the group the create set is read back from.
+check "the new pupil joined the Students group" "$(mock_user "$LOGIN_PK")" '"groups":["mock-group-students"]'
+check "the new teacher joined the Teachers group" "$(mock_user "$T3_PK")" '"groups":["mock-group-teachers"]'
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

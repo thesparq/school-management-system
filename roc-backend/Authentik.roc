@@ -290,6 +290,34 @@ Authentik := [].{
         }
     }
 
+    ## The school's groups matching one exact name (`?name=Teachers`), as the provider answers them — the
+    ## caller reads the pk out with the same scanners it reads a user with. A new login has to go into its
+    ## role's group: the group is what this app reads a caller's role from, so an account made without one
+    ## behaves as a student however it was intended.
+    groupsNamed! : Str => [Ok(Str), Err(Str)]
+    groupsNamed! = |group_name| {
+        token = api_token!("")
+        if Str.is_empty(token) {
+            Err("AUTHENTIK_API_TOKEN is not set")
+        } else {
+            groups_url = Str.replace_each(api_url!(""), "/core/users/", "/core/groups/")
+            req =
+                Request.from_method(GET)
+                    |> Request.with_uri("${groups_url}?name=${group_name}")
+                    |> Request.add_header("Authorization", "Bearer ${token}")
+                    |> Request.add_header("Accept", "application/json")
+            match Http.send!(req) {
+                Ok(response) =>
+                    if Response.status(response) == 200 {
+                        Ok(Str.from_utf8_lossy(Response.body(response)))
+                    } else {
+                        Err("Authentik refused the group lookup")
+                    }
+                Err(_) => Err("Http Error looking up the group"),
+            }
+        }
+    }
+
     # Compensating action for a profile write that failed after the login was created:
     # without it the admin is left with a login that has no profile and cannot retry.
     deleteUser! : Str => [Ok(Str), Err(Str)]

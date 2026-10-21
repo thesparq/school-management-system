@@ -51,6 +51,16 @@ import time
 
 PORT = int(sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MOCK_AUTHENTIK_PORT', '9000'))
 USERS_PATH = '/api/v3/core/users/'
+GROUPS_PATH = '/api/v3/core/groups/'
+
+# The four role groups the app puts a new login in, by the school's own names. A real instance carries
+# more (outposts, its own admins); these are the ones the app looks up by name.
+GROUPS = [
+    {'pk': 'mock-group-students', 'name': 'Students'},
+    {'pk': 'mock-group-teachers', 'name': 'Teachers'},
+    {'pk': 'mock-group-parents', 'name': 'Parents'},
+    {'pk': 'mock-group-administrators', 'name': 'Administrators'},
+]
 USERINFO_PATH = '/application/o/userinfo/'
 TOKEN_PATH = '/application/o/token/'
 # The one password the mock's grant accepts for any login it knows (see do_POST).
@@ -268,6 +278,10 @@ class MockHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header('Location', f"{redirect_uri}#access_token=dev-skip&expires_in=3600")
             self.end_headers()
+        elif parsed.path.rstrip('/') == GROUPS_PATH.rstrip('/'):
+            wanted = parse_qs(parsed.query).get('name', [''])[0]
+            found = [g for g in GROUPS if not wanted or g['name'] == wanted]
+            send(self, 200, {'pagination': {}, 'results': found})
         elif parsed.path.rstrip('/') == USERINFO_PATH.rstrip('/'):
             global userinfo_calls
             userinfo_calls += 1
