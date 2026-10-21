@@ -319,7 +319,8 @@ class MockHandler(BaseHTTPRequestHandler):
             identifier = (form.get('username') or [''])[0]
             password = (form.get('password') or [''])[0]
             login = next((u for u in users.values()
-                          if u.get('username') == identifier or u.get('email') == identifier), None)
+                          if u.get('username') == identifier or u.get('email') == identifier
+                          or (u.get('attributes') or {}).get('upn') == identifier), None)
             if login is None or password != MOCK_PASSWORD:
                 return send(self, 400, '{"error":"invalid_grant","error_description":"Invalid credentials"}')
             return send(self, 200, '{"access_token":"mock-password-grant-token","token_type":"Bearer","expires_in":300}')
@@ -350,6 +351,10 @@ class MockHandler(BaseHTTPRequestHandler):
                 # Created without a group, as Authentik creates one: the login is in the directory but
                 # in no role's tab until an admin puts it in a group.
                 'groups_obj': [],
+                # Whatever the app asked for — the school number's short form lands here as `upn`, which
+                # the grant above matches as well as the username (the real provider's identification
+                # stage does the same when its UPN user field is ticked).
+                'attributes': body.get('attributes') or {},
             }
             send(self, 201, users[str(pk)])
         else:

@@ -175,17 +175,25 @@ Authentik := [].{
     ## a member of staff (`JES-000123`), the address for a parent — and `email` may be empty: an account with
     ## no address is normal here (nothing in this deployment sends mail; passwords are handed over in person),
     ## and Authentik is happy with one, as its own service logins show.
-    createUser! : Str, Str, Str => [Ok(Str), Err(Str)]
-    createUser! = |username, email, name| {
+    ##
+    ## `upn` is the same number without its leading zeros, written into the account's `attributes` (and left
+    ## out entirely when there is none — a parent has no number). It is the one other identifier Authentik's
+    ## identification stage can match, so with **UPN** ticked among that stage's user fields a person who
+    ## types `JES-123` is found as well as one who types the printed `JES-000123`. It is derived from the
+    ## number at create time, so the two can never drift.
+    createUser! : Str, Str, Str, Str => [Ok(Str), Err(Str)]
+    createUser! = |username, email, name, upn| {
         token = api_token!("")
         api_url = api_url!("")
+
+        upn_field = if Str.is_empty(upn) { "" } else { ", \"attributes\": {\"upn\": \"${upn}\"}" }
 
         req = 
             Request.from_method(POST)
                 |> Request.with_uri(api_url)
                 |> Request.add_header("Authorization", "Bearer ${token}")
                 |> Request.add_header("Content-Type", "application/json")
-                |> Request.with_body(Str.to_utf8("{\"username\": \"${username}\", \"name\": \"${name}\", \"email\": \"${email}\"}"))
+                |> Request.with_body(Str.to_utf8("{\"username\": \"${username}\", \"name\": \"${name}\", \"email\": \"${email}\"${upn_field}}"))
 
         res = Http.send!(req)
 

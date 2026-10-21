@@ -2248,6 +2248,24 @@ their login and the create insists on one.
 - `GET /api/users` merges Authentik's own `username` beside `email`/`is_active` and the page carries it
   as field 20 of the row line; `GET /api/me/profile` carries `staff_number` (teacher, admin) or
   `student_number` (student), which the Settings card labels *Staff ID* / *Admission number*.
+- **The short spelling rides the account.** The school asked to cater for both `JES-000123` and `JES-123`,
+  and the app cannot normalize what is typed — the sign-in screen is Authentik's, whose identification
+  stage matches its identifiers exactly (case-insensitively) and offers only username, email and `upn`
+  ([the maintainer's own answer](https://github.com/goauthentik/authentik/issues/10973): a custom
+  identifier belongs in `upn`). So the create writes the number's short form into the account's
+  `attributes.upn` (derived from the number, so the two cannot drift; left out for a parent, who has
+  none), and the school ticks **UPN** among that stage's user fields — then either spelling finds the
+  person. Verified in the sandbox: the mock's record carries `{"upn":"JES-<digits>"}` and its own
+  grant answers 200 for both spellings (`users_api.sh`, section 20).
+
+**What prod actually holds** (read on 2026-10-21, so the school knows where it stands): nine logins in
+Authentik — two outposts, `akadmin` (off), `noreply`, the service account, the `temp-staff` /
+`temp-student` pair, the school's own gmail login and `thesparq` — and, in the database, 11 class levels,
+34 subjects and 4,509 lessons, but **no students, teachers or parents yet** and one admin profile
+(`admin_profile:5`, the school's own account, `staff_id = 1` → `EMP-000001`, username `thesparq`). So
+there was nothing to migrate: the concern about "hundreds of people typing a new login" does not apply
+to this deployment, and every account made from here on is a number. The school's own login keeps its
+chosen name — moving it onto `EMP-000001` is theirs to ask for, and the same script would do it.
 
 **The page.** The add/edit form's contact row is three columns: the address, the login, the role. The
 login is a disabled field (`#new-user-login-field`) labelled with the school's word for the number
@@ -2285,12 +2303,11 @@ compiler invocation (`roc build --target=wasm32 --opt=size --output=www/app.wasm
 copied out of the package cache, and `build-id.txt` written with `build.roc`'s own command — all three
 files are gitignored, so nothing of that is in the commit.
 
-**Left for the school to decide** (asked, not yet answered): whether the leading zeros are wanted exactly
-as printed (`JES-000123` is what the app issues today) — and what to do about accounts made *before*
-this change, whose logins are still their addresses. Their numbers are already in the rows, so moving
-those logins onto them is a one-off, authorized change; nothing in the app depends on a login's spelling
-(every row is keyed by the pk). Also worth doing before a September intake: a CSV import, because the app
-still creates one account at a time.
+**Both questions were answered the same day.** The school asked to cater for both spellings — see the
+short-form bullet above (the account's `upn`) — and pointed out that Authentik matches an address as well
+as a username, which is why nothing had to move for existing logins. What prod actually holds is the
+paragraph above: there were no pupils or staff to migrate at all. Still worth doing before a September
+intake: a CSV import, because the app creates one account at a time.
 
 ---
 
@@ -2561,11 +2578,14 @@ a `Curriculum` branch for match exhaustiveness, and it is unreachable.
   login is the school's own number, every form answers the keyboard, a password that lands ends the
   session that set it, and a qualification's name is editable from the hub. Deployed by Dokploy's own
   build from `Dockerfile.app`.
-- [ ] The identity change's two open decisions, both the school's to make: whether the leading zeros are
-  wanted exactly as printed (`JES-000123` is what the app issues today — a change of format is a change
-  of the rendering, not of any stored row), and what to do about accounts made *before* it, whose logins
-  are still their addresses. Their numbers are already in the rows, so moving those logins onto them is a
-  one-off, authorized change; nothing in the app depends on a login's spelling (every row is keyed by pk).
+- [x] The identity change's leading zeros: **both spellings work.** The account carries the printed form
+  as its `username` and the short form (`JES-123`) as its `upn` attribute; the school's half is ticking
+  **UPN** among the login flow's identification-stage user fields, because the app cannot normalize what
+  is typed — the sign-in screen is Authentik's, and its stage matches its identifiers exactly.
+- [x] Accounts made before the identity change: **there is nothing to migrate.** Prod holds nine logins
+  and no students, teachers or parents — one admin profile, the school's own (`thesparq`, `EMP-000001`),
+  whose login is its chosen name and stays that way unless the school asks otherwise. An address keeps
+  working at sign-in wherever the stage's Email field is ticked.
 - [ ] A CSV import for a September intake: the app still creates one account at a time.
 - [x] Subject → Term → Lesson navigation drill-down (multi-level routing; each drill step is its own URL)
 - [x] Real passport photo upload (presigned PUT to R2 from browser)

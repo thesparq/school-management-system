@@ -435,6 +435,14 @@ check "and the row carries no address at all" "$(listing Student | row_of "$LOGI
 check "Authentik holds the login under the number" "$(mock_user "$LOGIN_PK")" "\"username\":\"JES-$(padded "$LOGIN_NUMBER")\""
 check "with no address on the account" "$(mock_user "$LOGIN_PK")" '"email":""'
 
+# The same number without its leading zeros rides the account as its `upn` (Authentik's one other
+# matchable identifier — the identification stage finds it when its UPN user field is ticked), so a
+# person who types the short form is found as well as one who types the printed one. The mock's own
+# grant matches username, address and upn the way the provider's identification does, so both spellings
+# are asked for here; `mock-current-password` is the one password it accepts for a login it knows.
+check "the account carries the short form as its upn" "$(mock_user "$LOGIN_PK")" "\"attributes\":{\"upn\":\"JES-${LOGIN_NUMBER}\"}"
+check "and the provider finds the login by either spelling" "$(for spelling in "JES-$(padded "$LOGIN_NUMBER")" "JES-${LOGIN_NUMBER}"; do curl -s -o /dev/null -w '%{http_code} ' -X POST "$MOCK/application/o/token/" -d "grant_type=password&username=${spelling}&password=mock-current-password"; done)" "200 200 "
+
 # A member of staff is the same story on the staff series.
 T3_CREATE=$(curl -s -X POST "$B/api/users" -H "$T" -H "$C" -d "{\"role\":\"Teacher\",\"first_name\":\"No\",\"surname\":\"Mail${STAMP}\",\"passport\":\"https://example.com/no-mail-teacher.jpg\"}")
 T3_PK=$(pk_of "$T3_CREATE")
@@ -448,6 +456,7 @@ NO_MAIL_PARENT=$(post_user "{\"role\":\"Parent\",\"first_name\":\"No\",\"surname
 check "a parent with no address is refused" "$NO_MAIL_PARENT" "HTTP 400"
 check "and the refusal says the address is their login" "$NO_MAIL_PARENT" "it is their login"
 check "while a parent created with one signs in by it" "$P_CREATE" "\"username\":\"${P_EMAIL}\""
+check "and carries no upn, having no number" "$(mock_user "$P_PK")" '"attributes":{}'
 
 # --- 21. a login is never made with no name ---
 # The number series is what names a login. If it answers nothing — the row was deleted, or the database

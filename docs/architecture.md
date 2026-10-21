@@ -152,6 +152,14 @@ file stale. What belongs here is the shape and the rules:
   address is their login and the create insists on one; for every other role the address is optional and may
   be empty (nothing in this deployment sends mail, and a password is handed over in person). Authentik is
   content with an address-less account — its own service logins are.
+- **The account also carries the short spelling.** The same number with its leading zeros left off
+  (`JES-123`) is written into the account's `attributes.upn` at create time — derived from the number, so
+  the two can never drift, and left out entirely for a parent, who has no number. `upn` is the one other
+  identifier Authentik's identification stage can match, so with **UPN** ticked among that stage's user
+  fields a person who types the short form is found as well as one who types the printed one. The app
+  itself cannot normalize what is typed: the sign-in screen belongs to Authentik, and the stage matches
+  its identifiers exactly (case-insensitively) — which is why the second spelling rides the account
+  rather than a page.
 - **The login reaches the page as Authentik's own `username`**: the listing merges it beside `email` and
   `is_active` (an address-less account is normal), the row's form shows it read-only — the school issues it —
   and the Reset password modal names the account by it. An account made before logins were numbers still

@@ -613,6 +613,13 @@ number_prefix = |role| {
 # integer is what is stored, so nothing truncates it.
 number_width = 6
 
+# The same number with its leading zeros left off (`JES-123` beside `JES-000123`). It is what the account
+# carries as its `upn`, the one other identifier Authentik's identification stage can match, so a person
+# who types the short form is found too — the school ticks **UPN** among that stage's user fields for it
+# to count. Nothing displays this spelling: the printed, listed and handed-over form is `number_text`'s.
+number_text_plain : Str, Str -> Str
+number_text_plain = |role, digits| { "${number_prefix(role)}${digits}" }
+
 # Zero-pad a number's digits to the written form's width: pad_left("45", 6) == "000045". Roc has no pad
 # function; `Str.repeat` is the string op this is built from, and digits already at the width come back
 # whole.
@@ -3829,7 +3836,7 @@ respond! = |request, context| {
                                     match journal_res {
                                         Err(detail) => Ok(json_response(500, "{\"error\":\"The account was not created\",\"detail\":\"${sanitize_json_text(detail)}\"}")),
                                         Ok(row_id) => {
-                                    auth_res = Authentik.createUser!(login_name, email_val, display_name)
+                                    auth_res = Authentik.createUser!(login_name, email_val, display_name, if Str.is_empty(login_number) { "" } else { number_text_plain(role, login_number) })
                                     match auth_res {
                                         Ok(user_id) => {
                                             pending_table = "pending_ops"
