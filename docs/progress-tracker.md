@@ -2742,3 +2742,53 @@ Deploy note (for the parent thread / the user): the create-side group join and t
 both land together — backend first (schema unchanged; Authentik needs the service account's "Can
 view Group" permission, already granted). The per-login fix for the two existing mis-roled accounts
 (`EMP-000002`, `JES-000004`) is an Authentik-side group add (the school said they'll do it).
+
+## The required-field standard, a keyboard qualifications picker, and the photograph store
+
+The school's four asks (msgs 149, 150, 152) — the ones the earlier "Route to subthread" routing left
+unfinished — done here.
+
+1. **One label standard for every form** (msg 149): no label says "(optional)"; a required field's
+   name is followed by a red asterisk of its own (`UI.field_label`, new in `UI.roc`); and a form's
+   submit stays disabled until its required fields hold something — the user form
+   (`user_form_complete`), reset-password (`reset_form_complete`), every configuration create
+   (`config_create_complete`), the teacher Assign dialog, the Settings password change, and the
+   teacher assessment modals' labels. The required sets mirror the backend's own refusals, so a
+   disabled button is one the server would have refused anyway.
+2. **The qualifications picker answers the keyboard** (msg 150): an empty search box now lists every
+   qualification (a browsable menu, not only a filter), the arrow keys move a highlight, and Enter
+   attaches the highlighted one. The list floats over the form (`absolute` under a `relative`
+   container) instead of growing the modal — the scrolling the school reported. The same overlay fix
+   went to the class-subject pickers (the teacher form's and the Assign dialog's) and the parent
+   form's linked-students picker. Enter in that one field is taken by the page (`enterSubmits` in
+   `www/index.html`), so it picks the qualification rather than submitting the account.
+3. **The photograph store** (msg 152): the reported bug — one account's passport URL riding into the
+   next create — is fixed by clearing `newUserPassportKey` with the rest of the form (all four reset
+   sites). Behind it, `GET /api/passports` lists every profile row carrying a photograph (named, and
+   flagged when its account was soft-deleted) and `DELETE /api/passports {"url"}` signs an R2 DELETE
+   and blanks the rows that pointed at it; both admin-only by role and by `users.manage`. The form
+   offers the list for reuse and a Delete control for the chosen photograph. The delete's HTTP call
+   lives in a new `roc-backend/Storage.roc`: an `Http.send!` in main.roc segfaults the compiler.
+
+Found while verifying: the user form's class-level and qualification catalogs are now fetched *when
+the form opens* (`/api/class_levels`, `/api/credentials`), not only at boot — a boot fetch that lands
+before the page's inputs exist is dropped, which left the class-level picker stuck on "Fetching...".
+
+**Verified**: `roc check main.roc` and `roc check app.roc` clean; the backend binary and the wasm
+bundle build; `/api/passports` answers the shape the page's formatter expects; and a Chromium pass
+over the four asks, 18/18 — no "(optional)" or "(*)" anywhere, five red asterisks on a pupil's
+required fields, the submit disabled until every required field is filled, all nine seeded
+qualifications listed on an empty box with ArrowDown highlighting and Enter attaching, the gallery
+offering 34 photographs by name (a deleted account's marked), choosing one filling the URL, the
+Delete control gated on a chosen file, and a fresh form starting empty.
+
+**Sandbox note**: the machine rebooted several times mid-work; the throwaway database was
+re-provisioned from `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` per `tests/e2e/README.md`,
+and this tree's backend build ran on :8000 with the mock Authentik on :9000.
+
+**Follow-up (not done)**: `e2e_admin.cjs` clicks the user form's submit before filling the required
+fields, so it now waits on a button that is correctly disabled — it needs the fills the browser pass
+makes (name, date of birth, class level, passport) before its click. `e2e_admin_config.cjs` and
+`e2e_password_change.cjs` could not be run to completion (the sandbox died mid-run repeatedly here).
+The teacher assessment modals write through the page's own JavaScript (`#ga-title-input` and
+friends), so only their labels were standardised, not their disabled state.

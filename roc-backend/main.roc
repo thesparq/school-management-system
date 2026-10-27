@@ -19,6 +19,7 @@ import Url
 import R2
 import Golem
 import Authentik
+import Storage
 
 Context : { surreal: SurrealDB.Config, dev_mode: Bool, static_dir: Str }
 
@@ -800,6 +801,88 @@ assessment_term_active! = |table, assessment_id, config| {
 
 # The refusal a pupil gets for work in a term the school has switched off, in the school's words.
 term_switched_off_response = json_response(403, "{\"error\":\"That term is switched off\",\"detail\":\"The school has turned this term off, so its lessons and assessments are not available.\"}")
+
+# The key of one photograph in the school's store, or "" when the URL is not one of its own. `r2_public` is
+# the bucket's public base, so the key is the URL with that base taken off — and only a passport object is
+# this route's to delete, never anything else the bucket may hold.
+photo_key : Str, Str -> Str
+photo_key = |url, r2_public| {
+    prefix = "${r2_public}/"
+    key = match Str.split_on(url, prefix) {
+        [_, .. as rest] => Str.join_with(rest, prefix),
+        [] => "",
+    }
+
+    if !Str.is_empty(r2_public) and Str.starts_with(url, prefix) and Str.contains(key, "/passports/") {
+        key
+    } else {
+        ""
+    }
+}
+
+# The five R2 variables, or the names that are missing. The same set an upload needs: without them there is
+# nothing to sign with, and answering a URL that does not work would only move the failure elsewhere.
+r2_settings! : {} => [Ok({ endpoint: Str, bucket: Str, access: Str, secret: Str, public: Str }), Err(List(Str))]
+r2_settings! = |{}| {
+    endpoint = env_or!("R2_ENDPOINT_URL", "")
+    bucket = env_or!("R2_BUCKET_NAME", "")
+    access = env_or!("R2_ACCESS_KEY_ID", "")
+    secret = env_or!("R2_SECRET_ACCESS_KEY", "")
+    public = env_or!("R2_PUBLIC_URL", "")
+    unset = unset_names([
+        { name: "R2_ENDPOINT_URL", value: endpoint },
+        { name: "R2_BUCKET_NAME", value: bucket },
+        { name: "R2_ACCESS_KEY_ID", value: access },
+        { name: "R2_SECRET_ACCESS_KEY", value: secret },
+        { name: "R2_PUBLIC_URL", value: public },
+    ])
+
+    if List.is_empty(unset) {
+        Ok({ endpoint: endpoint, bucket: bucket, access: access, secret: secret, public: public })
+    } else {
+        Err(unset)
+    }
+}
+
+# Take one photograph out of the bucket and blank the pointer to it. The order is the point: the file goes
+# first, so a record is only left pointing at nothing when the store agreed to let it go.
+delete_photo! : Str, { endpoint: Str, bucket: Str, access: Str, secret: Str, public: Str }, Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+delete_photo! = |url, settings, amz_date, config| {
+    key = photo_key(url, settings.public)
+
+    if Str.is_empty(key) {
+        Err("that photo is not in the school's store")
+    } else {
+        signed = R2.delete_url({
+            endpoint: settings.endpoint,
+            bucket: settings.bucket,
+            key: key,
+            access_key: settings.access,
+            secret_key: settings.secret,
+            amz_date: amz_date,
+            expires: 120,
+        })
+
+        match Storage.delete!(signed) {
+            Err(reason) => Err("the store refused the delete: ${reason}"),
+            Ok(_) =>
+                match clear_passport_urls!(url, config) {
+                    Err(detail) => Err("the photo is gone but the record still points at it: ${detail}"),
+                    Ok(_) => Ok(key),
+                },
+        }
+    }
+}
+
+# Blank the photo pointer in every profile table: the records keep no pointer to a file that is gone. The
+# statement is generated from the table list so the shape is written once.
+clear_passport_urls! : Str, SurrealDB.Config => [Ok(Str), Err(Str)]
+clear_passport_urls! = |url, config| {
+    literal = surreal_literal(url)
+    statements = List.map(["student_profile", "teacher_profile", "admin_profile", "parent_profile"], |table| "UPDATE ${table} SET passport = '' WHERE passport = '${literal}';")
+
+    db_body!(Str.join_with(statements, " "), config)
+}
 
 # --- The two-system write journal (pending_ops) ---
 #
@@ -2849,8 +2932,9 @@ required_role = |method, target| {
         # The assign dialog's pair list and a teacher's current assignments: one teacher's
         # teaching data, seen by the admin who manages it.
         "admin"
-    } else if target == "/api/upload-url" {
-        # The passport signer behind the admin's create-user form.
+    } else if target == "/api/upload-url" or target == "/api/passports" {
+        # The passport signer behind the admin's create-user form, and the store of photographs it offers for
+        # reuse (and lets an administrator clear) — both belong to that form.
         "admin"
     } else if Str.starts_with(target, "/api/chat/channels") {
         # The school's channel directory. Reading it is every role's business (the page lists what the
@@ -2936,7 +3020,7 @@ required_permission = |method, target| {
         } else {
             "lessons.manage"
         }
-    } else if target == "/api/users/set-password" or target == "/api/users/activate" or target == "/api/users/pending" or target == "/api/users/reconcile" or target == "/api/upload-url" {
+    } else if target == "/api/users/set-password" or target == "/api/users/activate" or target == "/api/users/pending" or target == "/api/users/reconcile" or target == "/api/upload-url" or target == "/api/passports" {
         "users.manage"
     } else if target == "/api/users" or Str.starts_with(target, "/api/users?") {
         # Reading the directory is how every picker works (and every role may do it); writing it is the
@@ -4553,7 +4637,36 @@ respond! = |request, context| {
                         Ok(db_response!("UPDATE ${record_ref!(submission_id, "submissions")} SET grade_released_at = time::now(), status = 'graded';", context.surreal))
                     }
 
-                # --- Passport photo upload URL ---
+                # --- The school's photographs ---
+                # The gallery the user form offers for reuse, and the store an administrator can clear: every
+                # profile row that carries a passport URL, named and marked when its account is soft-deleted (the
+                # leftovers a test or departed account leaves behind). The bucket itself is not listed — the rows
+                # are the app's own record of what it put there, and an S3 listing would put a bucket credential in
+                # the page's path.
+                } else if Method.is_eq(request.method, GET) and request_target_text(request) == "/api/passports" {
+                    query = "RETURN array::concat((SELECT id, display_name, passport, deleted_at FROM student_profile WHERE passport IS NOT NONE AND passport != ''), (SELECT id, display_name, passport, deleted_at FROM teacher_profile WHERE passport IS NOT NONE AND passport != ''), (SELECT id, display_name, passport, deleted_at FROM admin_profile WHERE passport IS NOT NONE AND passport != ''), (SELECT id, display_name, passport, deleted_at FROM parent_profile WHERE passport IS NOT NONE AND passport != ''));"
+                    match SurrealDB.query_read!(query, context.surreal) {
+                        Ok(body) => Ok(json_response(200, body))
+                        Err(err) => Ok(db_read_error!(err))
+                    }
+                } else if Method.is_eq(request.method, DELETE) and request_target_text(request) == "/api/passports" {
+                    # A photograph leaves the bucket when the school says so. The case that matters is an account
+                    # deleted outside this app (from Authentik's own dashboard): its profile row stays behind,
+                    # soft-deleted, so the photo would sit in the bucket for ever. The record keeps no pointer to a
+                    # file that is gone — every row whose passport is this URL is blanked in the same call.
+                    payload_raw = read_body!(request)
+                    url = extract_field(payload_raw, "url") |> sanitize
+                    amz_date = signing_timestamp!(extract_field(payload_raw, "amzDate") |> sanitize, context.dev_mode)
+
+                    match r2_settings!({}) {
+                        Err(unset) => Ok(json_response(503, "{\"error\":\"R2 storage is not configured: ${Str.join_with(unset, ", ")} ${if List.len(unset) == 1 { "is" } else { "are" }} not set\"}")),
+                        Ok(settings) =>
+                            match delete_photo!(url, settings, amz_date, context.surreal) {
+                                Err(reason) => Ok(json_response(400, "{\"error\":\"${sanitize_json_text(reason)}\"}")),
+                                Ok(key) => Ok(json_response(200, "{\"ok\":true,\"key\":\"${sanitize_json_text(key)}\"}")),
+                            },
+                    }
+
                 } else if Method.is_eq(request.method, POST) and request_target_text(request) == "/api/upload-url" {
                     payload_raw = read_body!(request)
                     user_id_val = extract_field(payload_raw, "userId") |> sanitize

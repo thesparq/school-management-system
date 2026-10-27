@@ -64,6 +64,28 @@ R2 := [].{
         "${endpoint_root(config.endpoint)}${path}?${query}"
     }
 
+    ## The signed URL that deletes one object: the same query-string form as an upload, with `DELETE` as the
+    ## method. The backend sends this one itself — a delete is an administrator's decision, not something the
+    ## browser holds a credential for — so the expiry is short.
+    delete_url : UploadConfig -> Str
+    delete_url = |config| {
+        host = host_of(config.endpoint)
+        path = "/${config.bucket}/${uri_encode_path(config.key)}"
+        query = presign({
+            method: "DELETE",
+            host: host,
+            path: path,
+            region: "auto",
+            service: "s3",
+            access_key: config.access_key,
+            secret_key: config.secret_key,
+            amz_date: config.amz_date,
+            expires: config.expires,
+        })
+
+        "${endpoint_root(config.endpoint)}${path}?${query}"
+    }
+
     ## The query string of a presigned request, signature included. The signature is appended
     ## last and is itself not part of the canonical query string: the verifier strips it off
     ## before rebuilding the request.

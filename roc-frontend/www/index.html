@@ -860,6 +860,10 @@
     function enterSubmits(event) {
         const field = event.target;
         if (!field || field.tagName !== "INPUT") return;
+        // The qualifications picker's search box owns Enter: it takes the highlighted qualification, which
+        // the app's own key handler does (see user_qualifications_field in AdminView.roc). Submitting the
+        // form from here would send the account instead of picking the qualification.
+        if (field.id === "qualification-search-input") return;
         if (!ENTER_SUBMIT_TYPES.includes(field.type)) return;
         const container = field.closest("[data-enter-submit]");
         if (!container) return;
@@ -881,6 +885,9 @@
             if (event.key === "Tab") { trapTab(event); return; }
             if (event.key === "Escape") { dismissPageDialog(); return; }
             if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                // The qualifications picker's own field takes Enter for the highlighted qualification: stop
+                // the form's implicit submission here, or picking one would send the account instead.
+                if (event.target && event.target.id === "qualification-search-input") { event.preventDefault(); return; }
                 enterSubmits(event);
             }
         });
@@ -948,6 +955,7 @@
             { match: (u) => u === "/api/admin-types", input: "admin_types_data_input", format: formatAdminTypes },
             { match: (u) => u === "/api/admin-rights", input: "admin_rights_data_input", format: formatAdminRights },
             { match: (u) => u === "/api/me/profile", input: "profile_data_input", format: formatProfile },
+            { match: (u) => u === "/api/passports", input: "passports_data_input", format: formatPassports },
             { match: (u) => u === "/api/dashboard", input: "dashboard_data_input", format: formatDashboard },
             { match: (u) => u === "/api/parent/children", input: "parent_children_data_input", format: formatChildren },
             { match: (u) => u.includes("/api/credentials"), input: "credentials_data_input", format: formatCredentials },
@@ -1031,6 +1039,16 @@
                 + "|" + String(u.in_directory !== false)
                 + "|" + (u.username || "");
         });
+    }
+
+    // The photograph gallery the user form offers for reuse, one line per photo: `name|url|deleted`.
+    // The rows come from the profile tables, so a photo whose account was removed outside this app
+    // (soft-deleted in the record, deleted in Authentik) is still listed and marked. The backend's
+    // query answers with one row that is itself the array of photos (`RETURN array::concat(...)`).
+    function formatPassports(data) {
+        let rows = unwrapRows(data);
+        if (rows.length === 1 && Array.isArray(rows[0])) rows = rows[0];
+        return rows.map(p => (p.display_name || "Unknown") + "|" + (p.passport || "") + "|" + String(p.deleted_at != null && p.deleted_at !== ""));
     }
 
     function formatTerms(data) {

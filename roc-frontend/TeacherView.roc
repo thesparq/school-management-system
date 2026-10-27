@@ -278,7 +278,7 @@ teacher_lesson_view = |model| {
                         ]),
                         Html.div([Attribute.class("flex-1 overflow-y-auto p-6 space-y-4")], [
                             Html.div([Attribute.class("space-y-2")], [
-                                Html.label([Attribute.class("text-sm font-medium")], [Html.text("Assessment Title")]),
+                                UI.field_label("Assessment Title", Bool.True),
                                 Html.input([
                                     Attribute.id("assessment-title-input"),
                                     Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -289,7 +289,7 @@ teacher_lesson_view = |model| {
                             # UTC so the stored instant is unambiguous.
                             Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
                                 Html.div([Attribute.class("space-y-2")], [
-                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens (optional)")]),
+                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens")]),
                                     Html.input([
                                         Attribute.id("assessment-scheduled-input"),
                                         Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -297,7 +297,7 @@ teacher_lesson_view = |model| {
                                     ])
                                 ]),
                                 Html.div([Attribute.class("space-y-2")], [
-                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes (optional)")]),
+                                    Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes")]),
                                     Html.input([
                                         Attribute.id("assessment-deadline-input"),
                                         Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -306,7 +306,7 @@ teacher_lesson_view = |model| {
                                 ])
                             ]),
                             Html.div([Attribute.class("space-y-2")], [
-                                Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed (optional)")]),
+                                Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed")]),
                                 Html.input([
                                     Attribute.id("assessment-resubmissions-input"),
                                     Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -412,7 +412,7 @@ teacher_assessments_view = |_model| {
             Html.div([Attribute.class("flex flex-wrap items-end justify-between gap-3")], [
                 Html.div([Attribute.class("flex flex-wrap gap-3")], [
                     Html.div([Attribute.class("space-y-1")], [
-                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Subject")]),
+                        UI.field_label("Subject", Bool.True),
                         Html.select([
                             Attribute.id("ga-subject-select"),
                             Attribute.class("h-10 min-w-44 rounded-md border border-input bg-background px-3 py-2 text-sm")
@@ -421,7 +421,7 @@ teacher_assessments_view = |_model| {
                         ])
                     ]),
                     Html.div([Attribute.class("space-y-1")], [
-                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Session term")]),
+                        UI.field_label("Session term", Bool.True),
                         Html.select([
                             Attribute.id("ga-session-term-select"),
                             Attribute.class("h-10 min-w-44 rounded-md border border-input bg-background px-3 py-2 text-sm")
@@ -469,7 +469,7 @@ teacher_assessments_view = |_model| {
                 Html.div([Attribute.class("flex-1 overflow-y-auto p-6 space-y-4")], [
                     Html.p([Attribute.id("ga-modal-context"), Attribute.class("text-xs text-muted-foreground")], [Html.text("Pick a subject and session term above.")]),
                     Html.div([Attribute.class("space-y-2")], [
-                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Assessment Title")]),
+                        UI.field_label("Assessment Title", Bool.True),
                         Html.input([
                             Attribute.id("ga-title-input"),
                             Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -477,7 +477,7 @@ teacher_assessments_view = |_model| {
                         ])
                     ]),
                     Html.div([Attribute.class("space-y-2")], [
-                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Description (optional)")]),
+                        Html.label([Attribute.class("text-sm font-medium")], [Html.text("Description")]),
                         Html.input([
                             Attribute.id("ga-description-input"),
                             Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -486,7 +486,7 @@ teacher_assessments_view = |_model| {
                     ]),
                     Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
                         Html.div([Attribute.class("space-y-2")], [
-                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Percentage weight")]),
+                            UI.field_label("Percentage weight", Bool.True),
                             Html.input([
                                 Attribute.id("ga-weight-input"),
                                 Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -496,7 +496,7 @@ teacher_assessments_view = |_model| {
                             Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Share of the term result; the weights in one term and subject may not exceed 100%.")])
                         ]),
                         Html.div([Attribute.class("space-y-2")], [
-                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed (optional)")]),
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Attempts allowed")]),
                             Html.input([
                                 Attribute.id("ga-resubmissions-input"),
                                 Attribute.class("w-24 rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -509,7 +509,7 @@ teacher_assessments_view = |_model| {
                     # browser, sent as UTC so the stored instant is unambiguous.
                     Html.div([Attribute.class("grid grid-cols-2 gap-3")], [
                         Html.div([Attribute.class("space-y-2")], [
-                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens (optional)")]),
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Opens")]),
                             Html.input([
                                 Attribute.id("ga-scheduled-input"),
                                 Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
@@ -517,7 +517,7 @@ teacher_assessments_view = |_model| {
                             ])
                         ]),
                         Html.div([Attribute.class("space-y-2")], [
-                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes (optional)")]),
+                            Html.label([Attribute.class("text-sm font-medium")], [Html.text("Closes")]),
                             Html.input([
                                 Attribute.id("ga-deadline-input"),
                                 Attribute.class("w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),

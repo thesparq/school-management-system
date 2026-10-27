@@ -145,7 +145,7 @@ admin_users_view = |model| {
 		                      Html.div([Attribute.class("px-6 pb-6 pt-0")], [
 		                          Html.div([Attribute.class("flex justify-end border-t pt-4")], [
 		                              UI.button(
-		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "w-full sm:w-auto" },
+		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or !reset_form_complete(model), classes: "w-full sm:w-auto" },
 		                                  [Html.text(if model.isSubmitting { "Setting..." } else { "Set password" })]
 		                              )
 		                          ])
@@ -160,7 +160,7 @@ admin_users_view = |model| {
 		                      Html.div([Attribute.class("px-6 pb-6 pt-0")], [
 		                          Html.div([Attribute.class("flex justify-end border-t pt-4")], [
 		                              UI.button(
-		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or user_form_waiting(model), classes: "w-full sm:w-auto" },
+		                                  { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or user_form_waiting(model) or !user_form_complete(model), classes: "w-full sm:w-auto" },
 		                                  [Html.text(user_form_submit_label(model.isSubmitting, form_mode))]
 		                              )
 		                          ])
@@ -221,6 +221,12 @@ admin_users_view = |model| {
 	            Attribute.id("credentials_data_input"),
 	            Attribute.on_input(|s| GotCredentialsData(s))
 	        ]),
+		        Html.input([
+		            Attribute.type("hidden"),
+		            Attribute.value(model.passportsData),
+		            Attribute.id("passports_data_input"),
+		            Attribute.on_input(|s| GotPassportsData(s))
+		        ]),
 	        Html.input([
 	            Attribute.type("hidden"),
 	            Attribute.value(model.subjectPairsData),
@@ -377,7 +383,7 @@ user_tab = |active_tab, this_tab, label, icon_name| {
 # the same one the retired app's parent modal used).
 user_linked_students_field = |model| {
 	selected = model.newUserLinkedStudents
-	Html.div([Attribute.class("space-y-2")], [
+	Html.div([Attribute.class("space-y-2 relative")], [
 		UI.label({ classes: "" }, [Html.text("Linked students")]),
 		if List.is_empty(selected) {
 			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("None linked yet.")])
@@ -400,7 +406,7 @@ user_linked_students_field = |model| {
 		if Str.is_empty(model.linkedSearch) {
 			Html.div([], [])
 		} else {
-			Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+			Html.div([Attribute.class("absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
 				List.map(List.keep_if(Str.split_on(model.usersStudentsData, "\n"), |line| {
 					parts = Str.split_on(line, "|")
 					!Str.is_empty(config_field(parts, 0, ""))
@@ -433,9 +439,9 @@ student_name_for = |students_data, id| {
 # --- Add New User form pieces ---
 
 # One labelled field of the create form.
-user_form_field = |label_text, field| {
+user_form_field = |label_text, is_required, field| {
     Html.div([Attribute.class("space-y-2")], [
-        UI.label({ classes: "" }, [Html.text(label_text)]),
+        UI.field_label(label_text, is_required),
         field
     ])
 }
@@ -447,7 +453,8 @@ user_form_field = |label_text, field| {
 user_email_field = |model| {
     is_parent = model.newUserRole == "Parent"
     user_form_field(
-        if is_parent { "Email address (*)" } else { "Email address (optional)" },
+        "Email address",
+        is_parent,
         Html.div([Attribute.class("space-y-2")], [
             UI.input({
                 type: "email",
@@ -486,6 +493,7 @@ user_login_field = |model| {
     older_account = !Str.is_empty(login) and !Str.is_empty(number) and login != number
     user_form_field(
         if older_account { "Login" } else { noun },
+        Bool.False,
         Html.div([Attribute.class("space-y-2")], [
             # The input carries an id of its own so a suite can read it and check that it is disabled: the
             # school's number is not the form's to set.
@@ -542,14 +550,50 @@ user_form_waiting = |model| {
 	model.newUserRole == "Teacher" and model.userEditing and !model.formPairsSeeded
 }
 
+# Whether the form's own required fields hold something, so the one button that writes can be
+# disabled until they do. The set mirrors what the backend refuses (main.roc): a name and a passport
+# for every profile, a date of birth and a class level for a pupil, and — for a parent, who has no
+# school number — an address, because that address is their login.
+user_form_complete = |model| {
+	named = !Str.is_empty(model.newUserFirstName) and !Str.is_empty(model.newUserSurname)
+	by_role =
+		if model.newUserRole == "Student" {
+			!Str.is_empty(model.newUserDateOfBirth) and !Str.is_empty(model.newUserClassLevel)
+		} else if model.newUserRole == "Parent" {
+			!Str.is_empty(model.newUserEmail)
+		} else {
+			Bool.True
+		}
+	named and by_role and !Str.is_empty(model.newUserPassportKey)
+}
+
+# The reset-password mode's one required field: the new password (the login is the row's own).
+reset_form_complete = |model| {
+	!Str.is_empty(model.newUserPassword)
+}
+
+# Whether a configuration section's create form is ready to send: each section's required fields hold
+# something. These mirror the backend's own refusals (main.roc), so a button disabled here is one the
+# server would have refused anyway.
+config_create_complete = |model, tab| {
+	match tab {
+		Terms => !Str.is_empty(model.newTermName) and !Str.is_empty(model.newTermSortOrder)
+		Subjects => !Str.is_empty(model.newSubjectName) and !Str.is_empty(model.newSubjectCode)
+		ClassLevels => !Str.is_empty(model.newClassLevelName) and !Str.is_empty(model.newClassLevelCode)
+		Curriculum => !Str.is_empty(model.newCurriculumClassLevel) and !Str.is_empty(model.newCurriculumSubject)
+		SessionTerms => !Str.is_empty(model.newSessionTermName) and !Str.is_empty(model.newSessionTermTerm)
+		Credentials => !Str.is_empty(model.newCredentialName)
+	}
+}
+
 user_form_body = |model, form_mode| {
     Html.div([Attribute.class("space-y-6")], [
         # Name row: the three parts sit evenly in one row, with a hint that only first and surname
         # are required (the same fields every role's profile carries).
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
-            user_form_field("First name (*)", user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
-            user_form_field("Middle name", user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
-            user_form_field("Surname (*)", user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
+            user_form_field("First name", Bool.True, user_form_text_input("e.g. Adamu", model.newUserFirstName, model.isSubmitting, |s| UpdateNewUserFirstName(s))),
+            user_form_field("Middle name", Bool.False, user_form_text_input("e.g. Ibrahim", model.newUserMiddleName, model.isSubmitting, |s| UpdateNewUserMiddleName(s))),
+            user_form_field("Surname", Bool.True, user_form_text_input("e.g. Musa", model.newUserSurname, model.isSubmitting, |s| UpdateNewUserSurname(s)))
         ]),
         # Contact row: the address, the login the school issues, and the role sit together; the fields
         # that follow change with the role. A parent has no school number, so there is no login field
@@ -557,24 +601,24 @@ user_form_body = |model, form_mode| {
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-3 gap-4")], [
             user_email_field(model),
             if model.newUserRole == "Parent" { Html.div([], []) } else { user_login_field(model) },
-            user_form_field("Role", user_role_select(model))
+            user_form_field("Role", Bool.False, user_role_select(model))
         ]),
         # The role's own fields. Each role's block fills the row it gets, so nothing sits
         # half-empty beside a field from another role.
         Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
             if model.newUserRole == "Student" {
                 Html.div([Attribute.class("space-y-2")], [
-                    user_form_field("Date of birth (*)", user_form_date_input(model.newUserDateOfBirth, model.isSubmitting, |s| UpdateNewUserDateOfBirth(s))),
-                    user_form_field("Class level (*)", user_class_level_select(model, model.userClassLevelsData))
+                    user_form_field("Date of birth", Bool.True, user_form_date_input(model.newUserDateOfBirth, model.isSubmitting, |s| UpdateNewUserDateOfBirth(s))),
+                    user_form_field("Class level", Bool.True, user_class_level_select(model, model.userClassLevelsData))
                 ])
             } else if model.newUserRole == "Admin" {
                 # The type is the school's own label for what this administrator is (Supervisor, and the
                 # kinds the catalog grows later). The ticks it starts with are the panel below, where each
                 # one can be taken off or put back.
-                user_form_field("Admin type", admin_type_select(model))
+                user_form_field("Admin type", Bool.False, admin_type_select(model))
             } else if model.newUserRole == "Teacher" {
                 Html.div([Attribute.class("space-y-2")], [
-                    user_form_field("Date employed", user_form_date_input(model.newUserDateEmployed, model.isSubmitting, |s| UpdateNewUserDateEmployed(s))),
+                    user_form_field("Date employed", Bool.False, user_form_date_input(model.newUserDateEmployed, model.isSubmitting, |s| UpdateNewUserDateEmployed(s))),
                     Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("Qualifications can be added below.")])
                 ])
             } else if model.newUserRole == "Parent" {
@@ -602,7 +646,7 @@ user_form_body = |model, form_mode| {
         # later from the row's Reset password action.
         if form_mode == AddingUser {
             Html.div([Attribute.class("grid grid-cols-1 md:grid-cols-2 gap-4")], [
-                user_form_field("Password (optional)", Html.div([Attribute.class("space-y-2")], [
+                user_form_field("Password", Bool.False, Html.div([Attribute.class("space-y-2")], [
                     Html.div([Attribute.id("new-user-password-field")], [
                         UI.input({
                             type: "text",
@@ -639,7 +683,7 @@ user_form_body = |model, form_mode| {
                 ])
             ]),
             Html.div([Attribute.id("passport-url-field"), Attribute.class("space-y-2 pt-3")], [
-                UI.label({ classes: "" }, [Html.text("Passport URL (required)")]),
+                UI.field_label("Passport URL", Bool.True),
                 UI.input({
                     type: "text",
                     value: model.newUserPassportKey,
@@ -648,6 +692,25 @@ user_form_body = |model, form_mode| {
                     is_disabled: model.isSubmitting,
                     classes: ""
                 })
+            ]),
+            # Reusing a photograph already in the store, or clearing one: the gallery the same form's
+            # upload signs into, listed from the profile rows (so an account deleted outside this app is
+            # still offered, marked). Choosing one fills the URL field above; Delete takes the chosen
+            # file out of the bucket and blanks the rows that pointed at it.
+            Html.div([Attribute.id("passport-reuse-row"), Attribute.class("space-y-2 pt-3")], [
+                UI.label({ classes: "" }, [Html.text("Or reuse a photograph already on file")]),
+                Html.div([Attribute.class("flex items-center gap-2")], [
+                    Html.select([
+                        Attribute.class("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"),
+                        Attribute.id("passport-reuse-select"),
+                        Attribute.on_change(|s| SetPassportKey(s))
+                    ], List.concat([Html.option([Attribute.value("")], [Html.text("Choose a photograph...")])], passport_options(model.passportsData))),
+                    UI.button(
+                        { ..UI.default_button, variant: Outline, size: Sm, on_click: Click(DeletePassport(model.newUserPassportKey)), is_disabled: model.isSubmitting or Str.is_empty(model.newUserPassportKey), classes: "text-xs" },
+                        [Html.text("Delete photo")]
+                    )
+                ]),
+                Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text(model.passportNote)])
             ])
         ])
     ])
@@ -660,7 +723,7 @@ reset_password_body = |model| {
             UI.label({ classes: "" }, [Html.text("Login")]),
             Html.p([Attribute.class("text-sm font-mono text-muted-foreground")], [Html.text(model.resetPasswordLogin)])
         ]),
-        user_form_field("New password", Html.div([Attribute.class("space-y-2")], [
+        user_form_field("New password", Bool.True, Html.div([Attribute.class("space-y-2")], [
             Html.div([Attribute.id("new-user-password-field")], [
                 UI.input({
                     type: "text",
@@ -1183,16 +1246,16 @@ config_create_form = |model, tab, label, fields| {
 		SubmitConfigCreate(tab),
 		List.concat(fields, [
 			UI.button(
-				{ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isConfigSubmitting, classes: "w-full" },
+				{ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isConfigSubmitting or !config_create_complete(model, tab), classes: "w-full" },
 				[Html.text(if model.isConfigSubmitting { "Saving..." } else { label })]
 			)
 		])
 	)
 }
 
-config_labeled_input = |label, placeholder, input_type, value, is_disabled, to_msg| {
+config_labeled_input = |label, is_required, placeholder, input_type, value, is_disabled, to_msg| {
 	Html.div([Attribute.class("space-y-2")], [
-		UI.label({ classes: "" }, [Html.text(label)]),
+		UI.field_label(label, is_required),
 		UI.input({
 			type: input_type,
 			value: value,
@@ -1204,9 +1267,9 @@ config_labeled_input = |label, placeholder, input_type, value, is_disabled, to_m
 	])
 }
 
-config_labeled_select = |label, select_id, options, to_msg| {
+config_labeled_select = |label, is_required, select_id, options, to_msg| {
 	Html.div([Attribute.class("space-y-2")], [
-		UI.label({ classes: "" }, [Html.text(label)]),
+		UI.field_label(label, is_required),
 		Html.div([Attribute.class("relative")], [
 			Html.select([
 				Attribute.class(config_select_classes),
@@ -1220,9 +1283,9 @@ config_labeled_select = |label, select_id, options, to_msg| {
 
 # The same, with the chosen value set on the control: the stage picker has to show what is actually
 # chosen ("Not set" reads as the empty string here) rather than the browser's first option.
-config_labeled_select_value = |label, select_id, value, options, to_msg| {
+config_labeled_select_value = |label, is_required, select_id, value, options, to_msg| {
 	Html.div([Attribute.class("space-y-2")], [
-		UI.label({ classes: "" }, [Html.text(label)]),
+		UI.field_label(label, is_required),
 		Html.div([Attribute.class("relative")], [
 			Html.select([
 				Attribute.class(config_select_classes),
@@ -1383,7 +1446,7 @@ config_edit_actions = |model, tab| {
 credentials_config_view = |model| {
 	config_card("Qualifications", "The catalogue of teacher qualifications (e.g. B.Ed. Mathematics). A qualification an admin deactivates leaves the catalog but is no longer offered; teacher profiles keep their links either way — nothing here is hard-deleted.", [
 		config_create_form(model, Credentials, "Create Qualification", [
-			config_labeled_input("Qualification name", "e.g. B.Ed. Mathematics", "text", model.newCredentialName, model.isConfigSubmitting, |s| UpdateNewCredentialName(s)),
+			config_labeled_input("Qualification name", Bool.True, "e.g. B.Ed. Mathematics", "text", model.newCredentialName, model.isConfigSubmitting, |s| UpdateNewCredentialName(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Qualification", "Status", "Actions"], credentials_rows(model))
@@ -1483,7 +1546,7 @@ session_term_label = |model| {
 # to the row's Assign action.
 user_pairs_field = |model| {
 	seeded = model.formPairsSeeded
-	Html.div([Attribute.class("space-y-2")], [
+	Html.div([Attribute.class("space-y-2 relative")], [
 		UI.label({ classes: "" }, [Html.text("Class-subject pairs")]),
 		pair_badges(model, model.formPairs, |edge| RemoveFormPair(edge)),
 		UI.input({
@@ -1508,8 +1571,18 @@ user_pairs_field = |model| {
 
 user_qualifications_field = |model| {
 	selected = model.newUserQualifications
+	# What this person could still be given: active, named, not already chosen, and matching the search.
+	# An empty box matches everything, so the list is a browsable menu as well as a filter.
+	candidates = List.keep_if(Str.split_on(model.credentialsData, "\n"), |line| {
+		parts = Str.split_on(line, "|")
+		config_field(parts, 2, "true") == "true"
+			and !Str.is_empty(config_field(parts, 0, ""))
+			and !List.contains(selected, config_field(parts, 0, ""))
+			and (Str.is_empty(model.qualSearch) or Str.contains(ascii_lower(config_field(parts, 1, "")), ascii_lower(model.qualSearch)))
+	})
+	ids = List.map(candidates, |line| config_field(Str.split_on(line, "|"), 0, ""))
 	Html.div([Attribute.class("space-y-2")], [
-		UI.label({ classes: "" }, [Html.text("Qualifications")]),
+		UI.field_label("Qualifications", Bool.False),
 		if List.is_empty(selected) {
 			Html.p([Attribute.class("text-xs text-muted-foreground")], [Html.text("None selected.")])
 		} else {
@@ -1520,37 +1593,47 @@ user_qualifications_field = |model| {
 				])
 			}))
 		},
-		UI.input({
-			type: "text",
-			value: model.qualSearch,
-			placeholder: "Search qualifications...",
-			on_input: Input(|s| UpdateQualSearch(s)),
-			is_disabled: model.isSubmitting,
-			classes: "",
-		}),
-		if Str.is_empty(model.qualSearch) {
-			Html.div([], [])
-		} else {
-			Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
-				List.map(List.keep_if(Str.split_on(model.credentialsData, "\n"), |line| {
-					parts = Str.split_on(line, "|")
-					config_field(parts, 2, "true") == "true"
-						and !Str.is_empty(config_field(parts, 0, ""))
-						and !List.contains(selected, config_field(parts, 0, ""))
-						and Str.contains(ascii_lower(config_field(parts, 1, "")), ascii_lower(model.qualSearch))
-				}), |line| {
-					parts = Str.split_on(line, "|")
-					id = config_field(parts, 0, "")
-					qualification = config_field(parts, 1, "Qualification")
-					# One qualification to add: a button in everything but tag (see UI.pressable).
-					UI.pressable(
-						{ ..UI.default_pressable, classes: "px-3 py-2 text-sm hover:bg-muted", label: "Add ${qualification}" },
-						AddQualification(id),
-						[Html.text(qualification)]
-					)
-				})
-			)
-		}
+		# The search box is the combobox: the wrapper owns the arrow keys (and Enter, which takes the
+		# highlighted qualification instead of submitting the form around it), and the list floats over
+		# the form rather than growing it — a menu in the flow is what made the page scroll.
+		Html.div([
+			Attribute.class("relative"),
+		], [
+			# The arrow keys and Enter live on the search box itself: a handler on the wrapper only sees them
+			# after they bubble, and Enter has to be taken at the field (the page stops the form's own
+			# submission for this one input — see enterSubmits in www/index.html), or picking a
+			# qualification would send the form instead. Escape is left to the page: there it backs out of
+			# the modal, which is what it does everywhere else.
+			Html.input([
+				Attribute.class("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"),
+				Attribute.type("text"),
+				Attribute.id("qualification-search-input"),
+				Attribute.value(model.qualSearch),
+				Attribute.placeholder("Search qualifications..."),
+				Attribute.on_input(|s| UpdateQualSearch(s)),
+				Attribute.prevent_default(Attribute.on_key("keydown", ["ArrowDown"], |_| QualDown(ids))),
+				Attribute.prevent_default(Attribute.on_key("keydown", ["ArrowUp"], |_| QualUp(ids))),
+				Attribute.prevent_default(Attribute.on_key("keydown", ["Enter"], |_| QualEnter(ids))),
+			]),
+			if List.is_empty(candidates) {
+				Html.div([], [])
+			} else {
+				Html.div([Attribute.class("absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+					List.map_with_index(candidates, |line, i| {
+						parts = Str.split_on(line, "|")
+						id = config_field(parts, 0, "")
+						qualification = config_field(parts, 1, "Qualification")
+						highlighted = i == model.qualHighlight
+						# One qualification to add: a button in everything but tag (see UI.pressable).
+						UI.pressable(
+							{ ..UI.default_pressable, classes: if highlighted { "px-3 py-2 text-sm bg-muted" } else { "px-3 py-2 text-sm hover:bg-muted" }, label: "Add ${qualification}" },
+							AddQualification(id),
+							[Html.text(qualification)]
+						)
+					})
+				)
+			}
+		])
 	])
 }
 
@@ -1579,7 +1662,7 @@ assign_form = |model| {
 				# The picker's fields and the Save that sends them are one form: Enter in the search box
 				# saves the set, the same thing the button does (see UI.form).
 				UI.form("", SubmitTeacherAssign, [
-				UI.card_content({ classes: "space-y-4" }, [
+				UI.card_content({ classes: "space-y-4 relative" }, [
 					# The assignment is scoped to the active session term, so the dialog says which term
 					# the save will write into (the backend refuses the save when there is none).
 					if Str.is_empty(session_term_label(model)) {
@@ -1618,7 +1701,7 @@ assign_form = |model| {
 				Html.div([Attribute.class("px-6 pb-6 pt-0")], [
 					Html.div([Attribute.class("flex justify-end border-t pt-4 gap-2")], [
 						UI.button({ ..UI.default_button, variant: Outline, size: Default, on_click: Click(CloseTeacherAssign), is_disabled: model.isSubmitting, classes: "" }, [Html.text("Cancel")]),
-						UI.button({ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "" }, [Html.text(if model.isSubmitting { "Saving..." } else { "Save Assignments" })])
+						UI.button({ ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or !model.assignSeeded or List.is_empty(model.assignSelectedEdges), classes: "" }, [Html.text(if model.isSubmitting { "Saving..." } else { "Save Assignments" })])
 					])
 				])
 				])
@@ -1635,7 +1718,7 @@ assign_form = |model| {
 # ones already chosen. A click sends that pair. Both surfaces that pick pairs — the teacher form and the
 # Assign dialog — go through this, so they offer the same list and the same matching.
 pair_options = |model, selected, query, on_pick| {
-	Html.div([Attribute.class("max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
+	Html.div([Attribute.class("absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-card shadow-lg")],
 		List.map(List.keep_if(Str.split_on(model.subjectPairsData, "\n"), |line| {
 			parts = Str.split_on(line, "|")
 			edge = config_field(parts, 0, "")
@@ -2035,6 +2118,19 @@ config_record_name = |list_data, record_id| {
 }
 
 # Options for a record picker: one per line of a fetched "id|name|..." list.
+# The photograph gallery's own options: one line per photo, `name|url|deleted`. A deleted account's
+# photo is still offered — it is exactly the leftover an administrator wants to clear — and says so.
+passport_options = |data| {
+	lines = List.keep_if(Str.split_on(data, "\n"), |line| !Str.is_empty(config_field(Str.split_on(line, "|"), 1, "")))
+	List.map(lines, |line| {
+		parts = Str.split_on(line, "|")
+		name = config_field(parts, 0, "Unknown")
+		url = config_field(parts, 1, "")
+		deleted = config_field(parts, 2, "false") == "true"
+		Html.option([Attribute.value(url)], [Html.text(if deleted { "${name} — account deleted" } else { name })])
+	})
+}
+
 config_record_options = |list_data, placeholder| {
 	List.map(Str.split_on(list_data, "\n"), |line| {
 		parts = Str.split_on(line, "|")
@@ -2047,8 +2143,8 @@ config_record_options = |list_data, placeholder| {
 terms_config_view = |model| {
 	config_card("Academic Terms", "Terms run in order within the school year; every term is listed here, active or not. Editing rewrites the row, deactivating keeps it.", [
 		config_create_form(model, Terms, "Create Term", [
-			config_labeled_input("Term name", "e.g. Summer Term", "text", model.newTermName, model.isConfigSubmitting, |s| UpdateNewTermName(s)),
-			config_labeled_input("Sort order", "e.g. 3", "number", model.newTermSortOrder, model.isConfigSubmitting, |s| UpdateNewTermSortOrder(s)),
+			config_labeled_input("Term name", Bool.True, "e.g. Summer Term", "text", model.newTermName, model.isConfigSubmitting, |s| UpdateNewTermName(s)),
+			config_labeled_input("Sort order", Bool.True, "e.g. 3", "number", model.newTermSortOrder, model.isConfigSubmitting, |s| UpdateNewTermSortOrder(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Term", "Sort order", "Status", "Actions"], terms_rows(model))
@@ -2101,9 +2197,9 @@ terms_row = |model, line| {
 class_levels_config_view = |model| {
 	config_card("Class Levels", "The year groups of the school. The code is the short key records use (e.g. jss_1); a deactivated level stays listed so it can be switched back on. The stage says which part of the school a level is (primary, junior, senior) and is what lessons are written for: a senior class gets exam-level lessons, a junior one does not.", [
 		config_create_form(model, ClassLevels, "Create Class Level", [
-			config_labeled_input("Class level name", "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
-			config_labeled_input("Code", "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
-			config_labeled_select_value("Stage", "new-class-level-tier-select", if Str.is_empty(model.newClassLevelTier) { "none" } else { model.newClassLevelTier }, config_stage_options, |s| UpdateNewClassLevelTier(s)),
+			config_labeled_input("Class level name", Bool.True, "e.g. JSS 4", "text", model.newClassLevelName, model.isConfigSubmitting, |s| UpdateNewClassLevelName(s)),
+			config_labeled_input("Code", Bool.True, "e.g. jss_4", "text", model.newClassLevelCode, model.isConfigSubmitting, |s| UpdateNewClassLevelCode(s)),
+			config_labeled_select_value("Stage", Bool.False, "new-class-level-tier-select", if Str.is_empty(model.newClassLevelTier) { "none" } else { model.newClassLevelTier }, config_stage_options, |s| UpdateNewClassLevelTier(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Class level", "Code", "Age range", "Stage", "Status", "Actions"], class_levels_rows(model))
@@ -2190,8 +2286,8 @@ tier_label = |tier| match tier {
 curriculum_config_view = |model| {
 	config_card("Curriculum", "Link subjects to class levels to define what each level studies. A link switched off stays listed (and keeps its lessons) so it can be restored.", [
 		config_create_form(model, Curriculum, "Link Subject", [
-			config_labeled_select("Class level", "new-curriculum-class-level-select", config_record_options(model.classLevelsData, "No class levels yet"), |s| UpdateNewCurriculumClassLevel(s)),
-			config_labeled_select("Subject", "new-curriculum-subject-select", config_record_options(model.subjectsData, "No subjects yet"), |s| UpdateNewCurriculumSubject(s)),
+			config_labeled_select("Class level", Bool.True, "new-curriculum-class-level-select", config_record_options(model.classLevelsData, "No class levels yet"), |s| UpdateNewCurriculumClassLevel(s)),
+			config_labeled_select("Subject", Bool.True, "new-curriculum-subject-select", config_record_options(model.subjectsData, "No subjects yet"), |s| UpdateNewCurriculumSubject(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Class level", "Subject", "Status", "Actions"], curriculum_rows(model))
@@ -2230,8 +2326,8 @@ curriculum_row = |model, line| {
 session_terms_config_view = |model| {
 	config_card("Session Terms", "Pairs a school session (e.g. 2026/2027) with one of the terms above. New session terms start inactive; activating one is what makes it usable.", [
 		config_create_form(model, SessionTerms, "Create Session Term", [
-			config_labeled_input("Session name", "e.g. 2026/2027", "text", model.newSessionTermName, model.isConfigSubmitting, |s| UpdateNewSessionTermName(s)),
-			config_labeled_select("Term", "new-session-term-select", config_record_options(model.termsData, "No terms yet"), |s| UpdateNewSessionTermTerm(s)),
+			config_labeled_input("Session name", Bool.True, "e.g. 2026/2027", "text", model.newSessionTermName, model.isConfigSubmitting, |s| UpdateNewSessionTermName(s)),
+			config_labeled_select("Term", Bool.True, "new-session-term-select", config_record_options(model.termsData, "No terms yet"), |s| UpdateNewSessionTermTerm(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Session", "Term", "Status", "Actions"], session_terms_rows(model))
@@ -2280,8 +2376,8 @@ session_terms_row = |model, line| {
 subjects_config_view = |model| {
 	config_card("Subjects", "The subjects the school offers, active or not. Deactivating one takes it off the students' cards without deleting it, and it stays listed here.", [
 		config_create_form(model, Subjects, "Create Subject", [
-			config_labeled_input("Subject name", "e.g. Mathematics", "text", model.newSubjectName, model.isConfigSubmitting, |s| UpdateNewSubjectName(s)),
-			config_labeled_input("Code", "e.g. MTH", "text", model.newSubjectCode, model.isConfigSubmitting, |s| UpdateNewSubjectCode(s)),
+			config_labeled_input("Subject name", Bool.True, "e.g. Mathematics", "text", model.newSubjectName, model.isConfigSubmitting, |s| UpdateNewSubjectName(s)),
+			config_labeled_input("Code", Bool.True, "e.g. MTH", "text", model.newSubjectCode, model.isConfigSubmitting, |s| UpdateNewSubjectCode(s)),
 		]),
 		config_create_banner(model),
 		config_table(["Subject", "Code", "Status", "Actions"], subjects_rows(model))

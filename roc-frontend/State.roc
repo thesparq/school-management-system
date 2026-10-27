@@ -249,6 +249,9 @@ Model : {
 	credentialsData : Str,
 	newUserQualifications : List(Str),
 	qualSearch : Str,
+	qualHighlight : U64,
+	passportsData : Str,
+	passportNote : Str,
 	# The teacher form's date of employment, and the parent form's linked students (with the
 	# students search box).
 	newUserDateEmployed : Str,
@@ -446,6 +449,15 @@ Msg : [
 	AddQualification(Str),
 	RemoveQualification(Str),
 	UpdateQualSearch(Str),
+	# The qualification combobox: one key press, with the ids the view has built (the update would have
+	# to rebuild the filter to know what Enter means, and the view already knows).
+	QualDown(List(Str)),
+	QualUp(List(Str)),
+	QualEnter(List(Str)),
+	# The photograph gallery behind the user form: the list of photos on file, and the delete.
+	GotPassportsData(Str),
+	DeletePassport(Str),
+	PassportDeleteCompleted(Try(Http.Response, [HttpErr([Timeout, NetworkError])])),
 	UpdateNewUserDateEmployed(Str),
 	AddLinkedStudent(Str),
 	RemoveLinkedStudent(Str),
@@ -687,6 +699,9 @@ init = |flags| {
 		credentialsData: "",
 		newUserQualifications: [],
 		qualSearch: "",
+		qualHighlight: 0,
+		passportsData: "",
+		passportNote: "",
 		newUserDateEmployed: "",
 		newUserLinkedStudents: [],
 		linkedSearch: "",
@@ -729,6 +744,9 @@ init = |flags| {
 			Port.send("fetch_data", "/api/teacher/lessons"),
 			Port.send("fetch_data", "/api/terms"),
 			Port.send("fetch_data", "/api/class_levels?all=true"),
+			# The user form's own class-level picker reads the exact URL, not the hub's all=true list:
+			# without it a freshly loaded Users page could open the form with the picker still "Fetching".
+			Port.send("fetch_data", "/api/class_levels"),
 			Port.send("fetch_data", "/api/curriculum?all=true"),
 			Port.send("fetch_data", "/api/session_terms"),
 			Port.send("fetch_data", "/api/subjects?all=true"),
@@ -1152,7 +1170,9 @@ is_lesson_exit = |msg| {
 # fields, the seat the pairs picker seeded itself from and the once-only credentials panel all go
 # with it.
 close_user_form = |model| {
-        { ..model, userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }
+        # A passport URL belongs to the form that was open: it is cleared here with everything else, so the
+        # next account cannot inherit the last one's photo (the edit form prefills its own from the row).
+        { ..model, newUserPassportKey: "", userFormOpen: Bool.False, formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }
 }
 
 # The teacher's Assign dialog: the badges, the search box and the last save's answer all belong to
@@ -1536,9 +1556,51 @@ dispatch = |model, msg|
 			({ ..model, assignSaveResult: newResult }, List.concat(notification_for(newResult, "Teacher assignments"), refreshes))
 		}
 		# --- The teacher form's qualifications picker ---
-		AddQualification(id) => ({ ..model, newUserQualifications: List.append(model.newUserQualifications, id), qualSearch: "" }, [])
+		AddQualification(id) => ({ ..model, newUserQualifications: List.append(model.newUserQualifications, id), qualSearch: "", qualHighlight: 0 }, [])
 		RemoveQualification(id) => ({ ..model, newUserQualifications: List.keep_if(model.newUserQualifications, |q| q != id) }, [])
-		UpdateQualSearch(s) => ({ ..model, qualSearch: s }, [])
+		UpdateQualSearch(s) => ({ ..model, qualSearch: s, qualHighlight: 0 }, [])
+		QualDown(ids) => {
+			last = if List.is_empty(ids) { 0 } else { List.len(ids) - 1 }
+			({ ..model, qualHighlight: if model.qualHighlight >= last { last } else { model.qualHighlight + 1 } }, [])
+		}
+		QualUp(ids) => {
+			last = if List.is_empty(ids) { 0 } else { List.len(ids) - 1 }
+			({ ..model, qualHighlight: if model.qualHighlight == 0 { 0 } else if model.qualHighlight > last { last } else { model.qualHighlight - 1 } }, [])
+		}
+		QualEnter(ids) => {
+			match List.get(ids, model.qualHighlight) {
+				Ok(id) => ({ ..model, newUserQualifications: List.append(model.newUserQualifications, id), qualSearch: "", qualHighlight: 0 }, [])
+				Err(_) => (model, [])
+			}
+		}
+		GotPassportsData(s) => ({ ..model, passportsData: s }, [])
+		DeletePassport(url) => {
+			req = {
+				method: DELETE,
+				uri: "${model.appOrigin}/api/passports",
+				headers: [
+					{ name: "Authorization", value: "Bearer ${model.authToken}" },
+					{ name: "Content-Type", value: "application/json" }
+				],
+				body: Str.to_utf8("{\"url\":\"${url}\"}"),
+				timeout_ms: NoTimeout,
+			}
+			({ ..model, isSubmitting: Bool.True, passportNote: "" }, [Http.request(req, |res| PassportDeleteCompleted(res))])
+		}
+		PassportDeleteCompleted(res) => {
+			# The store dropped the file and every row that pointed at it was blanked, so the form lets go
+			# of the URL too and asks for the gallery again — a deleted photo must not stay on offer.
+			match res {
+				Ok(response) =>
+					if response.status == 200 {
+						({ ..model, isSubmitting: Bool.False, newUserPassportKey: "", passportNote: "The photograph was deleted." }, [Port.send("fetch_data", "/api/passports")])
+					} else {
+						({ ..model, isSubmitting: Bool.False, passportNote: backend_error_message(Str.from_utf8_lossy(response.body)) }, [])
+					}
+				Err(HttpErr(Timeout)) => ({ ..model, isSubmitting: Bool.False, passportNote: "The request timed out" }, [])
+				Err(HttpErr(NetworkError)) => ({ ..model, isSubmitting: Bool.False, passportNote: "Could not reach the server" }, [])
+			}
+		}
 		UpdateNewUserDateEmployed(s) => ({ ..model, newUserDateEmployed: s }, [])
 		AddLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.append(model.newUserLinkedStudents, id), linkedSearch: "" }, [])
 		RemoveLinkedStudent(id) => ({ ..model, newUserLinkedStudents: List.keep_if(model.newUserLinkedStudents, |s| s != id) }, [])
@@ -1915,7 +1977,7 @@ dispatch = |model, msg|
 		                                [Port.send("fetch_data", "/api/users?role=Student")]
 		                        )
 		                }
-		CancelCompleteProfile => ({ ..model, userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
+		CancelCompleteProfile => ({ ..model, newUserPassportKey: "", userFormOpen: Bool.False, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" }, [])
 		                # Open the form in add mode: the header's Add User button. Everything the completing and
 		                # editing modes set is cleared, so the modal opens empty — and the role starts on the tab the
 		                # admin is looking at, because the fields that follow the picker (a teacher's date employed and
@@ -1928,8 +1990,8 @@ dispatch = |model, msg|
 		                        # depends on the boot fetch having landed.
 		                        kind = admin_default_type(model.adminTypesData)
 		                        (
-		                                { ..model, userFormOpen: Bool.True, newUserRole: user_tab_role(model.activeUserTab), newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" },
-		                                [Port.send("fetch_data", "/api/users?role=Student"), Port.send("fetch_data", "/api/admin-types")]
+		                                { ..model, userFormOpen: Bool.True, newUserPassportKey: "", newUserRole: user_tab_role(model.activeUserTab), newUserAdminType: kind, newUserPermissions: admin_type_permissions(model.adminTypesData, kind), formPairs: [], formPairsSearch: "", formPairsSeeded: Bool.True, completingProfileId: "", userEditing: Bool.False, resetPasswordId: "", resetPasswordLogin: "", newUserLogin: "", newUserSchoolNumber: "", lastCredentials: None, submitResult: None, newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "" },
+		                                [Port.send("fetch_data", "/api/users?role=Student"), Port.send("fetch_data", "/api/admin-types"), Port.send("fetch_data", "/api/class_levels"), Port.send("fetch_data", "/api/credentials"), Port.send("fetch_data", "/api/passports")]
 		                        )
 		                }
 		CloseUserForm => (close_user_form(model), [])
@@ -1999,6 +2061,11 @@ dispatch = |model, msg|
 				                                        Port.send("fetch_data", "/api/admin-types"),
 					# The teacher's pairs, for the form's picker. `for=form` keeps them out of the Assign
 					# dialog's own payload, which the same endpoint feeds.
+					Port.send("fetch_data", "/api/class_levels"),
+					Port.send("fetch_data", "/api/credentials"),
+					Port.send("fetch_data", "/api/passports"),
+					# The teacher's pairs, for the form's picker. `for=form` keeps them out of the Assign
+					# dialog's own payload, which the same endpoint feeds.
 					Port.send("fetch_data", "/api/teacher-assignments?teacher_id=${part(0)}&for=form"),
 				]
 			)
@@ -2062,7 +2129,7 @@ dispatch = |model, msg|
 				]
 				_ => []
 			}
-			                        ({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserAdminType: "", newUserPermissions: [], newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, List.concat(notification_for(newResult, "User management"), refresh))
+			                        ({ ..model, isSubmitting: Bool.False, submitResult: newResult, completingProfileId: "", userEditing: Bool.False, userFormOpen: Bool.False, newUserPassword: "", newUserPassportKey: "", lastCredentials: handoff, newUserFirstName: "", newUserMiddleName: "", newUserSurname: "", newUserEmail: "", newUserDateOfBirth: "", newUserClassLevel: "", newUserAdminType: "", newUserPermissions: [], newUserQualifications: [], qualSearch: "", newUserDateEmployed: "", newUserLinkedStudents: [], linkedSearch: "", assignSelectedEdges: [], assignSeeded: Bool.False, assignSearch: "", assignSaveResult: None }, List.concat(notification_for(newResult, "User management"), refresh))
 		}
 		# --- A row's actions: deactivate and activate ---
 		# The two toggles are the reverse of each other. Both refresh the lists when they land, so the

@@ -266,7 +266,7 @@ password_card = |model| {
         result_banner(model.passwordResult),
         Html.div([], [
             UI.button(
-                { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting, classes: "" },
+                { ..UI.default_button, variant: Primary, size: Default, is_submit: Bool.True, is_disabled: model.isSubmitting or Str.is_empty(model.newPassword) or Str.is_empty(model.confirmPassword) or (!model.passwordRequired and Str.is_empty(model.currentPassword)), classes: "" },
                 [Html.text(if model.isSubmitting { "Saving…" } else { "Set my password" })]
             )
         ]),
@@ -279,7 +279,7 @@ password_card = |model| {
 
 password_field = |label, field_id, value, is_disabled, to_msg| {
     Html.div([Attribute.class("space-y-2")], [
-        UI.label({ classes: "" }, [Html.text(label)]),
+        UI.field_label(label, Bool.True),
         Html.div([Attribute.id(field_id)], [
             UI.input({
                 type: "password",

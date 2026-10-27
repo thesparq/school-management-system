@@ -317,6 +317,13 @@ label = |config, children| {
 	Html.label([class(final_classes)], children)
 }
 
+# A field's label, with the project's standard for form fields: a required field's name is followed
+# by a red asterisk — an element of its own, so it can never be read as part of the field's name — and
+# an optional field carries no marker at all. Nothing is ever labelled "(optional)".
+field_label = |text, is_required| {
+	label({ classes: "" }, List.concat([Html.text(text)], if is_required { [Html.span([class("text-destructive ml-0.5")], [Html.text("*")])] } else { [] }))
+}
+
 # --- AVATAR ---
 
 default_avatar = { classes: "" }
