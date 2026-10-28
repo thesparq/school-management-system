@@ -196,6 +196,7 @@ Model : {
 	# class-subject edge, not by the subject alone, which would match that subject in every class
 	# level and show one "Week N" row per class.
 	teacherClassId : Str,
+	teacherClassName : Str,
 	selectedTermId : Str,
 	selectedTermName : Str,
 	selectedLessonId : Str,
@@ -395,7 +396,12 @@ Msg : [
 	        # A My Classes card: open the lesson picker scoped to that class-subject pair (its lessons are
 	        # the teacher's own, filtered by the edge the card carried — the subject alone would match the
 	        # same subject in every class level).
-	        OpenTeacherSubject(Str, Str, Str),
+            # A My Classes card: the pair's class, and the subject's name for the header. The drill
+            # starts at the pair's terms (see `SelectTeacherTerm`).
+            OpenTeacherSubject(Str, Str, Str, Str),
+            # The terms step: the term a pair is being taught in, whose lessons the next step lists.
+            SelectTeacherTerm(Str, Str),
+            BackToTeacherTerms,
 	GotStudentLessonsData(Str),
 	GotLessonContent(Str),
 	BackToSubjects,
@@ -662,6 +668,7 @@ init = |flags| {
 		selectedSubjectId: student_subject_id,
 		selectedSubjectName: "",
 		teacherClassId: "",
+		teacherClassName: "",
 		selectedTermId: student_term_id,
 		selectedTermName: "",
 		selectedLessonId: initialLessonId,
@@ -1209,10 +1216,14 @@ dispatch = |model, msg|
 						..model,
 						route: StudentLesson,
 						mobileMenuOpen: Bool.False,
-						selectedSubjectId: subject_id,
-						selectedSubjectName: "",
-						selectedTermId: term_id,
-						selectedTermName: "",
+					# A lesson URL that names no subject or term (the app opens one from the lessons list
+					# with `?id=` alone) must not wipe the drill it sits inside: keep the step the model
+					# already had. Clearing them here is what made the pupil's back/forward land on an
+					# unselected subject and term.
+					selectedSubjectId: if Str.is_empty(subject_id) { model.selectedSubjectId } else { subject_id },
+					selectedSubjectName: model.selectedSubjectName,
+					selectedTermId: if Str.is_empty(term_id) { model.selectedTermId } else { term_id },
+					selectedTermName: model.selectedTermName,
 						selectedLessonId: studentLessonId,
 						studentTermsData: "",
 						studentLessonsData: "",
@@ -2464,12 +2475,22 @@ dispatch = |model, msg|
 				{ ..model, selectedLessonId: id },
 				[Port.send("push_state", "/teacher/lessons?id=${id}")]
 			)
-		OpenTeacherSubject(class_id, subject_id, subject_name) => (
-			{ ..model, route: TeacherLessonViewer, teacherClassId: class_id, selectedSubjectId: subject_id, selectedSubjectName: subject_name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
+		OpenTeacherSubject(class_id, class_name, subject_id, subject_name) => (
+			{ ..model, route: TeacherLessonViewer, teacherClassId: class_id, teacherClassName: class_name, selectedSubjectId: subject_id, selectedSubjectName: subject_name, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
 			[
 				Port.send("push_state", route_path(TeacherLessonViewer)),
-				Port.send("fetch_data", "/api/teacher/lessons?class_id=${class_id}&subject_id=${subject_id}"),
+				Port.send("fetch_data", "/api/terms"),
 			]
+		)
+		# The term is what the lessons list is scoped to: a pair taught across terms has one term's
+		# lessons on screen at a time (the school's report: the lessons arrived with no term named).
+		SelectTeacherTerm(term_id, term_name) => (
+			{ ..model, selectedTermId: term_id, selectedTermName: term_name, selectedLessonId: "", teacherLessonsData: "", currentLessonContent: "" },
+			[Port.send("fetch_data", "/api/teacher/lessons?class_id=${model.teacherClassId}&subject_id=${model.selectedSubjectId}&term_id=${term_id}")]
+		)
+		BackToTeacherTerms => (
+			{ ..model, selectedTermId: "", selectedTermName: "", selectedLessonId: "", teacherLessonsData: "" },
+			[Port.send("fetch_data", "/api/terms")]
 		)
 		GotLessonContent(s) => ({ ..model, currentLessonContent: s }, [])
 		BackToSubjects => (

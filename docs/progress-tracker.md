@@ -2827,3 +2827,31 @@ the sidebar's dedicated Assessments & Grading page. On the login: `JES-000123` i
 short `JES-123` is written into the account's Authentik `upn` attribute — it signs in only once the
 school ticks **UPN** among the identification stage's user fields, and only for accounts created
 since; an account made before needs that attribute set (the edit/complete path does not set it yet).
+
+## The teacher's drill has its terms step, and a lesson's tabs only exist inside a lesson
+
+The school's report, and the UX call they left to me (keep the per-lesson tabs as the only place for
+lesson-scoped work, and make the sidebar page the term-wide surface only).
+
+- **The drill is now: My Classes → the pair's terms → that term's lessons → the lesson.** The pair
+  card carried only the class and subject, so the lessons arrived with no term named at all; it now
+  carries the class name too, opens the terms step (`/api/terms`), and the term the teacher picks is
+  what the lessons list is fetched for (`/api/teacher/lessons?...&term_id=`). Each step's header names
+  the context — `Class · Subject · Term` — and the lessons step has a `← Terms` way back.
+- **A lesson's tab bar (Lesson | Assessments | Grading) is drawn only inside a lesson.** It used to
+  render on the steps above it, which is the "tabs under the list of lessons" the school flagged
+  (and, with the lesson panel, the scroll scaffolding they saw on the classes list).
+- **The sidebar page is now "Term Assessments"**, and says its own scope: the term-wide assessments
+  for one class-subject pair, with a lesson's own assessments and grading on that lesson's page.
+- **The pupil's back/forward keeps its drill.** Restoring a lesson URL that names no subject or term
+  (the app opens one from the lessons list with `?id=` alone) was clearing both, so walking
+  back/forward landed on an unselected subject and term; the restore now keeps the step the model had.
+
+**Verified**: `roc check app.roc` clean and the bundle builds. Not verified in a browser this pass:
+the teacher drill needs a `teacher_assignment` row for the dev teacher, which this sandbox's database
+does not have (and the instance went down twice while I tried to seed one). The endpoints the steps
+call were verified server-side in the earlier LMS work.
+
+**Still open**: the pupil's *pushes* still use bare paths, so a reload of `/student/subjects` names no
+term (the drill's state survives back/forward, but not a reload); whether the "scroll navigation" the
+school saw is anything beyond the lesson scaffolding removed here.

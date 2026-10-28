@@ -153,7 +153,7 @@ render = |model| {
 			                                }
 				Teacher => [
 					sidebar_item(model, TeacherMyClasses, "My Classes"),
-					sidebar_item(model, TeacherAssessments, "Assessments & Grading"),
+					sidebar_item(model, TeacherAssessments, "Term Assessments"),
 					sidebar_item(model, Messaging, "Messaging")
 				]
 				Student => [

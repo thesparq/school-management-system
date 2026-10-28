@@ -70,7 +70,7 @@ teacher_classes_view = |model| {
 teacher_pair_card = |class_id, subject_id, subject_name, class_name| {
     UI.pressable(
         { ..UI.default_pressable, classes: "group rounded-lg border bg-card p-6 space-y-4 hover:shadow-md hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
-        OpenTeacherSubject(class_id, subject_id, subject_name),
+        OpenTeacherSubject(class_id, class_name, subject_id, subject_name),
         [
         Html.div([Attribute.class("flex items-center gap-4")], [
             Html.div([Attribute.class("w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl")], [Html.text("📖")]),
@@ -103,10 +103,68 @@ teacher_subject_skeleton = |_| {
 # LESSON PICKER (the viewer needs a concrete lesson)
 # -------------------------------------------------------
 
+# The drill's own context line: the class, the subject and — once the term is chosen — the term the
+# page is showing. The school's report was that the lessons list named none of them.
+teacher_context_label = |model| {
+	class_part = if Str.is_empty(model.teacherClassName) { "" } else { "${model.teacherClassName} · " }
+	term_part = if Str.is_empty(model.selectedTermName) { "" } else { " · ${model.selectedTermName}" }
+	"${class_part}${model.selectedSubjectName}${term_part}"
+}
+
+# The terms step of a teacher's drill: a pair is taught in one term at a time, and the term is what
+# makes the lessons below it mean something.
+teacher_terms_picker = |model| {
+	Html.div([Attribute.class("space-y-3")], [
+		Html.div([], [
+			Html.h2([Attribute.class("text-xl font-bold")], [Html.text("Choose a term")]),
+			Html.p([Attribute.class("text-sm text-muted-foreground mt-1")], [Html.text("${teacher_context_label(model)} — pick the term you are teaching this subject in.")])
+		]),
+		Html.input([
+			Attribute.type("hidden"),
+			Attribute.id("terms_data_input"),
+			Attribute.value(model.termsData),
+			Attribute.on_input(|s| GotTermsData(s))
+		]),
+		match list_state(model.termsData) {
+			Pending =>
+				Html.div([Attribute.class("space-y-3")], [
+					teacher_lesson_skeleton(""),
+					teacher_lesson_skeleton("")
+				])
+			Failed(message) => UI.list_error_state("Could not load the terms", message, Click(RetryList("/api/terms")))
+			Ready(rows) =>
+				if List.is_empty(rows) {
+					UI.list_empty_state("calendar", "No terms yet", "The school's terms appear here once an administrator creates them.")
+				} else {
+					Html.div([Attribute.class("space-y-3")], List.map(rows, |line| {
+						parts = Str.split_on(line, "|")
+						id = match List.get(parts, 0) { Ok(v) => v, Err(_) => "" }
+						name = match List.get(parts, 1) { Ok(v) => v, Err(_) => "Term" }
+						teacher_term_row(id, name)
+					}))
+				}
+		}
+	])
+}
+
+teacher_term_row = |id, name| {
+	UI.pressable(
+		{ ..UI.default_pressable, classes: "group rounded-lg border bg-card p-4 flex items-center gap-4 hover:shadow-sm hover:border-primary/30 transition-all", label: "", is_nav: Bool.True },
+		SelectTeacherTerm(id, name),
+		[
+			Html.h3([Attribute.class("flex-1 font-medium text-foreground group-hover:text-primary transition-colors")], [Html.text(name)]),
+			Html.span([Attribute.class("text-muted-foreground text-sm group-hover:text-primary transition-colors")], [Html.text("→")])
+		]
+	)
+}
+
 teacher_lesson_picker = |model| {
     Html.div([Attribute.class("space-y-3")], [
         Html.div([], [
-            Html.h2([Attribute.class("text-xl font-bold")], [Html.text("Choose a lesson")]),
+                Html.div([Attribute.class("flex items-center gap-2 text-sm text-muted-foreground")], [
+                    UI.link({ ..UI.default_link, classes: "hover:text-foreground", href: State.route_path(TeacherLessonViewer) }, BackToTeacherTerms, [Html.text("← Terms")])
+                ]),
+                Html.h2([Attribute.class("text-xl font-bold")], [Html.text(teacher_context_label(model))]),
             Html.p([Attribute.class("text-sm text-muted-foreground mt-1")], [Html.text("Open a lesson to view its content and manage its assessments.")])
         ]),
         Html.input([
@@ -180,7 +238,7 @@ teacher_lesson_view = |model| {
                             Html.div([Attribute.id("lesson-title"), Attribute.class("text-3xl font-bold text-primary leading-tight")], [
                                 UI.skeleton_bar("h-8 w-64")
                             ]),
-                            Html.div([Attribute.id("lesson-meta"), Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")], [Html.text("Subject · Term")])
+                            Html.div([Attribute.id("lesson-meta"), Attribute.class("text-sm text-muted-foreground font-medium tracking-wide uppercase")], [Html.text(teacher_context_label(model))])
                         ]),
                         Html.div([Attribute.id("lesson-week-badge"), Attribute.class("hidden")], [])
                     ])
@@ -188,13 +246,16 @@ teacher_lesson_view = |model| {
 
                 # Lesson picker: the viewer needs a lesson id for its own content and for creating
                 # assessments on that lesson.
+                # The drill's step: the pair's terms, then that term's lessons, then the lesson
+                # itself. A lesson's tab bar belongs to a lesson, so it is not drawn on the steps above
+                # it — the school's report was tabs sitting under the list of lessons.
                 if Str.is_empty(model.selectedLessonId) {
-                    teacher_lesson_picker(model)
+                    if Str.is_empty(model.selectedTermId) {
+                        teacher_terms_picker(model)
+                    } else {
+                        teacher_lesson_picker(model)
+                    }
                 } else {
-                    Html.div([], [])
-                },
-
-                # Tab bar: Lesson | Assessments | Grading
                 Html.div([Attribute.class("flex border-b border-border"), Attribute.role("tablist")], [
                     Html.button([
                         Attribute.id("tab-lesson"),
@@ -221,7 +282,8 @@ teacher_lesson_view = |model| {
                         Attribute.type("button"),
                         Attribute.data("nav", "")
                     ], [Html.text("Grading")])
-                ]),
+                ])
+                },
 
                 # Lesson content panel
                 Html.div([Attribute.id("lesson-panel"), Attribute.class("space-y-8 pb-16")], [
@@ -383,8 +445,8 @@ teacher_lesson_view = |model| {
 teacher_assessments_view = |_model| {
     Html.div([Attribute.class("p-4 sm:p-6 md:p-8 space-y-6")], [
         Html.div([], [
-            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("Assessments & Grading")]),
-            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("Create term-weighted assessments, review submissions, and release grades.")])
+            Html.h1([Attribute.class("text-2xl sm:text-3xl font-bold tracking-tight")], [Html.text("Term Assessments")]),
+            Html.p([Attribute.class("text-muted-foreground mt-1")], [Html.text("The term-wide assessments for one of your class-subject pairs: create them here, then review submissions and release grades. A single lesson's own assessments and grading live on that lesson's page.")])
         ]),
 
         # Tabs: the general assessment surface and the grading list.
