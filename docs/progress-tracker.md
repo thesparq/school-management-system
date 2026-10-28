@@ -2796,3 +2796,34 @@ one in another), which reads as the throwaway database going away under the mach
 than a fault in the change. Re-run all three against a stable sandbox before the next release.
 The teacher assessment modals write through the page's own JavaScript (`#ga-title-input` and
 friends), so only their labels were standardised, not their disabled state.
+
+## The assessment hub opens on the teacher's own pairs, and painted pages are left by a real navigation
+
+Two of the school's report items, both in the teacher's assessments surface.
+
+1. **The hub no longer opens on "Forbidden: this content is not among your teaching assignments".**
+   The pickers filled the subject select from `/api/subjects` — the whole school's list — and then
+   asked for assessments on the first one, which for any teacher is usually a subject they do not
+   teach, so the backend refused it correctly and the page opened on the refusal. The select is now
+   filled from `/api/teacher/classes` (the pairs that teacher is actually assigned), one option per
+   pair labelled `Class · Subject`, and when the teacher has no pair the page says so instead of
+   asking the endpoint for a subject nobody teaches.
+2. **The hub's error no longer lands inside a class card.** The hub is a page whose DOM the page's own
+   script paints into (its lists, its retry control, its create modal), and leaving it by an in-app
+   diff merged the next page onto a tree the app no longer owned — the reported "I still see the error
+   from the assessments page occupying one of the class/subject pair cards". The rule that already
+   covered the lesson views (`lesson_page_up`) is now `painted_page_up` and covers both assessment
+   hubs too: leaving one is a real navigation, so the landing page is a fresh load.
+
+**Verified**: `roc check app.roc` clean; as a teacher, `/teacher/assessments` opens with no "Forbidden"
+and no "Could not load the assessments", and leaving it for My Classes carries nothing over. The
+pair-listing itself could not be exercised: this sandbox database has no `teacher_assignment` row for
+the dev teacher, and the instance went down again while I was seeding one.
+
+**Open from the same report** (not done): the pupil's back/forward restore; the scroll navigation
+appearing in the teacher's classes list; clicking a class-subject opening lessons instead of the
+terms step (and the lessons list showing no term/subject/class); and unifying the per-lesson tabs with
+the sidebar's dedicated Assessments & Grading page. On the login: `JES-000123` is the username and the
+short `JES-123` is written into the account's Authentik `upn` attribute — it signs in only once the
+school ticks **UPN** among the identification stage's user fields, and only for accounts created
+since; an account made before needs that attribute set (the edit/complete path does not set it yet).

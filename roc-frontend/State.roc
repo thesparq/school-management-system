@@ -1132,23 +1132,27 @@ update = |model, msg| {
 
 	if model.passwordRequired and is_navigation and model.route != Settings {
 		({ ..model, route: Settings, mobileMenuOpen: Bool.False }, [Port.send("push_state", route_path(Settings))])
-	} else if lesson_page_up(model) and is_lesson_exit(msg) {
-		# Leaving a lesson page is a real navigation, not an in-app diff: the lesson view is the one
-		# page whose DOM the page's own script paints into after the app renders it (the renderer
-		# fills the panel, the contents rail, the section dots), so an in-app diff that leaves it
-		# merges the page it is going to onto a tree the app no longer fully owns — the "navigation
-		# goes weird" the dashboards reported. A fresh page always renders right, and the URL
-		# carries the step being left to, so the landing page restores itself from the address bar.
+	} else if painted_page_up(model) and is_lesson_exit(msg) {
+		# Leaving such a page is a real navigation, not an in-app diff: an in-app diff that leaves one
+		# merges the page it is going to onto a tree the app no longer fully owns (see
+		# `painted_page_up`). A fresh page always renders right, and the URL carries the step being left
+		# to, so the landing page restores itself from the address bar.
 		(model, [Port.send("redirect", lesson_exit_url(model, msg))])
 	} else {
 		dispatch(model, msg)
 	}
 }
 
-# Whether the lesson view is on screen right now: the pupil's lesson content, or the teacher's whole
-# viewer route (its picker and its lesson share one view, and both poison an exit diff the same way).
-lesson_page_up = |model| {
-	model.route == TeacherLessonViewer or (model.route == StudentLesson and !Str.is_empty(model.selectedLessonId))
+# Whether a page whose DOM the page's own script paints into is on screen: the lesson views (the
+# renderer fills the panel, the contents rail and the section dots) and the two assessment hubs (their
+# lists, their retry control and their create modal). Every one of them poisons an in-app exit diff —
+# the "navigation goes weird" the dashboards reported, and the hub's error a teacher found sitting
+# inside a class card after walking back to My Classes.
+painted_page_up = |model| {
+	model.route == TeacherLessonViewer
+		or model.route == TeacherAssessments
+		or model.route == StudentAssignments
+		or (model.route == StudentLesson and !Str.is_empty(model.selectedLessonId))
 }
 
 # Whether a message leaves a lesson page for some other page.

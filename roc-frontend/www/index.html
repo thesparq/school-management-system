@@ -2877,10 +2877,20 @@
             if (!select) return;
             select.innerHTML = `<option value="">${escHtml(label)}</option>`;
         };
+        let pairs = [];
         try {
-            const subjectRes = await fetch("/api/subjects", { headers: auth });
-            if (!subjectRes.ok) throw new Error(await failureMessage(subjectRes));
-            fill("ga-subject-select", unwrapRows(await subjectRes.json()), s => s.name || s.code || "Subject");
+            // Only the class-subject pairs this teacher is assigned. General assessments are subject-wide,
+            // and the backend refuses a subject that is not among a teacher's assignments, so filling this
+            // select with the whole school's subjects is what opened the hub on "Forbidden: this content is
+            // not among your teaching assignments". One option per pair, so two classes teaching the same
+            // subject stay tellable apart.
+            const pairRes = await fetch("/api/teacher/classes", { headers: auth });
+            if (!pairRes.ok) throw new Error(await failureMessage(pairRes));
+            pairs = unwrapRows(await pairRes.json());
+            const subjectSelect = document.getElementById("ga-subject-select");
+            if (subjectSelect) {
+                subjectSelect.innerHTML = pairs.map(p => `<option value="${escHtml(p.subject_id || "")}">${escHtml((p.class_level_name || "") + " · " + (p.subject_name || "Subject"))}</option>`).join("");
+            }
             const sessionRes = await fetch("/api/session_terms", { headers: auth });
             if (!sessionRes.ok) throw new Error(await failureMessage(sessionRes));
             const sessions = unwrapRows(await sessionRes.json());
@@ -2890,10 +2900,16 @@
             fill("ga-session-term-select", ordered, s => s.session_name || "Session term");
         } catch(e) {
             console.error("Failed to load the assessment pickers:", e);
-            fillBroken("ga-subject-select", "Could not load subjects");
+            fillBroken("ga-subject-select", "Could not load your classes");
             fillBroken("ga-session-term-select", "Could not load session terms");
         }
-        loadTeacherGeneralAssessments();
+        if (pairs.length) {
+            loadTeacherGeneralAssessments();
+        } else {
+            // Nothing to assess: say so instead of asking the endpoint for a subject nobody teaches.
+            const list = document.getElementById("general-assessments-list");
+            if (list) list.innerHTML = '<p class="text-sm text-muted-foreground">You have no class-subject pair in the active session term, so there is nothing to assess here yet.</p>';
+        }
     }
 
     // The retry control a failed general-assessment list draws: the pickers are refetched too, so a
