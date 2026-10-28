@@ -2855,3 +2855,24 @@ call were verified server-side in the earlier LMS work.
 **Still open**: the pupil's *pushes* still use bare paths, so a reload of `/student/subjects` names no
 term (the drill's state survives back/forward, but not a reload); whether the "scroll navigation" the
 school saw is anything beyond the lesson scaffolding removed here.
+
+## The section navigator is hidden off lesson pages, and a sweep repairs the short login
+
+- **The "scroll navigation" on pages with no lesson** (the school's report): the right-side section
+  navigator (`#section-nav`) and the phone's contents button (`#mobile-toc-fab`) are shown by the
+  lesson renderer, and nothing hid them when a lesson was left. `setupPageJS` now hides both on every
+  page that is not a lesson view (`/admin/lms`, `/teacher/lessons`, `/student/lesson`).
+- **Older accounts and the short login**: `roc-backend/tools/backfill-upn.sh` walks the Authentik
+  directory and sets each account's `attributes.upn` to the short spelling of its school number
+  (`EMP-000045` → `EMP-45`), idempotently, with `DRY_RUN=1` to preview. It exists because accounts
+  created before the short form was written cannot gain it from the app — and the school must also tick
+  **UPN** among the identification stage's user fields in Authentik for either spelling to sign in.
+
+**Not landed, and why**: two items from the same batch — *admin manages assessments in the LMS* and
+*the messaging on/off switch*. The first needs the lesson's work surface (its tab bar, the assessments
+and grading panels and the create-assessment modal) extracted out of `TeacherView.teacher_lesson_view`
+so the administrator's `admin_lesson_view` can call it; I did the extraction twice and both times the
+insertion point landed inside the lesson view's children list, which broke the parse (reverted here —
+the attempt is not in the tree). The second needs the shell to learn the flag, and the profile payload
+`/api/me/profile` is only fetched on Settings, so a flag has to come from a boot-time payload (a small
+`/api/features` route is the clean way) before the Messaging nav item can be hidden.

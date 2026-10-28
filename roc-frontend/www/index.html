@@ -1454,6 +1454,17 @@
             setupLessonContentObserver();
         }
 
+        // The lesson scaffolding — the right-side section navigator and the phone's contents button — is
+        // shown by the lesson renderer, and nothing told it when a lesson is left. That is the "scroll
+        // navigation" the school saw sitting on pages with no lesson open, so every page that is not a
+        // lesson view hides it explicitly.
+        if (path !== "/admin/lms" && path !== "/teacher/lessons" && path !== "/student/lesson") {
+            const nav = document.getElementById("section-nav");
+            if (nav) nav.classList.add("hidden");
+            const fab = document.getElementById("mobile-toc-fab");
+            if (fab) fab.classList.add("hidden");
+        }
+
         // --- Messaging ---
         if (path === "/messaging") {
             setupMessaging();
