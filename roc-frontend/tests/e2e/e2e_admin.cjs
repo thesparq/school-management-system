@@ -62,6 +62,12 @@ const check = (name, ok, extra = '') => { results.push(ok); console.log(`${ok ? 
   await fill('e.g. Musa', surname);
   // No address at all: a pupil's login is the number the school gives them, and nothing in this
   // deployment sends mail. (A parent is the one role whose address is required — it is their login.)
+  // The form fetches its own class-level list when it opens (State's OpenUserForm), so the option is
+  // there a round trip after the modal appears rather than at once.
+  await page.waitForFunction(() => {
+    const sel = document.getElementById('new-user-class-level');
+    return sel && [...sel.options].some((o) => o.value === 'class_levels:jss_2');
+  }, null, { timeout: 30000 });
   await page.selectOption('#new-user-class-level', 'class_levels:jss_2');
   await fill('https://...', 'https://example.com/grace.jpg');
   await page.locator('input[type="date"]').fill('2011-09-14');

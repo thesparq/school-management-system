@@ -2786,9 +2786,13 @@ Delete control gated on a chosen file, and a fresh form starting empty.
 re-provisioned from `roc-frontend/tests/e2e/fixtures/sandbox-schema.surql` per `tests/e2e/README.md`,
 and this tree's backend build ran on :8000 with the mock Authentik on :9000.
 
-**Follow-up (not done)**: `e2e_admin.cjs` clicks the user form's submit before filling the required
-fields, so it now waits on a button that is correctly disabled — it needs the fills the browser pass
-makes (name, date of birth, class level, passport) before its click. `e2e_admin_config.cjs` and
-`e2e_password_change.cjs` could not be run to completion (the sandbox died mid-run repeatedly here).
+**Suites**: `e2e_admin.cjs` now waits for the form's class-level list before choosing from it — the
+form fetches its own catalogs when it opens, so the option lands a round trip after the modal appears
+(its fills and its submit were already in the order the new disabled state wants). That edit is
+committed but was not run green here: the browser runner in this environment hangs at launch after
+many runs. `e2e_admin_config.cjs` and `e2e_password_change.cjs` could not be run to completion either
+— they fail at a different point each attempt (a first-check listing failure in one run, a mid-suite
+one in another), which reads as the throwaway database going away under the machine's reboots rather
+than a fault in the change. Re-run all three against a stable sandbox before the next release.
 The teacher assessment modals write through the page's own JavaScript (`#ga-title-input` and
 friends), so only their labels were standardised, not their disabled state.
